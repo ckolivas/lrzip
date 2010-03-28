@@ -1,0 +1,336 @@
+lrzip v0.45
+
+Long Range ZIP or Lzma RZIP
+
+This is a compression program optimised for large files. The larger the file
+and the more memory you have, the better the compression advantage this will
+provide, especially once the files are larger than 100MB. The advantage can
+be chosen to be either size (much smaller than bzip2) or speed (much faster
+than bzip2).
+
+
+Quick lowdown of the most used options:
+
+ lrztar directory
+This will produce an archive directory.tar.lrz compressed with lzma
+
+ lrztar -d directory.tar.lrz
+This will completely extract an archived directory
+
+ lrzip filename
+This will produce an archive filename.lrz compressed with lzma (best all
+round) giving slow compression and fast decompression
+
+ lrzip -z filename
+This will produce an archive filename.lrz compressed with ZPAQ giving extreme
+compression but which takes ages to compress and decompress
+
+ lrzip -l filename
+This will produce an archive filename.lrz compressed with LZO giving very
+fast compression and fast decompression
+
+ lrunzip filename.lrz
+This will decompress filename.lrz into filename
+
+
+Lrzip uses an extended version of rzip which does a first pass long distance
+redundancy reduction. The lrzip modifications make it scale according to
+memory size.
+The data is then either:
+1. Compressed by lzma (default) which gives excellent compression
+at approximately twice the speed of bzip2 compression
+2. Compressed by a number of other compressors chosen for different reasons,
+in order of likelihood of usefulness:
+2a. ZPAQ: Extreme compression up to 20% smaller than lzma but ultra slow
+at compression AND decompression.
+2b. LZO: Extremely fast compression and decompression which on most machines
+compresses faster than disk writing making it as fast (or even faster) than
+simply copying a large file
+2c. GZIP: Almost as fast as LZO but with better compression.
+2d. BZIP2: A defacto linux standard of sorts but is the middle ground between
+lzma and gzip and neither here nor there.
+3. Leaving it uncompressed and rzip prepared. This form improves substantially
+any compression performed on the resulting file in both size and speed (due to
+the nature of rzip preparation merging similar compressible blocks of data and
+creating a smaller file). By "improving" I mean it will either speed up the
+very slow compressors with minor detriment to compression, or greatly increase
+the compression of simple compression algorithms.
+
+The major disadvantages are:
+1. The main lrzip application only works on single files so it requires the
+lrztar wrapper to fake a complete archiver.
+2. It requires a lot of memory to get the best performance out of, and is not
+really usable (for compression) with less than 256MB. Decompression requires
+less ram and works on smaller ram machines.
+3. It works on stdin/out but in a very inefficent manner generating temporary
+files on disk so this method of using lrzip is not recommended.
+
+See the file README.benchmarks in doc/ for performance examples and what kind
+of data lrzip is very good with.
+
+
+Requires:
+pthreads
+liblzo2-dev
+libbz2-dev
+libz-dev
+libm
+tar
+(nasm on 32bit x86)
+
+To build/install:
+./configure
+make
+make install
+
+
+FAQS.
+
+Q. How do I make a static build?
+A. make static
+
+Q. I want the absolute maximum compression I can possibly get, what do I do?
+A. Try the command line options -Mz. This will use all available ram and ZPAQ
+compression. Expect serious swapping to occur if your file is larger than your
+ram. It may even fail to run if you do not have enough swap space allocated.
+Why? Well the more ram lrzip uses the better the compression it can achieve.
+
+Q. Can I use your tool for even more compression than lzma offers?
+A. Yes, the rzip preparation of files makes them more compressible by every
+other compression technique I have tried. Using the -n option will generate
+a .lrz file smaller than the original which should be more compressible, and
+since it is smaller it will compress faster than it otherwise would have.
+
+Q. 32bit?
+A. 32bit machines have a limit of 2GB sized compression windows due to
+userspace limitations on mmap and malloc, so even if you have much more ram
+you will not be able to use compression windows larger than 2GB. Also you
+will be unable to decompress files compressed on 64bit machines which have
+used windows larger than 2GB.
+
+Q. How about 64bit?
+A. 64bit machines with their ability to address massive amounts of ram will
+excel with lrzip due to being able to use compresion windows limited only in
+size by the amount of physical ram.
+
+Q. Other operating systems?
+A. Patches are welcome. Version 0.43+ should build on MacOSX 10.5+
+
+Q. Does it work on stdin/stdout?
+A. Yes, but the performance of this mode is low because it basically copies
+the data to temporary files. Not recommended!
+
+Q. I have another compression format that is even better than zpaq, can you
+use that?
+A. You can use it yourself on rzip prepared files (see above). Alternatively
+if the source code is compatible with the GPL license it can be added to the
+lrzip source code. Libraries with functions similar to compress() and
+decompress() functions of zlib would make the process most painless. Please
+tell me if you have such a library so I can include it :)
+
+Q. What's this "Progress percentage pausing during lzma compression" message?
+A. While I'm a big fan of progress percentage being visible, unfortunately
+lzma compression can't currently be tracked when handing over 100+MB chunks
+over to the lzma library. Therefore you'll see progress percentage until
+each chunk is handed over to the lzma library. lzo, bzip2 or no compression
+doesn't have this problem and shows progress continuously.
+
+Q. What's this "lzo testing for incompressible data" message?
+A. Other compression is much slower, and lzo is the fastest. To help speed up
+the process, lzo compression is performed on the data first to test that the
+data is at all compressible. If a small block of data is not compressible, it
+tests progressively larger blocks until it has tested all the data (if it fails
+to compress at all). If no compressible data is found, then the subsequent
+compression is not even attempted. This can save a lot of time during the
+compression phase when there is incompressible data. Theoretically it may be
+possible that data is compressible by the other backend (zpaq, lzma etc) and not
+at all by lzo, but in practice such data achieves only miniscule amounts of
+compression which are not worth pursuing. Most of the time it is clear one way
+or the other that data is compressible or not. If you wish to disable this
+test and force it to try compressing it anyway, use -T 0.
+
+Q. I Have truckloads of ram so I can compress files much better, but can my
+generated file be decompressed on machines with less ram?
+A. Yes. Ram requirements for decompression go up only by the -L compression
+option with lzma and are never anywhere near as large as the compression
+requirements. However if you're on 64bit and you use a compression window
+greater than 2GB, it will NOT be possible to decompress it on 32bit machines.
+lrzip will warn you and fail if you try.
+
+Q. I've changed the compression level with -L in combination with -l or -z and
+the file size doesn't vary?
+A. That's right, -l and -z only has one compression level.
+
+Q. Why are you including bzip2 compression?
+A. To maintain a similar compression format to the original rzip (although the
+other modes are more useful).
+
+Q. What about multimedia?
+A. Most multimedia is already in a heavily compressed "lossy" format which by
+its very nature has very little redundancy. This means that there is not
+much that can actually be compressed. If your video/audio/picture is in a
+high bitrate, there will be more redundancy than a low bitrate one making it
+more suitable to compression. None of the compression techniques in lrzip are
+optimised for this sort of data. However, the nature of rzip preparation
+means that you'll still get better compression than most normal compression
+algorithms give you if you have very large files. ISO images of dvds for
+example are best compressed directly instead of individual .VOB files. ZPAQ is
+the only compression format that can do any significant compression of
+multimedia.
+
+Q. Is this multithreaded?
+A. As of version 0.21, the answer is yes for lzma compression only thanks to a
+multithreaded lzma library. However I have not found the gains to scale well
+with number of cpus, but there are definite performance gains with more cpus.
+It is important to note that the mulithreading actually decreases the
+compression somewhat. It's a tradeoff either way.
+
+Q. This uses heaps of memory, can I make it use less?
+A. Well you can by setting -w to the lowest value (1) but the huge use of
+memory is what makes the compression better than ordinary compression
+programs so it defeats the point. You'll still derive benefit with -w 1 but
+not as much.
+
+Q. What CFLAGS should I use?
+A. With a recent enough compiler (gcc>4) setting both CFLAGS and CXXFLAGS to
+	-O3 -march=native -fomit-frame-pointer
+
+Q. What compiler does this work with?
+A. It was been tested on gcc, ekopath and the intel compiler successfully.
+Whether the commercial compilers help or not, I could not tell you.
+
+Q. What codebase are you basing this on?
+A. rzip v2.1 and lzma sdk907, but it should be possible to stay in sync with
+each of these in the future.
+
+Q. Do we really need yet another compression format?
+A. It's not really a new one at all; simply a reimplementation of a few very
+good performing ones that will scale with memory and file size.
+
+Q. How do you use lrzip yourself?
+A. Two basic uses. I compress large files currently on my drive with the
+-l option since it is so quick to get a space saving, and when archiving
+data for permament storage I compress it with the default options.
+
+Q. I found a file that compressed better with plain lzma. How can that be?
+A. When the file is more than 5 times the size of the compression window
+you have available, the efficiency of rzip preparation drops off as a means
+of getting better compression. Eventually when the file is large enough,
+plain lzma compression will get better ratios. The lrzip compression will be
+a lot faster though. Currently I have no way around this problem without
+throwing more and more ram at the compression because trying to do this off
+disk (whether directly on the file or from swap) will mean the file is read
+a ridulous number of times over and over again. It presents an interesting
+problem for which there is no perfect solution but it certainly has us
+thinking hard about how to tackle it.
+
+Q. Can I use swapspace as ram for lrzip with a massive window?
+A. No. To make lrzip work completely from disk would make the data be read
+off disk an unrealistic number of times over again and again. For example, if
+you have 1GB of ram and a 2GB file to compress, it might read the file a
+billion times off disk. Most hard drives would fail in that time :) See the
+previous question. Update; I have been informed that people have successfully
+done this without destroying their hard drives and they've been _very_ patient,
+but it didn't take as long as I had predicted.
+
+Q. Why do you nice it to +19 by default? Can I speed up the compression by
+changing the nice value?
+A. This is a common misconception about what nice values do. They only tell the
+cpu process scheduler how to prioritise workloads, and if your application is
+the _only_ thing running it will be no faster at nice -20 nor will it be any
+slower at +19.
+
+Q. What is the Threshold option, -T ## (1-10)?
+A. It is for adjusting the sensitivity of the LZO test that is used when LZMA
+compression is selected. When highly random or already-compressed data chunks
+are evaluated for LZMA compression, sometimes LZO compression actually will
+create a larger chunk than the original.
+
+The Threshold is used to determine a minimum compression amount relative to
+the size of the data being evaluated. A value of 1 is the default. This
+means that the compression threshold amount is >0% of the size of the
+original data. If the threshold is not achieved, the LZMA compression will not
+be done and the chunk will not be compressed. Values can be from 0 (bypass the
+test) to 10 (maximum compression efficiency expected). The following table can
+be used.
+
+For LZO compressor test
+T value		Compression %	Compression Ratio
+  0		    Ignored
+  1		    0-5%	     1.00-1.05	very low compression expected
+  2		    5-10%	     1.05-1.10	default value
+  3		    10-20%	     1.12-1.25
+  4		    20-30%           1.25-1.43
+  5		    30-40%	     1.43-1.66
+  6		    40-50%           1.66-2.00
+  7		    50-60%           2.00-2.50
+  8                 60-70%	     2.50-3.33
+  9		    70-80%           3.33-5.00
+  10                 80+%           5x+
+
+Whenever the data chunk does not compress to the Threshold value, no LZMA
+compression will be attempted. For example, if you select -T 5, LZMA
+compression will be performed if the projected compression ratio is
+less than 1.43. Otherwise, data will be written in rzip format. Setting
+a very high T value will result in a lot of uncompressed data in the lrzip
+file. However, a lot of time will be saved. For most people you shouldn't ever
+need to touch this.
+
+Q. Compression and decompression progress on large archives slows down and
+speeds up. There's also a jump in the percentage at the end?
+A. Yes, that's the nature of the compression/decompression mechanism. The jump
+is because the rzip preparation makes the amount of data much smaller than the
+compression backend (lzma) needs to compress.
+
+Q. Tell me about patented compression algorithms, GPL, lawyers and copyright.
+A. No
+
+Q. I receive an error "LZMA ERROR: 2. Try a smaller compression window."
+   what does this mean?
+A. LZMA requests large amounts of memory. When a higher compression window is
+   used, there may not be enough contiguous memory for LZMA. LZMA may request
+   up to 25% of TOTAL ram depending on compression level. If contiguous blocks
+   of memory are not free, LZMA will return an error. This is not a fatal
+   error. However, the current Stream will not be compressed.
+
+Q. Where can I get more information about the internals of LZMA?
+A. See http://www.7-zip.org and http://www.p7zip.org. Also, see the file
+   ./lzma/C/lzmalib.h which explains the LZMA properties used and the LZMA
+   memory requirements and computation.
+
+LIMITATIONS
+Due to mmap limitations the maximum size a window can be set to is currently
+2GB on 32bit. Files generated on 64 bit machines with windows >2GB in size
+will not be decompressible on 32bit machines.
+
+BUGS:
+Probably lots.
+
+
+Links:
+rzip:
+http://rzip.samba.org/
+lzo:
+http://www.oberhumer.com/opensource/lzo/
+lzma:
+http://www.7-zip.org/
+zpaq:
+http://mattmahoney.net/dc/
+
+Thanks to Andrew Tridgell for rzip. Thanks to Markus Oberhumer for lzo.
+Thanks to Igor Pavlov for lzma. Thanks to Jean-loup Gailly and Mark Adler
+for the zlib compression library. Thanks to Christian Leber for lzma
+compat layer, Michael J Cohen for Darwin support, Lasse Collin for fix
+to LZMALib.cpp and for Makefile.in suggestions, and everyone else who coded
+along the way. Huge thanks to Peter Hyman for most of the 0.19-0.24 changes,
+and the update to the multithreaded lzma library and all sorts of other
+features. Thanks to René Rhéaume for fixing executable stacks and
+Ed Avis for write permissions. Thanks to Matt Mahoney for zpaq code. Thanks to
+Jukka Laurila for Darwin support. Thanks to George Makrydakis for lrztar.
+
+Con Kolivas <kernel@kolivas.org>
+Thursday, Wed, 30 Dec 2009
+
+Also documented by
+Peter Hyman <pete@peterhyman.com>
+Sun, 04 Jan 2009
