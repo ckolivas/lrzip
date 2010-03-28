@@ -1,0 +1,59 @@
+.TH "lrzip.conf" "5" "January 2009" "" ""
+.SH "NAME"
+lrzip.conf \- Configuration File for lrzip
+.SH "DESCRIPTION"
+.PP
+This file if used, will be read by the lrzip program\&, parsed\&,
+and options passed to the program\&. Some options may be overridden
+on the command line\&. Others are fixed\&.
+.PP
+The configuration file must be called \fBlrzip\&.conf\fP\&.
+The lrzip program will search for the file automatically in one of
+three places\&:
+.nf
+$PWD \- Current Directory
+/etc/lrzip
+$HOME/\&./lrzip
+.PP
+Parameters are set in \fBPARAMETER\&=VALUE\fP fashion where any line
+beginning with a \fB#\fP or that is blank will be ignored\&.
+.PP
+.SH "CONFIG FILE EXAMPLE"
+.nf
+# This is a comment.
+
+# Compression Window size in 100MB. Normally selected by program.
+WINDOW = 5
+# Compression Level 1-9 (7 Default).
+COMPRESSIONLEVEL = 7
+# Compression Method, rzip, gzip, bzip2, lzo, or lzma (default).
+COMPRESSIONMETHOD = lzma
+# Test Threshold value 1-10 (2 Default).
+TESTTHRESHOLD = 2
+# Default output directory
+OUTPUTDIRECTORY = location
+# Verbosity, true or 1, or max or 2
+VERBOSITY = max
+# Show Progress as file is parsed, true or 1, false or 0
+SHOWPROGRESS = true
+# Set Niceness. 19 is default. \-20 to 19 is the allowable range
+NICE = 19
+# Delete source file after compression
+# this parameter and value are case sensitive
+# value must be YES to activate
+# DELETEFILES = NO
+
+# Replace existing lrzip file when compressing
+# this parameter and value are case sensitive
+# value must be YES to activate
+# REPLACEFILE = NO
+.fi
+.PP
+.SH "NOTES"
+.PP
+Be careful when using \fBDELETEFILES\fP or \fBREPLACEFILE\fP as
+no warning will be given and lrzip will simply delete the source
+or replace the output file!
+.PP
+.SH "SEE ALSO"
+lrzip(1)

@@ -1,0 +1,41 @@
+lrzip-0.40+ file header format
+November 2009
+Con Kolivas
+
+Byte	Content
+0-3	LRZI
+4	LRZIP Major Version Number
+5	LRZIP Minor Version Number
+6-14	Source File Size
+16-20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
+21-22	not used
+23-48	Stream 1 header data
+49-74	Stream 2 header data
+
+Block Data:
+Byte:
+0	Compressed data type
+1-8	Compressed data length
+9-16	Uncompressed data length
+17-24	Next block head
+25+	Data
+
+End:
+0-1	crc data
+
+
+lrzip-0.24+ file header format
+January 2009
+Peter Hyman, pete@peterhyman.com
+
+Byte	Content
+0-3	LRZI
+4	LRZIP Major Version Number
+5	LRZIP Minor Version Number
+6-9	Source File Size (no HAVE_LARGE_FILES)
+6-14	Source File Size
+16-20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
+21-22	not used
+23-36	Stream 1 header data
+37-50	Stream 2 header data
+51	Compressed data type

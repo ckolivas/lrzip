@@ -1,0 +1,45 @@
+# lrzip.conf example file
+# anything beginning with a # or whitespace will be ignored
+# valid parameters are separated with an = and a value
+# parameters and values are not case sensitive
+# 
+# lrzip 0.24, peter hyman, pete@peterhyman.com
+# ignored by earlier versions.
+
+# Compression Window size in 100MB. Normally selected by program.
+WINDOW = 5
+
+# Compression Level 1-9 (7 Default).
+COMPRESSIONLEVEL = 7
+
+# Compression Method, rzip, gzip, bzip2, lzo, or lzma (default).
+# If specified here, command line options not usable.
+# COMPRESSIONMETHOD = lzo 
+
+# Test Threshold value 1-10 (2 Default).
+TESTTHRESHOLD = 2
+
+# Default output directory
+# OUTPUTDIRECTORY = location
+
+# Verbosity, true or 1, or max or 2
+VERBOSITY = max
+
+# Show Progress as file is parsed, true or 1, false or 0
+SHOWPROGRESS = true
+
+# Set Niceness. 19 is default. -20 to 19 is the allowable range
+NICE = 19
+
+# Delete source file after compression
+# this parameter and value are case sensitive
+# value must be YES to activate
+
+# DELETEFILES = NO
+
+# Replace existing lrzip file when compressing
+# this parameter and value are case sensitive
+# value must be YES to activate
+
+# REPLACEFILE = YES 
+

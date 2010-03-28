@@ -1,0 +1,123 @@
+lrzip-0.44
+
+Added an lrztar wrapper to compress / decompress whole directories (finally).
+Added -i option to give information about a compressed file.
+
+lrzip-0.43
+
+Darwin support updated. Should build on OSX v10.5+
+Finally, stdin/stdout support.
+Test archive integrity support.
+ZPAQ support in config files.
+
+lrzip-0.42
+
+ZPAQ compression update now shows which rzip stream it's currently compressing
+making the update more useful. It also doesn't update unnecessarily with every
+byte compressed which was slowing it down a LOT.
+
+lrzip-0.41
+
+ZPAQ compression backend! ZPAQ is from the family of "paq" compressors that
+have some of the best compression ratios around, but at the cost of extremely
+long compression and equally long decompression times. This can be enabled
+with the -z option and makes lrzip archives made with this not backwardly
+compatible.
+
+lrzip-0.40
+
+Compression windows should be limited by available ram now on 64bit. The limit
+on 32bit is still 2GB.
+The compression advantages on large files on 64bit machines with large ram
+should be substantially better.
+The file format is no longer compatible with earlier versions of lrzip.
+Support for decompressing older formats is present, but all new files will
+be generated in the new format.
+Minor speedups.
+Decompression should no longer stall at 4GB boundaries for extended periods
+making decompression much faster on files >4GB in size.
+Documentation and benchmark updates galore.
+
+lrzip-0.31
+
+The window size limit is now 2GB on both 32bit and 64bit. While it appears to be
+smaller than the old windows, only 900MB was being used on .30 even though it
+claimed to use more. This can cause huge improvements in the compression of very
+large files. Flushing of data to disk between compression windows was
+implemented to minimise disk thrashing of read vs write.
+
+Con Kolivas
+November 2009
+
+lrzip-0.30
+
+-P option to not set permissions on output files allowing you to write to
+braindead filesystems (eg fat32).
+Probably other weird and wonderful bugs have been introduced.
+
+Con Kolivas
+November 2009
+
+lrzip-0.24 has updated functionality
+
+FEATURE ENHANCEMENTS
+lrzip.conf file may be used to set default parameters.
+Omit conf using environment: LRZIP=NOCONFIG lrzip.....
+LRZIP environment variable may be used in the future
+to store certain types of parameters.
+
+LZMA SDK has been upgraded to version 4.63. This
+version fixes some problems certain users observed,
+and is much simpler using a C-only wrapper
+interface.
+
+lrzip now is able to compute an ETA for completion.
+In order to do this, the file must be larger than
+one compression window in size. That is, is the
+compression window is 500MB, and the file is 1GB,
+then after the first pass, an ETA will be computed.
+If the file is smaller, then no estimate can be made.
+
+lrzip is now able to compute MB/s transfer speeds
+for both compression and decompression.
+
+CLEANUPS
+Some file cleanups have been done.
+
+Peter Hyman
+January 2009
+pete@peterhyman.com
+
+lrzip-0.22 update
+FEATURE ENHANCEMENTS
+
+-g option. Now supports gzip compression. Very fast!
+Expanded dictionary buffer size in lzma compressor.
+Variable, expanded dictionary size buffer in both lzma
+ compressor and decompressor.
+Improved output during compression when using -vv.
+Multi-threading supprt when using multiple processors
+ or dual core processors when using lzma compression.
+ This results in a nearly 2x speed improvement.
+Assembler module support to speed up CRC checking.
+Improvements in autotools usage, system detection
+ and Makefile enhancements.
+Lrzip now has a timer that will print total time
+ at the end of a compression or decompression if
+ -q command line option is not used.
+
+BUG FIX!!!
+
+Even though lrzip uses a compression threshold to
+prevent the lzma compressor from getting data that
+may not be compressible, there was still a possibility
+that lrzip could hang. This was because a data chunk
+could contain an uncompressible segment and if the
+lzma compressor got it, it would hang.
+
+THANKS TO LASSE COLLIN for uncovering the error in
+the lzma wrapper code that was causing the hangup.
+
+January 2008
+Peter Hyman
+pete@peterhyman.com

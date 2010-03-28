@@ -1,0 +1,328 @@
+lrzip ChangeLog
+DEC 2009, version 0.44, Con Kolivas, George Makrydakis
+* Added lrztar wrapper to manage whole directories.
+* Added -i option to provide information about a compressed file.
+* Fixed "nan" showing as Compression speed on very small files.
+* Fixed build for old bz library.
+* Avoid overwriting output file if input doesn't exist.
+* Implement signal handler to delete temporary files.
+
+
+DEC 2009, version 0.43, Con Kolivas, Jukka Laurila
+* Darwin support thanks to Jukka Laurila.
+* Finally added stdin/stdout support due to popular demand. This is done
+by basically using temporary files so is a low performance way of using
+lrzip.
+* Added test function. This just uses a temporary file during decompression.
+* Config files should now accept zpaq options.
+* Minor code style cleanups.
+* Updated benchmarks in docs.
+* Add a warning when attempting to decompress a file from a newer lrzip
+version.
+
+
+NOV 2009, version 0.42, Con Kolivas
+* Changed progress update to show which of 2 chunks are being compressed
+in zpaq.
+* Fixed progress update in ZPAQ to not update with each byte which was
+wasting heaps of CPU time.
+
+
+NOV 2009, version 0.41, Con Kolivas
+* Added zpaq compression backend for extremely good but extremely slow
+compression (incompatible with previous versions if used).
+* Limited chunk size passed to LZMA to 4GB to avoid library overflows.
+* Minor changes to the formatting output
+* Changed lower limit of -T threshhold to 0 to allow disabling it.
+* Added lzo_compresses check into zpaq and bzip2 as well since they're
+slow.
+
+
+NOV 2009, version 0.40, Con Kolivas
+* Massive core code rewrite.
+* All code moved to be 64bit based for compression block addressing and length
+allowing compression windows to be limited by ram only.
+* 64bit userspace should now have no restriction on compression window size,
+32bit is still limited to 2GB windows due to userspace limitations.
+* New file format using the new addressing and data types, incompatible with
+versions prior to 0.40.
+* Support for reading and decompressing older formats.
+* Minor speedups in read/write routines.
+* Countless minor code fixes throughout.
+* Code style cleanups and consistency changes in core code.
+* Configure script improvements.
+
+
+NOV 2009, version 0.31, Con Kolivas
+* Updated to be in sync with lzma SDK 9.07beta.
+* Cleanups and fixes of the configure scripts to use the correct package version
+name.
+* Massive fixes to the memory management code fixing lots of 32bit overflow
+errors. The window size limit is now 2GB on both 32bit and 64bit. While it
+appears to be smaller than the old windows, only 900MB was being used on .30
+even though it claimed to use more. This can cause huge improvements in the
+compression of very large files.
+* The offset when mmap()ing was not being set to a multiple of page size so
+it would fail if the window size was not a multiple of it.
+* Flushing of data to disk between compression windows was implemented to
+minimise disk thrashing of read vs write.
+
+
+NOV 2009, version 0.30, Con Kolivas
+* Numerous bugfixes to try and make the most of 64bit environments with huge
+memory and to barf less on 32bit environments.
+* Executable stacks were fixed.
+* Probably other weird and wonderful bugs have been introduced.
+* -P option to not set permissions on output files allowing you to write to
+braindead filesystems (eg fat32).
+
+
+JAN 2009, version 0.24, Peter Hyman, pete@peterhyman.com
+Happy New Year!
+* Upgrade LZMA SDK to 4.63. Use new C Wrapper. Invalidates
+  LZMA archives created earlier due to new Magic property
+  bytes.
+* New LZMA logic will automatically determine allow LZMA
+  code to determine optimal lc, lp, pb, fb, and dictionary
+  size settings. stream.c will only pass level and thread
+  information. Compress function will return encoded 5 byte
+  data with compression settings. This will be stored in lrz
+  file header.
+* add error messages during LZMA compression. There are some
+  edge cases where LZMA cannot allocate memory. These errors
+  are reported and the user will be advised to use a lower
+  compression window setting.
+* type changes in rzip_fd function for correctness.
+* remove function *Realloc() since it was never used. Cleaned
+  in rzip.h and util.c.
+* apply munmap prior to closing and compressing stream in
+  function rzip_chunk in rzip.c.
+* add realloc function in close_stream_out in stream.c
+  to reclaim some ram and try and allieviate out of memory
+  conditions in LZMA compression.
+* remove file acconfig.h and include DEFINE in configure.in.
+* add lrzip.conf capability.
+* add timer for compression including elapsed time and eta.
+* add compression and decompression MB/s calculation.
+* Updated WHATS-NEW, TODO and created BUGS file.
+* Updated lrzip.1 manpage and created lrzip.conf.5 manpage.
+* Added lrzip.conf.example file in doc directory.
+
+MAR 2008, Con Kolivas, kernel@kolivas.org
+* Numerous changes all over to place restrictions on window
+size to work with 32 bit limitations.
+* Various bugfixes with respect to detecting buffer sizes and
+likelihood of compressibility.
+* Fixed the inappropriate straight copying uncompressed data for
+files larger than 4GB.
+* Re-initiated the 10MB window limits for non-lzma compression.
+I was unable to reproduce any file size savings.
+* Allow compression windows larger than ramsize if people really
+really want them.
+* Decrease thresholds for the test function to a minimum of 5%
+compressibility since the hanging in lzma compression bug has been
+fixed.
+
+JAN 2008, version 0.22, Peter Hyman, pete@peterhyman.com
+* version update
+lzma/LZMALib.cpp
+  Thanks to Lasse Collin for debugging the problem LZMA
+  had with hanging on uncompressable files.
+  Update for control parameters to both compress and
+  decompress functions.
+Makefile.in
+* use of @top_srcdir@ (Lasse Collin). Also moved away
+  more cruft.
+main.c stream.c.rzip.h LZMALib.cpp lzmalib.h
+* addition of three new control structure members.
+  control.lc -- literal context bits
+  control.lp -- literal post state bits
+  control.pb -- post state bits
+  These are needed to ensure decompression will work.
+  These will now be stored along with control.compression_level
+  in the lrz file beginning at offset 0x16 for three bytes.
+  These will be passed to the functions lzma_compresses and
+  lzma_uncompress. Currently, only compression level is
+  needed or used, but the others are stored for possible future
+  use.
+  See magic file for more information.
+stream.c
+* Change to lzo_compresses function that will reject a chunk
+  without testing it if the size of the chunk is greater
+  than the compression window * threshold. This is to avoid
+  a low probability that lzma would still be passed a chunk
+  that contains uncompressible data or barely compressible
+  data. If after rzip hashing the chunk size is still close
+  to the window size, there is hardly anything worth
+  compressing. While there is no reason lzma cannot get the
+  chunk, this will save a lot of time.
+magic.headers.txt
+* updated file to show new layout that includes lzma
+  parameters.
+README-NOT-BACKWARD-COMPATIBLE
+* added warning about using lrzip-0.22 with earlier versions.
+WHATS-NEW
+* highlight of new features.
+
+DEC 2007, version 0.21. Peter Hyman, pete@peterhyman.com
+* version update.
+* Modified to use Assembler routines from lzma SDK for CRC
+  computation when hashing streams in rzip.c and runzip.c.
+  Added files 7zCrcT8.c and 7zCrcT8u.s to lzma tree.
+  Cleaned up source tree. Moved unused files out of the way.
+  Moved non-core docs to doc directory
+configure.in
+* correct AC_INIT to set program variables.
+* modified to add check for nasm assembler.
+* modified syntax of test for errno in error.h to use
+  echo $ECHO_N/$ECHO_C instead of $ac_n/$ac_c which
+  was incorrect.
+Makefile.in, lzma/Makefile
+* modified to add compile instructions for 7zCrcT8.c
+  and 7zCrcT8U.s and Assembler. Cleaned up to remove
+  targets that don't exist or sources that don't
+  exist.
+  Modified to properly set directories. Added doc install.
+  Add link command to symlink lrunzip to lrzip.
+*main.c
+  Add CrcGenerateTable() function to init CRC tables.
+  This is needed for all crc routines including those
+  in MatchFinderMT.
+rzip.c and runzip.c
+* Updated source to change call to crc32_buffer to call
+  CrcUpdate in the assembler code. Changed parameter order
+  to conform.
+stream.c
+* Removed 10MB limit on streams for bzip, gzip, and lzo.
+  This, to improve effeciency of long range analysis. For
+  some files, this could improve results.
+Current-Benchmarks.txt
+* Added file to keep benchmarks current to version.
+  (probably need to update README too).
+README.Assembler
+* Explain how to remove default compile of Assembler
+  modules.
+config.sub config.guess
+* added files for system detection.
+
+DEC 2007, version 0.20. Peter Hyman, pete@peterhyman.com
+
+* Updated to LZMA SDK 4.57.
+* Updated to p7zip POSIX version. (www.p7zip.org)
+* Added multi-threading support (up to 2x speed with LZMA).
+* Edited LZMADecompress.cpp for backward compatibility
+  with decompress function. Needed SetPropertiesRaw function.
+* Repopulated source tree for distribution.
+* Updated Makefile.in to reflect new source files.
+  Updated to include command to link lrunzip to lrzip because
+  lrzip will test if lrunzip was used on command line.
+* Updated Makefile.in for new compile time and linking options.
+* Updated LZMALibs.cpp to include new property members for
+  LZMAEncoders as well as changed default dictionaries to
+  level+16. This would make the default compression level
+  of 7 translate to a dictionary number of 23.
+* Added output to show Nice Level when verbose mode set
+  Initial add of support for zlib which seems to give quite
+  excellent performance.
+* configure.in added AC_CHECK for libz and libm.
+  Added AC_PROG_LN_S for Makefile symlink section.
+* lrzip.1 updated man page for -g option
+* main.c added option test for gzip
+  Added sysconf(_SC_NPROCESSORS_CONF) for CPU detection
+  for threading.
+  Updated verbose output to show whether or not
+  Threading will be used.
+  Added Timer for each file compressed.
+* rzip.h added flags for GZIP compression.
+  Added control member for threads. Arg passed to
+  lzma_conpress.
+* stream.c update to accomodate gzip compress and decompress
+  functions. Cleaned up file by rearranging functions into
+  groups.
+  Removed include of lzmalib.h since it was causing a
+  compile time warning with zlib.h. Prototyped functions
+  manually.
+  Cleanup output from lzo_compresses function so that
+  unnecessary linefeeds are eliminated.
+  lzma_compress function call now uses threads as argument.
+* Added README.benchmarks file to explain a method of
+  comparing results between different methods.
+* LZMALib.cpp, lzmalib.h. Adjust function lzma_compress
+  prototype and function to include new argument threads.
+  This parameter is now placed in properties.
+* lzma/Makefile. Updated to reflect new API library.
+  Updated to include Threading option.
+
+DEC 2007, version 0.19. Con Kolivas.
+* Added nice support, defaulting to nice 19.
+
+DEC 2007, version 0.19. Peter Hyman, pete@peterhyman.com
+
+* Major goal was to stop LZMA from hanging on some files.
+  Accomplished this with a threhold setting that is used by
+  the lzo_compresses function to better analyze chunk data.
+  Threshold makes it less likely that uncompressible data
+  will be passed to the LZMA compressor.
+
+main.c
+* Added Threshold option 1-10 to control LZMA compression attempt.
+  Default value=2. This means that anything over 10% compression
+  as reported by lzo_compresses will return a true value to
+  the LZMA compression function.
+* Added verbosity option and more verbosity option (-v[v]).
+* Added -O option to specify output directory.
+* Updated compress_file and decompress_file functions to handle.
+  output directories and better handle multi files and filename
+  extensions. Optimized some string handling routines.
+  Improved flexibility in determining location of output files
+  when using -O. Added fflush(stdout) to improve printf reliability.
+* decompress_file will accept any filename and will automatically
+  append .lrz if not present. Won't automatically fail.
+* Added logic to protect against conflicting options such as
+  -q and -v, -o and -O.
+* Added printout to screen of options selected. Will display
+  only when -v or -vv used.
+* Adjusted several printf statements to avoid compiler
+  warnings (use %ll for long long int types).
+
+runzip.c
+* Added decompression progress indicator.
+  Will show percent decompressed along with bytes decompressed
+  and total to be decompressed. Will show if -q option NOT used.
+
+rzip.h
+* Version incremented to 0.19.
+* Added flag DEFINESs for verbosity and more verbosity.
+* Updated control struct to include output directory and
+  threshold value. Removed verbosity member.
+
+rzip.c
+* Minor changes to handle display when verbosity set. Changed
+  number format in some printf statements to properly handle
+  unsigned data.
+
+stream.c
+* major overhaul of lzo_compresses function to use a threshold
+  value when testing a data chunk to see if it is suitable for
+  LZMA compression. Optimized test loop to improve performance
+  and reduce number of passes. Improved output reporting depending
+  on verbosity setting.
+* Added print controls for verbosity option.
+* Corrected if statements that tested for error condition of
+  some lzo functions that only return a true value regardless.
+
+lrzip.1
+* updated man page to show new options and explain -T threshold.
+
+README
+* updated README to explain -T threshold option.
+
+README.lzo_compresses.test.txt
+* Added this file to help explain the theory behind the rewrite
+  of the lzo_compresses function and how to use the -T option.
+
+TODO
+* wish list and future enhancements.
+
+ChangeLog
+* added file.

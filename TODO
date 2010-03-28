@@ -1,0 +1,18 @@
+TODO for lrzip program
+
+Other posix/windows builds?? Need help there...
+
+Add log file option so that output could be
+saved for review.
+
+Add test function that would only run lzo_compresses
+for a current file without doing any writes.
+
+Consider ncurses version or even GUI one.
+
+Consider using LZMA Filters for processor-optimized
+coding to increase compression.
+
+Write a wrapper script for tarballing directories.
+
+Get the ASM working on 64bit.
