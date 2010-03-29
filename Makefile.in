@@ -116,3 +116,8 @@ static: $(OBJS)
 clean:
 	-${RM} *~ $(OBJS) lrzip config.cache config.log config.status *.o
 
+distclean: clean
+	-rm -rf autom4te.cache config.h Makefile
+
+maintainer-clean: distclean
+	-rm -f configure

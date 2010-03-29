@@ -1,4 +1,15 @@
 lrzip ChangeLog
+
+MAR 2010, version 0.45, Con Kolivas, Jari Aalto
+* Fixed reported window size
+* Fixed 32bit windows being attempted to be larger than contiguous amounts
+by taking into account VM kernel/userspace split of 896MB.
+* Minor code cleanups
+* Added lrztar and lrunzip docs
+* Fix minor typos
+* Added distclean and maintainer-clean make targets
+
+
 DEC 2009, version 0.44, Con Kolivas, George Makrydakis
 * Added lrztar wrapper to manage whole directories.
 * Added -i option to provide information about a compressed file.
