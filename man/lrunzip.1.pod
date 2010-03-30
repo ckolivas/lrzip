@@ -1,6 +1,6 @@
 #   Copyright
 #
-#      Copyright (C) 2004-2009 Jari Aalto
+#      Copyright (C) 2009-2009 Jari Aalto
 #
 #   License
 #
@@ -75,9 +75,9 @@ zip(1)
 
 Program was written by Con Kolivas.
 
-This manual page was written by Jari Aalto <jari.aalto@cante.net>, for
-the Debian GNU system (but may be used by others). Released under license
-GNU GPL version 2or (at your option) any later version. For more
-information about license, visit <http://www.gnu.org/copyleft/gpl.html>.
+This manual page was written by Jari Aalto <jari.aalto@cante.net> (but
+may be used by others). Released under license GNU GPL version 2or (at
+your option) any later version. For more information about license,
+visit <http://www.gnu.org/copyleft/gpl.html>.
 
 =cut

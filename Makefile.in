@@ -51,14 +51,19 @@ DOCFILES= AUTHORS BUGS ChangeLog COPYING README README-NOT-BACKWARD-COMPATIBLE \
 DOCFILES_LZMA= lzma/7zC.txt lzma/7zFormat.txt lzma/Methods.txt \
 	  lzma/history.txt lzma/lzma.txt lzma/README lzma/README-Alloc
 
-MAN1FILES= man/lrzip.1
+MAN1FILES= man/lrzip.1 man/lrunzip.1 man/lrztar.1
 MAN5FILES= man/lrzip.conf.5
 
 #note that the -I. is needed to handle config.h when using VPATH
 .c.o:
 	$(CC) $(CFLAGS) $(LZMA_CFLAGS) $< -o $@
 
-all: lrzip man doc
+all: lrzip make-man man doc
+
+make-man:
+	$(MAKE) -C man
+
+.PHONY: make-man
 
 7zCrcT8.o: @top_srcdir@/lzma/C/7zCrcT8.c
 	$(CC) $(CFLAGS) $(LZMA_CFLAGS) @top_srcdir@/lzma/C/7zCrcT8.c
@@ -114,7 +119,8 @@ static: $(OBJS)
 	$(CXX) $(LDFLAGS) -static -o lrzip $(OBJS) $(LIBS)
 
 clean:
-	-${RM} *~ $(OBJS) lrzip config.cache config.log config.status *.o
+	-${RM} *~ $(OBJS) lrzip config.cache config.log config.status *.o \
+	man/lrunzip.1 man/lrztar.1
 
 distclean: clean
 	-rm -rf autom4te.cache config.h Makefile

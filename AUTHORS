@@ -5,12 +5,13 @@ patches, multi-threading support, assembler integration,
 SDK updating, and autoconf improvements.
 
 Thanks to:
-Andrew Tridgell for rzip.
-Markus Oberhumer for lzo.
-Igor Pavlov for lzma and CRC Assembler code. 
+Andrew Tridgell for rzip
+Markus Oberhumer for lzo
+Igor Pavlov for lzma and CRC Assembler code
 Jean-loup Gailly and Mark Adler for the zlib compression library
 Christian Leber for lzma compat layer
 Lasse Collin for debugging the compat layer
 Michael J Cohen for Darwin support
 Jukka Laurila for newer Darwin support
 George Makrydakis for lrztar
+Jari Aalto for documentation and typos and git help

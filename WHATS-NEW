@@ -1,3 +1,12 @@
+lrzip-0.45
+
+Added docs for lrztar and lrunzip.
+Added distclean and maintainer-clean make targets.
+Created git repo: http://github.com/ckolivas/lrzip
+
+Con Kolivas
+March 2010
+
 lrzip-0.44
 
 Added an lrztar wrapper to compress / decompress whole directories (finally).

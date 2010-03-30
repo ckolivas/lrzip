@@ -21,7 +21,7 @@ function lrztar_local() {
         || { printf "lrztar: invalid option for lrztar %s\n" "$x"; return 1; }
     done
     { ! (($#)) || ((v_h)); } && {
-        printf "lrztar wrapper for compressing/decompressing while directories with lrzip.\n"
+        printf "lrztar wrapper for compressing/decompressing whole directories with lrzip.\n"
         printf "usage: lrztar [lrzip options] <directory>  will compress directory to directory.tar.lrz\n"
         printf "lrztar -d [lrzip options] <directory.tar.lrz>  will extract directory from directory.tar.lrz\n"
         printf "lrzip -h will list lrzip options\n"
