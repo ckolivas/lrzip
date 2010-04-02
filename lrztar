@@ -28,15 +28,22 @@ function lrztar_local() {
         return
     }
     ((v_d)) && {
-        fname="$(basename "$s")"; tname="${fname%.lrz}"
+        fname="$(basename "$s")"; tname="${fname%.lrz}";
         ! ((v_f)) && [[ -e ${tname%.tar} ]] && {
             printf "lrztar: ${tname%.tar} already present, aborting\n"
             return 1
         }
+        [[ ${s%/*} != $s ]] && s="${s%/*}" || s="."
+        pushd "$s" &> /dev/null
         lrzip $p "$fname" && tar xf "$tname"
         x=$?
+        popd &> /dev/null
     } || {
-        tname="$(basename "$s").tar"
+        fname="$(basename "$s")"; tname="$fname.tar"
+        [[ $fname == *.lrz ]] && {
+            printf "lrztar: $fname is already a .lrz file, aborting\n"
+            return 1
+        }
         tar cf "$tname" "$s" && lrzip $p "$tname"
         x=$?
     }
