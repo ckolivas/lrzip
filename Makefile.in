@@ -101,8 +101,10 @@ zpipe.o: zpipe.cpp
 install: all
 	mkdir -p $(DESTDIR)${INSTALL_BIN}
 	${INSTALLCMD} -m 755 lrzip $(DESTDIR)${INSTALL_BIN}
-	( cd $(DESTDIR)${INSTALL_BIN} && ${LN_S} -f lrzip lrunzip )
 	${INSTALLCMD} -m 755 lrztar $(DESTDIR)${INSTALL_BIN}
+	${LN_S} -f $(DESTDIR)${INSTALL_BIN}/lrzip $(DESTDIR)${INSTALL_BIN}/lrunzip
+	${LN_S} -f $(DESTDIR)${INSTALL_BIN}/lrztar $(DESTDIR)${INSTALL_BIN}/lrzuntar
+	chmod 755 $(DESTDIR)${INSTALL_BIN}/lrzuntar
 	mkdir -p $(DESTDIR)${INSTALL_MAN1}
 	${INSTALLCMD} -m 644 $(MAN1FILES) $(DESTDIR)${INSTALL_MAN1}
 	mkdir -p $(DESTDIR)${INSTALL_MAN5}
@@ -111,7 +113,11 @@ install: all
 	${INSTALLCMD} -m 644 $(DOCFILES) $(DESTDIR)${INSTALL_DOC}
 	mkdir -p $(DESTDIR)${INSTALL_DOC_LZMA}
 	${INSTALLCMD} -m 644 $(DOCFILES_LZMA) $(DESTDIR)${INSTALL_DOC_LZMA}
-
+uninstall:
+	rm -rf $(DESTDIR)${INSTALL_BIN}/{lrztar,lrzuntar,lrunzip,lrzip}
+	rm -rf $(DESTDIR)${INSTALL_DOC}
+	rm -rf $(DESTDIR)${INSTALL_MAN1}/{lrunzip.1,lrzip.1,lrztar.1}
+	rm -rf $(DESTDIR)${INSTALL_MAN5}/lrzip.conf.5
 lrzip: $(OBJS)
 	$(CXX) $(LDFLAGS) -o lrzip $(OBJS) $(LIBS)
 
