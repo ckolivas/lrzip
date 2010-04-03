@@ -1,11 +1,24 @@
 #!/bin/bash
 
-# A basic skeleton for making a new lrzip tar wrapper place messages etc
-# where you think you want them, it kind of self - documents itself.
-# For the time being, lrzip does not like pipes.
+# Copyright (C) George Makrydakis 2009, 2010
+# Copyright (C) Con Kolivas 2010
 
-# Public domain with no warranties or suitability whatsoever etc.
-# G.M.
+# A bash wrapper for Con Kolivas' excellent lrzip utility. For the time
+# being, lrzip does not like pipes, so we had to do this. It is kind of
+# self - documenting, spawned out of a test tube bash shell script.
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 function lrztar_local() {
     local p="${@:1:$(($#-1))}" s="${!#}" tname= fname= \
