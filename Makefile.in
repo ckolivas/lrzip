@@ -17,8 +17,8 @@ LIBS=@LIBS@
 LDFLAGS=@LDFLAGS@
 CC=@CC@
 CXX=@CXX@
-CFLAGS=@CFLAGS@ -I. -I$(srcdir) -Wall -W -c
-CXXFLAGS=@CXXFLAGS@ -I. -I$(srcdir) -Wall -W -c
+CFLAGS=@CFLAGS@ -I. -I$(srcdir) -c
+CXXFLAGS=@CXXFLAGS@ -I. -I$(srcdir) -c
 LZMA_CFLAGS=-I@top_srcdir@/lzma/C -DCOMPRESS_MF_MT -D_REENTRANT
 
 INSTALLCMD=@INSTALL@

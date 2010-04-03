@@ -11,7 +11,10 @@ AC_ARG_ENABLE(
 		ASM=yes
              )
 if test x"$ASM" = xyes; then
-	AC_CHECK_PROG( ASM, nasm, yes, no )
+	AC_CHECK_PROG( ASM_PROG, nasm, yes, no )
+	if test x"$ASM_PROG" = x"no "; then
+		ASM=no
+	fi
 fi
 
 dnl Checks for programs.
@@ -21,6 +24,10 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_SUBST(SHELL)
 AC_SYS_LARGEFILE
+
+if test x"$GCC" = xyes; then
+        CFLAGS="$CFLAGS -Wall -W"
+fi
 
 AC_CHECK_HEADERS(fcntl.h sys/time.h sys/unistd.h unistd.h)
 AC_CHECK_HEADERS(sys/param.h ctype.h sys/wait.h sys/ioctl.h)
