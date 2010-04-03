@@ -1,4 +1,13 @@
 lrzip ChangeLog
+APRIL 2010, version 0.45, Con Kolivas, Jon Tibble, George Makrydakis
+* Fixes the nasm program test (AC_CHECK_PROG doesn't overwrite a
+variable that is already set so do it manually) JT
+* Fix compiler flags as not all compilers accept -Wall -W (cc on
+Solaris/OpenSolaris) JT
+* Fix lrztar to not try to compress files already with the .lrz extension GM
+* Fix lrztar to decompress files where the pathname is ../* GM
+* Add lrzuntar symlink to call lrztar -d
+
 
 MAR 2010, version 0.45, Con Kolivas, Jari Aalto
 * Fixed reported window size
