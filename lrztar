@@ -20,6 +20,7 @@ function lrztar_local() {
     [[ $x == [otV] ]] || ((v_$x=1)) &> /dev/null \
         || { printf "lrztar: invalid option for lrztar %s\n" "$x"; return 1; }
     done
+    [[ $(basename "$0") == lrzuntar ]] && { v_d=1; p="-d $p"; }
     { ! (($#)) || ((v_h)); } && {
         printf "lrztar wrapper for compressing/decompressing whole directories with lrzip.\n"
         printf "usage: lrztar [lrzip options] <directory>  will compress directory to directory.tar.lrz\n"
