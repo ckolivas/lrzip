@@ -11,7 +11,7 @@ function lrztar_local() {
     local p="${@:1:$(($#-1))}" s="${!#}" tname= fname= \
         v_w=0 v_O=0 v_S=0 v_D=0 v_P=0 v_q=0 v_L=0 \
         v_n=0 v_l=0 v_b=0 v_g=0 v_z=0 v_M=0 v_T=0 \
-        v_N=0 v_v=0 v_f=0 v_d=0 v_h=0 x=
+        v_N=0 v_v=0 v_f=0 v_d=0 v_h=0 x= i=
     OPTERR=0
     trap '[[ -z $tname ]] || rm -rf "$tname" &> /dev/null' 1 2 3 15
     which tar   &> /dev/null || { printf "lrztar: no tar in your path\n"; return 1; }
@@ -20,7 +20,8 @@ function lrztar_local() {
     [[ $x == [otV] ]] || ((v_$x=1)) &> /dev/null \
         || { printf "lrztar: invalid option for lrztar %s\n" "$x"; return 1; }
     done
-    [[ $(basename "$0") == lrzuntar ]] && { v_d=1; p="-d $p"; }
+    [[ $(basename "$0") == lrzuntar ]] \
+        && { v_d=1; p="-d $p"; }
     { ! (($#)) || ((v_h)); } && {
         printf "lrztar wrapper for compressing/decompressing whole directories with lrzip.\n"
         printf "usage: lrztar [lrzip options] <directory>  will compress directory to directory.tar.lrz\n"
@@ -34,11 +35,10 @@ function lrztar_local() {
             printf "lrztar: ${tname%.tar} already present, aborting\n"
             return 1
         }
-        [[ ${s%/*} != $s ]] && s="${s%/*}" || s="."
-        pushd "$s" &> /dev/null
-        lrzip $p "$fname" && tar xf "$tname"
+        [[ ${s%/*} != $s ]] && i="${s%/*}/" || i="./"
+        tname="$i$tname"
+        lrzip $p "$i$fname" && tar xf "$tname"
         x=$?
-        popd &> /dev/null
     } || {
         fname="$(basename "$s")"; tname="$fname.tar"
         [[ $fname == *.lrz ]] && {
