@@ -40,7 +40,8 @@ function lrztar_local() {
         printf "usage: lrztar [lrzip options] <directory>  will compress directory to directory.tar.lrz\n"
         printf "lrztar -d [lrzip options] <directory.tar.lrz>  will extract directory from directory.tar.lrz\n"
         printf "lrzuntar [lrzip options] <directory.tar.lrz> will extract directory from directory.tar.lrz\n"
-        printf "lrzip -h will list lrzip options\n"
+        printf "lrz[un]tar -h will display this help message\n"
+        printf "lrzip -h will display lrzip options\n"
         return
     }
     ((v_d)) && {
