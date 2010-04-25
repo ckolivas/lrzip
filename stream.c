@@ -134,7 +134,7 @@ static void zpaq_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 	if (!out)
 		fatal("Failed to open_memstream in zpaq_compress_buf\n");
 
-	zpipe_compress(in, out, s->buflen, (int)(control.flags & FLAG_SHOW_PROGRESS));
+	zpipe_compress(in, out, control.msgout, s->buflen, (int)(control.flags & FLAG_SHOW_PROGRESS));
 
 	if (memstream_update_buffer(out, &c_buf, &dlen) != 0)
 	        fatal("Failed to memstream_update_buffer in zpaq_compress_buf");
@@ -227,8 +227,8 @@ static void lzma_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 		return;
 
 	if (control.flags & FLAG_SHOW_PROGRESS) {
-		fprintf(stderr, "\tProgress percentage pausing during lzma compression...");
-		fflush(stderr);
+		fprintf(control.msgout, "\tProgress percentage pausing during lzma compression...");
+		fflush(control.msgout);
 	}
 	/* with LZMA SDK 4.63, we pass compression level and threads only
 	 * and receive properties in control->lzma_properties */
@@ -271,10 +271,10 @@ static void lzma_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 	*c_type = CTYPE_LZMA;
 out:
 	if (control.flags & FLAG_VERBOSITY_MAX)
-		fprintf(stderr, "\n");
+		fprintf(control.msgout, "\n");
 	else if ((control.flags & FLAG_SHOW_PROGRESS || control.flags & FLAG_VERBOSITY ))
-		fprintf(stderr, "\r\t                                                                                      \r");
-	fflush(stderr);
+		fprintf(control.msgout, "\r\t                                                                                      \r");
+	fflush(control.msgout);
 }
 
 static void lzo_compress_buf(struct stream *s, int *c_type, i64 *c_len)
@@ -335,7 +335,7 @@ static int zpaq_decompress_buf(struct stream *s)
 		return -1;
 	}
 
-	zpipe_decompress(in, out, s->buflen, (int)(control.flags & FLAG_SHOW_PROGRESS));
+	zpipe_decompress(in, out, control.msgout, s->buflen, (int)(control.flags & FLAG_SHOW_PROGRESS));
 
 	if (memstream_update_buffer(out, &c_buf, &dlen) != 0)
 	        fatal("Failed to memstream_update_buffer in zpaq_decompress_buf");
@@ -1007,8 +1007,8 @@ static int lzo_compresses(struct stream *s)
 		fatal("Unable to allocate c_buf in lzo_compresses\n");
 
 	if (control.flags & FLAG_SHOW_PROGRESS) {
-		fprintf(stderr, "\tlzo testing for incompressible data...");
-		fflush(stderr);
+		fprintf(control.msgout, "\tlzo testing for incompressible data...");
+		fflush(control.msgout);
 	}
 
 	/* Test progressively larger blocks at a time and as soon as anything
@@ -1034,14 +1034,14 @@ static int lzo_compresses(struct stream *s)
 		}
 	}
 	if (control.flags & FLAG_VERBOSITY_MAX)
-		fprintf(stderr, "%s for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
+		fprintf(control.msgout, "%s for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
 			(ret == 0? "FAILED - below threshold" : "OK"), save_len,
 			100 * ((double) best_dlen / (double) in_len), workcounter);
 	else if (control.flags & FLAG_VERBOSITY)
-		fprintf(stderr, "%s\r", (ret == 0? "FAILED - below threshold" : "OK"));
+		fprintf(control.msgout, "%s\r", (ret == 0? "FAILED - below threshold" : "OK"));
 	else if (control.flags & FLAG_SHOW_PROGRESS)
-		fprintf(stderr, "\r\t                                                      \r");
-	fflush(stderr);
+		fprintf(control.msgout, "\r\t                                                      \r");
+	fflush(control.msgout);
 
 	free(wrkmem);
 	free(c_buf);

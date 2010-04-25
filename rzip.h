@@ -152,6 +152,7 @@ struct rzip_control {
 	char *outname;
 	char *outfile;
 	char *outdir;
+	FILE *msgout; //stream for output messages
 	const char *suffix;
 	int compression_level;
 	unsigned char lzma_properties[5]; // lzma properties, encoded
@@ -181,5 +182,5 @@ int close_stream_in(void *ss);
 void read_config(struct rzip_control *s);
 ssize_t write_1g(int fd, void *buf, i64 len);
 ssize_t read_1g(int fd, void *buf, i64 len);
-extern void zpipe_compress(FILE *in, FILE *out, long long int buf_len, int progress);
-extern void zpipe_decompress(FILE *in, FILE *out, long long int buf_len, int progress);
+extern void zpipe_compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
+extern void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);

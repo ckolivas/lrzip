@@ -23,36 +23,36 @@ struct rzip_control control;
 
 static void usage(void)
 {
-	fprintf(stderr, "lrzip version %d.%d%d\n", LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
-	fprintf(stderr, "Copyright (C) Con Kolivas 2006-2010\n\n");
-	fprintf(stderr, "Based on rzip ");
-	fprintf(stderr, "Copyright (C) Andrew Tridgell 1998-2003\n");
-	fprintf(stderr, "usage: lrzip [options] <file...>\n");
-	fprintf(stderr, " Options:\n");
-	fprintf(stderr, "     -w size       compression window in hundreds of MB\n");
-	fprintf(stderr, "                   default chosen by heuristic dependent on ram and chosen compression\n");
-	fprintf(stderr, "     -d            decompress\n");
-	fprintf(stderr, "     -o filename   specify the output file name and/or path\n");
-	fprintf(stderr, "     -O directory  specify the output directory when -o is not used\n");
-	fprintf(stderr, "     -S suffix     specify compressed suffix (default '.lrz')\n");
-	fprintf(stderr, "     -f            force overwrite of any existing files\n");
-	fprintf(stderr, "     -D            delete existing files\n");
-	fprintf(stderr, "     -P            don't set permissions on output file - may leave it world-readable\n");
-	fprintf(stderr, "     -q            don't show compression progress\n");
-	fprintf(stderr, "     -L level      set lzma/bzip2/gzip compression level (1-9, default 7)\n");
-	fprintf(stderr, "     -n            no backend compression - prepare for other compressor\n");
-	fprintf(stderr, "     -l            lzo compression (ultra fast)\n");
-	fprintf(stderr, "     -b            bzip2 compression\n");
-	fprintf(stderr, "     -g            gzip compression using zlib\n");
-	fprintf(stderr, "     -z            zpaq compression (best, extreme compression, extremely slow)\n");
-	fprintf(stderr, "     -M            Maximum window and level - (all available ram and level 9)\n");
-	fprintf(stderr, "     -T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)\n");
-	fprintf(stderr, "     -N value      Set nice value to value (default 19)\n");
-	fprintf(stderr, "     -v[v]         Increase verbosity\n");
-	fprintf(stderr, "     -V            show version\n");
-	fprintf(stderr, "     -t            test compressed file integrity\n");
-	fprintf(stderr, "     -i            show compressed file information\n");
-	fprintf(stderr, "\nIf no filenames or \"-\" is specified, stdin/out will be used.\n");
+	fprintf(stdout, "lrzip version %d.%d%d\n", LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
+	fprintf(stdout, "Copyright (C) Con Kolivas 2006-2010\n\n");
+	fprintf(stdout, "Based on rzip ");
+	fprintf(stdout, "Copyright (C) Andrew Tridgell 1998-2003\n");
+	fprintf(stdout, "usage: lrzip [options] <file...>\n");
+	fprintf(stdout, " Options:\n");
+	fprintf(stdout, "     -w size       compression window in hundreds of MB\n");
+	fprintf(stdout, "                   default chosen by heuristic dependent on ram and chosen compression\n");
+	fprintf(stdout, "     -d            decompress\n");
+	fprintf(stdout, "     -o filename   specify the output file name and/or path\n");
+	fprintf(stdout, "     -O directory  specify the output directory when -o is not used\n");
+	fprintf(stdout, "     -S suffix     specify compressed suffix (default '.lrz')\n");
+	fprintf(stdout, "     -f            force overwrite of any existing files\n");
+	fprintf(stdout, "     -D            delete existing files\n");
+	fprintf(stdout, "     -P            don't set permissions on output file - may leave it world-readable\n");
+	fprintf(stdout, "     -q            don't show compression progress\n");
+	fprintf(stdout, "     -L level      set lzma/bzip2/gzip compression level (1-9, default 7)\n");
+	fprintf(stdout, "     -n            no backend compression - prepare for other compressor\n");
+	fprintf(stdout, "     -l            lzo compression (ultra fast)\n");
+	fprintf(stdout, "     -b            bzip2 compression\n");
+	fprintf(stdout, "     -g            gzip compression using zlib\n");
+	fprintf(stdout, "     -z            zpaq compression (best, extreme compression, extremely slow)\n");
+	fprintf(stdout, "     -M            Maximum window and level - (all available ram and level 9)\n");
+	fprintf(stdout, "     -T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)\n");
+	fprintf(stdout, "     -N value      Set nice value to value (default 19)\n");
+	fprintf(stdout, "     -v[v]         Increase verbosity\n");
+	fprintf(stdout, "     -V            show version\n");
+	fprintf(stdout, "     -t            test compressed file integrity\n");
+	fprintf(stdout, "     -i            show compressed file information\n");
+	fprintf(stdout, "\nIf no filenames or \"-\" is specified, stdin/out will be used.\n");
 }
 
 static void write_magic(int fd_in, int fd_out)
@@ -117,13 +117,13 @@ static void read_magic(int fd_in, i64 *expected_size)
 			control.lzma_properties[i] = magic[i + 16];
 	}
 	if (control.flags & FLAG_VERBOSE) {
-		fprintf(stderr, "Detected lrzip version %d.%d file.\n", control.major_version, control.minor_version);
-		fflush(stderr);
+		fprintf(control.msgout, "Detected lrzip version %d.%d file.\n", control.major_version, control.minor_version);
+		fflush(control.msgout);
 	}
 	if (control.major_version > LRZIP_MAJOR_VERSION ||
 	    (control.major_version == LRZIP_MAJOR_VERSION && control.minor_version > LRZIP_MINOR_VERSION)) {
-		fprintf(stderr, "Attempting to work with file produced by newer lrzip version %d.%d file.\n", control.major_version, control.minor_version);
-		fflush(stderr);
+		fprintf(control.msgout, "Attempting to work with file produced by newer lrzip version %d.%d file.\n", control.major_version, control.minor_version);
+		fflush(control.msgout);
 	}
 }
 
@@ -141,13 +141,13 @@ static void preserve_perms(int fd_in, int fd_out)
 	fchown(fd_out, st.st_uid, st.st_gid);
 }
 
-/* Open a temporary outputfile for testing decompression or stdout */
+/* Open a temporary outputfile for testing decompression or msgout */
 static int open_tmpoutfile(void)
 {
 	int fd_out;
 
 	if ((control.flags & FLAG_STDOUT) && (control.flags & FLAG_VERBOSE))
-		fprintf(stderr, "Outputting to stdout.\n");
+		fprintf(control.msgout, "Outputting to stdout.\n");
 	control.outfile = realloc(NULL, 16);
 	strcpy(control.outfile, "lrzipout.XXXXXX");
 	if (!control.outfile)
@@ -166,7 +166,7 @@ static void dump_tmpoutfile(int fd_out)
 	int tmpchar;
 
 	if (control.flags & FLAG_SHOW_PROGRESS)
-		fprintf(stderr, "Dumping to stdout.\n");
+		fprintf(control.msgout, "Dumping to stdout.\n");
 	/* flush anything not yet in the temporary file */
 	fflush(NULL);
 	tmpoutfp = fdopen(fd_out, "r");
@@ -177,7 +177,7 @@ static void dump_tmpoutfile(int fd_out)
 	while ((tmpchar = fgetc(tmpoutfp)) != EOF)
 		putchar(tmpchar);
 
-	fflush(stdout);
+	fflush(control.msgout);
 }
 
 /* Open a temporary inputfile to perform stdin */
@@ -203,7 +203,7 @@ static void read_tmpinfile(int fd_in)
 	int tmpchar;
 
 	if (control.flags & FLAG_SHOW_PROGRESS)
-		fprintf(stderr, "Copying from stdin.\n");
+		fprintf(control.msgout, "Copying from stdin.\n");
 	tmpinfp = fdopen(fd_in, "w+");
 	if (tmpinfp == NULL)
 		fatal("Failed to fdopen in tmpfile: %s\n", strerror(errno));
@@ -272,8 +272,8 @@ static void decompress_file(void)
 		}
 
 		if ((control.flags & FLAG_SHOW_PROGRESS) && !(control.flags & FLAG_STDOUT)) {
-			fprintf(stderr, "Output filename is: %s...Decompressing...\n", control.outfile);
-			fflush(stderr);
+			fprintf(control.msgout, "Output filename is: %s...Decompressing...\n", control.outfile);
+			fflush(control.msgout);
 		}
 	}
 
@@ -308,8 +308,8 @@ static void decompress_file(void)
 
 	read_magic(fd_in, &expected_size);
 	if (control.flags & FLAG_SHOW_PROGRESS) {
-		fprintf(stderr, "Decompressing...");
-		fflush(stderr);
+		fprintf(control.msgout, "Decompressing...");
+		fflush(control.msgout);
 	}
 
 	runzip_fd(fd_in, fd_out, fd_hist, expected_size);
@@ -318,11 +318,11 @@ static void decompress_file(void)
 		dump_tmpoutfile(fd_out);
 
 	/* if we get here, no fatal errors during decompression */
-	fprintf(stderr, "\r");
+	fprintf(control.msgout, "\r");
 	if (!(control.flags & (FLAG_STDOUT | FLAG_TEST_ONLY)))
-		fprintf(stderr, "Output filename is: %s: ", control.outfile);
-	fprintf(stderr, "[OK] - %lld bytes                                 \n", (long long)expected_size);
-	fflush(stderr);
+		fprintf(control.msgout, "Output filename is: %s: ", control.outfile);
+	fprintf(control.msgout, "[OK] - %lld bytes                                 \n", (long long)expected_size);
+	fflush(control.msgout);
 
 	if (close(fd_hist) != 0 || close(fd_out) != 0)
 		fatal("Failed to close files\n");
@@ -400,23 +400,23 @@ static void get_fileinfo(void)
 
 	cratio = (long double)expected_size / (long double)infile_size;
 	
-	fprintf(stderr, "%s:\nlrzip version: %d.%d file\n", infilecopy, control.major_version, control.minor_version);
-	fprintf(stderr, "Compression: ");
+	fprintf(control.msgout, "%s:\nlrzip version: %d.%d file\n", infilecopy, control.major_version, control.minor_version);
+	fprintf(control.msgout, "Compression: ");
 	if (ctype == CTYPE_NONE)
-		fprintf(stderr, "rzip alone\n");
+		fprintf(control.msgout, "rzip alone\n");
 	else if (ctype == CTYPE_BZIP2)
-		fprintf(stderr, "rzip + bzip2\n");
+		fprintf(control.msgout, "rzip + bzip2\n");
 	else if (ctype == CTYPE_LZO)
-		fprintf(stderr, "rzip + lzo\n");
+		fprintf(control.msgout, "rzip + lzo\n");
 	else if (ctype == CTYPE_LZMA)
-		fprintf(stderr, "rzip + lzma\n");
+		fprintf(control.msgout, "rzip + lzma\n");
 	else if (ctype == CTYPE_GZIP)
-		fprintf(stderr, "rzip + gzip\n");
+		fprintf(control.msgout, "rzip + gzip\n");
 	else if (ctype == CTYPE_ZPAQ)
-		fprintf(stderr, "rzip + zpaq\n");
-	fprintf(stderr, "Decompressed file size: %llu\n", expected_size);
-	fprintf(stderr, "Compressed file size: %llu\n", infile_size);
-	fprintf(stderr, "Compression ratio: %.3Lf\n", cratio);
+		fprintf(control.msgout, "rzip + zpaq\n");
+	fprintf(control.msgout, "Decompressed file size: %llu\n", expected_size);
+	fprintf(control.msgout, "Compressed file size: %llu\n", infile_size);
+	fprintf(control.msgout, "Compression ratio: %.3Lf\n", cratio);
 
 	if (control.flags & FLAG_STDIN) {
 		if (unlink(control.infile) != 0)
@@ -443,7 +443,7 @@ static void compress_file(void)
 	if (!(control.flags & FLAG_STDIN)) {
 		/* is extension at end of infile? */
 		if ((tmp = strrchr(control.infile, '.')) && !strcmp(tmp, control.suffix)) {
-			fprintf(stderr, "%s: already has %s suffix. Skipping...\n", control.infile, control.suffix);
+			fprintf(control.msgout, "%s: already has %s suffix. Skipping...\n", control.infile, control.suffix);
 			return;
 		}
 
@@ -466,7 +466,7 @@ static void compress_file(void)
 						fatal("Failed to allocate outfile name\n");
 					strcpy(control.outfile, control.outname);
 					strcat(control.outfile, control.suffix);
-					fprintf(stderr, "Suffix added to %s.\nFull pathname is: %s\n", control.outname, control.outfile);
+					fprintf(control.msgout, "Suffix added to %s.\nFull pathname is: %s\n", control.outname, control.outfile);
 				} else	/* no, already has suffix */
 					control.outfile = strdup(control.outname);
 		} else {
@@ -490,7 +490,7 @@ static void compress_file(void)
 				strcpy(control.outfile, tmpinfile);
 			strcat(control.outfile, control.suffix);
 			if ( control.flags & FLAG_SHOW_PROGRESS )
-				fprintf(stderr, "Output filename is: %s\n", control.outfile);
+				fprintf(control.msgout, "Output filename is: %s\n", control.outfile);
 		}
 
 		if (control.flags & FLAG_FORCE_REPLACE)
@@ -575,6 +575,7 @@ int main(int argc, char *argv[])
 
 	memset(&control, 0, sizeof(control));
 
+	control.msgout = stderr;
 	control.flags = FLAG_SHOW_PROGRESS | FLAG_KEEP_FILES;
 	control.suffix = ".lrz";
 	control.outdir = NULL;
@@ -657,7 +658,7 @@ int main(int argc, char *argv[])
 			control.flags &= ~FLAG_SHOW_PROGRESS;
 			break;
 		case 'V':
-			fprintf(stderr, "lrzip version %d.%d%d\n",
+			fprintf(stdout, "lrzip version %d.%d%d\n",
 				LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
 			exit(0);
 			break;
@@ -836,13 +837,19 @@ int main(int argc, char *argv[])
 		if (control.infile && (strcmp(control.infile, "-") == 0))
 			control.flags |= FLAG_STDIN;
 
-		if (control.outname && (strcmp(control.outname, "-") == 0))
+		if (control.outname && (strcmp(control.outname, "-") == 0)) {
 			control.flags |= FLAG_STDOUT;
+			control.msgout = stderr;
+		}
 
 		/* If we're using stdin and no output filename, use stdout */
-		if ((control.flags & FLAG_STDIN) && !control.outname)
+		if ((control.flags & FLAG_STDIN) && !control.outname) {
 			control.flags |= FLAG_STDOUT;
+			control.msgout = stderr;
+		}
 
+		if (!(control.flags & FLAG_STDOUT))
+			control.msgout = stdout;
 		/* Implement signal handler only once flags are set */
 		handler.sa_handler = &sighandler;
 		sigaction(SIGTERM, &handler, 0);
@@ -865,7 +872,7 @@ int main(int argc, char *argv[])
 		minutes = (int)(total_time - hours * 3600) / 60;
 		seconds = total_time - hours * 60 - minutes * 60;
 		if ((control.flags & FLAG_SHOW_PROGRESS) && !(control.flags & FLAG_INFO))
-			fprintf(stderr, "Total time: %02d:%02d:%06.3f\n", hours, minutes, seconds);
+			fprintf(control.msgout, "Total time: %02d:%02d:%06.3f\n", hours, minutes, seconds);
 	}
 
 	return 0;

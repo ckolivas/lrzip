@@ -241,7 +241,7 @@ again:
 	better_than_min = increase_mask(st->minimum_tag_mask);
 	if (control.flags & FLAG_VERBOSITY_MAX) {
 		if (!st->tag_clean_ptr)
-			fprintf(stderr, "\nStarting sweep for mask %u\n", (unsigned int)st->minimum_tag_mask);
+			fprintf(control.msgout, "\nStarting sweep for mask %u\n", (unsigned int)st->minimum_tag_mask);
 	}
 
 	for (; st->tag_clean_ptr < (1U<<st->hash_bits); st->tag_clean_ptr++) {
@@ -370,9 +370,9 @@ static void show_distrib(struct rzip_state *st)
 	}
 
 	if (total != st->hash_count)
-		fprintf(stderr, "/tWARNING: hash_count says total %lld\n", st->hash_count);
+		fprintf(control.msgout, "/tWARNING: hash_count says total %lld\n", st->hash_count);
 
-	fprintf(stderr, "\t%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n", total, primary,
+	fprintf(control.msgout, "\t%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n", total, primary,
 	       primary*100.0/total);
 }
 
@@ -399,7 +399,7 @@ static void hash_search(struct rzip_state *st, uchar *buf,
 		for (st->hash_bits = 0; (1U << st->hash_bits) < hashsize; st->hash_bits++);
 
 		if (control.flags & FLAG_VERBOSITY_MAX)
-			fprintf(stderr, "hashsize = %lld.  bits = %lld. %luMB\n",
+			fprintf(control.msgout, "hashsize = %lld.  bits = %lld. %luMB\n",
 			       hashsize, st->hash_bits, st->level->mb_used);
 
 		/* 66% full at max. */
@@ -473,8 +473,8 @@ static void hash_search(struct rzip_state *st, uchar *buf,
 
 				fstat(st->fd_in, &s1);
 				fstat(st->fd_out, &s2);
-				fprintf(stderr, "%2lld%%\r", pct);
-				fflush(stderr);
+				fprintf(control.msgout, "%2lld%%\r", pct);
+				fflush(control.msgout);
 				lastpct = pct;
 			}
 		}
@@ -617,7 +617,7 @@ void rzip_fd(int fd_in, int fd_out)
 				eta_minutes = (unsigned int)((finish_time - elapsed_time) - eta_hours * 3600) / 60;
 				eta_seconds = (unsigned int)(finish_time - elapsed_time) - eta_hours * 60 - eta_minutes * 60;
 				chunkmbs=(last_chunk / 1024 / 1024) / (double)(current.tv_sec-last.tv_sec);
-				fprintf(stderr, "\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
+				fprintf(control.msgout, "\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
 						pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds,
 						eta_hours, eta_minutes, eta_seconds, chunkmbs);
 			}
@@ -635,21 +635,21 @@ void rzip_fd(int fd_in, int fd_out)
 	fstat(fd_out, &s2);
 
 	if (control.flags & FLAG_VERBOSITY_MAX) {
-		fprintf(stderr, "matches=%u match_bytes=%u\n",
+		fprintf(control.msgout, "matches=%u match_bytes=%u\n",
 		       (unsigned int)st->stats.matches, (unsigned int)st->stats.match_bytes);
-		fprintf(stderr, "literals=%u literal_bytes=%u\n",
+		fprintf(control.msgout, "literals=%u literal_bytes=%u\n",
 		       (unsigned int)st->stats.literals, (unsigned int)st->stats.literal_bytes);
-		fprintf(stderr, "true_tag_positives=%u false_tag_positives=%u\n",
+		fprintf(control.msgout, "true_tag_positives=%u false_tag_positives=%u\n",
 		       (unsigned int)st->stats.tag_hits, (unsigned int)st->stats.tag_misses);
-		fprintf(stderr, "inserts=%u match %.3f\n",
+		fprintf(control.msgout, "inserts=%u match %.3f\n",
 		       (unsigned int)st->stats.inserts,
 		       (1.0 + st->stats.match_bytes) / st->stats.literal_bytes);
 	}
 
 	if (control.flags & FLAG_SHOW_PROGRESS) {
 		if (!(control.flags & FLAG_STDIN))
-			fprintf(stderr, "%s - ", control.infile);
-		fprintf(stderr, "Compression Ratio: %.3f. Average Compression Speed: %6.3fMB/s.\n",
+			fprintf(control.msgout, "%s - ", control.infile);
+		fprintf(control.msgout, "Compression Ratio: %.3f. Average Compression Speed: %6.3fMB/s.\n",
 		        1.0 * s.st_size / s2.st_size, chunkmbs);
 	}
 

@@ -90,11 +90,11 @@ void read_config( struct rzip_control *control )
 
 	fp = fopen("lrzip.conf", "r");
 	if (fp)
-		fprintf(stderr, "Using configuration file ./lrzip.conf\n");
+		fprintf(control->msgout, "Using configuration file ./lrzip.conf\n");
 	if (fp == NULL) {
 		fp = fopen("/etc/lrzip/lrzip.conf", "r");
 		if (fp)
-			fprintf(stderr, "Using configuration file /etc/lrzip/lrzip.conf\n");
+			fprintf(control->msgout, "Using configuration file /etc/lrzip/lrzip.conf\n");
 	}
 	if (fp == NULL) {
 		HOME=getenv("HOME");
@@ -103,7 +103,7 @@ void read_config( struct rzip_control *control )
 			strcat(homeconf,"/.lrzip/lrzip.conf");
 			fp = fopen(homeconf, "r");
 			if (fp)
-				fprintf(stderr, "Using configuration file %s\n", homeconf);
+				fprintf(control->msgout, "Using configuration file %s\n", homeconf);
 		}
 	}
 	if (fp == NULL)

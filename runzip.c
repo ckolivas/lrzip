@@ -234,9 +234,9 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 		if (control.flags & FLAG_SHOW_PROGRESS) {
 			if ( p != l )  {
 				prog_done = (double)(tally+total) / (double)divisor[divisor_index];
-				fprintf(stderr, "%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
+				fprintf(control.msgout, "%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
 						p, prog_done, prog_tsize, suffix[divisor_index] );
-				fflush(stderr);
+				fflush(control.msgout);
 				l = p;
 			}
 		}
@@ -268,7 +268,7 @@ i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 
 	gettimeofday(&end,NULL);
 	if (control.flags & FLAG_SHOW_PROGRESS)
-		fprintf(stderr, "\nAverage DeCompression Speed: %6.3fMB/s\n",
+		fprintf(control.msgout, "\nAverage DeCompression Speed: %6.3fMB/s\n",
 			(total / 1024 / 1024) / (double)((end.tv_sec-start.tv_sec)? : 1));
 	return total;
 }
