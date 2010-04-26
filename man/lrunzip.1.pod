@@ -44,7 +44,7 @@ lrunzip - Uncompress LRZ files
 
 =head1 SYNOPSIS
 
-  lrztar [options] FILE [... FILE]
+  lrunzip [options] FILE [... FILE]
 
 =head1 DESCRIPTION
 
