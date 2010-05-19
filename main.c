@@ -154,7 +154,7 @@ static int open_tmpoutfile(void)
 		fatal("Failed to allocate outfile name\n");
 
 	fd_out = mkstemp(control.outfile);
-	if (!fd_out)
+	if (fd_out == -1)
 		fatal("Failed to create out tmpfile: %s\n", strerror(errno));
 	return fd_out;
 }
@@ -191,7 +191,7 @@ static int open_tmpinfile(void)
 		fatal("Failed to allocate infile name\n");
 
 	fd_in = mkstemp(control.infile);
-	if (!fd_in)
+	if (fd_in == -1)
 		fatal("Failed to create in tmpfile: %s\n", strerror(errno));
 	return fd_in;
 }
