@@ -148,8 +148,8 @@ static int open_tmpoutfile(void)
 
 	if ((control.flags & FLAG_STDOUT) && (control.flags & FLAG_VERBOSE))
 		fprintf(control.msgout, "Outputting to stdout.\n");
-	control.outfile = realloc(NULL, 16);
-	strcpy(control.outfile, "lrzipout.XXXXXX");
+	control.outfile = realloc(NULL, 21);
+	strcpy(control.outfile, "/tmp/lrzipout.XXXXXX");
 	if (!control.outfile)
 		fatal("Failed to allocate outfile name\n");
 
@@ -185,8 +185,8 @@ static int open_tmpinfile(void)
 {
 	int fd_in;
 
-	control.infile = malloc(15);
-	strcpy(control.infile, "lrzipin.XXXXXX");
+	control.infile = malloc(21);
+	strcpy(control.infile, "/tmp/lrzipin.XXXXXX");
 	if (!control.infile)
 		fatal("Failed to allocate infile name\n");
 
