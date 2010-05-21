@@ -321,7 +321,8 @@ static void decompress_file(void)
 	fprintf(control.msgout, "\r");
 	if (!(control.flags & (FLAG_STDOUT | FLAG_TEST_ONLY)))
 		fprintf(control.msgout, "Output filename is: %s: ", control.outfile);
-	fprintf(control.msgout, "[OK] - %lld bytes                                 \n", (long long)expected_size);
+        if (control.flags & FLAG_SHOW_PROGRESS)
+                fprintf(control.msgout, "[OK] - %lld bytes                                 \n", (long long)expected_size);
 	fflush(control.msgout);
 
 	if (close(fd_hist) != 0 || close(fd_out) != 0)
