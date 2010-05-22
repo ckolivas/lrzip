@@ -1,5 +1,12 @@
 lrzip-0.45
 
+Added lrzuntar which works the same as lrztar -d.
+
+Con Kolivas
+May 2010
+
+lrzip-0.45
+
 Added docs for lrztar and lrunzip.
 Added distclean and maintainer-clean make targets.
 Created git repo: http://github.com/ckolivas/lrzip

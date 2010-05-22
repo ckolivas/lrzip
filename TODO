@@ -13,6 +13,6 @@ Consider ncurses version or even GUI one.
 Consider using LZMA Filters for processor-optimized
 coding to increase compression.
 
-Write a wrapper script for tarballing directories.
-
 Get the ASM working on 64bit.
+
+Clean up the config system since it's a mystery to me.

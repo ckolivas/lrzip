@@ -1,4 +1,10 @@
 lrzip ChangeLog
+MAY 2010, version 0.46, Con Kolivas, Ed Avis.
+* Suppress final [OK] message with -q flag EA
+* Handle mkstemp() errors correctly EA
+* Add lrzuntar manpage
+* Update manpages
+
 APRIL 2010, version 0.45, Con Kolivas, Jon Tibble, George Makrydakis
 * Fixes the nasm program test (AC_CHECK_PROG doesn't overwrite a
 variable that is already set so do it manually) JT

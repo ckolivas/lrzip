@@ -1,9 +1,6 @@
-#!/usr/bin/make -f
+#   Copyright
 #
-#   Copyright information
-#
-#	Copyright (C) 2010 Con Kolivas
-#	Copyright (C) 2010 Jari Aalto
+#      Copyright (C) 2010 Con Kolivas
 #
 #   License
 #
@@ -19,21 +16,48 @@
 #
 #       You should have received a copy of the GNU General Public License
 #       along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
 
-PODCENTER = Lrzip
+=pod
 
-all: lrunzip.1 lrztar.1 lrzuntar.1
+=head1 NAME
 
-lrunzip.1: lrunzip.1.pod
-	podchecker $<
-	$(MAKE) -f pod2man.mk PACKAGE=lrunzip PODCENTER=$(PODCENTER) makeman
+lrzuntar - Extract whole tarball from .tar.lrz files
 
-lrztar.1: lrztar.1.pod
-	podchecker $<
-	$(MAKE) -f pod2man.mk PACKAGE=lrztar PODCENTER=$(PODCENTER) makeman
+=head1 SYNOPSIS
 
-lrzuntar.1: lrzuntar.1.pod
-	podchecker $<
-	$(MAKE) -f pod2man.mk PACKAGE=lrzuntar PODCENTER=$(PODCENTER) makeman
+  lrzuntar [options] DIRECTORY.tar.lrz
 
-# End of file
+=head1 DESCRIPTION
+
+lrzuntar is identical to C<lrztar -d> used to decompress lrzip compressed
+tarballs.
+
+=head1 OPTIONS
+
+See lrzip(1)
+
+=head1 ENVIRONMENT
+
+None.
+
+=head1 FILES
+
+None.
+
+=head1 SEE ALSO
+
+lrztar(1),
+bzip2(1),
+gzip(1),
+lzop(1),
+lrzip(1),
+rzip(1),
+zip(1),
+lrzip.conf(5)
+
+=head1 AUTHORS
+
+Con Kolivas.
+
+=cut

@@ -1,5 +1,6 @@
 #   Copyright
 #
+#      Copyright (C) 2010 Con Kolivas
 #      Copyright (C) 2009-2009 Jari Aalto
 #
 #   License
@@ -70,6 +71,8 @@ lzop(1),
 lrzip(1),
 rzip(1),
 zip(1)
+lrztar(1),
+lrzip.conf(5)
 
 =head1 AUTHORS
 

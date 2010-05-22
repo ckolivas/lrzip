@@ -1,4 +1,4 @@
-.TH "lrzip" "1" "December 2009" "" ""
+.TH "lrzip" "1" "May 2010" "" ""
 .SH "NAME"
 lrzip \- a large-file compression program
 .SH "SYNOPSIS"
@@ -12,6 +12,8 @@ lrunzip [OPTIONS] <file>
 lrztar [lrzip options] <directory>
 .br
 lrztar \-d [lrzip options] <directory>
+.br
+lrzuntar [lrzip options] <directory>
 .br
 LRZIP=NOCONFIG [lrzip|lrunzip] [OPTIONS] <file>
 .PP
@@ -53,7 +55,7 @@ Here is a summary of the options to lrzip\&.
   \-t            test compressed file integrity
   \-i            show compressed file information
 
-If no filenames or "-" is specified, stdin/out will be used.
+If no filenames or "-" is specified, stdin/out will be used (stdin/out is inefficient with lrzip and not recommended usage).
 
 .fi
 
@@ -248,11 +250,20 @@ with increasing ram sizes.
 .PP
 .SH "BUGS"
 .PP
-Probably lots.
+Nil known. Probably lots.
 
 .PP
 .SH "SEE ALSO"
-lrzip.conf(5)
+lrzip.conf(5),
+bzip2(1),
+gzip(1),
+lzop(1),
+lrzip(1),
+rzip(1),
+zip(1)
+lrztar(1),
+lrzuntar(1)
+
 .PP
 .SH "AUTHOR and CREDITS"
 .br

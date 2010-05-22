@@ -51,7 +51,7 @@ DOCFILES= AUTHORS BUGS ChangeLog COPYING README README-NOT-BACKWARD-COMPATIBLE \
 DOCFILES_LZMA= lzma/7zC.txt lzma/7zFormat.txt lzma/Methods.txt \
 	  lzma/history.txt lzma/lzma.txt lzma/README lzma/README-Alloc
 
-MAN1FILES= man/lrzip.1 man/lrunzip.1 man/lrztar.1
+MAN1FILES= man/lrzip.1 man/lrunzip.1 man/lrztar.1 man/lrzuntar.1
 MAN5FILES= man/lrzip.conf.5
 
 #note that the -I. is needed to handle config.h when using VPATH
@@ -116,7 +116,7 @@ install: all
 uninstall:
 	rm -rf $(DESTDIR)${INSTALL_BIN}/{lrztar,lrzuntar,lrunzip,lrzip}
 	rm -rf $(DESTDIR)${INSTALL_DOC}
-	rm -rf $(DESTDIR)${INSTALL_MAN1}/{lrunzip.1,lrzip.1,lrztar.1}
+	rm -rf $(DESTDIR)${INSTALL_MAN1}/{lrunzip.1,lrzip.1,lrztar.1,lrzuntar.1}
 	rm -rf $(DESTDIR)${INSTALL_MAN5}/lrzip.conf.5
 lrzip: $(OBJS)
 	$(CXX) $(LDFLAGS) -o lrzip $(OBJS) $(LIBS)
@@ -126,7 +126,7 @@ static: $(OBJS)
 
 clean:
 	-${RM} *~ $(OBJS) lrzip config.cache config.log config.status *.o \
-	man/lrunzip.1 man/lrztar.1
+	man/lrunzip.1 man/lrztar.1 man/lrzuntar.1
 
 distclean: clean
 	-rm -rf autom4te.cache config.h Makefile

@@ -1,5 +1,6 @@
 #   Copyright
 #
+#      Copyright (C) 2010 Con Kolivas
 #      Copyright (C) 2009-2010 Jari Aalto
 #
 #   License
@@ -46,11 +47,13 @@ lrztar - Directory wrapper for lrzip
 
   lrztar [options] DIRECTORY
   lrztar -d [options] DIRECTORY.tar.lrz
+  lrzuntar [options] DIRECTORY.tar.lrz
 
 =head1 DESCRIPTION
 
-lrztar is a wrapper for compressing and decompressing while directories with lrzip(1)
-to corresponding file C<DIRECTORY.tar.lrz>.
+lrztar is a wrapper for compressing and decompressing whole directories with lrzip(1)
+to corresponding file C<DIRECTORY.tar.lrz>. lrzuntar is identical to C<lrztar -d>.
+lrztar takes the same options as lrzip.
 
 =head1 OPTIONS
 
@@ -71,7 +74,8 @@ gzip(1),
 lzop(1),
 lrzip(1),
 rzip(1),
-zip(1)
+zip(1),
+lrzip.conf(5)
 
 =head1 AUTHORS
 
