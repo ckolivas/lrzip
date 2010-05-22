@@ -1,4 +1,4 @@
-lrzip-0.45
+lrzip-0.46
 
 Added lrzuntar which works the same as lrztar -d.
 
