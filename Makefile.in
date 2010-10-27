@@ -102,8 +102,8 @@ install: all
 	mkdir -p $(DESTDIR)${INSTALL_BIN}
 	${INSTALLCMD} -m 755 lrzip $(DESTDIR)${INSTALL_BIN}
 	${INSTALLCMD} -m 755 lrztar $(DESTDIR)${INSTALL_BIN}
-	${LN_S} -f $(DESTDIR)${INSTALL_BIN}/lrzip $(DESTDIR)${INSTALL_BIN}/lrunzip
-	${LN_S} -f $(DESTDIR)${INSTALL_BIN}/lrztar $(DESTDIR)${INSTALL_BIN}/lrzuntar
+	(cd $(DESTDIR)${INSTALL_BIN} && ${LN_S} -f lrzip lrunzip )
+	(cd $(DESTDIR)${INSTALL_BIN} && ${LN_S} -f lrztar lrzuntar)
 	chmod 755 $(DESTDIR)${INSTALL_BIN}/lrzuntar
 	mkdir -p $(DESTDIR)${INSTALL_MAN1}
 	${INSTALLCMD} -m 644 $(MAN1FILES) $(DESTDIR)${INSTALL_MAN1}
