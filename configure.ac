@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([lrzip],[0.46],[kernel@kolivas.org],[lrzip-0.46])
+AC_INIT([lrzip],[0.47],[kernel@kolivas.org],[lrzip-0.47])
 AC_CONFIG_HEADER(config.h)
 # see what our system is!
 AC_CANONICAL_HOST

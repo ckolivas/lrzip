@@ -1,4 +1,8 @@
 lrzip ChangeLog
+OCTOBER 2010, version 0.47, Con Kolivas
+* Fix the symlinking problem when DESTDIR is in use reported by a billion
+people.
+
 MAY 2010, version 0.46, Con Kolivas, Ed Avis.
 * Suppress final [OK] message with -q flag EA
 * Handle mkstemp() errors correctly EA
