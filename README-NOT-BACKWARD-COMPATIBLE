@@ -1,3 +1,8 @@
+lrzip-0.50 update
+
+All files created with lrzip 0.50+ are not backward compatible with versions
+prior to 0.50. v0.50 can read earlier generated files.
+
 lrzip-0.41 update
 
 Files created with lrzip 0.41 and selecting the -z option for
@@ -17,7 +22,7 @@ Con Kolivas November 2009.
 lrzip-0.24 update!
 
 FILES CREATED WITH LRZIP 0.23 and earlier are NOT
-BACKWARE COMPATIBLE if compressed with LZMA.
+BACKWARD COMPATIBLE if compressed with LZMA.
 
 All other compression schemes are compatible.
 

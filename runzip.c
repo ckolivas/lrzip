@@ -28,15 +28,6 @@ static inline uchar read_u8(void *ss, int stream)
 	return b;
 }
 
-static inline u16 read_u16(void *ss, int stream)
-{
-	u16 ret;
-
-	if (read_stream(ss, stream, (uchar *)&ret, 2) != 2)
-		fatal("Stream read u16 failed\n");
-	return ret;
-}
-
 static inline u32 read_u32(void *ss, int stream)
 {
 	u32 ret;
@@ -45,28 +36,30 @@ static inline u32 read_u32(void *ss, int stream)
 		fatal("Stream read u32 failed\n");
 	return ret;
 }
-
-static inline i64 read_i64(void *ss, int stream)
+/* Read a variable length of chars dependant on how big the chunk was */
+static inline i64 read_vchars(void *ss, int stream, int length)
 {
-	i64 ret;
+	int bytes;
+	i64 s = 0;
 
-	if (read_stream(ss, stream, (uchar *)&ret, 8) != 8)
-		fatal("Stream read i64 failed\n");
-	return ret;
-}
+	for (bytes = 0; bytes < length; bytes++) {
+		int bits = bytes * 8;
 
-static u16 read_header_v03(void *ss, uchar *head)
-{
-	*head = read_u8(ss, 0);
-	return read_u16(ss, 0);
+		uchar sb = read_u8(ss, stream);
+		s |= (i64)sb << bits;
+	}
+	return s;
 }
 
 static i64 read_header(void *ss, uchar *head)
 {
-	if (control.major_version == 0 && control.minor_version < 4)
-		return read_header_v03(ss, head);
+	int chunk_bytes = 2;
+
+	/* All chunks were unnecessarily encoded 8 bytes wide version 0.4x */
+	if (control.major_version == 0 && control.minor_version == 4)
+		chunk_bytes = 8;
 	*head = read_u8(ss, 0);
-	return read_i64(ss, 0);
+	return read_vchars(ss, 0, chunk_bytes);
 }
 
 static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
@@ -93,63 +86,29 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 	return len;
 }
 
-static i64 unzip_match_v03(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum)
-{
-	u32 offset;
-	i64 n, total = 0;
-	i64 cur_pos = lseek(fd_out, 0, SEEK_CUR);
-
-	if (cur_pos == -1)
-		fatal("Seek failed on out file in unzip_match.\n");
-
-	offset = read_u32(ss, 0);
-
-	if (lseek(fd_hist, cur_pos - offset, SEEK_SET) == -1)
-		fatal("Seek failed by %d from %d on history file in unzip_match - %s\n",
-		      offset, cur_pos, strerror(errno));
-
-	while (len) {
-		uchar *buf;
-		n = MIN(len, offset);
-
-		buf = malloc((size_t)n);
-		if (!buf)
-			fatal("Failed to allocate %d bytes in unzip_match\n", n);
-
-		if (read_1g(fd_hist, buf, (size_t)n) != (ssize_t)n)
-			fatal("Failed to read %d bytes in unzip_match\n", n);
-
-		if (write_1g(fd_out, buf, (size_t)n) != (ssize_t)n)
-			fatal("Failed to write %d bytes in unzip_match\n", n);
-
-		*cksum = CrcUpdate(*cksum, buf, n);
-
-		len -= n;
-		free(buf);
-		total += n;
-	}
-
-	return total;
-}
-
 static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum)
 {
-	i64 cur_pos;
-	i64 offset, n, total;
+	i64 offset, n, total, cur_pos;
+	int chunk_bytes = 8;
 
 	if (len < 0)
 		fatal("len %lld is negative in unzip_match!\n",len);
 
-	if (control.major_version == 0 && control.minor_version < 4)
-		return unzip_match_v03(ss, len, fd_out, fd_hist, cksum);
-
+	if (control.major_version == 0) {
+		/* Versions < 0.4 used 4 bytes for all offsets, version 0.4 used 8 bytes.
+		 * Versions 0.5+ used a variable number of bytes depending on block size. */
+		if (control.minor_version < 4)
+			chunk_bytes = 4;
+		else if (control.minor_version == 4)
+			chunk_bytes = 8;
+	}
 	total = 0;
 	cur_pos = lseek(fd_out, 0, SEEK_CUR);
 	if (cur_pos == -1)
 		fatal("Seek failed on out file in unzip_match.\n");
 
 	/* Note the offset is in a different format v0.40+ */
-	offset = read_i64(ss, 0);
+	offset = read_vchars(ss, 0, chunk_bytes);
 	if (lseek(fd_hist, cur_pos - offset, SEEK_SET) == -1)
 		fatal("Seek failed by %d from %d on history file in unzip_match - %s\n",
 		      offset, cur_pos, strerror(errno));

@@ -20,7 +20,6 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 /* rzip compression algorithm */
-
 #include "rzip.h"
 
 #define CHUNK_MULTIPLE (100 * 1024 * 1024)
@@ -88,25 +87,32 @@ struct rzip_state {
 static inline void put_u8(void *ss, int stream, uchar b)
 {
 	if (write_stream(ss, stream, &b, 1) != 0)
-		fatal(NULL);
+		fatal("Failed to put_u8\n");
 }
 
 static inline void put_u32(void *ss, int stream, uint32_t s)
 {
 	if (write_stream(ss, stream, (uchar *)&s, 4))
-		fatal(NULL);
+		fatal("Failed to put_u32\n");
 }
 
-static inline void put_i64(void *ss, int stream, i64 s)
+/* Put a variable length of bytes dependant on how big the chunk is */
+static inline void put_vchars(void *ss, int stream, i64 s, int length)
 {
-	if (write_stream(ss, stream, (uchar *)&s, 8))
-		fatal(NULL);
+	int bytes;
+
+	for (bytes = 0; bytes < length; bytes++) {
+		int bits = bytes * 8;
+		uchar sb = (s >> bits) & (i64)0XFF;
+
+		put_u8(ss, stream, sb);
+	}
 }
 
 static void put_header(void *ss, uchar head, i64 len)
 {
 	put_u8(ss, 0, head);
-	put_i64(ss, 0, len);
+	put_vchars(ss, 0, len, 2);
 }
 
 static void put_match(struct rzip_state *st, uchar *p, uchar *buf, i64 offset, i64 len)
@@ -114,10 +120,11 @@ static void put_match(struct rzip_state *st, uchar *p, uchar *buf, i64 offset, i
 	do {
 		i64 ofs;
 		i64 n = len;
+		if (n > 0xFFFF) n = 0xFFFF;
 
-		ofs = (p - (buf+offset));
+		ofs = (p - (buf + offset));
 		put_header(st->ss, 1, n);
-		put_i64(st->ss, 0, ofs);
+		put_vchars(st->ss, 0, ofs, 8);
 
 		st->stats.matches++;
 		st->stats.match_bytes += n;
@@ -131,6 +138,7 @@ static void put_literal(struct rzip_state *st, uchar *last, uchar *p)
 {
 	do {
 		i64 len = (i64)(p - last);
+		if (len > 0xFFFF) len = 0xFFFF;
 
 		st->stats.literals++;
 		st->stats.literal_bytes += len;
@@ -174,7 +182,7 @@ static int lesser_bitness(tag a, tag b)
 {
 	tag mask;
 
-	for (mask = 0; mask != (tag)-1; mask = ((mask<<1)|1)) {
+	for (mask = 0; mask != (tag) - 1; mask = ((mask << 1) | 1)) {
 		if ((a & b & mask) != mask)
 			break;
 	}
@@ -491,7 +499,7 @@ static void hash_search(struct rzip_state *st, uchar *buf,
 		show_distrib(st);
 
 	if (st->last_match < buf + st->chunk_size)
-		put_literal(st, st->last_match,buf + st->chunk_size);
+		put_literal(st, st->last_match, buf + st->chunk_size);
 
 	if (st->chunk_size > cksum_limit) {
 		i64 n = st->chunk_size - cksum_limit;
@@ -519,21 +527,41 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 {
 	uchar *buf;
 
-	buf = (uchar *)mmap(NULL, st->chunk_size, PROT_READ, MAP_SHARED, fd_in, offset);
+	/* Malloc'ing first will tell us if we can allocate this much ram
+	 * faster than slowly reading in the file and then failing. Filling
+	 * it with zeroes has a defragmenting effect on ram before the real
+	 * read in. */
+	if (control.flags & FLAG_SHOW_PROGRESS)
+		fprintf(control.msgout, "Allocating ram...\n");
+	buf = malloc(st->chunk_size);
+	if (!buf)
+		fatal("Failed to premalloc in rzip_chunk\n");
+	if (!memset(buf, 0, st->chunk_size))
+		fatal("Failed to memset in rzip_chunk\n");
+	free(buf);
+	buf = (uchar *)mmap(buf, st->chunk_size, PROT_READ, MAP_SHARED | MAP_POPULATE, fd_in, offset);
 	if (buf == (uchar *)-1)
-		fatal("Failed to map buffer in rzip_fd\n");
+		fatal("Failed to map buffer in rzip_chunk\n");
 
 	st->ss = open_stream_out(fd_out, NUM_STREAMS, limit);
 	if (!st->ss)
-		fatal("Failed to open streams in rzip_fd\n");
+		fatal("Failed to open streams in rzip_chunk\n");
 	hash_search(st, buf, pct_base, pct_multiple);
 	/* unmap buffer before closing and reallocating streams */
 	munmap(buf, st->chunk_size);
 
 	if (close_stream_out(st->ss) != 0)
-		fatal("Failed to flush/close streams in rzip_fd\n");
+		fatal("Failed to flush/close streams in rzip_chunk\n");
 }
 
+/* Windows must be the width of _SC_PAGE_SIZE for offset to work in mmap */
+static void round_to_page_size(i64 *chunk)
+{
+	unsigned long page_size = sysconf(_SC_PAGE_SIZE);
+	i64 pages = *chunk / page_size + 1;
+
+	*chunk = pages * page_size;
+}
 
 /* compress a whole file chunks at a time */
 void rzip_fd(int fd_in, int fd_out)
@@ -549,9 +577,8 @@ void rzip_fd(int fd_in, int fd_out)
 	struct stat s, s2;
 	struct rzip_state *st;
 	i64 len, last_chunk = 0;
-	i64 chunk_window, pages;
+	i64 chunk_window;
 	int pass = 0, passes;
-	unsigned long page_size;
 	unsigned int eta_hours, eta_minutes, eta_seconds, elapsed_hours,
 		     elapsed_minutes, elapsed_seconds;
 	double finish_time, elapsed_time, chunkmbs;
@@ -572,9 +599,7 @@ void rzip_fd(int fd_in, int fd_out)
 
 	/* Windows must be the width of _SC_PAGE_SIZE for offset to work in mmap */
 	chunk_window = control.window * CHUNK_MULTIPLE;
-	page_size = sysconf(_SC_PAGE_SIZE);
-	pages = chunk_window / page_size;
-	chunk_window = pages * page_size;
+	round_to_page_size(&chunk_window);
 
 	st->level = &levels[MIN(9, control.window)];
 	st->fd_in = fd_in;
@@ -588,14 +613,17 @@ void rzip_fd(int fd_in, int fd_out)
 	last.tv_sec = last.tv_usec = 0;
 	gettimeofday(&start, NULL);
 
-	while (len) {
+	while (len > 0) {
 		i64 chunk, limit = 0;
 		double pct_base, pct_multiple;
 
 		chunk = chunk_window;
 
-		if (chunk > len)
-			limit = chunk = len;
+		if (chunk > len) {
+			chunk = len;
+			round_to_page_size(&chunk);
+			limit = chunk;
+		}
 
 		pct_base = (100.0 * (s.st_size - len)) / s.st_size;
 		pct_multiple = ((double)chunk) / s.st_size;

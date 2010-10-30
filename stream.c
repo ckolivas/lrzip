@@ -802,7 +802,7 @@ static int flush_buffer(struct stream_info *sinfo, int stream)
 	free(sinfo->s[stream].buf);
 	sinfo->s[stream].buf = malloc(sinfo->bufsize);
 	if (!sinfo->s[stream].buf)
-		return -1;
+		fatal("Failed to malloc in flush_buffer\n");
 	return 0;
 }
 
