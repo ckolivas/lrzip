@@ -200,10 +200,9 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 	return total;
 }
 
-/* decompress a open file. Call fatal() on error
+/* Decompress an open file. Call fatal() on error
    return the number of bytes that have been retrieved
  */
-
 i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 {
 	struct timeval start,end;

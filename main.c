@@ -86,8 +86,8 @@ static void write_magic(int fd_in, int fd_out)
 
 static void read_magic(int fd_in, i64 *expected_size)
 {
-	uint32_t v;
 	char magic[24];
+	uint32_t v;
 	int i;
 
 	if (read(fd_in, magic, sizeof(magic)) != sizeof(magic))
@@ -220,9 +220,9 @@ static void read_tmpinfile(int fd_in)
 */
 static void decompress_file(void)
 {
+	char *tmp, *tmpoutfile, *infilecopy = NULL;
 	int fd_in, fd_out = -1, fd_hist = -1;
 	i64 expected_size;
-	char *tmp, *tmpoutfile, *infilecopy = NULL;
 
 	if (!(control.flags & FLAG_STDIN)) {
 		if ((tmp = strrchr(control.infile, '.')) && strcmp(tmp,control.suffix)) {
@@ -347,12 +347,12 @@ static void decompress_file(void)
 
 static void get_fileinfo(void)
 {
-	struct stat st;
 	int fd_in, ctype = 0;
+	long double cratio;
 	i64 expected_size;
 	i64 infile_size;
+	struct stat st;
 	int seekspot;
-	long double cratio;
 
 	char *tmp, *infilecopy = NULL;
 
@@ -433,10 +433,10 @@ static void get_fileinfo(void)
 */
 static void compress_file(void)
 {
-	int fd_in, fd_out;
 	const char *tmp, *tmpinfile; 	/* we're just using this as a proxy for control.infile.
 					 * Spares a compiler warning
 					 */
+	int fd_in, fd_out;
 	char header[24];
 
 	memset(header, 0, sizeof(header));
@@ -566,12 +566,12 @@ static i64 get_ram(void)
 
 int main(int argc, char *argv[])
 {
-	extern int optind;
-	int c, i, maxwin = 0;
 	struct timeval start_time, end_time;
 	struct sigaction handler;
-	int hours,minutes;
 	double seconds,total_time; // for timers
+	int c, i, maxwin = 0;
+	int hours,minutes;
+	extern int optind;
 	char *eptr; /* for environment */
 
 	memset(&control, 0, sizeof(control));
