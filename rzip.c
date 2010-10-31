@@ -562,7 +562,7 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 static void round_to_page_size(i64 *chunk)
 {
 	unsigned long page_size = sysconf(_SC_PAGE_SIZE);
-	i64 pages = *chunk / page_size + 1;
+	i64 pages = *chunk / page_size;
 
 	*chunk = pages * page_size;
 }
@@ -609,6 +609,7 @@ void rzip_fd(int fd_in, int fd_out)
 		fprintf(control.msgout, "Byte width: %d\n", st->chunk_bytes);
 
 	chunk_window = control.window * CHUNK_MULTIPLE;
+	round_to_page_size(&chunk_window);
 
 	st->level = &levels[MIN(9, control.window)];
 	st->fd_in = fd_in;
@@ -636,7 +637,6 @@ void rzip_fd(int fd_in, int fd_out)
 		chunk = chunk_window;
 		if (chunk > len)
 			chunk = len;
-		round_to_page_size(&chunk);
 		limit = chunk;
 		st->chunk_size = chunk;
 		if (control.flags & FLAG_VERBOSE)
