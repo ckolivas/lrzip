@@ -250,10 +250,8 @@ static tag clean_one_from_hash(struct rzip_state *st)
 
 again:
 	better_than_min = increase_mask(st->minimum_tag_mask);
-	if (control.flags & FLAG_VERBOSITY_MAX) {
-		if (!st->tag_clean_ptr)
-			fprintf(control.msgout, "\nStarting sweep for mask %u\n", (unsigned int)st->minimum_tag_mask);
-	}
+	if (!st->tag_clean_ptr)
+		print_maxverbose("\nStarting sweep for mask %u\n", (unsigned int)st->minimum_tag_mask);
 
 	for (; st->tag_clean_ptr < (1U << st->hash_bits); st->tag_clean_ptr++) {
 		if (empty_hash(st, st->tag_clean_ptr))
@@ -382,9 +380,9 @@ static void show_distrib(struct rzip_state *st)
 	}
 
 	if (total != st->hash_count)
-		fprintf(control.msgout, "/tWARNING: hash_count says total %lld\n", st->hash_count);
+		print_out("/tWARNING: hash_count says total %lld\n", st->hash_count);
 
-	fprintf(control.msgout, "\t%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n", total, primary,
+	print_out("\t%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n", total, primary,
 	       primary*100.0/total);
 }
 
@@ -409,9 +407,8 @@ static void hash_search(struct rzip_state *st, uchar *buf,
 				(1024 * 1024 / sizeof(st->hash_table[0]));
 		for (st->hash_bits = 0; (1U << st->hash_bits) < hashsize; st->hash_bits++);
 
-		if (control.flags & FLAG_VERBOSITY_MAX)
-			fprintf(control.msgout, "hashsize = %lld.  bits = %lld. %luMB\n",
-			       hashsize, st->hash_bits, st->level->mb_used);
+		print_maxverbose("hashsize = %lld.  bits = %lld. %luMB\n",
+				 hashsize, st->hash_bits, st->level->mb_used);
 
 		/* 66% full at max. */
 		st->hash_limit = (1 << st->hash_bits) / 3 * 2;
@@ -476,7 +473,7 @@ static void hash_search(struct rzip_state *st, uchar *buf,
 			t = full_tag(st, p);
 		}
 
-		if ((control.flags & FLAG_SHOW_PROGRESS) && (p - buf) % 100 == 0) {
+		if (SHOW_PROGRESS && (p - buf) % 100 == 0) {
 			pct = pct_base + (pct_multiple * (100.0 * (p - buf)) /
 			      st->chunk_size);
 			if (pct != lastpct) {
@@ -484,7 +481,7 @@ static void hash_search(struct rzip_state *st, uchar *buf,
 
 				fstat(st->fd_in, &s1);
 				fstat(st->fd_out, &s2);
-				fprintf(control.msgout, "%2lld%%\r", pct);
+				print_out("%2lld%%\r", pct);
 				fflush(control.msgout);
 				lastpct = pct;
 			}
@@ -535,8 +532,7 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 	 * faster than slowly reading in the file and then failing. Filling
 	 * it with zeroes has a defragmenting effect on ram before the real
 	 * read in. */
-	if (control.flags & FLAG_VERBOSE)
-		fprintf(control.msgout, "Preallocating ram...\n");
+	print_verbose("Preallocating ram...\n");
 	while (buf == (void*)-1) {
 		/* If we fail to mmap the full amount, it is worth trying to
 		 * mmap ever smaller sizes till we succeed as we may be able
@@ -547,15 +543,13 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 			prealloc_size = prealloc_size / 10 * 9;
 			continue;
 		}
-		if (control.flags & FLAG_VERBOSE)
-			fprintf(control.msgout, "Preallocated %lld ram...\n", prealloc_size);
+		print_maxverbose("Preallocated %lld ram...\n", prealloc_size);
 		if (!memset(buf, 0, prealloc_size))
 			fatal("Failed to memset in rzip_chunk\n");
 		if (munmap(buf, prealloc_size) != 0)
 			fatal("Failed to munmap in rzip_chunk\n");
 	}
-	if (control.flags & FLAG_VERBOSE)
-		fprintf(control.msgout, "Reading file into mmapped ram...\n");
+	print_verbose("Reading file into mmapped ram...\n");
 	buf = (uchar *)mmap(buf, st->chunk_size, PROT_READ, MAP_SHARED, fd_in, offset);
 	if (buf == (uchar *)-1)
 		fatal("Failed to map buffer in rzip_chunk\n");
@@ -603,15 +597,13 @@ void rzip_fd(int fd_in, int fd_out)
 		fatal("Failed to stat fd_in in rzip_fd - %s\n", strerror(errno));
 
 	len = s.st_size;
-	if (control.flags & FLAG_VERBOSE)
-		fprintf(control.msgout, "File size: %lld\n", len);
+	print_verbose("File size: %lld\n", len);
 	while (len >> bits > 0)
 		bits++;
 	st->chunk_bytes = bits / 8;
 	if (bits % 8)
 		st->chunk_bytes++;
-	if (control.flags & FLAG_VERBOSE)
-		fprintf(control.msgout, "Byte width: %d\n", st->chunk_bytes);
+	print_maxverbose("Byte width: %d\n", st->chunk_bytes);
 
 	chunk_window = control.window * CHUNK_MULTIPLE;
 
@@ -635,16 +627,15 @@ void rzip_fd(int fd_in, int fd_out)
 		 * running out of memory when we allocate ram again on the
 		 * next chunk. It will also prevent thrashing on-disk due to
 		 * concurrent reads and writes if we're on the same device. */
-		if (last_chunk && control.flags & FLAG_VERBOSE)
-			fprintf(control.msgout, "Flushing data to disk.\n");
+		if (last_chunk)
+			print_verbose("Flushing data to disk.\n");
 		fsync(fd_out);
 		chunk = chunk_window;
 		if (chunk > len)
 			chunk = len;
 		limit = chunk;
 		st->chunk_size = chunk;
-		if (control.flags & FLAG_VERBOSE)
-			fprintf(control.msgout, "Chunk size: %lld\n\n", chunk);
+		print_maxverbose("Chunk size: %lld\n\n", chunk);
 
 		pct_base = (100.0 * (s.st_size - len)) / s.st_size;
 		pct_multiple = ((double)chunk) / s.st_size;
@@ -653,7 +644,7 @@ void rzip_fd(int fd_in, int fd_out)
 		gettimeofday(&current, NULL);
 		/* this will count only when size > window */
 		if (last.tv_sec > 0) {
-			if (control.flags & FLAG_VERBOSE) {
+			if (VERBOSE) {
 				elapsed_time = current.tv_sec - start.tv_sec;
 				finish_time = elapsed_time / (pct_base / 100.0);
 				elapsed_hours = (unsigned int)(elapsed_time) / 3600;
@@ -663,7 +654,7 @@ void rzip_fd(int fd_in, int fd_out)
 				eta_minutes = (unsigned int)((finish_time - elapsed_time) - eta_hours * 3600) / 60;
 				eta_seconds = (unsigned int)(finish_time - elapsed_time) - eta_hours * 60 - eta_minutes * 60;
 				chunkmbs=(last_chunk / 1024 / 1024) / (double)(current.tv_sec-last.tv_sec);
-				fprintf(control.msgout, "\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
+				print_out("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
 						pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds,
 						eta_hours, eta_minutes, eta_seconds, chunkmbs);
 			}
@@ -680,24 +671,20 @@ void rzip_fd(int fd_in, int fd_out)
 
 	fstat(fd_out, &s2);
 
-	if (control.flags & FLAG_VERBOSITY_MAX) {
-		fprintf(control.msgout, "matches=%u match_bytes=%u\n",
-		       (unsigned int)st->stats.matches, (unsigned int)st->stats.match_bytes);
-		fprintf(control.msgout, "literals=%u literal_bytes=%u\n",
-		       (unsigned int)st->stats.literals, (unsigned int)st->stats.literal_bytes);
-		fprintf(control.msgout, "true_tag_positives=%u false_tag_positives=%u\n",
-		       (unsigned int)st->stats.tag_hits, (unsigned int)st->stats.tag_misses);
-		fprintf(control.msgout, "inserts=%u match %.3f\n",
-		       (unsigned int)st->stats.inserts,
-		       (1.0 + st->stats.match_bytes) / st->stats.literal_bytes);
-	}
+	print_maxverbose("matches=%u match_bytes=%u\n",
+	       (unsigned int)st->stats.matches, (unsigned int)st->stats.match_bytes);
+	print_maxverbose("literals=%u literal_bytes=%u\n",
+	       (unsigned int)st->stats.literals, (unsigned int)st->stats.literal_bytes);
+	print_maxverbose("true_tag_positives=%u false_tag_positives=%u\n",
+	       (unsigned int)st->stats.tag_hits, (unsigned int)st->stats.tag_misses);
+	print_maxverbose("inserts=%u match %.3f\n",
+	       (unsigned int)st->stats.inserts,
+	       (1.0 + st->stats.match_bytes) / st->stats.literal_bytes);
 
-	if (control.flags & FLAG_SHOW_PROGRESS) {
-		if (!(control.flags & FLAG_STDIN))
-			fprintf(control.msgout, "%s - ", control.infile);
-		fprintf(control.msgout, "Compression Ratio: %.3f. Average Compression Speed: %6.3fMB/s.\n",
+	if (!STDIN)
+		print_progress("%s - ", control.infile);
+	print_progress("Compression Ratio: %.3f. Average Compression Speed: %6.3fMB/s.\n",
 		        1.0 * s.st_size / s2.st_size, chunkmbs);
-	}
 
 	if (st->hash_table)
 		free(st->hash_table);

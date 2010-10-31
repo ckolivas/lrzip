@@ -140,6 +140,17 @@ typedef uint32_t u32;
 #define FLAG_NOT_LZMA (FLAG_NO_COMPRESS | FLAG_LZO_COMPRESS | FLAG_BZIP2_COMPRESS | FLAG_ZLIB_COMPRESS | FLAG_ZPAQ_COMPRESS)
 #define LZMA_COMPRESS(C)	(!((C) & FLAG_NOT_LZMA))
 
+#define SHOW_PROGRESS	(control.flags & FLAG_SHOW_PROGRESS)
+#define KEEP_FILES	(control.flags & FLAG_KEEP_FILES)
+#define TEST_ONLY	(control.flags & FLAG_TEST_ONLY)
+#define FORCE_REPLACE	(control.flags & FLAG_FORCE_REPLACE)
+#define VERBOSE		(control.flags & FLAG_VERBOSE)
+#define MAX_VERBOSE	(control.flags & FLAG_VERBOSITY_MAX)
+#define NO_SET_PERMS	(control.flags & FLAG_NO_SET_PERMS)
+#define STDIN		(control.flags & FLAG_STDIN)
+#define STDOUT		(control.flags & FLAG_STDOUT)
+#define INFO		(control.flags & FLAG_INFO)
+
 #define CTYPE_NONE 3
 #define CTYPE_BZIP2 4
 #define CTYPE_LZO 5
@@ -184,3 +195,31 @@ ssize_t write_1g(int fd, void *buf, i64 len);
 ssize_t read_1g(int fd, void *buf, i64 len);
 extern void zpipe_compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
 extern void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
+
+#define print_out(format, args...)	do {\
+	fprintf(stdout, format, ##args);	\
+} while (0)
+
+#define print_err(format, args...)	do {\
+	fprintf(stderr, format, ##args);	\
+} while (0)
+
+#define print_output(format, args...)	do {\
+	fprintf(control.msgout, format, ##args);	\
+	fflush(control.msgout);	\
+} while (0)
+
+#define print_progress(format, args...)	do {\
+	if (SHOW_PROGRESS)	\
+		print_output(format, ##args);	\
+} while (0)
+
+#define print_verbose(format, args...)	do {\
+	if (VERBOSE)	\
+		print_output(format, ##args);	\
+} while (0)
+
+#define print_maxverbose(format, args...)	do {\
+	if (MAX_VERBOSE)	\
+		print_output(format, ##args);	\
+} while (0)

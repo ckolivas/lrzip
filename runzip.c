@@ -37,6 +37,7 @@ static inline u32 read_u32(void *ss, int stream)
 		fatal("Stream read u32 failed\n");
 	return ret;
 }
+
 /* Read a variable length of chars dependant on how big the chunk was */
 static inline i64 read_vchars(void *ss, int stream, int length)
 {
@@ -179,10 +180,10 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 				break;
 		}
 		p = 100 * ((double)(tally + total) / (double)expected_size);
-		if (control.flags & FLAG_SHOW_PROGRESS) {
+		if (SHOW_PROGRESS) {
 			if ( p != l )  {
 				prog_done = (double)(tally + total) / (double)divisor[divisor_index];
-				fprintf(control.msgout, "%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
+				print_out("%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
 						p, prog_done, prog_tsize, suffix[divisor_index] );
 				fflush(control.msgout);
 				l = p;
@@ -227,15 +228,13 @@ i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 		if (bits % 8)
 			chunk_bytes++;
 	}
-	if (control.flags & FLAG_VERBOSE)
-		fprintf(control.msgout, "Expected size: %lld\nChunk byte width: %d\n", expected_size, chunk_bytes);
+	print_maxverbose("\nExpected size: %lld\nChunk byte width: %d\n", expected_size, chunk_bytes);
 
 	while (total < expected_size)
 		total += runzip_chunk(fd_in, fd_out, fd_hist, expected_size, total, chunk_bytes);
 
 	gettimeofday(&end,NULL);
-	if (control.flags & FLAG_SHOW_PROGRESS)
-		fprintf(control.msgout, "\nAverage DeCompression Speed: %6.3fMB/s\n",
+	print_progress("\nAverage DeCompression Speed: %6.3fMB/s\n",
 			(total / 1024 / 1024) / (double)((end.tv_sec-start.tv_sec)? : 1));
 	return total;
 }

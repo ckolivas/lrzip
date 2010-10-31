@@ -226,10 +226,7 @@ static void lzma_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 	if (!c_buf)
 		return;
 
-	if (control.flags & FLAG_SHOW_PROGRESS) {
-		fprintf(control.msgout, "\tProgress percentage pausing during lzma compression...");
-		fflush(control.msgout);
-	}
+	print_progress("\tProgress percentage pausing during lzma compression...");
 	/* with LZMA SDK 4.63, we pass compression level and threads only
 	 * and receive properties in control->lzma_properties */
 
@@ -270,11 +267,10 @@ static void lzma_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 	s->buf = c_buf;
 	*c_type = CTYPE_LZMA;
 out:
-	if (control.flags & FLAG_VERBOSITY_MAX)
-		fprintf(control.msgout, "\n");
-	else if ((control.flags & FLAG_SHOW_PROGRESS || control.flags & FLAG_VERBOSITY ))
-		fprintf(control.msgout, "\r\t                                                                                      \r");
-	fflush(control.msgout);
+	if (MAX_VERBOSE)
+		print_out("\n");
+	else if (SHOW_PROGRESS || VERBOSE)
+		print_out("\r\t                                                                                      \r");
 }
 
 static void lzo_compress_buf(struct stream *s, int *c_type, i64 *c_len)
@@ -1006,10 +1002,7 @@ static int lzo_compresses(struct stream *s)
 	if (!c_buf)
 		fatal("Unable to allocate c_buf in lzo_compresses\n");
 
-	if (control.flags & FLAG_SHOW_PROGRESS) {
-		fprintf(control.msgout, "\tlzo testing for incompressible data...");
-		fflush(control.msgout);
-	}
+	print_progress("\tlzo testing for incompressible data...");
 
 	/* Test progressively larger blocks at a time and as soon as anything
 	   compressible is found, jump out as a success */
@@ -1033,15 +1026,13 @@ static int lzo_compresses(struct stream *s)
 			in_len = MIN(test_len, buftest_size);
 		}
 	}
-	if (control.flags & FLAG_VERBOSITY_MAX)
-		fprintf(control.msgout, "%s for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
+	if (MAX_VERBOSE)
+		print_out("%s for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
 			(ret == 0? "FAILED - below threshold" : "OK"), save_len,
 			100 * ((double) best_dlen / (double) in_len), workcounter);
-	else if (control.flags & FLAG_VERBOSITY)
-		fprintf(control.msgout, "%s\r", (ret == 0? "FAILED - below threshold" : "OK"));
-	else if (control.flags & FLAG_SHOW_PROGRESS)
-		fprintf(control.msgout, "\r\t                                                      \r");
-	fflush(control.msgout);
+	else if (VERBOSE)
+		print_out("%s\r", (ret == 0? "FAILED - below threshold" : "OK"));
+	else print_progress("\r\t                                                      \r");
 
 	free(wrkmem);
 	free(c_buf);
