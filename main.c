@@ -770,13 +770,6 @@ int main(int argc, char *argv[])
 			control.window = 1;
 	}
 
-	/* malloc limited to 2GB on 32bit */
-	if (sizeof(long) == 4 && control.window > 20) {
-		control.window = 20;
-		if (control.flags & FLAG_VERBOSE)
-			fprintf(stderr, "Limiting control window to 2GB due to 32bit limitations.\n");
-	}
-
 	/* OK, if verbosity set, print summary of options selected */
 	if ((control.flags & FLAG_VERBOSE) && !(control.flags & FLAG_INFO)) {
 		fprintf(stderr, "The following options are in effect for this %s.\n",

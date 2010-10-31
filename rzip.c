@@ -121,7 +121,8 @@ static void put_match(struct rzip_state *st, uchar *p, uchar *buf, i64 offset, i
 	do {
 		i64 ofs;
 		i64 n = len;
-		if (n > 0xFFFF) n = 0xFFFF;
+		if (n > 0xFFFF)
+			n = 0xFFFF;
 
 		ofs = (p - (buf + offset));
 		put_header(st->ss, 1, n);
@@ -139,7 +140,8 @@ static void put_literal(struct rzip_state *st, uchar *last, uchar *p)
 {
 	do {
 		i64 len = (i64)(p - last);
-		if (len > 0xFFFF) len = 0xFFFF;
+		if (len > 0xFFFF)
+			len = 0xFFFF;
 
 		st->stats.literals++;
 		st->stats.literal_bytes += len;
@@ -147,7 +149,7 @@ static void put_literal(struct rzip_state *st, uchar *last, uchar *p)
 		put_header(st->ss, 0, len);
 
 		if (len && write_stream(st->ss, 1, last, len) != 0)
-			fatal(NULL);
+			fatal("Failed to write_stream in put_literal\n");
 		last += len;
 	} while (p > last);
 }
@@ -220,9 +222,8 @@ static void insert_hash(struct rzip_state *st, tag t, i64 offset)
 		/* If we have lots of identical patterns, we end up
 		   with lots of the same hash number.  Discard random. */
 		if (st->hash_table[h].t == t) {
-			if (round == victim_round) {
+			if (round == victim_round)
 				victim_h = h;
-			}
 			if (++round == st->level->max_chain_len) {
 				h = victim_h;
 				st->hash_count--;
@@ -401,9 +402,9 @@ static void hash_search(struct rzip_state *st, uchar *buf,
 
 	tag tag_mask = (1 << st->level->initial_freq) - 1;
 
-	if (st->hash_table) {
+	if (st->hash_table)
 		memset(st->hash_table, 0, sizeof(st->hash_table[0]) * (1<<st->hash_bits));
-	} else {
+	else {
 		i64 hashsize = st->level->mb_used *
 				(1024 * 1024 / sizeof(st->hash_table[0]));
 		for (st->hash_bits = 0; (1U << st->hash_bits) < hashsize; st->hash_bits++);
@@ -527,7 +528,8 @@ static void init_hash_indexes(struct rzip_state *st)
 static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 		       double pct_base, double pct_multiple, i64 limit)
 {
-	uchar *buf;
+	i64 prealloc_size = st->chunk_size;
+	uchar *buf = (void *)-1;
 
 	/* Malloc'ing first will tell us if we can allocate this much ram
 	 * faster than slowly reading in the file and then failing. Filling
@@ -535,12 +537,23 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 	 * read in. */
 	if (control.flags & FLAG_VERBOSE)
 		fprintf(control.msgout, "Preallocating ram...\n");
-	buf = malloc(st->chunk_size);
-	if (!buf)
-		fatal("Failed to premalloc in rzip_chunk\n");
-	if (!memset(buf, 0, st->chunk_size))
-		fatal("Failed to memset in rzip_chunk\n");
-	free(buf);
+	while (buf == (void*)-1) {
+		/* If we fail to mmap the full amount, it is worth trying to
+		 * mmap ever smaller sizes till we succeed as we may be able
+		 * to continue with file backed mmap in the presence of swap
+		 * and defragmentation */
+		buf = mmap(NULL, prealloc_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		if (buf == (void *)-1) {
+			prealloc_size = prealloc_size / 10 * 9;
+			continue;
+		}
+		if (control.flags & FLAG_VERBOSE)
+			fprintf(control.msgout, "Preallocated %lld ram...\n", prealloc_size);
+		if (!memset(buf, 0, prealloc_size))
+			fatal("Failed to memset in rzip_chunk\n");
+		if (munmap(buf, prealloc_size) != 0)
+			fatal("Failed to munmap in rzip_chunk\n");
+	}
 	if (control.flags & FLAG_VERBOSE)
 		fprintf(control.msgout, "Reading file into mmapped ram...\n");
 	buf = (uchar *)mmap(buf, st->chunk_size, PROT_READ, MAP_SHARED, fd_in, offset);
@@ -552,19 +565,11 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 		fatal("Failed to open streams in rzip_chunk\n");
 	hash_search(st, buf, pct_base, pct_multiple);
 	/* unmap buffer before closing and reallocating streams */
-	munmap(buf, st->chunk_size);
+	if (munmap(buf, st->chunk_size) != 0)
+		fatal("Failed to munmap in rzip_chunk\n");
 
 	if (close_stream_out(st->ss) != 0)
 		fatal("Failed to flush/close streams in rzip_chunk\n");
-}
-
-/* Windows must be the width of _SC_PAGE_SIZE for offset to work in mmap */
-static void round_to_page_size(i64 *chunk)
-{
-	unsigned long page_size = sysconf(_SC_PAGE_SIZE);
-	i64 pages = *chunk / page_size;
-
-	*chunk = pages * page_size;
 }
 
 /* compress a whole file chunks at a time */
@@ -609,7 +614,6 @@ void rzip_fd(int fd_in, int fd_out)
 		fprintf(control.msgout, "Byte width: %d\n", st->chunk_bytes);
 
 	chunk_window = control.window * CHUNK_MULTIPLE;
-	round_to_page_size(&chunk_window);
 
 	st->level = &levels[MIN(9, control.window)];
 	st->fd_in = fd_in;
@@ -623,7 +627,7 @@ void rzip_fd(int fd_in, int fd_out)
 	last.tv_sec = last.tv_usec = 0;
 	gettimeofday(&start, NULL);
 
-	while (len > 0) {
+	while (len) {
 		double pct_base, pct_multiple;
 		i64 chunk, limit = 0;
 

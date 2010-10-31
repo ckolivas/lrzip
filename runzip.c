@@ -23,6 +23,7 @@
 static inline uchar read_u8(void *ss, int stream)
 {
 	uchar b;
+
 	if (read_stream(ss, stream, &b, 1) != 1)
 		fatal("Stream read u8 failed\n");
 	return b;
@@ -69,11 +70,10 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 	if (len < 0)
 		fatal("len %lld is negative in unzip_literal!\n",len);
 
-	if (sizeof(long) == 4 && len > (1UL << 31))
-		fatal("Unable to allocate a chunk this big on 32bit userspace. Can't decompress this file on this hardware\n");
-
-	buf = malloc((size_t)len);
-	if (!buf)
+	/* We use anonymous mmap instead of malloc to allow us to allocate up
+	 * to 2^44 even on 32 bits */
+	buf = (uchar *)mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	if (buf == (uchar *)-1)
 		fatal("Failed to allocate literal buffer of size %lld\n", len);
 
 	read_stream(ss, 1, buf, len);
@@ -82,7 +82,7 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 
 	*cksum = CrcUpdate(*cksum, buf, len);
 
-	free(buf);
+	munmap(buf, len);
 	return len;
 }
 
@@ -133,18 +133,18 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
  */
 static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i64 tally, char chunk_bytes)
 {
-	i64 len, ofs, total = 0;
 	uint32 good_cksum, cksum = 0;
+	i64 len, ofs, total = 0;
 	int l = -1, p = 0;
 	struct stat st;
 	uchar head;
 	void *ss;
 
 	/* for display of progress */
-	char *suffix[] = {"","KB","MB","GB"};
 	unsigned long divisor[] = {1,1024,1048576,1073741824U};
-	int divisor_index;
+	char *suffix[] = {"","KB","MB","GB"};
 	double prog_done, prog_tsize;
+	int divisor_index;
 
 	if (expected_size > (i64)10737418240ULL)	/* > 10GB */
 		divisor_index = 3;
@@ -166,7 +166,7 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 
 	ss = open_stream_in(fd_in, NUM_STREAMS);
 	if (!ss)
-		fatal(NULL);
+		fatal("Failed to open_stream_in in runzip_chunk\n");
 
 	while ((len = read_header(ss, &head)) || head) {
 		switch (head) {
