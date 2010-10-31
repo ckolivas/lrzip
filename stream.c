@@ -1,6 +1,6 @@
 /*
    Copyright (C) Andrew Tridgell 1998,
-   Con Kolivas 2006-2009
+   Con Kolivas 2006-2010
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -120,8 +120,8 @@ static int memstream_update_buffer(FILE *fp, uchar **buf, size_t *length)
 
 static void zpaq_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 {
-	uchar *c_buf;
 	FILE *in, *out;
+	uchar *c_buf;
 	size_t dlen;
 
 	if (!lzo_compresses(s))
@@ -156,8 +156,8 @@ static void zpaq_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 
 static void bzip2_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 {
-	uchar *c_buf;
 	u32 dlen = s->buflen;
+	uchar *c_buf;
 
 	if (!lzo_compresses(s))
 		return;
@@ -187,8 +187,8 @@ static void bzip2_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 
 static void gzip_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 {
-	uchar *c_buf;
 	unsigned long dlen = s->buflen;
+	uchar *c_buf;
 
 	c_buf = malloc(dlen);
 	if (!c_buf)
@@ -213,9 +213,9 @@ static void gzip_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 
 static void lzma_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 {
+	size_t prop_size = 5; /* return value for lzma_properties */
 	uchar *c_buf;
 	size_t dlen;
-	size_t prop_size = 5; /* return value for lzma_properties */
 	int lzma_ret;
 
 	if (!lzo_compresses(s))
@@ -279,11 +279,11 @@ out:
 
 static void lzo_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 {
-	uchar *c_buf;
-	lzo_bytep wrkmem;
 	lzo_uint in_len = s->buflen;
 	lzo_uint dlen = in_len + in_len / 16 + 64 + 3;
 	lzo_int return_var;	/* lzo1x_1_compress does not return anything but LZO_OK */
+	lzo_bytep wrkmem;
+	uchar *c_buf;
 
 	wrkmem = (lzo_bytep) malloc(LZO1X_1_MEM_COMPRESS);
 	if (wrkmem == NULL)
@@ -320,8 +320,8 @@ out_free:
 
 static int zpaq_decompress_buf(struct stream *s)
 {
-	uchar *c_buf;
 	FILE *in, *out;
+	uchar *c_buf;
 	size_t dlen;
 
 	in = fmemopen(s->buf, s->buflen, "r");
@@ -355,8 +355,8 @@ static int zpaq_decompress_buf(struct stream *s)
 
 static int bzip2_decompress_buf(struct stream *s, i64 c_len)
 {
-	uchar *c_buf;
 	u32 dlen = s->buflen;
+	uchar *c_buf;
 	int bzerr;
 
 	c_buf = s->buf;
@@ -383,8 +383,8 @@ static int bzip2_decompress_buf(struct stream *s, i64 c_len)
 
 static int gzip_decompress_buf(struct stream *s, i64 c_len)
 {
-	uchar *c_buf;
 	unsigned long dlen = s->buflen;
+	uchar *c_buf;
 	int gzerr;
 
 	c_buf = s->buf;
@@ -411,8 +411,8 @@ static int gzip_decompress_buf(struct stream *s, i64 c_len)
 
 static int lzma_decompress_buf(struct stream *s, size_t c_len)
 {
-	uchar *c_buf;
 	size_t dlen = (size_t)s->buflen;
+	uchar *c_buf;
 	int lzmaerr;
 
 	c_buf = s->buf;
@@ -441,8 +441,8 @@ static int lzma_decompress_buf(struct stream *s, size_t c_len)
 
 static int lzo_decompress_buf(struct stream *s, i64 c_len)
 {
-	uchar *c_buf;
 	lzo_uint dlen = s->buflen;
+	uchar *c_buf;
 	int lzerr;
 
 	c_buf = s->buf;
@@ -476,9 +476,9 @@ const i64 one_g = 1000 * 1024 * 1024;
    even on the rare occasion write() fails to write 1GB as well. */
 ssize_t write_1g(int fd, void *buf, i64 len)
 {
+	uchar *offset_buf = buf;
 	i64 total, offset;
 	ssize_t ret;
-	uchar *offset_buf = buf;
 
 	total = offset = 0;
 	while (len > 0) {
@@ -499,9 +499,9 @@ ssize_t write_1g(int fd, void *buf, i64 len)
 /* Ditto for read */
 ssize_t read_1g(int fd, void *buf, i64 len)
 {
+	uchar *offset_buf = buf;
 	i64 total, offset;
 	ssize_t ret;
-	uchar *offset_buf = buf;
 
 	total = offset = 0;
 	while (len > 0) {
@@ -590,6 +590,7 @@ static int read_i64(int f, i64 *v)
 static int seekto(struct stream_info *sinfo, i64 pos)
 {
 	i64 spos = pos + sinfo->initial_pos;
+
 	if (lseek(sinfo->fd, spos, SEEK_SET) != spos) {
 		err_msg("Failed to seek to %d in stream\n", pos);
 		return -1;
@@ -602,8 +603,8 @@ static int seekto(struct stream_info *sinfo, i64 pos)
 void *open_stream_out(int f, int n, i64 limit)
 {
 	unsigned cwindow = control.window;
-	int i;
 	struct stream_info *sinfo;
+	int i;
 
 	sinfo = malloc(sizeof(*sinfo));
 	if (!sinfo)
@@ -675,9 +676,9 @@ failed:
 /* prepare a set of n streams for reading on file descriptor f */
 void *open_stream_in(int f, int n)
 {
+	struct stream_info *sinfo;
 	i64 header_length;
 	int i;
-	struct stream_info *sinfo;
 
 	sinfo = calloc(sizeof(*sinfo), 1);
 	if (!sinfo)
@@ -759,8 +760,8 @@ failed:
 /* flush out any data in a stream buffer. Return -1 on failure */
 static int flush_buffer(struct stream_info *sinfo, int stream)
 {
-	int c_type = CTYPE_NONE;
 	i64 c_len = sinfo->s[stream].buflen;
+	int c_type = CTYPE_NONE;
 
 	if (seekto(sinfo, sinfo->s[stream].last_head) != 0)
 		return -1;
@@ -809,9 +810,8 @@ static int flush_buffer(struct stream_info *sinfo, int stream)
 /* fill a buffer from a stream - return -1 on failure */
 static int fill_buffer(struct stream_info *sinfo, int stream)
 {
+	i64 header_length, u_len, c_len;
 	uchar c_type;
-	i64 header_length;
-	i64 u_len, c_len;
 
 	if (seekto(sinfo, sinfo->s[stream].last_head) != 0)
 		return -1;

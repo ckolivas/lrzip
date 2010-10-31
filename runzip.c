@@ -1,6 +1,6 @@
 /*
    Copyright (C) Andrew Tridgell 1998-2003
-   Con Kolivas 2006-2009
+   Con Kolivas 2006-2010
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -86,22 +86,13 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 	return len;
 }
 
-static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum)
+static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum, int chunk_bytes)
 {
 	i64 offset, n, total, cur_pos;
-	int chunk_bytes = 8;
 
 	if (len < 0)
 		fatal("len %lld is negative in unzip_match!\n",len);
 
-	if (control.major_version == 0) {
-		/* Versions < 0.4 used 4 bytes for all offsets, version 0.4 used 8 bytes.
-		 * Versions 0.5+ used a variable number of bytes depending on block size. */
-		if (control.minor_version < 4)
-			chunk_bytes = 4;
-		else if (control.minor_version == 4)
-			chunk_bytes = 8;
-	}
 	total = 0;
 	cur_pos = lseek(fd_out, 0, SEEK_CUR);
 	if (cur_pos == -1)
@@ -140,16 +131,14 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 /* decompress a section of an open file. Call fatal() on error
    return the number of bytes that have been retrieved
  */
-static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i64 tally)
+static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i64 tally, char chunk_bytes)
 {
-	uchar head;
-	i64 len;
-	struct stat st;
-	void *ss;
-	i64 ofs;
-	i64 total = 0;
+	i64 len, ofs, total = 0;
 	uint32 good_cksum, cksum = 0;
 	int l = -1, p = 0;
+	struct stat st;
+	uchar head;
+	void *ss;
 
 	/* for display of progress */
 	char *suffix[] = {"","KB","MB","GB"};
@@ -186,13 +175,13 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 				break;
 
 			default:
-				total += unzip_match(ss, len, fd_out, fd_hist, &cksum);
+				total += unzip_match(ss, len, fd_out, fd_hist, &cksum, chunk_bytes);
 				break;
 		}
-		p = 100 * ((double)(tally+total) / (double)expected_size);
+		p = 100 * ((double)(tally + total) / (double)expected_size);
 		if (control.flags & FLAG_SHOW_PROGRESS) {
 			if ( p != l )  {
-				prog_done = (double)(tally+total) / (double)divisor[divisor_index];
+				prog_done = (double)(tally + total) / (double)divisor[divisor_index];
 				fprintf(control.msgout, "%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
 						p, prog_done, prog_tsize, suffix[divisor_index] );
 				fflush(control.msgout);
@@ -217,13 +206,33 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 
 i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 {
-	i64 total = 0;
 	struct timeval start,end;
+	char chunk_bytes;
+	i64 total = 0;
 
 	gettimeofday(&start,NULL);
 
+	/* Determine the chunk_byte width size. Versions < 0.4 used 4
+	 * bytes for all offsets, version 0.4 used 8 bytes. Versions 0.5+ use
+	 * a variable number of bytes depending on file size.*/
+	if (control.major_version == 0 && control.minor_version < 4)
+		chunk_bytes = 4;
+	else if (control.major_version == 0 && control.minor_version == 4)
+		chunk_bytes = 8;
+	else {
+		int bits = 0;
+
+		while (expected_size >> bits > 0)
+			bits++;
+		chunk_bytes = bits / 8;
+		if (bits % 8)
+			chunk_bytes++;
+	}
+	if (control.flags & FLAG_VERBOSE)
+		fprintf(control.msgout, "Expected size: %lld\nChunk byte width: %d\n", expected_size, chunk_bytes);
+
 	while (total < expected_size)
-		total += runzip_chunk(fd_in, fd_out, fd_hist, expected_size, total);
+		total += runzip_chunk(fd_in, fd_out, fd_hist, expected_size, total, chunk_bytes);
 
 	gettimeofday(&end,NULL);
 	if (control.flags & FLAG_SHOW_PROGRESS)

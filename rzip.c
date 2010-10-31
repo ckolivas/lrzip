@@ -1,6 +1,6 @@
 /*
    Copyright (C) Andrew Tridgell 1998,
-   Con Kolivas 2006-2009
+   Con Kolivas 2006-2010
 
    Modified to use flat hash, memory limit and variable hash culling
    by Rusty Russell copyright (C) 2003.
@@ -71,6 +71,7 @@ struct rzip_state {
 	i64 tag_clean_ptr;
 	uchar *last_match;
 	i64 chunk_size;
+	char chunk_bytes;
 	uint32_t cksum;
 	int fd_in, fd_out;
 	struct {
@@ -124,7 +125,7 @@ static void put_match(struct rzip_state *st, uchar *p, uchar *buf, i64 offset, i
 
 		ofs = (p - (buf + offset));
 		put_header(st->ss, 1, n);
-		put_vchars(st->ss, 0, ofs, 8);
+		put_vchars(st->ss, 0, ofs, st->chunk_bytes);
 
 		st->stats.matches++;
 		st->stats.match_bytes += n;
@@ -171,6 +172,7 @@ static inline tag increase_mask(tag tag_mask)
 static int minimum_bitness(struct rzip_state *st, tag t)
 {
 	tag better_than_min = increase_mask(st->minimum_tag_mask);
+
 	if ((t & better_than_min) != better_than_min)
 		return 1;
 	return 0;
@@ -252,7 +254,7 @@ again:
 			fprintf(control.msgout, "\nStarting sweep for mask %u\n", (unsigned int)st->minimum_tag_mask);
 	}
 
-	for (; st->tag_clean_ptr < (1U<<st->hash_bits); st->tag_clean_ptr++) {
+	for (; st->tag_clean_ptr < (1U << st->hash_bits); st->tag_clean_ptr++) {
 		if (empty_hash(st, st->tag_clean_ptr))
 			continue;
 		if ((st->hash_table[st->tag_clean_ptr].t & better_than_min)
@@ -273,7 +275,7 @@ again:
 static inline tag next_tag(struct rzip_state *st, uchar *p, tag t)
 {
 	t ^= st->hash_index[p[-1]];
-	t ^= st->hash_index[p[MINIMUM_MATCH-1]];
+	t ^= st->hash_index[p[-1]];
 	return t;
 }
 
@@ -281,6 +283,7 @@ static inline tag full_tag(struct rzip_state *st, uchar *p)
 {
 	tag ret = 0;
 	int i;
+
 	for (i = 0; i < MINIMUM_MATCH; i++)
 		ret ^= st->hash_index[p[i]];
 	return ret;
@@ -327,8 +330,8 @@ static i64 find_best_match(struct rzip_state *st,
 			   i64 *offset, i64 *reverse)
 {
 	i64 length = 0;
-	i64 rev;
 	i64 h, best_h;
+	i64 rev;
 
 	rev = 0;
 	*reverse = 0;
@@ -365,9 +368,9 @@ static i64 find_best_match(struct rzip_state *st,
 
 static void show_distrib(struct rzip_state *st)
 {
-	i64 i;
-	i64 total = 0;
 	i64 primary = 0;
+	i64 total = 0;
+	i64 i;
 
 	for (i = 0; i < (1U << st->hash_bits); i++) {
 		if (empty_hash(st, i))
@@ -387,10 +390,9 @@ static void show_distrib(struct rzip_state *st)
 static void hash_search(struct rzip_state *st, uchar *buf,
 			double pct_base, double pct_multiple)
 {
+	i64 cksum_limit = 0, pct, lastpct=0;
 	uchar *p, *end;
 	tag t = 0;
-	i64 cksum_limit = 0;
-	i64 pct, lastpct=0;
 	struct {
 		uchar *p;
 		i64 ofs;
@@ -531,15 +533,17 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 	 * faster than slowly reading in the file and then failing. Filling
 	 * it with zeroes has a defragmenting effect on ram before the real
 	 * read in. */
-	if (control.flags & FLAG_SHOW_PROGRESS)
-		fprintf(control.msgout, "Allocating ram...\n");
+	if (control.flags & FLAG_VERBOSE)
+		fprintf(control.msgout, "Preallocating ram...\n");
 	buf = malloc(st->chunk_size);
 	if (!buf)
 		fatal("Failed to premalloc in rzip_chunk\n");
 	if (!memset(buf, 0, st->chunk_size))
 		fatal("Failed to memset in rzip_chunk\n");
 	free(buf);
-	buf = (uchar *)mmap(buf, st->chunk_size, PROT_READ, MAP_SHARED | MAP_POPULATE, fd_in, offset);
+	if (control.flags & FLAG_VERBOSE)
+		fprintf(control.msgout, "Reading file into mmapped ram...\n");
+	buf = (uchar *)mmap(buf, st->chunk_size, PROT_READ, MAP_SHARED, fd_in, offset);
 	if (buf == (uchar *)-1)
 		fatal("Failed to map buffer in rzip_chunk\n");
 
@@ -572,13 +576,11 @@ void rzip_fd(int fd_in, int fd_out)
 	 * Track elapsed time and estimated time to go
 	 * If file size < compression window, can't do
 	 */
-
 	struct timeval current, start, last;
 	struct stat s, s2;
 	struct rzip_state *st;
-	i64 len, last_chunk = 0;
-	i64 chunk_window;
-	int pass = 0, passes;
+	i64 len, chunk_window, last_chunk = 0;
+	int pass = 0, passes, bits = 8;
 	unsigned int eta_hours, eta_minutes, eta_seconds, elapsed_hours,
 		     elapsed_minutes, elapsed_seconds;
 	double finish_time, elapsed_time, chunkmbs;
@@ -596,10 +598,17 @@ void rzip_fd(int fd_in, int fd_out)
 		fatal("Failed to stat fd_in in rzip_fd - %s\n", strerror(errno));
 
 	len = s.st_size;
+	if (control.flags & FLAG_VERBOSE)
+		fprintf(control.msgout, "File size: %lld\n", len);
+	while (len >> bits > 0)
+		bits++;
+	st->chunk_bytes = bits / 8;
+	if (bits % 8)
+		st->chunk_bytes++;
+	if (control.flags & FLAG_VERBOSE)
+		fprintf(control.msgout, "Byte width: %d\n", st->chunk_bytes);
 
-	/* Windows must be the width of _SC_PAGE_SIZE for offset to work in mmap */
 	chunk_window = control.window * CHUNK_MULTIPLE;
-	round_to_page_size(&chunk_window);
 
 	st->level = &levels[MIN(9, control.window)];
 	st->fd_in = fd_in;
@@ -614,22 +623,27 @@ void rzip_fd(int fd_in, int fd_out)
 	gettimeofday(&start, NULL);
 
 	while (len > 0) {
-		i64 chunk, limit = 0;
 		double pct_base, pct_multiple;
+		i64 chunk, limit = 0;
 
+		/* Flushing the dirty data will decrease our chances of
+		 * running out of memory when we allocate ram again on the
+		 * next chunk. It will also prevent thrashing on-disk due to
+		 * concurrent reads and writes if we're on the same device. */
+		if (last_chunk && control.flags & FLAG_VERBOSE)
+			fprintf(control.msgout, "Flushing data to disk.\n");
+		fsync(fd_out);
 		chunk = chunk_window;
-
-		if (chunk > len) {
+		if (chunk > len)
 			chunk = len;
-			round_to_page_size(&chunk);
-			limit = chunk;
-		}
+		round_to_page_size(&chunk);
+		limit = chunk;
+		st->chunk_size = chunk;
+		if (control.flags & FLAG_VERBOSE)
+			fprintf(control.msgout, "Chunk size: %lld\n\n", chunk);
 
 		pct_base = (100.0 * (s.st_size - len)) / s.st_size;
 		pct_multiple = ((double)chunk) / s.st_size;
-
-		st->chunk_size = chunk;
-
 		pass++;
 
 		gettimeofday(&current, NULL);
