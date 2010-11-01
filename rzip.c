@@ -380,9 +380,9 @@ static void show_distrib(struct rzip_state *st)
 	}
 
 	if (total != st->hash_count)
-		print_out("/tWARNING: hash_count says total %lld\n", st->hash_count);
+		print_output("/tWARNING: hash_count says total %lld\n", st->hash_count);
 
-	print_out("\t%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n", total, primary,
+	print_output("\t%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n", total, primary,
 	       primary*100.0/total);
 }
 
@@ -481,7 +481,7 @@ static void hash_search(struct rzip_state *st, uchar *buf,
 
 				fstat(st->fd_in, &s1);
 				fstat(st->fd_out, &s2);
-				print_out("%2lld%%\r", pct);
+				print_output("%2lld%%\r", pct);
 				fflush(control.msgout);
 				lastpct = pct;
 			}
@@ -654,7 +654,7 @@ void rzip_fd(int fd_in, int fd_out)
 				eta_minutes = (unsigned int)((finish_time - elapsed_time) - eta_hours * 3600) / 60;
 				eta_seconds = (unsigned int)(finish_time - elapsed_time) - eta_hours * 60 - eta_minutes * 60;
 				chunkmbs=(last_chunk / 1024 / 1024) / (double)(current.tv_sec-last.tv_sec);
-				print_out("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
+				print_output("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
 						pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds,
 						eta_hours, eta_minutes, eta_seconds, chunkmbs);
 			}

@@ -23,36 +23,36 @@ struct rzip_control control;
 
 static void usage(void)
 {
-	print_out("lrzip version %d.%d%d\n", LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
-	print_out("Copyright (C) Con Kolivas 2006-2010\n\n");
-	print_out("Based on rzip ");
-	print_out("Copyright (C) Andrew Tridgell 1998-2003\n");
-	print_out("usage: lrzip [options] <file...>\n");
-	print_out(" Options:\n");
-	print_out("     -w size       compression window in hundreds of MB\n");
-	print_out("                   default chosen by heuristic dependent on ram and chosen compression\n");
-	print_out("     -d            decompress\n");
-	print_out("     -o filename   specify the output file name and/or path\n");
-	print_out("     -O directory  specify the output directory when -o is not used\n");
-	print_out("     -S suffix     specify compressed suffix (default '.lrz')\n");
-	print_out("     -f            force overwrite of any existing files\n");
-	print_out("     -D            delete existing files\n");
-	print_out("     -P            don't set permissions on output file - may leave it world-readable\n");
-	print_out("     -q            don't show compression progress\n");
-	print_out("     -L level      set lzma/bzip2/gzip compression level (1-9, default 7)\n");
-	print_out("     -n            no backend compression - prepare for other compressor\n");
-	print_out("     -l            lzo compression (ultra fast)\n");
-	print_out("     -b            bzip2 compression\n");
-	print_out("     -g            gzip compression using zlib\n");
-	print_out("     -z            zpaq compression (best, extreme compression, extremely slow)\n");
-	print_out("     -M            Maximum window and level - (all available ram and level 9)\n");
-	print_out("     -T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)\n");
-	print_out("     -N value      Set nice value to value (default 19)\n");
-	print_out("     -v[v]         Increase verbosity\n");
-	print_out("     -V            show version\n");
-	print_out("     -t            test compressed file integrity\n");
-	print_out("     -i            show compressed file information\n");
-	print_out("\nIf no filenames or \"-\" is specified, stdin/out will be used.\n");
+	print_output("lrzip version %d.%d%d\n", LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
+	print_output("Copyright (C) Con Kolivas 2006-2010\n\n");
+	print_output("Based on rzip ");
+	print_output("Copyright (C) Andrew Tridgell 1998-2003\n");
+	print_output("usage: lrzip [options] <file...>\n");
+	print_output(" Options:\n");
+	print_output("     -w size       compression window in hundreds of MB\n");
+	print_output("                   default chosen by heuristic dependent on ram and chosen compression\n");
+	print_output("     -d            decompress\n");
+	print_output("     -o filename   specify the output file name and/or path\n");
+	print_output("     -O directory  specify the output directory when -o is not used\n");
+	print_output("     -S suffix     specify compressed suffix (default '.lrz')\n");
+	print_output("     -f            force overwrite of any existing files\n");
+	print_output("     -D            delete existing files\n");
+	print_output("     -P            don't set permissions on output file - may leave it world-readable\n");
+	print_output("     -q            don't show compression progress\n");
+	print_output("     -L level      set lzma/bzip2/gzip compression level (1-9, default 7)\n");
+	print_output("     -n            no backend compression - prepare for other compressor\n");
+	print_output("     -l            lzo compression (ultra fast)\n");
+	print_output("     -b            bzip2 compression\n");
+	print_output("     -g            gzip compression using zlib\n");
+	print_output("     -z            zpaq compression (best, extreme compression, extremely slow)\n");
+	print_output("     -M            Maximum window and level - (all available ram and level 9)\n");
+	print_output("     -T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)\n");
+	print_output("     -N value      Set nice value to value (default 19)\n");
+	print_output("     -v[v]         Increase verbosity\n");
+	print_output("     -V            show version\n");
+	print_output("     -t            test compressed file integrity\n");
+	print_output("     -i            show compressed file information\n");
+	print_output("\nIf no filenames or \"-\" is specified, stdin/out will be used.\n");
 }
 
 static void write_magic(int fd_in, int fd_out)
@@ -162,7 +162,7 @@ static void dump_tmpoutfile(int fd_out)
 
 	print_progress("Dumping to stdout.\n");
 	/* flush anything not yet in the temporary file */
-	fflush(NULL);
+	fsync(fd_out);
 	tmpoutfp = fdopen(fd_out, "r");
 	if (tmpoutfp == NULL)
 		fatal("Failed to fdopen out tmpfile: %s\n", strerror(errno));
@@ -302,9 +302,6 @@ static void decompress_file(void)
 
 	runzip_fd(fd_in, fd_out, fd_hist, expected_size);
 
-	if (STDOUT)
-		dump_tmpoutfile(fd_out);
-
 	/* if we get here, no fatal errors during decompression */
 	print_progress("\r");
 	if (!(STDOUT | TEST_ONLY))
@@ -390,17 +387,17 @@ static void get_fileinfo(void)
 	print_output("%s:\nlrzip version: %d.%d file\n", infilecopy, control.major_version, control.minor_version);
 	print_output("Compression: ");
 	if (ctype == CTYPE_NONE)
-		print_out("rzip alone\n");
+		print_output("rzip alone\n");
 	else if (ctype == CTYPE_BZIP2)
-		print_out("rzip + bzip2\n");
+		print_output("rzip + bzip2\n");
 	else if (ctype == CTYPE_LZO)
-		print_out("rzip + lzo\n");
+		print_output("rzip + lzo\n");
 	else if (ctype == CTYPE_LZMA)
-		print_out("rzip + lzma\n");
+		print_output("rzip + lzma\n");
 	else if (ctype == CTYPE_GZIP)
-		print_out("rzip + gzip\n");
+		print_output("rzip + gzip\n");
 	else if (ctype == CTYPE_ZPAQ)
-		print_out("rzip + zpaq\n");
+		print_output("rzip + zpaq\n");
 	print_output("Decompressed file size: %llu\n", expected_size);
 	print_output("Compressed file size: %llu\n", infile_size);
 	print_output("Compression ratio: %.3Lf\n", cratio);
@@ -453,7 +450,7 @@ static void compress_file(void)
 						fatal("Failed to allocate outfile name\n");
 					strcpy(control.outfile, control.outname);
 					strcat(control.outfile, control.suffix);
-					print_out("Suffix added to %s.\nFull pathname is: %s\n", control.outname, control.outfile);
+					print_output("Suffix added to %s.\nFull pathname is: %s\n", control.outname, control.outfile);
 				} else	/* no, already has suffix */
 					control.outfile = strdup(control.outname);
 		} else {
@@ -644,7 +641,7 @@ int main(int argc, char *argv[])
 			control.flags &= ~FLAG_SHOW_PROGRESS;
 			break;
 		case 'V':
-			print_out("lrzip version %d.%d%d\n",
+			print_output("lrzip version %d.%d%d\n",
 				LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
 			exit(0);
 			break;
@@ -758,45 +755,45 @@ int main(int argc, char *argv[])
 	/* OK, if verbosity set, print summary of options selected */
 	if (VERBOSE && !INFO) {
 		print_err("The following options are in effect for this %s.\n",
-			control.flags & FLAG_DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
+			DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
 		if (LZMA_COMPRESS(control.flags))
 			print_err("Threading is %s. Number of CPUs detected: %lu\n", control.threads > 1? "ENABLED" : "DISABLED",
 				control.threads);
 		print_err("Nice Value: %d\n", control.nice_val);
-		if (control.flags & FLAG_SHOW_PROGRESS)
+		if (SHOW_PROGRESS)
 			print_err("Show Progress\n");
-		if (control.flags & FLAG_VERBOSITY)
+		if (VERBOSITY)
 			print_err("Verbose\n");
-		else if (control.flags & FLAG_VERBOSITY_MAX)
+		else if (MAX_VERBOSE)
 			print_err("Max Verbosity\n");
-		if (control.flags & FLAG_FORCE_REPLACE)
+		if (FORCE_REPLACE)
 			print_err("Overwrite Files\n");
-		if (!(control.flags & FLAG_KEEP_FILES))
+		if (!KEEP_FILES)
 			print_err("Remove input files on completion\n");
 		if (control.outdir)
 			print_err("Output Directory Specified: %s\n", control.outdir);
 		else if (control.outname)
 			print_err("Output Filename Specified: %s\n", control.outname);
-		if (control.flags & FLAG_TEST_ONLY)
+		if (TEST_ONLY)
 			print_err("Test file integrity\n");
 		
 		/* show compression options */
-		if (!(control.flags & FLAG_DECOMPRESS)) {
+		if (!DECOMPRESS) {
 			print_err("Compression mode is: ");
 			if (LZMA_COMPRESS(control.flags))
 				print_err("LZMA. LZO Test Compression Threshold: %.f\n",
 				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
-			else if (control.flags & FLAG_LZO_COMPRESS)
+			else if (LZO_COMPRESS)
 				print_err("LZO\n");
-			else if (control.flags & FLAG_BZIP2_COMPRESS)
+			else if (BZIP2_COMPRESS)
 				print_err("BZIP2. LZO Test Compression Threshold: %.f\n",
 				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
-			else if (control.flags & FLAG_ZLIB_COMPRESS)
+			else if (ZLIB_COMPRESS)
 				print_err("GZIP\n");
-			else if (control.flags & FLAG_ZPAQ_COMPRESS)
+			else if (ZPAQ_COMPRESS)
 				print_err("ZPAQ. LZO Test Compression Threshold: %.f\n",
 				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
-			else if (control.flags & FLAG_NO_COMPRESS)
+			else if (NO_COMPRESS)
 				print_err("RZIP\n");
 			print_err("Compression Window: %lld = %lldMB\n", control.window, control.window * 100ull);
 			print_err("Compression Level: %d\n", control.compression_level);

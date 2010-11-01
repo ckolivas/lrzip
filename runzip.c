@@ -183,7 +183,7 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 		if (SHOW_PROGRESS) {
 			if ( p != l )  {
 				prog_done = (double)(tally + total) / (double)divisor[divisor_index];
-				print_out("%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
+				print_output("%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
 						p, prog_done, prog_tsize, suffix[divisor_index] );
 				fflush(control.msgout);
 				l = p;

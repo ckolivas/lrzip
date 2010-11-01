@@ -144,7 +144,14 @@ typedef uint32_t u32;
 #define KEEP_FILES	(control.flags & FLAG_KEEP_FILES)
 #define TEST_ONLY	(control.flags & FLAG_TEST_ONLY)
 #define FORCE_REPLACE	(control.flags & FLAG_FORCE_REPLACE)
+#define DECOMPRESS	(control.flags & FLAG_DECOMPRESS)
+#define NO_COMPRESS	(control.flags & FLAG_NO_COMPRESS)
+#define LZO_COMPRESS	(control.flags & FLAG_LZO_COMPRESS)
+#define BZIP2_COMPRESS	(control.flags & FLAG_BZIP2_COMPRESS)
+#define ZLIB_COMPRESS	(control.flags & FLAG_ZLIB_COMPRESS)
+#define ZPAQ_COMPRESS	(control.flags & FLAG_ZPAQ_COMPRESS)
 #define VERBOSE		(control.flags & FLAG_VERBOSE)
+#define VERBOSITY	(control.flags & FLAG_VERBOSITY)
 #define MAX_VERBOSE	(control.flags & FLAG_VERBOSITY_MAX)
 #define NO_SET_PERMS	(control.flags & FLAG_NO_SET_PERMS)
 #define STDIN		(control.flags & FLAG_STDIN)
@@ -195,10 +202,6 @@ ssize_t write_1g(int fd, void *buf, i64 len);
 ssize_t read_1g(int fd, void *buf, i64 len);
 extern void zpipe_compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
 extern void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
-
-#define print_out(format, args...)	do {\
-	fprintf(stdout, format, ##args);	\
-} while (0)
 
 #define print_err(format, args...)	do {\
 	fprintf(stderr, format, ##args);	\

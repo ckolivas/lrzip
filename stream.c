@@ -268,9 +268,9 @@ static void lzma_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 	*c_type = CTYPE_LZMA;
 out:
 	if (MAX_VERBOSE)
-		print_out("\n");
+		print_output("\n");
 	else if (SHOW_PROGRESS || VERBOSE)
-		print_out("\r\t                                                                                      \r");
+		print_output("\r\t                                                                                      \r");
 }
 
 static void lzo_compress_buf(struct stream *s, int *c_type, i64 *c_len)
@@ -469,20 +469,25 @@ const i64 one_g = 1000 * 1024 * 1024;
 
 /* This is a custom version of write() which writes in 1GB chunks to avoid
    the overflows at the >= 2GB mark thanks to 32bit fuckage. This should help
-   even on the rare occasion write() fails to write 1GB as well. */
+   even on the rare occasion write() fails to write 1GB as well. We can write
+   a null file if we're just testing. When decompressing to stdout we can
+   write directly to it since there will be no need to seek backwards. */
 ssize_t write_1g(int fd, void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
 	i64 total, offset;
 	ssize_t ret;
 
+	if (DECOMPRESS && STDOUT)
+		fd = 1;
 	total = offset = 0;
 	while (len > 0) {
 		if (len > one_g)
 			ret = one_g;
 		else
 			ret = len;
-		ret = write(fd, offset_buf, (size_t)ret);
+		if (!TEST_ONLY)
+			ret = write(fd, offset_buf, (size_t)ret);
 		if (ret < 0)
 			return ret;
 		len -= ret;
@@ -771,13 +776,13 @@ static int flush_buffer(struct stream_info *sinfo, int stream)
 	if (!(control.flags & FLAG_NO_COMPRESS)) {
 		if (LZMA_COMPRESS(control.flags))
 			lzma_compress_buf(&sinfo->s[stream], &c_type, &c_len);
-		else if (control.flags & FLAG_LZO_COMPRESS)
+		else if (LZO_COMPRESS)
 			lzo_compress_buf(&sinfo->s[stream], &c_type, &c_len);
-		else if (control.flags & FLAG_BZIP2_COMPRESS)
+		else if (BZIP2_COMPRESS)
 			bzip2_compress_buf(&sinfo->s[stream], &c_type, &c_len);
-		else if (control.flags & FLAG_ZLIB_COMPRESS)
+		else if (ZLIB_COMPRESS)
 			gzip_compress_buf(&sinfo->s[stream], &c_type, &c_len);
-		else if (control.flags & FLAG_ZPAQ_COMPRESS)
+		else if (ZPAQ_COMPRESS)
 			zpaq_compress_buf(&sinfo->s[stream], &c_type, &c_len);
 		else fatal("Dunno wtf compression to use!\n");
 	}
@@ -1027,11 +1032,11 @@ static int lzo_compresses(struct stream *s)
 		}
 	}
 	if (MAX_VERBOSE)
-		print_out("%s for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
+		print_output("%s for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
 			(ret == 0? "FAILED - below threshold" : "OK"), save_len,
 			100 * ((double) best_dlen / (double) in_len), workcounter);
 	else if (VERBOSE)
-		print_out("%s\r", (ret == 0? "FAILED - below threshold" : "OK"));
+		print_output("%s\r", (ret == 0? "FAILED - below threshold" : "OK"));
 	else print_progress("\r\t                                                      \r");
 
 	free(wrkmem);
