@@ -1,3 +1,15 @@
+lrzip-0.50
+
+Rewrote the file format to be up to 5% more compact and slightly faster.
+Made the memory initialisation much more robust, with attempted fallback
+to still work even when initial settings fail.
+Fixed a lot of the stdin/stdout code.
+The two most common scenarios now work without temporary files:
+Compression from stdin and decompression to stdout.
+Testing of archive integrity no longer writes any temporary files.
+Lots more meaningful warnings if failure occurs.
+Lots of code cleanups and tidying.
+
 lrzip-0.46
 
 Added lrzuntar which works the same as lrztar -d.

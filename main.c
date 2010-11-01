@@ -136,7 +136,7 @@ static void preserve_perms(int fd_in, int fd_out)
 	fchown(fd_out, st.st_uid, st.st_gid);
 }
 
-/* Open a temporary outputfile for testing decompression or msgout */
+/* Open a temporary outputfile for stdout compression */
 static int open_tmpoutfile(void)
 {
 	int fd_out;
@@ -172,6 +172,41 @@ static void dump_tmpoutfile(int fd_out)
 		putchar(tmpchar);
 
 	fflush(control.msgout);
+}
+
+/* Open a temporary inputfile to perform stdin decompression */
+static int open_tmpinfile(void)
+{
+	int fd_in;
+
+	control.infile = malloc(15);
+	strcpy(control.infile, "lrzipin.XXXXXX");
+	if (!control.infile)
+		fatal("Failed to allocate infile name\n");
+
+	fd_in = mkstemp(control.infile);
+	if (fd_in == -1)
+		fatal("Failed to create in tmpfile: %s\n", strerror(errno));
+	return fd_in;
+}
+
+/* Read data from stdin into temporary inputfile */
+static void read_tmpinfile(int fd_in)
+{
+	FILE *tmpinfp;
+	int tmpchar;
+
+	if (control.flags & FLAG_SHOW_PROGRESS)
+		fprintf(control.msgout, "Copying from stdin.\n");
+	tmpinfp = fdopen(fd_in, "w+");
+	if (tmpinfp == NULL)
+		fatal("Failed to fdopen in tmpfile: %s\n", strerror(errno));
+
+	while ((tmpchar = getchar()) != EOF)
+		fputc(tmpchar, tmpinfp);
+
+	fflush(tmpinfp);
+	rewind(tmpinfp);
 }
 
 /*
@@ -235,7 +270,8 @@ static void decompress_file(void)
 	}
 
 	if (STDIN) {
-		fd_in = 0;
+		fd_in = open_tmpinfile();
+		read_tmpinfile(fd_in);
 	} else {
 		fd_in = open(infilecopy, O_RDONLY);
 		if (fd_in == -1) {
@@ -282,10 +318,9 @@ static void decompress_file(void)
 			fatal("Failed to close files\n");
 	}
 
-	if (!STDIN)
-		close(fd_in);
+	close(fd_in);
 
-	if (!(KEEP_FILES | TEST_ONLY)) {
+	if (!(KEEP_FILES | TEST_ONLY) || STDIN) {
 		if (unlink(control.infile) != 0)
 			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
 	}

@@ -134,7 +134,7 @@ static void zpaq_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 	if (!out)
 		fatal("Failed to open_memstream in zpaq_compress_buf\n");
 
-	zpipe_compress(in, out, control.msgout, s->buflen, (int)(control.flags & FLAG_SHOW_PROGRESS));
+	zpipe_compress(in, out, control.msgout, s->buflen, (int)(SHOW_PROGRESS));
 
 	if (memstream_update_buffer(out, &c_buf, &dlen) != 0)
 	        fatal("Failed to memstream_update_buffer in zpaq_compress_buf");
@@ -331,7 +331,7 @@ static int zpaq_decompress_buf(struct stream *s)
 		return -1;
 	}
 
-	zpipe_decompress(in, out, control.msgout, s->buflen, (int)(control.flags & FLAG_SHOW_PROGRESS));
+	zpipe_decompress(in, out, control.msgout, s->buflen, (int)(SHOW_PROGRESS));
 
 	if (memstream_update_buffer(out, &c_buf, &dlen) != 0)
 	        fatal("Failed to memstream_update_buffer in zpaq_decompress_buf");
@@ -615,7 +615,7 @@ void *open_stream_out(int f, int n, i64 limit)
 	   however, the larger the buffer, the better the compression so we
 	   make it as large as the window up to the limit the compressor
 	   will take */
-	if (LZMA_COMPRESS(control.flags)) {
+	if (LZMA_COMPRESS) {
 		if (sizeof(long) == 4) {
 			/* Largest window supported on lzma 32bit is 600MB */
 			if (cwindow > 6)
@@ -626,7 +626,7 @@ void *open_stream_out(int f, int n, i64 limit)
 			cwindow = 40;
 	}
 
-	if (LZMA_COMPRESS(control.flags) || (control.flags & FLAG_ZPAQ_COMPRESS))
+	if (LZMA_COMPRESS || ZPAQ_COMPRESS)
 		sinfo->bufsize = STREAM_BUFSIZE * 10 * cwindow;
 	else
 		sinfo->bufsize = STREAM_BUFSIZE;
@@ -768,8 +768,8 @@ static int flush_buffer(struct stream_info *sinfo, int stream)
 	if (seekto(sinfo, sinfo->cur_pos) != 0)
 		return -1;
 
-	if (!(control.flags & FLAG_NO_COMPRESS)) {
-		if (LZMA_COMPRESS(control.flags))
+	if (!(NO_COMPRESS)) {
+		if (LZMA_COMPRESS)
 			lzma_compress_buf(&sinfo->s[stream], &c_type, &c_len);
 		else if (LZO_COMPRESS)
 			lzo_compress_buf(&sinfo->s[stream], &c_type, &c_len);
