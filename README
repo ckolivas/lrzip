@@ -62,9 +62,9 @@ lrztar wrapper to fake a complete archiver.
 2. It requires a lot of memory to get the best performance out of, and is not
 really usable (for compression) with less than 256MB. Decompression requires
 less ram and works on smaller ram machines.
-3. stdin on decompression and stdout on compression work but in a very
-inefficient manner generating temporary files on disk so this method of using
-lrzip is not recommended (the other combinations of stdin/out work nicely).
+3. Only stdin in compression works well. The other combinations of
+stdin/stdout work but in a very inefficient manner generating temporary files
+on disk so this method of using lrzip is not recommended.
 
 See the file README.benchmarks in doc/ for performance examples and what kind
 of data lrzip is very good with.
@@ -118,11 +118,9 @@ Q. Other operating systems?
 A. Patches are welcome. Version 0.43+ should build on MacOSX 10.5+
 
 Q. Does it work on stdin/stdout?
-A. Yes it does. The two most common uses, compression from stdin and
-decompression to stdout work nicely. However the other combinations of
-decompression from stdin and compression to stdout use temporary files on
-disk because of seeking requirements so the performance of these mode is low.
-Not recommended!
+A. Yes it does. Compression from stdin works nicely.. However the other
+combinations of stdin and stdout use temporary files on disk because of
+seeking requirements so the performance of these mode is low. Not recommended!
 
 Q. I have another compression format that is even better than zpaq, can you
 use that?

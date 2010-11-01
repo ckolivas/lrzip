@@ -3,10 +3,9 @@ lrzip-0.50
 Rewrote the file format to be up to 5% more compact and slightly faster.
 Made the memory initialisation much more robust, with attempted fallback
 to still work even when initial settings fail.
-Fixed a lot of the stdin/stdout code.
-The two most common scenarios now work without temporary files:
-Compression from stdin and decompression to stdout.
-Testing of archive integrity no longer writes any temporary files.
+Updated a lot of the stdin code.
+The most common scenario of compression from stdin now works without
+temporary files.
 Lots more meaningful warnings if failure occurs.
 Lots of code cleanups and tidying.
 

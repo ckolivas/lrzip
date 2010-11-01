@@ -291,21 +291,19 @@ static void decompress_file(void)
 
 		if (!NO_SET_PERMS)
 			preserve_perms(fd_in, fd_out);
-		fd_hist = open(control.outfile, O_RDONLY);
 		if (fd_hist == -1)
 			fatal("Failed to open history file %s\n", control.outfile);
-	} else if (TEST_ONLY) {
-		fd_out = open("/dev/null", O_WRONLY);
-		fd_hist = open("/dev/zero", O_RDONLY);
-	} else if (STDOUT) {
-		fd_out = 1;
-		fd_hist = 1;
-	}
+	} else
+		fd_out = open_tmpoutfile();
 
+	fd_hist = open(control.outfile, O_RDONLY);
 	read_magic(fd_in, &expected_size);
 	print_progress("Decompressing...");
 
 	runzip_fd(fd_in, fd_out, fd_hist, expected_size);
+
+	if (STDOUT)
+		dump_tmpoutfile(fd_out);
 
 	/* if we get here, no fatal errors during decompression */
 	print_progress("\r");
@@ -313,9 +311,13 @@ static void decompress_file(void)
 		print_output("Output filename is: %s: ", control.outfile);
         print_progress("[OK] - %lld bytes                                \n", expected_size);
 
-	if (!STDOUT) {
-		if (close(fd_hist) != 0 || close(fd_out) != 0)
-			fatal("Failed to close files\n");
+	if (close(fd_hist) != 0 || close(fd_out) != 0)
+		fatal("Failed to close files\n");
+
+	if (TEST_ONLY | STDOUT) {
+		/* Delete temporary files generated for testing or faking stdout */
+		if (unlink(control.outfile) != 0)
+			fatal("Failed to unlink tmpfile: %s\n", strerror(errno));
 	}
 
 	close(fd_in);
