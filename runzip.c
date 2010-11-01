@@ -179,7 +179,7 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 	if (ofs == -1)
 		fatal("Failed to seek input file in runzip_fd\n");
 
-	if (fstat(fd_in, &st) != 0 || st.st_size-ofs == 0)
+	if (fstat(fd_in, &st) != 0 || st.st_size - ofs == 0)
 		return 0;
 
 	ss = open_stream_in(fd_in, NUM_STREAMS);

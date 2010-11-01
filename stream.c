@@ -831,10 +831,11 @@ static int fill_buffer(struct stream_info *sinfo, int stream)
 	sinfo->total_read += header_length;
 
 	if (sinfo->s[stream].buf)
-		free(sinfo->s[stream].buf);
-	sinfo->s[stream].buf = malloc(u_len);
+		sinfo->s[stream].buf = realloc(sinfo->s[stream].buf, u_len);
+	else
+		sinfo->s[stream].buf = malloc(u_len);
 	if (!sinfo->s[stream].buf)
-		return -1;
+		fatal("Unable to malloc buffer of size %lld in fill_buffer\n", u_len);
 	if (read_buf(sinfo->fd, sinfo->s[stream].buf, c_len) != 0)
 		return -1;
 
