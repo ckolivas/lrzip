@@ -469,25 +469,20 @@ const i64 one_g = 1000 * 1024 * 1024;
 
 /* This is a custom version of write() which writes in 1GB chunks to avoid
    the overflows at the >= 2GB mark thanks to 32bit fuckage. This should help
-   even on the rare occasion write() fails to write 1GB as well. We can write
-   a null file if we're just testing. When decompressing to stdout we can
-   write directly to it since there will be no need to seek backwards. */
+   even on the rare occasion write() fails to write 1GB as well. */
 ssize_t write_1g(int fd, void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
 	i64 total, offset;
 	ssize_t ret;
 
-	if (DECOMPRESS && STDOUT)
-		fd = 1;
 	total = offset = 0;
 	while (len > 0) {
 		if (len > one_g)
 			ret = one_g;
 		else
 			ret = len;
-		if (!TEST_ONLY)
-			ret = write(fd, offset_buf, (size_t)ret);
+		ret = write(fd, offset_buf, (size_t)ret);
 		if (ret < 0)
 			return ret;
 		len -= ret;

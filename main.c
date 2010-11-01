@@ -269,8 +269,7 @@ static void decompress_file(void)
 	}
 
 	if (STDIN) {
-		fd_in = open_tmpinfile();
-		read_tmpinfile(fd_in);
+		fd_in = 0;
 	} else {
 		fd_in = open(infilecopy, O_RDONLY);
 		if (fd_in == -1) {
@@ -290,12 +289,16 @@ static void decompress_file(void)
 
 		if (!NO_SET_PERMS)
 			preserve_perms(fd_in, fd_out);
-	} else
-		fd_out = open_tmpoutfile();
-
-	fd_hist = open(control.outfile, O_RDONLY);
-	if (fd_hist == -1)
-		fatal("Failed to open history file %s\n", control.outfile);
+		fd_hist = open(control.outfile, O_RDONLY);
+		if (fd_hist == -1)
+			fatal("Failed to open history file %s\n", control.outfile);
+	} else if (TEST_ONLY) {
+		fd_out = open("/dev/null", O_WRONLY);
+		fd_hist = open("/dev/zero", O_RDONLY);
+	} else if (STDOUT) {
+		fd_out = 1;
+		fd_hist = 1;
+	}
 
 	read_magic(fd_in, &expected_size);
 	print_progress("Decompressing...");
@@ -308,18 +311,15 @@ static void decompress_file(void)
 		print_output("Output filename is: %s: ", control.outfile);
         print_progress("[OK] - %lld bytes                                \n", expected_size);
 
-	if (close(fd_hist) != 0 || close(fd_out) != 0)
-		fatal("Failed to close files\n");
-
-	if (TEST_ONLY | STDOUT) {
-		/* Delete temporary files generated for testing or faking stdout */
-		if (unlink(control.outfile) != 0)
-			fatal("Failed to unlink tmpfile: %s\n", strerror(errno));
+	if (!STDOUT) {
+		if (close(fd_hist) != 0 || close(fd_out) != 0)
+			fatal("Failed to close files\n");
 	}
 
-	close(fd_in);
+	if (!STDIN)
+		close(fd_in);
 
-	if (!(KEEP_FILES | TEST_ONLY) || STDIN) {
+	if (!(KEEP_FILES | TEST_ONLY)) {
 		if (unlink(control.infile) != 0)
 			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
 	}
