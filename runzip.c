@@ -132,11 +132,12 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 /* decompress a section of an open file. Call fatal() on error
    return the number of bytes that have been retrieved
  */
-static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i64 tally, char chunk_bytes)
+static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i64 tally)
 {
 	uint32 good_cksum, cksum = 0;
 	i64 len, ofs, total = 0;
 	int l = -1, p = 0;
+	char chunk_bytes;
 	struct stat st;
 	uchar head;
 	void *ss;
@@ -165,6 +166,20 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 	if (fstat(fd_in, &st) != 0 || st.st_size-ofs == 0)
 		return 0;
 
+	/* Determine the chunk_byte width size. Versions < 0.4 used 4
+	 * bytes for all offsets, version 0.4 used 8 bytes. Versions 0.5+ use
+	 * a variable number of bytes depending on chunk size.*/
+	if (control.major_version == 0 && control.minor_version < 4)
+		chunk_bytes = 4;
+	else if (control.major_version == 0 && control.minor_version == 4)
+		chunk_bytes = 8;
+	else {
+		/* Read in the stored chunk byte width from the file */
+		if (read(fd_in, &chunk_bytes, 1) != 1)
+			fatal("Failed to read chunk_bytes size in runzip_chunk\n");
+	}
+	print_maxverbose("\nExpected size: %lld\nChunk byte width: %d\n", expected_size, chunk_bytes);
+
 	ss = open_stream_in(fd_in, NUM_STREAMS);
 	if (!ss)
 		fatal("Failed to open_stream_in in runzip_chunk\n");
@@ -180,14 +195,11 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 				break;
 		}
 		p = 100 * ((double)(tally + total) / (double)expected_size);
-		if (SHOW_PROGRESS) {
-			if ( p != l )  {
-				prog_done = (double)(tally + total) / (double)divisor[divisor_index];
-				print_output("%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
-						p, prog_done, prog_tsize, suffix[divisor_index] );
-				fflush(control.msgout);
-				l = p;
-			}
+		if ( p != l )  {
+			prog_done = (double)(tally + total) / (double)divisor[divisor_index];
+			print_progress("%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
+					p, prog_done, prog_tsize, suffix[divisor_index] );
+			l = p;
 		}
 	}
 
@@ -207,31 +219,12 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 {
 	struct timeval start,end;
-	char chunk_bytes;
 	i64 total = 0;
 
 	gettimeofday(&start,NULL);
 
-	/* Determine the chunk_byte width size. Versions < 0.4 used 4
-	 * bytes for all offsets, version 0.4 used 8 bytes. Versions 0.5+ use
-	 * a variable number of bytes depending on file size.*/
-	if (control.major_version == 0 && control.minor_version < 4)
-		chunk_bytes = 4;
-	else if (control.major_version == 0 && control.minor_version == 4)
-		chunk_bytes = 8;
-	else {
-		int bits = 0;
-
-		while (expected_size >> bits > 0)
-			bits++;
-		chunk_bytes = bits / 8;
-		if (bits % 8)
-			chunk_bytes++;
-	}
-	print_maxverbose("\nExpected size: %lld\nChunk byte width: %d\n", expected_size, chunk_bytes);
-
 	while (total < expected_size)
-		total += runzip_chunk(fd_in, fd_out, fd_hist, expected_size, total, chunk_bytes);
+		total += runzip_chunk(fd_in, fd_out, fd_hist, expected_size, total);
 
 	gettimeofday(&end,NULL);
 	print_progress("\nAverage DeCompression Speed: %6.3fMB/s\n",

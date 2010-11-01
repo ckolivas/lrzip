@@ -482,7 +482,6 @@ static void hash_search(struct rzip_state *st, uchar *buf,
 				fstat(st->fd_in, &s1);
 				fstat(st->fd_out, &s2);
 				print_output("%2lld%%\r", pct);
-				fflush(control.msgout);
 				lastpct = pct;
 			}
 		}
@@ -495,7 +494,7 @@ static void hash_search(struct rzip_state *st, uchar *buf,
 	}
 
 
-	if (control.flags & FLAG_VERBOSITY_MAX)
+	if (MAX_VERBOSE)
 		show_distrib(st);
 
 	if (st->last_match < buf + st->chunk_size)
@@ -579,7 +578,7 @@ void rzip_fd(int fd_in, int fd_out)
 	struct stat s, s2;
 	struct rzip_state *st;
 	i64 len, chunk_window, last_chunk = 0;
-	int pass = 0, passes, bits = 8;
+	int pass = 0, passes;
 	unsigned int eta_hours, eta_minutes, eta_seconds, elapsed_hours,
 		     elapsed_minutes, elapsed_seconds;
 	double finish_time, elapsed_time, chunkmbs;
@@ -588,7 +587,7 @@ void rzip_fd(int fd_in, int fd_out)
 	if (!st)
 		fatal("Failed to allocate control state in rzip_fd\n");
 
-	if (control.flags & FLAG_LZO_COMPRESS) {
+	if (LZO_COMPRESS) {
 		if (lzo_init() != LZO_E_OK)
 			fatal("lzo_init() failed\n");
 	}
@@ -598,12 +597,6 @@ void rzip_fd(int fd_in, int fd_out)
 
 	len = s.st_size;
 	print_verbose("File size: %lld\n", len);
-	while (len >> bits > 0)
-		bits++;
-	st->chunk_bytes = bits / 8;
-	if (bits % 8)
-		st->chunk_bytes++;
-	print_maxverbose("Byte width: %d\n", st->chunk_bytes);
 
 	chunk_window = control.window * CHUNK_MULTIPLE;
 
@@ -622,6 +615,7 @@ void rzip_fd(int fd_in, int fd_out)
 	while (len) {
 		double pct_base, pct_multiple;
 		i64 chunk, limit = 0;
+		int bits = 8;
 
 		/* Flushing the dirty data will decrease our chances of
 		 * running out of memory when we allocate ram again on the
@@ -637,6 +631,18 @@ void rzip_fd(int fd_in, int fd_out)
 		st->chunk_size = chunk;
 		print_maxverbose("Chunk size: %lld\n\n", chunk);
 
+		/* Determine the chunk byte width and write it to the file
+		 * This allows archives of different chunk sizes to have
+		 * optimal byte width entries. */
+		while (chunk >> bits > 0)
+			bits++;
+		st->chunk_bytes = bits / 8;
+		if (bits % 8)
+			st->chunk_bytes++;
+		print_maxverbose("Byte width: %d\n", st->chunk_bytes);
+		if (write(fd_out, &st->chunk_bytes, 1) != 1)
+			fatal("Failed to write chunk_bytes size in rzip_fd\n");
+
 		pct_base = (100.0 * (s.st_size - len)) / s.st_size;
 		pct_multiple = ((double)chunk) / s.st_size;
 		pass++;
@@ -644,20 +650,18 @@ void rzip_fd(int fd_in, int fd_out)
 		gettimeofday(&current, NULL);
 		/* this will count only when size > window */
 		if (last.tv_sec > 0) {
-			if (VERBOSE) {
-				elapsed_time = current.tv_sec - start.tv_sec;
-				finish_time = elapsed_time / (pct_base / 100.0);
-				elapsed_hours = (unsigned int)(elapsed_time) / 3600;
-				elapsed_minutes = (unsigned int)(elapsed_time - elapsed_hours * 3600) / 60;
-				elapsed_seconds = (unsigned int) elapsed_time - elapsed_hours * 60 - elapsed_minutes * 60;
-				eta_hours = (unsigned int)(finish_time - elapsed_time) / 3600;
-				eta_minutes = (unsigned int)((finish_time - elapsed_time) - eta_hours * 3600) / 60;
-				eta_seconds = (unsigned int)(finish_time - elapsed_time) - eta_hours * 60 - eta_minutes * 60;
-				chunkmbs=(last_chunk / 1024 / 1024) / (double)(current.tv_sec-last.tv_sec);
-				print_output("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
-						pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds,
-						eta_hours, eta_minutes, eta_seconds, chunkmbs);
-			}
+			elapsed_time = current.tv_sec - start.tv_sec;
+			finish_time = elapsed_time / (pct_base / 100.0);
+			elapsed_hours = (unsigned int)(elapsed_time) / 3600;
+			elapsed_minutes = (unsigned int)(elapsed_time - elapsed_hours * 3600) / 60;
+			elapsed_seconds = (unsigned int) elapsed_time - elapsed_hours * 60 - elapsed_minutes * 60;
+			eta_hours = (unsigned int)(finish_time - elapsed_time) / 3600;
+			eta_minutes = (unsigned int)((finish_time - elapsed_time) - eta_hours * 3600) / 60;
+			eta_seconds = (unsigned int)(finish_time - elapsed_time) - eta_hours * 60 - eta_minutes * 60;
+			chunkmbs=(last_chunk / 1024 / 1024) / (double)(current.tv_sec-last.tv_sec);
+			print_verbose("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
+					pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds,
+					eta_hours, eta_minutes, eta_seconds, chunkmbs);
 		}
 		last.tv_sec = current.tv_sec;
 		last.tv_usec = current.tv_usec;
