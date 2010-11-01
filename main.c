@@ -72,7 +72,7 @@ static void write_magic(int fd_in, int fd_out)
 	memcpy(&magic[6], &control.st_size, 8);
 
 	/* save LZMA compression flags */
-	if (LZMA_COMPRESS(control.flags)) {
+	if (LZMA_COMPRESS) {
 		for (i = 0; i < 5; i++)
 			magic[i + 16] = (char)control.lzma_properties[i];
 	}
@@ -719,7 +719,7 @@ int main(int argc, char *argv[])
 	if (VERBOSE && !INFO) {
 		print_err("The following options are in effect for this %s.\n",
 			DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
-		if (LZMA_COMPRESS(control.flags))
+		if (LZMA_COMPRESS)
 			print_err("Threading is %s. Number of CPUs detected: %lu\n", control.threads > 1? "ENABLED" : "DISABLED",
 				control.threads);
 		print_err("Nice Value: %d\n", control.nice_val);
@@ -739,11 +739,11 @@ int main(int argc, char *argv[])
 			print_err("Output Filename Specified: %s\n", control.outname);
 		if (TEST_ONLY)
 			print_err("Test file integrity\n");
-		
+
 		/* show compression options */
 		if (!DECOMPRESS) {
 			print_err("Compression mode is: ");
-			if (LZMA_COMPRESS(control.flags))
+			if (LZMA_COMPRESS)
 				print_err("LZMA. LZO Test Compression Threshold: %.f\n",
 				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
 			else if (LZO_COMPRESS)
