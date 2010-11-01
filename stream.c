@@ -796,10 +796,9 @@ static int flush_buffer(struct stream_info *sinfo, int stream)
 
 	sinfo->s[stream].buflen = 0;
 
-	free(sinfo->s[stream].buf);
-	sinfo->s[stream].buf = malloc(sinfo->bufsize);
+	sinfo->s[stream].buf = realloc(sinfo->s[stream].buf, sinfo->bufsize);
 	if (!sinfo->s[stream].buf)
-		fatal("Failed to malloc in flush_buffer\n");
+		fatal("Failed to realloc in flush_buffer\n");
 	return 0;
 }
 

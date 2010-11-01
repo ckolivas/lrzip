@@ -629,7 +629,7 @@ void rzip_fd(int fd_in, int fd_out)
 			chunk = len;
 		limit = chunk;
 		st->chunk_size = chunk;
-		print_maxverbose("Chunk size: %lld\n\n", chunk);
+		print_maxverbose("Chunk size: %lld\n", chunk);
 
 		/* Determine the chunk byte width and write it to the file
 		 * This allows archives of different chunk sizes to have

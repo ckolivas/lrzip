@@ -159,13 +159,6 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 
 	prog_tsize = (long double)expected_size / (long double)divisor[divisor_index];
 
-	ofs = lseek(fd_in, 0, SEEK_CUR);
-	if (ofs == -1)
-		fatal("Failed to seek input file in runzip_fd\n");
-
-	if (fstat(fd_in, &st) != 0 || st.st_size-ofs == 0)
-		return 0;
-
 	/* Determine the chunk_byte width size. Versions < 0.4 used 4
 	 * bytes for all offsets, version 0.4 used 8 bytes. Versions 0.5+ use
 	 * a variable number of bytes depending on chunk size.*/
@@ -178,7 +171,16 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 		if (read(fd_in, &chunk_bytes, 1) != 1)
 			fatal("Failed to read chunk_bytes size in runzip_chunk\n");
 	}
-	print_maxverbose("\nExpected size: %lld\nChunk byte width: %d\n", expected_size, chunk_bytes);
+	if (!tally)
+		print_maxverbose("\nExpected size: %lld", expected_size);
+	print_maxverbose("\nChunk byte width: %d\n", chunk_bytes);
+
+	ofs = lseek(fd_in, 0, SEEK_CUR);
+	if (ofs == -1)
+		fatal("Failed to seek input file in runzip_fd\n");
+
+	if (fstat(fd_in, &st) != 0 || st.st_size-ofs == 0)
+		return 0;
 
 	ss = open_stream_in(fd_in, NUM_STREAMS);
 	if (!ss)
