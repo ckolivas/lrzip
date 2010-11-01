@@ -548,6 +548,8 @@ static void mmap_stdin(uchar *buf, struct rzip_state *st)
 			/* Should be EOF */
 			print_maxverbose("Shrinking chunk to %lld\n", total);
 			buf = mremap(buf, st->chunk_size, total, 0);
+			if (buf == MAP_FAILED)
+				fatal("Failed to remap to smaller buf in mmap_stdin\n");
 			st->chunk_size = total;
 			st->stdin_eof = 1;
 			break;
@@ -563,20 +565,20 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 		       double pct_base, double pct_multiple, i64 limit)
 {
 	i64 prealloc_size = st->chunk_size;
-	uchar *buf = (void *)-1;
+	uchar *buf = MAP_FAILED;
 
-	/* Malloc'ing first will tell us if we can allocate this much ram
+	/* Mmapping first will tell us if we can allocate this much ram
 	 * faster than slowly reading in the file and then failing. Filling
 	 * it with zeroes has a defragmenting effect on ram before the real
 	 * read in. */
 	print_verbose("Preallocating ram...\n");
-	while (buf == (void*)-1) {
+	while (buf == MAP_FAILED) {
 		/* If we fail to mmap the full amount, it is worth trying to
 		 * mmap ever smaller sizes till we succeed as we may be able
 		 * to continue with file backed mmap in the presence of swap
 		 * and defragmentation */
 		buf = mmap(NULL, prealloc_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-		if (buf == (void *)-1) {
+		if (buf == MAP_FAILED) {
 			prealloc_size = prealloc_size / 10 * 9;
 			continue;
 		}
@@ -584,6 +586,7 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 		if (!memset(buf, 0, prealloc_size))
 			fatal("Failed to memset in rzip_chunk\n");
 		if (!STDIN) {
+			/* STDIN will use this already allocated ram */
 			if (munmap(buf, prealloc_size) != 0)
 				fatal("Failed to munmap in rzip_chunk\n");
 		} else
@@ -591,12 +594,19 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 	}
 	if (!STDIN) {
 		print_verbose("Reading file into mmapped ram...\n");
+retry:
 		buf = (uchar *)mmap(buf, st->chunk_size, PROT_READ, MAP_SHARED, fd_in, offset);
-	}
-	if (buf == (uchar *)-1)
-		fatal("Failed to map buffer in rzip_chunk\n");
-	if (STDIN)
+		/* Better to shrink the window to the largest size that works than fail */
+		if (buf == MAP_FAILED) {
+			st->chunk_size = st->chunk_size / 10 * 9;
+			goto retry;
+		}
+		print_verbose("Mmapped %lld ram...\n", st->chunk_size);
+	} else {
+		/* We don't know how big the data will be so we add it up here */
 		mmap_stdin(buf, st);
+		control.st_size += st->chunk_size;
+	}
 
 	st->ss = open_stream_out(fd_out, NUM_STREAMS, limit);
 	if (!st->ss)
@@ -622,7 +632,7 @@ void rzip_fd(int fd_in, int fd_out)
 	struct timeval current, start, last;
 	struct stat s, s2;
 	struct rzip_state *st;
-	i64 len, chunk_window, last_chunk = 0;
+	i64 len = 0, chunk_window, last_chunk = 0;
 	int pass = 0, passes;
 	unsigned int eta_hours, eta_minutes, eta_seconds, elapsed_hours,
 		     elapsed_minutes, elapsed_seconds;
@@ -640,8 +650,11 @@ void rzip_fd(int fd_in, int fd_out)
 	if (fstat(fd_in, &s))
 		fatal("Failed to stat fd_in in rzip_fd - %s\n", strerror(errno));
 
-	len = s.st_size;
-	print_verbose("File size: %lld\n", len);
+	if (!STDIN) {
+		len = control.st_size = s.st_size;
+		print_verbose("File size: %lld\n", len);
+	} else
+		control.st_size = 0;
 
 	chunk_window = control.window * CHUNK_MULTIPLE;
 
@@ -697,7 +710,7 @@ void rzip_fd(int fd_in, int fd_out)
 
 		gettimeofday(&current, NULL);
 		/* this will count only when size > window */
-		if (last.tv_sec > 0) {
+		if (!STDIN && last.tv_sec > 0) {
 			elapsed_time = current.tv_sec - start.tv_sec;
 			finish_time = elapsed_time / (pct_base / 100.0);
 			elapsed_hours = (unsigned int)(elapsed_time) / 3600;
@@ -733,10 +746,11 @@ void rzip_fd(int fd_in, int fd_out)
 	       (unsigned int)st->stats.inserts,
 	       (1.0 + st->stats.match_bytes) / st->stats.literal_bytes);
 
-	if (!STDIN)
+	if (!STDIN) {
 		print_progress("%s - ", control.infile);
-	print_progress("Compression Ratio: %.3f. Average Compression Speed: %6.3fMB/s.\n",
+		print_progress("Compression Ratio: %.3f. Average Compression Speed: %6.3fMB/s.\n",
 		        1.0 * s.st_size / s2.st_size, chunkmbs);
+	}
 
 	if (st->hash_table)
 		free(st->hash_table);

@@ -69,7 +69,7 @@ static void write_magic(int fd_in, int fd_out)
 	if (fstat(fd_in, &st) != 0)
 		fatal("bad magic file descriptor!?\n");
 
-	memcpy(&magic[6], &st.st_size, 8);
+	memcpy(&magic[6], &control.st_size, 8);
 
 	/* save LZMA compression flags */
 	if (LZMA_COMPRESS(control.flags)) {

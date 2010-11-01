@@ -182,6 +182,7 @@ struct rzip_control {
 	int nice_val;		// added for consistency
 	int major_version;
 	int minor_version;
+	i64 st_size;
 };
 
 extern struct rzip_control control;
