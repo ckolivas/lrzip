@@ -1,4 +1,4 @@
-lrzip v0.47
+lrzip v0.50
 
 Long Range ZIP or Lzma RZIP
 
@@ -62,8 +62,9 @@ lrztar wrapper to fake a complete archiver.
 2. It requires a lot of memory to get the best performance out of, and is not
 really usable (for compression) with less than 256MB. Decompression requires
 less ram and works on smaller ram machines.
-3. It works on stdin/out but in a very inefficent manner generating temporary
-files on disk so this method of using lrzip is not recommended.
+3. stdin on decompression and stdout on compression work but in a very
+inefficient manner generating temporary files on disk so this method of using
+lrzip is not recommended (the other combinations of stdin/out work nicely).
 
 See the file README.benchmarks in doc/ for performance examples and what kind
 of data lrzip is very good with.
@@ -105,7 +106,7 @@ Q. 32bit?
 A. 32bit machines have a limit of 2GB sized compression windows due to
 userspace limitations on mmap and malloc, so even if you have much more ram
 you will not be able to use compression windows larger than 2GB. Also you
-will be unable to decompress files compressed on 64bit machines which have
+may be unable to decompress files compressed on 64bit machines which have
 used windows larger than 2GB.
 
 Q. How about 64bit?
@@ -117,8 +118,11 @@ Q. Other operating systems?
 A. Patches are welcome. Version 0.43+ should build on MacOSX 10.5+
 
 Q. Does it work on stdin/stdout?
-A. Yes, but the performance of this mode is low because it basically copies
-the data to temporary files. Not recommended!
+A. Yes it does. The two most common uses, compression from stdin and
+decompression to stdout work nicely. However the other combinations of
+decompression from stdin and compression to stdout use temporary files on
+disk because of seeking requirements so the performance of these mode is low.
+Not recommended!
 
 Q. I have another compression format that is even better than zpaq, can you
 use that?
@@ -154,7 +158,7 @@ generated file be decompressed on machines with less ram?
 A. Yes. Ram requirements for decompression go up only by the -L compression
 option with lzma and are never anywhere near as large as the compression
 requirements. However if you're on 64bit and you use a compression window
-greater than 2GB, it will NOT be possible to decompress it on 32bit machines.
+greater than 2GB, it may NOT be possible to decompress it on 32bit machines.
 lrzip will warn you and fail if you try.
 
 Q. I've changed the compression level with -L in combination with -l or -z and
@@ -301,7 +305,7 @@ A. See http://www.7-zip.org and http://www.p7zip.org. Also, see the file
 LIMITATIONS
 Due to mmap limitations the maximum size a window can be set to is currently
 2GB on 32bit. Files generated on 64 bit machines with windows >2GB in size
-will not be decompressible on 32bit machines.
+may not be decompressible on 32bit machines.
 
 BUGS:
 Probably lots.
@@ -329,7 +333,7 @@ Ed Avis for various fixes. Thanks to Matt Mahoney for zpaq code. Thanks to
 Jukka Laurila for Darwin support. Thanks to George Makrydakis for lrztar.
 
 Con Kolivas <kernel@kolivas.org>
-Sat, 22 May 2010
+Mon, 1 Nov 2010
 
 Also documented by
 Peter Hyman <pete@peterhyman.com>

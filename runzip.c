@@ -74,7 +74,7 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 	/* We use anonymous mmap instead of malloc to allow us to allocate up
 	 * to 2^44 even on 32 bits */
 	buf = (uchar *)mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	if (buf == (uchar *)-1)
+	if (buf == MAP_FAILED)
 		fatal("Failed to allocate literal buffer of size %lld\n", len);
 
 	read_stream(ss, 1, buf, len);
@@ -109,9 +109,9 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 		uchar *buf;
 		n = MIN(len, offset);
 
-		buf = malloc((size_t)n);
-		if (!buf)
-			fatal("Failed to allocate %d bytes in unzip_match\n", n);
+		buf = (uchar *)mmap(NULL, n, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		if (buf == MAP_FAILED)
+			fatal("Failed to allocate match buffer of size %lld\n", n);
 
 		if (read_1g(fd_hist, buf, (size_t)n) != (ssize_t)n)
 			fatal("Failed to read %d bytes in unzip_match\n", n);
@@ -122,7 +122,7 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 		*cksum = CrcUpdate(*cksum, buf, n);
 
 		len -= n;
-		free(buf);
+		munmap(buf, n);
 		total += n;
 	}
 

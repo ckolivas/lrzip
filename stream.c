@@ -645,7 +645,7 @@ void *open_stream_out(int f, int n, i64 limit)
 	for (i = 0; i < n; i++) {
 		sinfo->s[i].buf = malloc(sinfo->bufsize);
 		if (!sinfo->s[i].buf)
-			goto failed;
+			fatal("Unable to malloc buffer of size %lld in open_stream_out\n", sinfo->bufsize);
 	}
 
 	/* write the initial headers */
@@ -658,15 +658,6 @@ void *open_stream_out(int f, int n, i64 limit)
 		sinfo->cur_pos += 25;
 	}
 	return (void *)sinfo;
-
-failed:
-	for (i = 0; i < n; i++) {
-		if (sinfo->s[i].buf)
-			free(sinfo->s[i].buf);
-	}
-
-	free(sinfo);
-	return NULL;
 }
 
 /* prepare a set of n streams for reading on file descriptor f */
