@@ -74,6 +74,7 @@ struct rzip_state {
 	char chunk_bytes;
 	uint32_t cksum;
 	int fd_in, fd_out;
+	int stdin_eof;
 	struct {
 		i64 inserts;
 		i64 literals;
@@ -519,6 +520,43 @@ static void init_hash_indexes(struct rzip_state *st)
 		st->hash_index[i] = ((random() << 16) ^ random());
 }
 
+extern const i64 one_g;
+
+/* stdin is not file backed so we have to emulate the mmap by mapping
+ * anonymous ram and reading stdin into it. It means the maximum ram
+ * we can use will be less but we will already have determined this in
+ * rzip_chunk */
+static void mmap_stdin(uchar *buf, struct rzip_state *st)
+{
+	i64 len = st->chunk_size;
+	uchar *offset_buf = buf;
+	ssize_t ret;
+	i64 total;
+
+	total = 0;
+	print_verbose("Reading stdin into mmapped ram...\n");
+	while (len > 0) {
+		if (len > one_g)
+			ret = one_g;
+		else
+			ret = len;
+		ret = read(0, offset_buf, (size_t)ret);
+		if (ret < 0)
+			fatal("Failed to read in mmap_stdin\n");
+		total += ret;
+		if (ret == 0) {
+			/* Should be EOF */
+			print_maxverbose("Shrinking chunk to %lld\n", total);
+			buf = mremap(buf, st->chunk_size, total, 0);
+			st->chunk_size = total;
+			st->stdin_eof = 1;
+			break;
+		}
+		offset_buf += ret;
+		len -= ret;
+	}
+}
+
 /* compress a chunk of an open file. Assumes that the file is able to
    be mmap'd and is seekable */
 static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
@@ -545,13 +583,20 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 		print_maxverbose("Preallocated %lld ram...\n", prealloc_size);
 		if (!memset(buf, 0, prealloc_size))
 			fatal("Failed to memset in rzip_chunk\n");
-		if (munmap(buf, prealloc_size) != 0)
-			fatal("Failed to munmap in rzip_chunk\n");
+		if (!STDIN) {
+			if (munmap(buf, prealloc_size) != 0)
+				fatal("Failed to munmap in rzip_chunk\n");
+		} else
+			st->chunk_size = prealloc_size;
 	}
-	print_verbose("Reading file into mmapped ram...\n");
-	buf = (uchar *)mmap(buf, st->chunk_size, PROT_READ, MAP_SHARED, fd_in, offset);
+	if (!STDIN) {
+		print_verbose("Reading file into mmapped ram...\n");
+		buf = (uchar *)mmap(buf, st->chunk_size, PROT_READ, MAP_SHARED, fd_in, offset);
+	}
 	if (buf == (uchar *)-1)
 		fatal("Failed to map buffer in rzip_chunk\n");
+	if (STDIN)
+		mmap_stdin(buf, st);
 
 	st->ss = open_stream_out(fd_out, NUM_STREAMS, limit);
 	if (!st->ss)
@@ -603,6 +648,7 @@ void rzip_fd(int fd_in, int fd_out)
 	st->level = &levels[MIN(9, control.window)];
 	st->fd_in = fd_in;
 	st->fd_out = fd_out;
+	st->stdin_eof = 0;
 
 	init_hash_indexes(st);
 
@@ -612,7 +658,7 @@ void rzip_fd(int fd_in, int fd_out)
 	last.tv_sec = last.tv_usec = 0;
 	gettimeofday(&start, NULL);
 
-	while (len) {
+	while (len > 0 || (STDIN && !st->stdin_eof)) {
 		double pct_base, pct_multiple;
 		i64 chunk, limit = 0;
 		int bits = 8;
@@ -625,7 +671,7 @@ void rzip_fd(int fd_in, int fd_out)
 			print_verbose("Flushing data to disk.\n");
 		fsync(fd_out);
 		chunk = chunk_window;
-		if (chunk > len)
+		if (chunk > len && !STDIN)
 			chunk = len;
 		limit = chunk;
 		st->chunk_size = chunk;
@@ -633,7 +679,9 @@ void rzip_fd(int fd_in, int fd_out)
 
 		/* Determine the chunk byte width and write it to the file
 		 * This allows archives of different chunk sizes to have
-		 * optimal byte width entries. */
+		 * optimal byte width entries. When working with stdin we
+		 * won't know in advance how big it is so it will always be
+		 * rounded up to the window size. */
 		while (chunk >> bits > 0)
 			bits++;
 		st->chunk_bytes = bits / 8;

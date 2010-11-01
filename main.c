@@ -174,40 +174,6 @@ static void dump_tmpoutfile(int fd_out)
 	fflush(control.msgout);
 }
 
-/* Open a temporary inputfile to perform stdin */
-static int open_tmpinfile(void)
-{
-	int fd_in;
-
-	control.infile = malloc(15);
-	strcpy(control.infile, "lrzipin.XXXXXX");
-	if (!control.infile)
-		fatal("Failed to allocate infile name\n");
-
-	fd_in = mkstemp(control.infile);
-	if (fd_in == -1)
-		fatal("Failed to create in tmpfile: %s\n", strerror(errno));
-	return fd_in;
-}
-
-/* Read data from stdin into temporary inputfile */
-static void read_tmpinfile(int fd_in)
-{
-	FILE *tmpinfp;
-	int tmpchar;
-
-	print_progress("Copying from stdin.\n");
-	tmpinfp = fdopen(fd_in, "w+");
-	if (tmpinfp == NULL)
-		fatal("Failed to fdopen in tmpfile: %s\n", strerror(errno));
-
-	while ((tmpchar = getchar()) != EOF)
-		fputc(tmpchar, tmpinfp);
-
-	fflush(tmpinfp);
-	rewind(tmpinfp);
-}
-
 /*
   decompress one file from the command line
 */
@@ -352,10 +318,9 @@ static void get_fileinfo(void)
 			infilecopy = strdup(control.infile);
 	}
 
-	if (STDIN) {
-		fd_in = open_tmpinfile();
-		read_tmpinfile(fd_in);
-	} else {
+	if (STDIN)
+		fd_in = 0;
+	else {
 		fd_in = open(infilecopy, O_RDONLY);
 		if (fd_in == -1)
 			fatal("Failed to open %s: %s\n", infilecopy, strerror(errno));
@@ -434,10 +399,8 @@ static void compress_file(void)
 		fd_in = open(control.infile, O_RDONLY);
 		if (fd_in == -1)
 			fatal("Failed to open %s: %s\n", control.infile, strerror(errno));
-	} else {
-		fd_in = open_tmpinfile();
-		read_tmpinfile(fd_in);
-	}
+	} else
+		fd_in = 0;
 
 	if (!STDOUT) {
 		if (control.outname) {
@@ -509,7 +472,7 @@ static void compress_file(void)
 			fatal("Failed to unlink tmpfile: %s\n", strerror(errno));
 	}
 
-	if (!KEEP_FILES || STDIN) {
+	if (!KEEP_FILES) {
 		if (unlink(control.infile) != 0)
 			fatal("Failed to unlink %s: %s\n", control.infile, strerror(errno));
 	}
