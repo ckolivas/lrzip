@@ -275,7 +275,7 @@ again:
 static inline tag next_tag(struct rzip_state *st, uchar *p, tag t)
 {
 	t ^= st->hash_index[p[-1]];
-	t ^= st->hash_index[p[-1]];
+	t ^= st->hash_index[p[MINIMUM_MATCH - 1]];
 	return t;
 }
 
