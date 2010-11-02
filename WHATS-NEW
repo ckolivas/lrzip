@@ -7,7 +7,8 @@ Updated a lot of the stdin code.
 The most common scenario of compression from stdin now works without
 temporary files.
 Lots more meaningful warnings if failure occurs.
-Lots of code cleanups and tidying.
+May be able to decompress files on 32 bit machines that were compressed on 64
+bit machines with >2GB windows now if there is enough ram.
 
 lrzip-0.46
 

@@ -1,4 +1,28 @@
 lrzip ChangeLog
+NOVEMBER 2010, version 0.5 Con Kolivas
+* Changed offset encoding in rzip stage to use variable byte width offsets
+instead of 64 bits wide. Makes for better compression and slightly faster.
+* Write the byte width into the file before each block.
+* Shrunk match lengths to maximum of 16 bits again as per original rzip as the
+larger offsets did not achieve greater compression and made final size larger.
+* New file format not backwards compatible due to variable byte widths.
+* Rewrote memory initialisation to have a pre-allocation stage to try and
+find the maximum memory usable and defragment ram.
+* Use reduced window size if allocating memory fails at higher size.
+* Change use of malloc to mmap to make it possible to address up to 44 bit
+sized offsets even on 32 bit machines on decompression. Still unable to use
+greater than 2GB windows on 32 bit machines and unsure if this is fixable.
+* Reworked the STDIN code to use an anonymous mmap and read in stdin into this
+to make it possible to compress from STDIN without the need for temporary
+files. As the file size is not known in advance, memory allocation is set to
+large and byte width to equivalent size.
+* Reallocation of ram where possible to minimise risk of running out of memory
+in the middle of a compression phase, and flushing to disk to empty dirty ram
+for the same reason.
+* More robust fatal warnings.
+* Numerous cleanups and tidying of code and addition of comments.
+* Updated documentation to reflect changes.
+
 OCTOBER 2010, version 0.47, Con Kolivas
 * Fix the symlinking problem when DESTDIR is in use reported by a billion
 people.

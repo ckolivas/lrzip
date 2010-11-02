@@ -136,7 +136,7 @@ static void preserve_perms(int fd_in, int fd_out)
 	fchown(fd_out, st.st_uid, st.st_gid);
 }
 
-/* Open a temporary outputfile for stdout compression */
+/* Open a temporary outputfile to emulate stdout */
 static int open_tmpoutfile(void)
 {
 	int fd_out;
@@ -563,9 +563,8 @@ int main(int argc, char *argv[])
 	control.suffix = ".lrz";
 	control.outdir = NULL;
 
-	if (strstr(argv[0], "lrunzip")) {
+	if (strstr(argv[0], "lrunzip"))
 		control.flags |= FLAG_DECOMPRESS;
-	}
 
 	control.compression_level = 7;
 	control.ramsize = get_ram() / 104858ull; /* hundreds of megabytes */
