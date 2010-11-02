@@ -600,6 +600,7 @@ void *open_stream_out(int f, int n, i64 limit)
 {
 	unsigned cwindow = control.window;
 	struct stream_info *sinfo;
+	uchar *testmalloc;
 	int i;
 
 	sinfo = malloc(sizeof(*sinfo));
@@ -641,6 +642,18 @@ void *open_stream_out(int f, int n, i64 limit)
 		free(sinfo);
 		return NULL;
 	}
+
+	/* Find the largest we can make the window based on ability to malloc
+	 * ram. We need enough for the 2 streams and for the compression
+	 * backend at most, being conservative. */
+retest_malloc:
+	testmalloc = malloc(sinfo->bufsize * (n + 1));
+	if (!testmalloc) {
+		sinfo->bufsize = sinfo->bufsize / 10 * 9;
+		goto retest_malloc;
+	}
+	free(testmalloc);
+	print_maxverbose("Succeeded to malloc for compression bufsize of %lld\n", sinfo->bufsize);
 
 	for (i = 0; i < n; i++) {
 		sinfo->s[i].buf = malloc(sinfo->bufsize);
@@ -783,6 +796,7 @@ static int flush_buffer(struct stream_info *sinfo, int stream)
 
 	if (write_buf(sinfo->fd, sinfo->s[stream].buf, c_len) != 0)
 		return -1;
+	fsync(sinfo->fd);
 	sinfo->cur_pos += c_len;
 
 	sinfo->s[stream].buflen = 0;

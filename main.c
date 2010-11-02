@@ -291,12 +291,13 @@ static void decompress_file(void)
 
 		if (!NO_SET_PERMS)
 			preserve_perms(fd_in, fd_out);
-		if (fd_hist == -1)
-			fatal("Failed to open history file %s\n", control.outfile);
 	} else
 		fd_out = open_tmpoutfile();
 
 	fd_hist = open(control.outfile, O_RDONLY);
+	if (fd_hist == -1)
+		fatal("Failed to open history file %s\n", control.outfile);
+
 	read_magic(fd_in, &expected_size);
 	print_progress("Decompressing...");
 

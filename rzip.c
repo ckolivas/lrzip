@@ -583,8 +583,6 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 			continue;
 		}
 		print_maxverbose("Preallocated %lld ram...\n", prealloc_size);
-		if (!memset(buf, 0, prealloc_size))
-			fatal("Failed to memset in rzip_chunk\n");
 		if (!STDIN) {
 			/* STDIN will use this already allocated ram */
 			if (munmap(buf, prealloc_size) != 0)
