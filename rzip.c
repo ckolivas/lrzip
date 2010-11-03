@@ -522,6 +522,13 @@ static void init_hash_indexes(struct rzip_state *st)
 
 extern const i64 one_g;
 
+static inline void *fake_mremap(void *old_address, size_t old_size, size_t new_size, int flags)
+{
+	flags = 0;
+	munmap(old_address, old_size);
+	return mmap(old_address, new_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+}
+
 /* stdin is not file backed so we have to emulate the mmap by mapping
  * anonymous ram and reading stdin into it. It means the maximum ram
  * we can use will be less but we will already have determined this in

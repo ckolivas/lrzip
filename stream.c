@@ -19,13 +19,7 @@
 /* multiplex N streams into a file - the streams are passed
    through different compressors */
 
-/* Need a definitition for FILE for old bzlib.h */
-#include <stdio.h>
-#include <bzlib.h>
-#include <zlib.h>
 #include "rzip.h"
-/* LZMA C Wrapper */
-#include "lzma/C/LzmaLib.h"
 
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
@@ -52,12 +46,7 @@ struct stream_info {
 
 static int lzo_compresses(struct stream *s);
 
-#ifndef HAS_MEMSTREAM
-#define fmemopen fake_fmemopen
-#define open_memstream fake_open_memstream
-#define memstream_update_buffer fake_open_memstream_update_buffer
-
-static FILE *fake_fmemopen(void *buf, size_t buflen, char *mode)
+static inline FILE *fake_fmemopen(void *buf, size_t buflen, char *mode)
 {
 	FILE *in;
 
@@ -72,7 +61,7 @@ static FILE *fake_fmemopen(void *buf, size_t buflen, char *mode)
         return in;
 }
 
-static FILE *fake_open_memstream(char **buf, size_t *length)
+static inline FILE *fake_open_memstream(char **buf, size_t *length)
 {
 	FILE *out;
 
@@ -84,7 +73,7 @@ static FILE *fake_open_memstream(char **buf, size_t *length)
 	return out;
 }
 
-static int fake_open_memstream_update_buffer(FILE *fp, uchar **buf, size_t *length)
+static inline int fake_open_memstream_update_buffer(FILE *fp, uchar **buf, size_t *length)
 {
 	long original_pos = ftell(fp);
 
@@ -101,12 +90,6 @@ static int fake_open_memstream_update_buffer(FILE *fp, uchar **buf, size_t *leng
 	        return -1;
 	return 0;
 }
-#else
-static int memstream_update_buffer(FILE *fp, uchar **buf, size_t *length)
-{
-	return 0;
-}
-#endif
 
 /*
   ***** COMPRESSION FUNCTIONS *****
@@ -120,9 +103,9 @@ static int memstream_update_buffer(FILE *fp, uchar **buf, size_t *length)
 
 static void zpaq_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 {
+	uchar *c_buf = NULL;
+	size_t dlen = 0;
 	FILE *in, *out;
-	uchar *c_buf;
-	size_t dlen;
 
 	if (!lzo_compresses(s))
 		return;
@@ -316,9 +299,9 @@ out_free:
 
 static int zpaq_decompress_buf(struct stream *s)
 {
+	uchar *c_buf = NULL;
+	size_t dlen = 0;
 	FILE *in, *out;
-	uchar *c_buf;
-	size_t dlen;
 
 	in = fmemopen(s->buf, s->buflen, "r");
 	if (!in) {

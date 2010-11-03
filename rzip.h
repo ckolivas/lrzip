@@ -33,6 +33,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <bzlib.h>
+#include <zlib.h>
 #include <sys/resource.h>
 #include <netinet/in.h>
 
@@ -43,10 +45,22 @@
 
 #ifdef __APPLE__
 #include <sys/sysctl.h>
+#define fmemopen fake_fmemopen
+#define open_memstream fake_open_memstream
+#define memstream_update_buffer fake_open_memstream_update_buffer
+#define mremap fake_mremap
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+#else /* __APPLE__ */
+#define memstream_update_buffer(A, B, C) (0)
 #endif
 
 #include <lzo/lzoconf.h>
 #include <lzo/lzo1x.h>
+
+/* LZMA C Wrapper */
+#include "lzma/C/LzmaLib.h"
 
 #ifdef HAVE_STRING_H
 #include <string.h>
