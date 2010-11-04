@@ -93,9 +93,8 @@ lrzip*		1354237684	 12.6		29m13.402s	6m55.441s
 lrzip M*	1079528708	 10.1		23m44.226s	4m05.461s
 lrzip(lzo)*	1793312108	 16.7		05m13.246s	3m12.886s
 lrzip(lzo)M*	1413268368	 13.2		04m18.338s	2m54.650s
-lrzip(zpaq)	1341008779	 12.5		4h11m14s
-lrzip(zpaq)M	1270134391	 11.8		4h30m14
-lrzip(zpaq)MW	1066902006	  9.9
+lrzip(zpaq)*	1299844906	 12.1		04h32m14s	04h33m
+lrzip(zpaq)M*	1066902006	  9.9		04h07m14s	04h08m
 
 (The benchmarks with * were done with version 0.5.1)
 
