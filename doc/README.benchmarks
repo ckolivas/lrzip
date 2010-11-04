@@ -89,11 +89,13 @@ gzip		2772899756	 25.8		7m52.667s	4m8.661s
 bzip2		2704781700	 25.2		20m34.269s	7m51.362s
 xz		2272322208	 21.2		58m26.829s	4m46.154s
 7z		2242897134	 20.9		29m28.152s	6m35.952s
-lrzip		1361276826	 12.7		27m45.874s	9m20.046
-lrzip(lzo)	1837206675	 17.1		4m48.167s	8m28.842s
+lrzip*		1354237684	 12.6		29m13.402s	6m55.441s
+lrzip(lzo)*	1828073980	 17.0		3m34.816s	5m06.266s
 lrzip(zpaq)	1341008779	 12.5		4h11m14s
 lrzip(zpaq)M	1270134391	 11.8		4h30m14
 lrzip(zpaq)MW	1066902006	  9.9
+
+(The benchmarks with * were done with version 0.5)
 
 At this end of the spectrum things really start to heat up. The compression
 advantage is massive, with the lzo backend even giving much better results
@@ -117,4 +119,4 @@ Or, to make things easier, just use the default settings all the time and be
 happy as lzma gives good results. :D
 
 Con Kolivas
-Sat, 19 Dec 2009
+Tue, 2nd Nov 2010

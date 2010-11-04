@@ -1,4 +1,4 @@
-lrzip v0.5
+lrzip v0.5.1
 
 Long Range ZIP or Lzma RZIP
 
@@ -66,6 +66,17 @@ less ram and works on smaller ram machines.
 stdin/stdout work but in a very inefficient manner generating temporary files
 on disk so this method of using lrzip is not recommended.
 
+The unique feature of lrzip is that it tries to make the most of the available
+ram in your system at all times for maximum benefit. It does this by default,
+choosing the largest sized window possible without running out of memory. It
+also has a unique "sliding mmap" feature which makes it possible to even use
+a compression window larger than your ramsize, if the file is that large. It
+does this (with the -U option) by implementing one large mmap buffer as per
+normal, and a smaller moving buffer to track which part of the file is
+currently being examined, emulating a much larger single mmapped buffer.
+Unfortunately this mode is 100 times slower once lrzip begins examining the
+ram beyond the larger base window.
+
 See the file README.benchmarks in doc/ for performance examples and what kind
 of data lrzip is very good with.
 
@@ -91,10 +102,10 @@ Q. How do I make a static build?
 A. make static
 
 Q. I want the absolute maximum compression I can possibly get, what do I do?
-A. Try the command line options -Mz. This will use all available ram and ZPAQ
-compression. Expect serious swapping to occur if your file is larger than your
-ram. It may even fail to run if you do not have enough swap space allocated.
-Why? Well the more ram lrzip uses the better the compression it can achieve.
+A. Try the command line options -MUz. This will use all available ram and ZPAQ
+compression, and even use a compression window larger than you have ram.
+Expect serious swapping to occur if your file is larger than your ram and for
+it to take 1000 times longer. A more practical option is just -M.
 
 Q. Can I use your tool for even more compression than lzma offers?
 A. Yes, the rzip preparation of files makes them more compressible by every
@@ -111,11 +122,12 @@ used windows larger than 2GB.
 
 Q. How about 64bit?
 A. 64bit machines with their ability to address massive amounts of ram will
-excel with lrzip due to being able to use compresion windows limited only in
+excel with lrzip due to being able to use compression windows limited only in
 size by the amount of physical ram.
 
 Q. Other operating systems?
-A. Patches are welcome. Version 0.43+ should build on MacOSX 10.5+
+A. The code is POSIXy with GNU extensions. Patches are welcome. Version 0.43+
+should build on MacOSX 10.5+
 
 Q. Does it work on stdin/stdout?
 A. Yes it does. Compression from stdin works nicely.. However the other
@@ -146,7 +158,7 @@ to compress at all). If no compressible data is found, then the subsequent
 compression is not even attempted. This can save a lot of time during the
 compression phase when there is incompressible data. Theoretically it may be
 possible that data is compressible by the other backend (zpaq, lzma etc) and not
-at all by lzo, but in practice such data achieves only miniscule amounts of
+at all by lzo, but in practice such data achieves only minuscule amounts of
 compression which are not worth pursuing. Most of the time it is clear one way
 or the other that data is compressible or not. If you wish to disable this
 test and force it to try compressing it anyway, use -T 0.
@@ -156,8 +168,7 @@ generated file be decompressed on machines with less ram?
 A. Yes. Ram requirements for decompression go up only by the -L compression
 option with lzma and are never anywhere near as large as the compression
 requirements. However if you're on 64bit and you use a compression window
-greater than 2GB, it may NOT be possible to decompress it on 32bit machines.
-lrzip will warn you and fail if you try.
+greater than 2GB, it might not be possible to decompress it on 32bit machines.
 
 Q. I've changed the compression level with -L in combination with -l or -z and
 the file size doesn't vary?
@@ -212,28 +223,21 @@ good performing ones that will scale with memory and file size.
 Q. How do you use lrzip yourself?
 A. Two basic uses. I compress large files currently on my drive with the
 -l option since it is so quick to get a space saving, and when archiving
-data for permament storage I compress it with the default options.
+data for permanent storage I compress it with the default options.
 
 Q. I found a file that compressed better with plain lzma. How can that be?
 A. When the file is more than 5 times the size of the compression window
 you have available, the efficiency of rzip preparation drops off as a means
 of getting better compression. Eventually when the file is large enough,
 plain lzma compression will get better ratios. The lrzip compression will be
-a lot faster though. Currently I have no way around this problem without
-throwing more and more ram at the compression because trying to do this off
-disk (whether directly on the file or from swap) will mean the file is read
-a ridulous number of times over and over again. It presents an interesting
-problem for which there is no perfect solution but it certainly has us
-thinking hard about how to tackle it.
+a lot faster though. The only way around this is to use as much ram as
+possible with the -M option, and going beyond that with the -U option.
 
 Q. Can I use swapspace as ram for lrzip with a massive window?
-A. No. To make lrzip work completely from disk would make the data be read
-off disk an unrealistic number of times over again and again. For example, if
-you have 1GB of ram and a 2GB file to compress, it might read the file a
-billion times off disk. Most hard drives would fail in that time :) See the
-previous question. Update; I have been informed that people have successfully
-done this without destroying their hard drives and they've been _very_ patient,
-but it didn't take as long as I had predicted.
+A. It will indirectly do this with -M mode enabled. If you want the windows
+even larger, -U (unlimited) mode will make the compression window as big as
+the file itself no matter how big it is, but it will slow down 100 times
+during the compression phase once it has reached your full ram.
 
 Q. Why do you nice it to +19 by default? Can I speed up the compression by
 changing the nice value?
@@ -331,7 +335,7 @@ Ed Avis for various fixes. Thanks to Matt Mahoney for zpaq code. Thanks to
 Jukka Laurila for Darwin support. Thanks to George Makrydakis for lrztar.
 
 Con Kolivas <kernel@kolivas.org>
-Mon, 1 Nov 2010
+Mon, 4 Nov 2010
 
 Also documented by
 Peter Hyman <pete@peterhyman.com>

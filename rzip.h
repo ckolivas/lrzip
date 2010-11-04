@@ -19,7 +19,7 @@
 
 #define LRZIP_MAJOR_VERSION 0
 #define LRZIP_MINOR_VERSION 5
-#define LRZIP_MINOR_SUBVERSION 0
+#define LRZIP_MINOR_SUBVERSION 1
 
 #define NUM_STREAMS 2
 
@@ -149,6 +149,8 @@ typedef uint32_t u32;
 #define FLAG_STDIN 16384
 #define FLAG_STDOUT 32768
 #define FLAG_INFO 65536
+#define FLAG_MAXRAM 131072
+#define FLAG_UNLIMITED 262144
 
 #define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
 #define FLAG_NOT_LZMA (FLAG_NO_COMPRESS | FLAG_LZO_COMPRESS | FLAG_BZIP2_COMPRESS | FLAG_ZLIB_COMPRESS | FLAG_ZPAQ_COMPRESS)
@@ -171,6 +173,8 @@ typedef uint32_t u32;
 #define STDIN		(control.flags & FLAG_STDIN)
 #define STDOUT		(control.flags & FLAG_STDOUT)
 #define INFO		(control.flags & FLAG_INFO)
+#define MAXRAM		(control.flags & FLAG_MAXRAM)
+#define UNLIMITED	(control.flags & FLAG_UNLIMITED)
 
 #define CTYPE_NONE 3
 #define CTYPE_BZIP2 4
@@ -197,9 +201,24 @@ struct rzip_control {
 	int major_version;
 	int minor_version;
 	i64 st_size;
+} control;
+
+struct stream {
+	i64 last_head;
+	uchar *buf;
+	i64 buflen;
+	i64 bufp;
 };
 
-extern struct rzip_control control;
+struct stream_info {
+	struct stream *s;
+	int num_streams;
+	int fd;
+	i64 bufsize;
+	i64 cur_pos;
+	i64 initial_pos;
+	i64 total_read;
+};
 
 void fatal(const char *format, ...);
 void sighandler();
@@ -212,11 +231,12 @@ int write_stream(void *ss, int stream, uchar *p, i64 len);
 i64 read_stream(void *ss, int stream, uchar *p, i64 len);
 int close_stream_out(void *ss);
 int close_stream_in(void *ss);
+int flush_buffer(struct stream_info *sinfo, int stream);
 void read_config(struct rzip_control *s);
 ssize_t write_1g(int fd, void *buf, i64 len);
 ssize_t read_1g(int fd, void *buf, i64 len);
-extern void zpipe_compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
-extern void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
+void zpipe_compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
+void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
 
 #define print_err(format, args...)	do {\
 	fprintf(stderr, format, ##args);	\

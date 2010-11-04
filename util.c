@@ -1,6 +1,7 @@
 /* 
    Copyright (C) Andrew Tridgell 1998
-   
+   Con Kolivas 2006-2010
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2 of the License, or
@@ -51,23 +52,24 @@ void fatal(const char *format, ...)
 	}
 
 	/* Delete temporary files generated for testing or faking stdio */
-	if (control.flags & (FLAG_TEST_ONLY | FLAG_STDOUT))
+	if (TEST_ONLY || STDOUT)
 		unlink(control.outfile);
 
-	if (control.flags & FLAG_STDIN)
+	if (DECOMPRESS && STDIN)
 		unlink(control.infile);
 
-	fprintf(stderr, "Fatal error - exiting\n");
+	perror(NULL);
+	print_output("Fatal error - exiting\n");
 	exit(1);
 }
 
 void sighandler()
 {
 	/* Delete temporary files generated for testing or faking stdio */
-	if (control.flags & (FLAG_TEST_ONLY | FLAG_STDOUT))
+	if (TEST_ONLY || STDOUT)
 		unlink(control.outfile);
 
-	if (control.flags & FLAG_STDIN)
+	if (DECOMPRESS && STDIN)
 		unlink(control.infile);
 
 	exit(0);

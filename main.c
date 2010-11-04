@@ -23,13 +23,13 @@ struct rzip_control control;
 
 static void usage(void)
 {
-	print_output("lrzip version %d.%d%d\n", LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
+	print_output("lrzip version %d.%d.%d\n", LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
 	print_output("Copyright (C) Con Kolivas 2006-2010\n\n");
 	print_output("Based on rzip ");
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n");
 	print_output("usage: lrzip [options] <file...>\n");
 	print_output(" Options:\n");
-	print_output("     -w size       compression window in hundreds of MB\n");
+	print_output("     -w size       maximum compression window in hundreds of MB\n");
 	print_output("                   default chosen by heuristic dependent on ram and chosen compression\n");
 	print_output("     -d            decompress\n");
 	print_output("     -o filename   specify the output file name and/or path\n");
@@ -39,13 +39,14 @@ static void usage(void)
 	print_output("     -D            delete existing files\n");
 	print_output("     -P            don't set permissions on output file - may leave it world-readable\n");
 	print_output("     -q            don't show compression progress\n");
-	print_output("     -L level      set lzma/bzip2/gzip compression level (1-9, default 7)\n");
+	print_output("     -L level      set lzma/bzip2/gzip compression level (1-9, default 9)\n");
 	print_output("     -n            no backend compression - prepare for other compressor\n");
 	print_output("     -l            lzo compression (ultra fast)\n");
 	print_output("     -b            bzip2 compression\n");
 	print_output("     -g            gzip compression using zlib\n");
 	print_output("     -z            zpaq compression (best, extreme compression, extremely slow)\n");
-	print_output("     -M            Maximum window and level - (all available ram and level 9)\n");
+	print_output("     -M            Maximum window (all available ram)\n");
+	print_output("     -U            Use unlimited window size beyond ramsize (100x slower)\n");
 	print_output("     -T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)\n");
 	print_output("     -N value      Set nice value to value (default 19)\n");
 	print_output("     -v[v]         Increase verbosity\n");
@@ -519,7 +520,7 @@ static void compress_file(void)
 }
 
 /*
- * Returns ram size on linux/darwin.
+ * Returns ram size in bytes on linux/darwin.
  */
 #ifdef __APPLE__
 static i64 get_ram(void)
@@ -533,17 +534,14 @@ static i64 get_ram(void)
 	sysctl(mib, 2, NULL, &len, NULL, 0);
 	p = malloc(len);
 	sysctl(mib, 2, p, &len, NULL, 0);
-	ramsize = *p / 1024; // bytes -> KB
+	ramsize = *p
 
-	/* Darwin can't overcommit as much as linux so we return half the ram
-	   size to fudge it to use smaller windows */
-	ramsize /= 2;
 	return ramsize;
 }
 #else
 static i64 get_ram(void)
 {
-	return (i64)sysconf(_SC_PHYS_PAGES) * (i64)sysconf(_SC_PAGE_SIZE) / 1024;
+	return (i64)sysconf(_SC_PHYS_PAGES) * (i64)sysconf(_SC_PAGE_SIZE);
 }
 #endif
 
@@ -552,7 +550,7 @@ int main(int argc, char *argv[])
 	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
-	int c, i, maxwin = 0;
+	int c, i;
 	int hours,minutes;
 	extern int optind;
 	char *eptr; /* for environment */
@@ -567,8 +565,8 @@ int main(int argc, char *argv[])
 	if (strstr(argv[0], "lrunzip"))
 		control.flags |= FLAG_DECOMPRESS;
 
-	control.compression_level = 7;
-	control.ramsize = get_ram() / 104858ull; /* hundreds of megabytes */
+	control.compression_level = 9;
+	control.ramsize = get_ram();
 	control.window = 0;
 	control.threshold = 1.0;	/* default lzo test compression threshold (level 1) with LZMA compression */
 	/* for testing single CPU */
@@ -594,7 +592,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(&control);
 
-	while ((c = getopt(argc, argv, "L:hdS:tVvDfqo:w:nlbMO:T:N:gPzi")) != -1) {
+	while ((c = getopt(argc, argv, "L:hdS:tVvDfqo:w:nlbMUO:T:N:gPzi")) != -1) {
 		switch (c) {
 		case 'L':
 			control.compression_level = atoi(optarg);
@@ -661,8 +659,10 @@ int main(int argc, char *argv[])
 			control.flags |= FLAG_NO_COMPRESS;
 			break;
 		case 'M':
-			control.compression_level = 9;
-			maxwin = 1;
+			control.flags |= FLAG_MAXRAM;
+			break;
+		case 'U':
+			control.flags |= FLAG_UNLIMITED;
 			break;
 		case 'O':
 			if (control.outname)	/* can't mix -o and -O */
@@ -724,39 +724,13 @@ int main(int argc, char *argv[])
 	if (argc < 1)
 		control.flags |= FLAG_STDIN;
 
-	if (control.window > control.ramsize)
-		print_output("Compression window has been set to larger than ramsize, proceeding at your request. If you did not mean this, abort now.\n");
-
-	if (sizeof(long) == 4 && control.ramsize > 9) {
-		/* On 32 bit, the default high/lowmem split of 896MB lowmem
-		   means we will be unable to allocate contiguous blocks
-		   over 900MB between 900 and 1800MB. It will be less prone
-		   to failure if we limit the block size.
-		   */
-		if (control.ramsize < 18)
-			control.ramsize = 9;
-		else
-			control.ramsize -= 9;
-	}
-
-	/* The control window chosen is the largest that will not cause
-	   massive swapping on the machine (60% of ram). Most of the pages
-	   will be shared by lzma even though it uses just as much ram itself
-	   */
-	if (!control.window) {
-		if (maxwin)
-			control.window = (control.ramsize * 9 / 10);
-		else
-			control.window = (control.ramsize * 2 / 3);
-		if (!control.window)
-			control.window = 1;
-	}
-
+#if 0
 	/* malloc limited to 2GB on 32bit */
 	if (sizeof(long) == 4 && control.window > 20) {
 		control.window = 20;
 		print_verbose("Limiting control window to 2GB due to 32bit limitations.\n");
 	}
+#endif
 
 	/* OK, if verbosity set, print summary of options selected */
 	if (VERBOSE && !INFO) {
@@ -801,8 +775,10 @@ int main(int argc, char *argv[])
 				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
 			else if (NO_COMPRESS)
 				print_err("RZIP\n");
-			print_err("Compression Window: %lld = %lldMB\n", control.window, control.window * 100ull);
-			print_err("Compression Level: %d\n", control.compression_level);
+			if (control.window) {
+				print_verbose("Compression Window: %lld = %lldMB\n", control.window, control.window * 100ull);
+				print_verbose("Compression Level: %d\n", control.compression_level);
+			}
 		}
 		print_err("\n");
 	}

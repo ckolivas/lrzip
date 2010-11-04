@@ -1,4 +1,4 @@
-.TH "lrzip" "1" "May 2010" "" ""
+.TH "lrzip" "1" "November 2010" "" ""
 .SH "NAME"
 lrzip \- a large-file compression program
 .SH "SYNOPSIS"
@@ -41,13 +41,14 @@ Here is a summary of the options to lrzip\&.
   \-D            delete existing files
   \-P            don't set permissions on output file. It may leave it world-readable
   \-q            don't show compression progress
-  \-L level      set lzma/bzip2/gzip compression level (1\-9, default 7)
+  \-L level      set rzip/lzma/bzip2/gzip compression level (1\-9, default 9)
   \-n            no backend compression. Prepare for other compressor
   \-l            lzo compression (ultra fast)
   \-b            bzip2 compression
   \-g            gzip compression using zlib
   \-z            zpaq compression (best, extreme compression, extremely slow)
-  \-M            Maximum window and level - (all available ram and level 9)
+  \-M            Maximum window (all available ram)
+  \-U            Use unlimited window size beyond ramsize (100x slower)
   \-T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)
   \-N value      Set nice value to value (default 19)
   \-v[v]         Increase verbosity
@@ -73,29 +74,35 @@ Print the lrzip version number
 Increases verbosity. \-vv will print more messages than \-v.
 .IP
 .IP "\fB-w n\fP"
-Set the compression window size to n in hundreds of megabytes. This is the amount
-of memory lrzip will search during its first stage of pre-compression and is
-the main thing that will determine how much benefit lrzip will provide over
-ordinary compression with the 2nd stage algorithm. Because of buffers and
-compression overheads, the value chosen must be significantly smaller than
-your available ram or lrzip will induce a massive swap load. If not set
+Set the maximum allowable compression window size to n in hundreds of megabytes.
+This is the amount of memory lrzip will search during its first stage of
+pre-compression and is the main thing that will determine how much benefit lrzip
+will provide over ordinary compression with the 2nd stage algorithm. If not set
 (recommended), the value chosen will be determined by internal heuristic in
-lrzip which uses the most memory that is reasonable. It is limited to 2GB on
-32bit machines.
+lrzip which uses the most memory that is reasonable, without any hard upper
+limit. It is limited to 2GB on 32bit machines. lrzip will always reduce the
+window size to the biggest it can be without running out of memory.
 .IP
 .IP "\fB-L 1\&.\&.9\fP"
-Set the compression level from 1 to 9. The default is
-to use level 7, which is a reasonable compromise between speed and
-compression. The compression level is also strongly related to how much
-memory lrzip uses. See the \-w option for details.
+Set the compression level from 1 to 9. The default is to use level 9, which
+gives good all round compression. The compression level is also strongly related
+to how much memory lrzip uses. See the \-w option for details.
 .IP
 .IP "\fB-M \fP"
-Maximum compression\&. If this option is set, then lrzip ignores the heuristic
-mentioned for the default window and tries to set it to all available ram,
-and sets the compression level to maximum. This will cause a significant swap
-load on most machines, and may even fail without enough swap space allocated.
-Be prepared to walk away if you use this option. It is not recommended to use
-this as it hardly ever improves compression.
+Maximum window size\&. If this option is set, then lrzip tries to load the
+entire file into ram as one big compression window, and will reduce the size of
+the window until it does fit. This may induce a hefty swap load on your machine
+but can also give dramatic size advantages when your file is the size of your
+ram or larger. .IP
+.IP "\fB-U \fP"
+Unlimited window size\&. If this option is set, and the file being compressed
+does not fit into the available ram, lrzip will use a moving second buffer as a
+"sliding mmap" which emulates having infinite ram. This will provide the most
+possible compression in the first rzip stage which can improve the compression
+of ultra large files. However it also runs 100x slower than the regular first
+stage compression so it is worth trying the -M option first to see if the whole
+file can be accessed in one pass, and then if not, it should be used together
+with the -M option (if at all).
 .IP
 .IP "\fB-T 0\&.\&.10\fP"
 Sets the LZO compression threshold when testing a data chunk when slower
@@ -192,15 +199,14 @@ if later blocks were compressible.
 .PP
 .SH "COMPRESSION ALGORITHM"
 .PP
-LRZIP operates in two stages. The first stage finds and encodes large
-chunks of duplicated data over potentially very long distances (limited
-only by your available ram) in the input file. The second stage is to
-use a compression algorithm to compress the output of the
-first stage. The compression algorithm can be chosen to be optimised
-for size (lzma - default), speed (lzo), legacy (bzip2) or (gzip)
-or can be omitted entirely doing only the first stage. A one stage only
-compressed file can almost always improve both the compression size and
-speed done by a subsequent compression program.
+LRZIP operates in two stages. The first stage finds and encodes large chunks of
+duplicated data over potentially very long distances (limited only by your
+available ram) in the input file. The second stage is to use a compression
+algorithm to compress the output of the first stage. The compression algorithm
+can be chosen to be optimised for extreme size (zpaq), size (lzma - default),
+speed (lzo), legacy (bzip2) or (gzip) or can be omitted entirely doing only the
+first stage. A one stage only compressed file can almost always improve both the
+compression size and speed done by a subsequent compression program.
 
 .PP
 The key difference between lrzip and other well known compression
@@ -223,7 +229,7 @@ might achieve a much lower compression ratio than lrzip can achieve.
 .PP
 .SH "FILES"
 .PP
-LRZIP now recognizes a configuration file that contains default settings.
+LRZIP now recognises a configuration file that contains default settings.
 This configuration is searched for in the current directory, /etc/lrzip,
 and $HOME/.lrzip. The configuration filename must be \fBlrzip.conf\fP.
 .PP

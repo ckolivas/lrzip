@@ -1,4 +1,38 @@
 lrzip ChangeLog
+NOVEMBER 2010, version 0.5.1 Con Kolivas
+* Fix Darwin build - Darwin doesn't support mremap so introduce a fake wrapper
+for it.
+* Fix the memopen routines, a wrongly implemented wrapper for Darwin equivalents
+was also using the faked versions on all builds.
+* Fix dodgy ordered includes.
+* Clean up excessive use of #ifdefs
+* Huge rewrite of buffer reading in rzip.c. We use a wrapper instead of
+accessing the buffer directly, thus allowing us to have window sizes larger than
+available ram. This is implemented through the use of a "sliding mmap"
+implementation. Sliding mmap uses two mmapped buffers, one large one as
+previously, and one page sized smaller one. When an attempt is made to read
+beyond the end of the large buffer, the small buffer is remapped to the file
+area that's being accessed. While this implementation is 100x slower than direct
+mmapping, it allows us to implement unlimited sized compression windows.
+* Implement the -U option with unlimited sized windows.
+* Rework the selection of compression windows. Instead of trying to guess how
+much ram the machine might be able to access, we try to safely buffer as much
+ram as we can, and then use that to determine the file buffer size. Do not
+choose an arbitrary upper window limit unless -w is specified.
+* Rework the -M option to try to buffer the entire file, reducing the buffer
+size until we succeed.
+* Align buffer sizes to page size.
+* Clean up lots of unneeded variables.
+* Fix lots of minor logic issues to do with window sizes accepted/passed to rzip
+and the compression backends.
+* More error handling.
+* Change -L to affect rzip compression level directly as well as backend
+compression level and use 9 by default now.
+* More cleanups of information output.
+* Use 3 point release numbering in case one minor version has many subversions.
+* Numerous minor cleanups and tidying.
+* Updated docs and manpages.
+
 NOVEMBER 2010, version 0.5 Con Kolivas
 * Changed offset encoding in rzip stage to use variable byte width offsets
 instead of 64 bits wide. Makes for better compression and slightly faster.

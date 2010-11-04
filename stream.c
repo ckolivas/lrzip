@@ -23,23 +23,6 @@
 
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
-struct stream {
-	i64 last_head;
-	uchar *buf;
-	i64 buflen;
-	i64 bufp;
-};
-
-struct stream_info {
-	struct stream *s;
-	int num_streams;
-	int fd;
-	i64 bufsize;
-	i64 cur_pos;
-	i64 initial_pos;
-	i64 total_read;
-};
-
 /* just to keep things clean, declare function here
  * but move body to the end since it's a work function
 */
@@ -590,6 +573,7 @@ void *open_stream_out(int f, int n, i64 limit)
 	if (!sinfo)
 		return NULL;
 
+	sinfo->bufsize = 0;
 	sinfo->num_streams = n;
 	sinfo->cur_pos = 0;
 	sinfo->fd = f;
@@ -602,11 +586,11 @@ void *open_stream_out(int f, int n, i64 limit)
 	if (LZMA_COMPRESS) {
 		if (sizeof(long) == 4) {
 			/* Largest window supported on lzma 32bit is 600MB */
-			if (cwindow > 6)
+			if (!cwindow || cwindow > 6)
 				cwindow = 6;
 		}
 		/* Largest window supported on lzma 64bit is 4GB */
-		if (cwindow > 40)
+		if (!cwindow || cwindow > 40)
 			cwindow = 40;
 	}
 
@@ -616,7 +600,9 @@ void *open_stream_out(int f, int n, i64 limit)
 		sinfo->bufsize = STREAM_BUFSIZE;
 
 	/* No point making the stream larger than the amount of data */
-	if (limit && limit < sinfo->bufsize)
+	if (sinfo->bufsize)
+		sinfo->bufsize = MIN(sinfo->bufsize, limit);
+	else
 		sinfo->bufsize = limit;
 	sinfo->initial_pos = lseek(f, 0, SEEK_CUR);
 
@@ -741,7 +727,7 @@ failed:
 }
 
 /* flush out any data in a stream buffer. Return -1 on failure */
-static int flush_buffer(struct stream_info *sinfo, int stream)
+int flush_buffer(struct stream_info *sinfo, int stream)
 {
 	i64 c_len = sinfo->s[stream].buflen;
 	int c_type = CTYPE_NONE;
