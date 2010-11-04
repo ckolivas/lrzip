@@ -642,7 +642,6 @@ static void init_sliding_mmap(struct rzip_state *st, int fd_in, i64 offset)
 {
 	i64 size = st->chunk_size;
 
-	print_verbose("Allocating sliding_mmap...\n");
 	sb.orig_offset = offset;
 retry:
 	/* Mmapping anonymously first will tell us how much ram we can use in
@@ -682,7 +681,7 @@ retry:
 	print_maxverbose("Succeeded in allocating %lld sized mmap\n", size);
 	if (size < st->chunk_size) {
 		if (UNLIMITED && !STDIN)
-			print_verbose("File is beyond window size, will proceed MUCH slower in unlimited mode beyond the window size\n");
+			print_verbose("File is beyond window size, will proceed MUCH slower in unlimited mode beyond\nthe window size with a sliding_mmap\n");
 		else {
 			print_verbose("Needed to shrink window size to %lld\n", size);
 			st->chunk_size = size;

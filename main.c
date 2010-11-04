@@ -639,7 +639,7 @@ int main(int argc, char *argv[])
 			control.flags &= ~FLAG_SHOW_PROGRESS;
 			break;
 		case 'V':
-			print_output("lrzip version %d.%d%d\n",
+			print_output("lrzip version %d.%d.%d\n",
 				LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
 			exit(0);
 			break;

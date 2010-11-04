@@ -85,31 +85,30 @@ system and some basic working software on it. The default options on the
 
 Compression	Size		Percentage	Compress Time	Decompress Time
 None		10737418240	100.0
-gzip		2772899756	 25.8		7m52.667s	4m8.661s
+gzip		2772899756	 25.8		05m47.35s	2m46.77s
 bzip2		2704781700	 25.2		20m34.269s	7m51.362s
 xz		2272322208	 21.2		58m26.829s	4m46.154s
 7z		2242897134	 20.9		29m28.152s	6m35.952s
 lrzip*		1354237684	 12.6		29m13.402s	6m55.441s
-lrzip(lzo)*	1828073980	 17.0		3m34.816s	5m06.266s
+lrzip M*	1079528708	 10.1		23m44.226s	4m05.461s
+lrzip(lzo)*	1793312108	 16.7		05m13.246s	3m12.886s
+lrzip(lzo)M*	1413268368	 13.2		04m18.338s	2m54.650s
 lrzip(zpaq)	1341008779	 12.5		4h11m14s
 lrzip(zpaq)M	1270134391	 11.8		4h30m14
 lrzip(zpaq)MW	1066902006	  9.9
 
-(The benchmarks with * were done with version 0.5)
+(The benchmarks with * were done with version 0.5.1)
 
 At this end of the spectrum things really start to heat up. The compression
-advantage is massive, with the lzo backend even giving much better results
-than 7z, and over a ridiculously short time. Note that it's not much longer
-than it takes to just *read* a 10GB file. Unfortunately at these large
-compression windows, the decompression time is significantly longer, but
-it's a fair tradeoff I believe :) What appears to be a big disappointment is
+advantage is massive, with the lzo backend even giving much better results than
+7z, and over a ridiculously short time. Note that it's not much longer than it
+takes to just *read* a 10GB file. What appears to be a big disappointment is
 actually zpaq here which takes more than 8 times longer than lzma for a measly
 .2% improvement. The reason is that most of the advantage here is achieved by
-the rzip first stage. The -M option was included here for completeness to see
-what the maximum possible compression was for this file on this machine, while
-the MW run was with the options -W 200 (to make the window larger than the
-file and the ram the machine has), and it still completed but induced a lot
-of swap in the interim.
+the rzip first stage since there's a lot of redundant space over huge distances
+on a virtual image. The -M option which works the memory subsystem rather hard
+making noticeable impact on the rest of the machine also does further wonders
+for the compression and times.
 
 This should help govern what compression you choose. Small files are nicely
 compressed with zpaq. Intermediate files are nicely compressed with lzma.
@@ -119,4 +118,4 @@ Or, to make things easier, just use the default settings all the time and be
 happy as lzma gives good results. :D
 
 Con Kolivas
-Tue, 2nd Nov 2010
+Tue, 4th Nov 2010
