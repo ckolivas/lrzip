@@ -720,6 +720,11 @@ int main(int argc, char *argv[])
 		control.flags |= FLAG_SHOW_PROGRESS;
 	}
 
+	if (UNLIMITED && STDIN) {
+		print_err("Cannot have -U and stdin, unlimited mode disabled.\n");
+		control.flags &= ~ FLAG_UNLIMITED;
+	}
+
 	if (argc < 1)
 		control.flags |= FLAG_STDIN;
 

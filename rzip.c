@@ -71,6 +71,7 @@ struct rzip_state {
 	i64 tag_clean_ptr;
 	i64 last_match;
 	i64 chunk_size;
+	i64 mmap_size;
 	char chunk_bytes;
 	uint32_t cksum;
 	int fd_in, fd_out;
@@ -485,8 +486,7 @@ static void show_distrib(struct rzip_state *st)
 
 static void hash_search(struct rzip_state *st, double pct_base, double pct_multiple)
 {
-	i64 cksum_limit = 0, pct, lastpct=0;
-	i64 p, end;
+	i64 cksum_limit = 0, p, end;
 	tag t = 0;
 	struct {
 		i64 p;
@@ -529,9 +529,8 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 	t = full_tag(st, p);
 
 	while (p < end) {
-		i64 offset = 0;
-		i64 mlen;
-		i64 reverse;
+		int lastpct = 0, last_chunkpct = 0;
+		i64 reverse, mlen, offset = 0;
 
 		p++;
 		sb.offset_search = p;
@@ -570,17 +569,17 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 			t = full_tag(st, p);
 		}
 
-		if (unlikely(p % 100 == 0)) {
+		if (unlikely(p % 128 == 0)) {
+			int pct, chunk_pct;
+
 			pct = pct_base + (pct_multiple * (100.0 * p) /
 			      st->chunk_size);
-			if (pct != lastpct) {
-				struct stat s1, s2;
-
-				fstat(st->fd_in, &s1);
-				fstat(st->fd_out, &s2);
+			chunk_pct = p / (end / 100);
+			if (pct != lastpct || chunk_pct != last_chunkpct) {
 				if (!STDIN)
-					print_progress("%2lld%%\r", pct);
+					print_progress("Total: %2d%%  Chunk: %2d%%\r", pct, chunk_pct);
 				lastpct = pct;
+				last_chunkpct = chunk_pct;
 			}
 		}
 
@@ -593,6 +592,7 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 		}
 	}
 
+	print_progress("\n");
 
 	if (MAX_VERBOSE)
 		show_distrib(st);
@@ -667,67 +667,10 @@ static void mmap_stdin(uchar *buf, struct rzip_state *st)
 	}
 }
 
-static const i64 two_gig = 2 * 1000 * 1000 * 1000;
-
 static void init_sliding_mmap(struct rzip_state *st, int fd_in, i64 offset)
 {
-	i64 size = st->chunk_size;
-
-	if (sizeof(long) == 4 && size > two_gig) {
-		print_verbose("Limiting to 2GB due to 32 bit limitations\n");
-		size = two_gig;
-	}
-	sb.orig_offset = offset;
-retry:
-	/* Mmapping anonymously first will tell us how much ram we can use in
-	 * advance and zeroes it which has a defragmenting effect on ram
-	 * before the real read in. We can map a lot more file backed ram than
-	 * anonymous ram so do not do this preallocation in MAXRAM mode. Using
-	 * the larger mmapped window will cause a lot more ram trashing of the
-	 * system so we do not use MAXRAM mode by default. */
-	if (!MAXRAM || STDIN) {
-		sb.buf_low = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-		/* Better to shrink the window to the largest size that works than fail */
-		if (sb.buf_low == MAP_FAILED) {
-			size = size / 10 * 9;
-			size -= size % 4096;
-			if (unlikely(!size))
-				fatal("Unable to mmap any ram\n");
-			goto retry;
-		}
-		print_maxverbose("Succeeded in preallocating %lld sized mmap\n", size);
-		if (!STDIN) {
-			if (unlikely(munmap(sb.buf_low, size)))
-				fatal("Failed to munmap\n");
-		} else
-			st->chunk_size = size;
-	}
-
-	print_verbose("Reading file into mmapped ram...\n");
-	if (!STDIN) {
-		sb.buf_low = (uchar *)mmap(sb.buf_low, size, PROT_READ, MAP_SHARED, fd_in, offset);
-		if (sb.buf_low == MAP_FAILED) {
-			size = size / 10 * 9;
-			size -= size % 4096;
-			if (unlikely(!size))
-				fatal("Unable to mmap any ram\n");
-			goto retry;
-		}
-	} else
-		mmap_stdin(sb.buf_low, st);
-	print_maxverbose("Succeeded in allocating %lld sized mmap\n", size);
-
-	if (size < st->chunk_size) {
-		if (UNLIMITED && !STDIN)
-			print_verbose("File is beyond window size, will proceed in unlimited mode with a sliding_mmap buffer but may be much slower\n");
-		else {
-			print_verbose("Needed to shrink window size to %lld\n", size);
-			st->chunk_size = size;
-		}
-	}
-
 	/* Initialise the high buffer */
-	if (UNLIMITED && !STDIN) {
+	if (UNLIMITED) {
 		sb.high_length = 65536;
 		sb.buf_high = (uchar *)mmap(NULL, sb.high_length, PROT_READ, MAP_SHARED, fd_in, offset);
 		if (unlikely(sb.buf_high == MAP_FAILED))
@@ -737,7 +680,7 @@ retry:
 	}
 	sb.offset_low = 0;
 	sb.offset_search = 0;
-	sb.size_low = size;
+	sb.size_low = st->mmap_size;
 	sb.orig_size = st->chunk_size;
 	sb.fd = fd_in;
 }
@@ -748,21 +691,30 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 		       double pct_base, double pct_multiple)
 {
 	init_sliding_mmap(st, fd_in, offset);
+
 	st->ss = open_stream_out(fd_out, NUM_STREAMS, st->chunk_size);
 	if (unlikely(!st->ss))
 		fatal("Failed to open streams in rzip_chunk\n");
+
+	print_verbose("Performing rzip pre-processing phase\n");
 	hash_search(st, pct_base, pct_multiple);
+
 	/* unmap buffer before closing and reallocating streams */
 	if (unlikely(munmap(sb.buf_low, sb.size_low)))
 		fatal("Failed to munmap in rzip_chunk\n");
-	if (UNLIMITED && !STDIN) {
+	if (UNLIMITED) {
 		if (unlikely(munmap(sb.buf_high, sb.size_high)))
 			fatal("Failed to munmap in rzip_chunk\n");
 	}
 
+	if (!NO_COMPRESS)
+		print_verbose("Passing chunk data to backend compressor\n");
 	if (unlikely(close_stream_out(st->ss)))
 		fatal("Failed to flush/close streams in rzip_chunk\n");
 }
+
+/* Needs to be less than 31 bits and page aligned on 32 bits */
+static const i64 two_gig = (1ull << 31) - 4096;
 
 /* compress a whole file chunks at a time */
 void rzip_fd(int fd_in, int fd_out)
@@ -808,6 +760,8 @@ void rzip_fd(int fd_in, int fd_out)
 		else
 			chunk_window = len;
 	}
+	if (chunk_window < len)
+		chunk_window -= chunk_window % 4096;
 	st->chunk_size = chunk_window;
 
 	st->level = &levels[control.compression_level];
@@ -825,6 +779,7 @@ void rzip_fd(int fd_in, int fd_out)
 
 	while (len > 0 || (STDIN && !st->stdin_eof)) {
 		double pct_base, pct_multiple;
+		i64 offset = s.st_size - len;
 		int bits = 8;
 
 		/* Flushing the dirty data will decrease our chances of
@@ -834,8 +789,62 @@ void rzip_fd(int fd_in, int fd_out)
 		if (last_chunk)
 			print_verbose("Flushing data to disk.\n");
 		fsync(fd_out);
+
 		if (st->chunk_size > len && !STDIN)
 			st->chunk_size = len;
+		st->mmap_size = st->chunk_size;
+		if (sizeof(long) == 4 && st->mmap_size > two_gig) {
+			print_verbose("Limiting to 2GB due to 32 bit limitations\n");
+			st->mmap_size = two_gig;
+		}
+
+		print_maxverbose("Reading file into mmapped ram...\n");
+retry:
+		/* Mmapping anonymously first will tell us how much ram we can use in
+		 * advance and zeroes it which has a defragmenting effect on ram
+		 * before the real read in. */
+		sb.buf_low = mmap(NULL, st->mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		/* Better to shrink the window to the largest size that works than fail */
+		if (sb.buf_low == MAP_FAILED) {
+			st->mmap_size = st->mmap_size / 10 * 9;
+			st->mmap_size -= st->mmap_size % 4096;
+			if (unlikely(!st->mmap_size))
+				fatal("Unable to mmap any ram\n");
+			goto retry;
+		}
+
+		/* NOTE the buf is saved here for STDIN mode */
+		if (!STDIN) {
+			if (unlikely(munmap(sb.buf_low, st->mmap_size)))
+				fatal("Failed to munmap\n");
+		}
+
+		if (!MAXRAM) {
+			print_maxverbose("Succeeded in allocating %lld sized mmap\n", st->mmap_size);
+			if (!UNLIMITED)
+				st->chunk_size = st->mmap_size;
+		} else
+			st->mmap_size = st->chunk_size;
+
+		if (!STDIN) {
+			/* The buf is saved here for !STDIN mode */
+			sb.buf_low = (uchar *)mmap(sb.buf_low, st->mmap_size, PROT_READ, MAP_SHARED, fd_in, offset);
+			if (sb.buf_low == MAP_FAILED) {
+				if (unlikely(!MAXRAM))
+					fatal("Failed to remap ram\n");
+				st->mmap_size = st->mmap_size / 10 * 9;
+				st->mmap_size -= st->mmap_size % 4096;
+				if (unlikely(!st->mmap_size))
+					fatal("Unable to mmap any ram\n");
+				goto retry;
+			}
+		} else
+			mmap_stdin(sb.buf_low, st);
+
+		if (st->mmap_size < st->chunk_size)
+			print_verbose("Compression window is larger than ram allocated, will proceed with unlimited mode possibly much slower\n");
+
+		sb.orig_offset = offset;
 		print_maxverbose("Chunk size: %lld\n", st->chunk_size);
 
 		/* Determine the chunk byte width and write it to the file
@@ -874,7 +883,7 @@ void rzip_fd(int fd_in, int fd_out)
 		}
 		last.tv_sec = current.tv_sec;
 		last.tv_usec = current.tv_usec;
-		rzip_chunk(st, fd_in, fd_out, s.st_size - len, pct_base, pct_multiple);
+		rzip_chunk(st, fd_in, fd_out, offset, pct_base, pct_multiple);
 		/* st->chunk_bytes may be shrunk in rzip_chunk */
 		last_chunk = st->chunk_size;
 		len -= st->chunk_size;

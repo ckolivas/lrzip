@@ -1,4 +1,3 @@
-
 The first comparison is that of a linux kernel tarball (2.6.31). In all cases
 the default options were used. 3 other common compression apps were used for
 comparison, 7z which is an excellent all-round lzma based compression app,
@@ -94,9 +93,9 @@ These benchmarks were done on the quad core with version 0.5.1
 Compression	Size		Percentage	Compress Time	Decompress Time
 None		10737418240	100.0
 gzip		2772899756	 25.8		05m47.35s	2m46.77s
-bzip2		2704781700	 25.2		20m34.269s	7m51.362s
-xz		2272322208	 21.2		58m26.829s	4m46.154s
-7z		2242897134	 20.9		29m28.152s	6m35.952s
+bzip2		2704781700	 25.2		16m15.603s	6m19.718s
+xz		2272322208	 21.2		50m58.437s	3m52.734s
+7z		2242897134	 20.9		26m36.333s	5m41.198s
 lrzip		1354237684	 12.6		29m13.402s	6m55.441s
 lrzip -M	1079528708	 10.1		23m44.226s	4m05.461s
 lrzip -l	1793312108	 16.7		05m13.246s	3m12.886s
@@ -107,10 +106,11 @@ lrzip -zM	1066902006	  9.9		04h07m14s	04h08m
 
 At this end of the spectrum things really start to heat up. The compression
 advantage is massive, with the lzo backend even giving much better results than
-7z, and over a ridiculously short time. What appears to be a big disappointment
-is actually zpaq here which takes more than 8 times longer than lzma for a
-measly .2% improvement. The reason is that most of the advantage here is
-achieved by the rzip first stage since there's a lot of redundant space over
+7z, and over a ridiculously short time. The default lzma backend is slightly
+slower than 7z, but provides a lot more compression. What appears to be a big
+disappointment is actually zpaq here which takes more than 8 times longer than
+lzma for a measly .2% improvement. The reason is that most of the advantage here
+is achieved by the rzip first stage since there's a lot of redundant space over
 huge distances on a virtual image. The -M option which works the memory
 subsystem rather hard making noticeable impact on the rest of the machine also
 does further wonders for the compression and times.

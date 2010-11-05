@@ -74,8 +74,7 @@ a compression window larger than your ramsize, if the file is that large. It
 does this (with the -U option) by implementing one large mmap buffer as per
 normal, and a smaller moving buffer to track which part of the file is
 currently being examined, emulating a much larger single mmapped buffer.
-Unfortunately this mode is 100 times slower once lrzip begins examining the
-ram beyond the larger base window.
+Unfortunately this mode is many times slower.
 
 See the file README.benchmarks in doc/ for performance examples and what kind
 of data lrzip is very good with.
@@ -105,7 +104,26 @@ Q. I want the absolute maximum compression I can possibly get, what do I do?
 A. Try the command line options -MUz. This will use all available ram and ZPAQ
 compression, and even use a compression window larger than you have ram.
 Expect serious swapping to occur if your file is larger than your ram and for
-it to take 1000 times longer. A more practical option is just -M.
+it to take many times longer.
+
+Q. How much slower is the unlimited mode?
+A. It depends on 2 things. First, just how much larger than your ram the file
+is, as the bigger the difference, the slower it will be. The second is how much
+redundant data there is. The more there is, the slower, but ultimately the
+better the compression. Using the example of a 10GB virtual image on a machine
+with 8GB ram, it would allocate about 5.5GB by default, yet is capable of
+allocating all the ram for the 10GB file in -M mode.
+
+Options		Size		Compress	Decompress
+-l		1793312108	05m13s		3m12s
+-lM		1413268368	04m18s		2m54s
+-lU		1413268368	06m05s		2m54s
+
+As you can see, the -U option gives the same compression in this case as the
+-M option, and for about 50% more time. The advantage to using -U is that it
+will work even when the size can't be encompassed by -M, but progressively
+slower. Why isn't it on by default? If the compression window is a LOT larger
+than ram, with a lot of redundant information it can be drastically slower.
 
 Q. Can I use your tool for even more compression than lzma offers?
 A. Yes, the rzip preparation of files makes them more compressible by every
@@ -287,6 +305,10 @@ speeds up. There's also a jump in the percentage at the end?
 A. Yes, that's the nature of the compression/decompression mechanism. The jump
 is because the rzip preparation makes the amount of data much smaller than the
 compression backend (lzma) needs to compress.
+
+Q. The percentage counter doesn't always get to 100%.
+A. It's quite hard to predict during the rzip phase how long it will take as
+lots of redundant data will not count towards the percentage.
 
 Q. Tell me about patented compression algorithms, GPL, lawyers and copyright.
 A. No

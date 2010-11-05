@@ -308,7 +308,7 @@ static int zpaq_decompress_buf(struct stream *s)
 	s->buf = c_buf;
 
 	if (unlikely((i64)dlen != s->buflen)) {
-		print_err("Inconsistent length after decompression. Got %d bytes, expected %lld\n", dlen, s->buflen);
+		print_err("Inconsistent length after decompression. Got %lld bytes, expected %lld\n", (i64)dlen, s->buflen);
 		return -1;
 	}
 
@@ -380,7 +380,7 @@ static int lzma_decompress_buf(struct stream *s, size_t c_len)
 	c_buf = s->buf;
 	s->buf = malloc(dlen);
 	if (unlikely(!s->buf)) {
-		print_err("Failed to allocate %d bytes for decompression\n", dlen);
+		print_err("Failed to allocate %lldd bytes for decompression\n", (i64)dlen);
 		return -1;
 	}
 
@@ -393,7 +393,7 @@ static int lzma_decompress_buf(struct stream *s, size_t c_len)
 	}
 
 	if (unlikely((i64)dlen != s->buflen)) {
-		print_err("Inconsistent length after decompression. Got %d bytes, expected %lld\n", dlen, s->buflen);
+		print_err("Inconsistent length after decompression. Got %lld bytes, expected %lld\n", (i64)dlen, s->buflen);
 		return -1;
 	}
 
@@ -410,7 +410,7 @@ static int lzo_decompress_buf(struct stream *s, i64 c_len)
 	c_buf = s->buf;
 	s->buf = malloc(dlen);
 	if (unlikely(!s->buf)) {
-		print_err("Failed to allocate %d bytes for decompression\n", (int)dlen);
+		print_err("Failed to allocate %lu bytes for decompression\n", (unsigned long)dlen);
 		return -1;
 	}
 
@@ -421,7 +421,7 @@ static int lzo_decompress_buf(struct stream *s, i64 c_len)
 	}
 
 	if (unlikely((i64)dlen != s->buflen)) {
-		print_err("Inconsistent length after decompression. Got %d bytes, expected %lld\n", (int)dlen, s->buflen);
+		print_err("Inconsistent length after decompression. Got %lu bytes, expected %lld\n", (unsigned long)dlen, s->buflen);
 		return -1;
 	}
 
@@ -492,7 +492,7 @@ static int write_buf(int f, uchar *p, i64 len)
 		return -1;
 	}
 	if (unlikely(ret != (ssize_t)len)) {
-		print_err("Partial write!? asked for %lld bytes but got %d\n", len, ret);
+		print_err("Partial write!? asked for %lld bytes but got %lld\n", len, (i64)ret);
 		return -1;
 	}
 	return 0;
