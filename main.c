@@ -776,7 +776,6 @@ int main(int argc, char *argv[])
 				print_verbose("Compression Level: %d\n", control.compression_level);
 			}
 		}
-		print_err("\n");
 	}
 
 	if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val) == -1))

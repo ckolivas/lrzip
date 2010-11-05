@@ -578,6 +578,8 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 			if (pct != lastpct || chunk_pct != last_chunkpct) {
 				if (!STDIN)
 					print_progress("Total: %2d%%  Chunk: %2d%%\r", pct, chunk_pct);
+				else
+					print_progress("Chunk: %2d%%\r", chunk_pct);
 				lastpct = pct;
 				last_chunkpct = chunk_pct;
 			}
@@ -658,13 +660,13 @@ static void mmap_stdin(uchar *buf, struct rzip_state *st)
 			if (unlikely(buf == MAP_FAILED))
 				fatal("Failed to remap to smaller buf in mmap_stdin\n");
 			st->chunk_size = total;
-			control.st_size += total;
 			st->stdin_eof = 1;
 			break;
 		}
 		offset_buf += ret;
 		len -= ret;
 	}
+	control.st_size += total;
 }
 
 static void init_sliding_mmap(struct rzip_state *st, int fd_in, i64 offset)
@@ -708,7 +710,7 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 	}
 
 	if (!NO_COMPRESS)
-		print_verbose("Passing chunk data to backend compressor\n");
+		print_verbose("Performing backend compression phase\n");
 	if (unlikely(close_stream_out(st->ss)))
 		fatal("Failed to flush/close streams in rzip_chunk\n");
 }
@@ -798,7 +800,6 @@ void rzip_fd(int fd_in, int fd_out)
 			st->mmap_size = two_gig;
 		}
 
-		print_maxverbose("Reading file into mmapped ram...\n");
 retry:
 		/* Mmapping anonymously first will tell us how much ram we can use in
 		 * advance and zeroes it which has a defragmenting effect on ram
@@ -877,9 +878,13 @@ retry:
 			eta_minutes = (unsigned int)((finish_time - elapsed_time) - eta_hours * 3600) / 60;
 			eta_seconds = (unsigned int)(finish_time - elapsed_time) - eta_hours * 60 - eta_minutes * 60;
 			chunkmbs = (last_chunk / 1024 / 1024) / (double)(current.tv_sec-last.tv_sec);
-			print_verbose("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
-				       pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds,
-				       eta_hours, eta_minutes, eta_seconds, chunkmbs);
+			if (!STDIN)
+				print_verbose("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
+					pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds,
+					eta_hours, eta_minutes, eta_seconds, chunkmbs);
+			else
+				print_verbose("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
+					pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds, chunkmbs);
 		}
 		last.tv_sec = current.tv_sec;
 		last.tv_usec = current.tv_usec;
