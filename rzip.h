@@ -129,6 +129,9 @@ extern char *sys_errlist[];
 extern int errno;
 #endif
 
+#define likely(x)	__builtin_expect(!!(x), 1)
+#define unlikely(x)	__builtin_expect(!!(x), 0)
+
 typedef long long int i64;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -222,7 +225,6 @@ struct stream_info {
 
 void fatal(const char *format, ...);
 void sighandler();
-void err_msg(const char *format, ...);
 i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size);
 void rzip_fd(int fd_in, int fd_out);
 void *open_stream_out(int f, int n, i64 limit);

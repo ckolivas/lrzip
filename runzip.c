@@ -24,7 +24,7 @@ static inline uchar read_u8(void *ss, int stream)
 {
 	uchar b;
 
-	if (read_stream(ss, stream, &b, 1) != 1)
+	if (unlikely(read_stream(ss, stream, &b, 1) != 1))
 		fatal("Stream read u8 failed\n");
 	return b;
 }
@@ -33,7 +33,7 @@ static inline u32 read_u32(void *ss, int stream)
 {
 	u32 ret;
 
-	if (read_stream(ss, stream, (uchar *)&ret, 4) != 4)
+	if (unlikely(read_stream(ss, stream, (uchar *)&ret, 4) != 4))
 		fatal("Stream read u32 failed\n");
 	return ret;
 }
@@ -68,17 +68,17 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 {
 	uchar *buf;
 
-	if (len < 0)
+	if (unlikely(len < 0))
 		fatal("len %lld is negative in unzip_literal!\n",len);
 
 	/* We use anonymous mmap instead of malloc to allow us to allocate up
 	 * to 2^44 even on 32 bits */
 	buf = (uchar *)mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	if (buf == MAP_FAILED)
+	if (unlikely(buf == MAP_FAILED))
 		fatal("Failed to allocate literal buffer of size %lld\n", len);
 
 	read_stream(ss, 1, buf, len);
-	if (write_1g(fd_out, buf, (size_t)len) != (ssize_t)len)
+	if (unlikely(write_1g(fd_out, buf, (size_t)len) != (ssize_t)len))
 		fatal("Failed to write literal buffer of size %lld\n", len);
 
 	*cksum = CrcUpdate(*cksum, buf, len);
@@ -91,17 +91,17 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 {
 	i64 offset, n, total, cur_pos;
 
-	if (len < 0)
+	if (unlikely(len < 0))
 		fatal("len %lld is negative in unzip_match!\n",len);
 
 	total = 0;
 	cur_pos = lseek(fd_out, 0, SEEK_CUR);
-	if (cur_pos == -1)
+	if (unlikely(cur_pos == -1))
 		fatal("Seek failed on out file in unzip_match.\n");
 
 	/* Note the offset is in a different format v0.40+ */
 	offset = read_vchars(ss, 0, chunk_bytes);
-	if (lseek(fd_hist, cur_pos - offset, SEEK_SET) == -1)
+	if (unlikely(lseek(fd_hist, cur_pos - offset, SEEK_SET) == -1))
 		fatal("Seek failed by %d from %d on history file in unzip_match - %s\n",
 		      offset, cur_pos, strerror(errno));
 
@@ -110,13 +110,13 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 		n = MIN(len, offset);
 
 		buf = (uchar *)mmap(NULL, n, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-		if (buf == MAP_FAILED)
+		if (unlikely(buf == MAP_FAILED))
 			fatal("Failed to allocate match buffer of size %lld\n", n);
 
-		if (read_1g(fd_hist, buf, (size_t)n) != (ssize_t)n)
+		if (unlikely(read_1g(fd_hist, buf, (size_t)n) != (ssize_t)n))
 			fatal("Failed to read %d bytes in unzip_match\n", n);
 
-		if (write_1g(fd_out, buf, (size_t)n) != (ssize_t)n)
+		if (unlikely(write_1g(fd_out, buf, (size_t)n) != (ssize_t)n))
 			fatal("Failed to write %d bytes in unzip_match\n", n);
 
 		*cksum = CrcUpdate(*cksum, buf, n);
@@ -168,7 +168,7 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 		chunk_bytes = 8;
 	else {
 		/* Read in the stored chunk byte width from the file */
-		if (read(fd_in, &chunk_bytes, 1) != 1)
+		if (unlikely(read(fd_in, &chunk_bytes, 1) != 1))
 			fatal("Failed to read chunk_bytes size in runzip_chunk\n");
 	}
 	if (!tally)
@@ -176,14 +176,14 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 	print_maxverbose("\nChunk byte width: %d\n", chunk_bytes);
 
 	ofs = lseek(fd_in, 0, SEEK_CUR);
-	if (ofs == -1)
+	if (unlikely(ofs == -1))
 		fatal("Failed to seek input file in runzip_fd\n");
 
 	if (fstat(fd_in, &st) != 0 || st.st_size - ofs == 0)
 		return 0;
 
 	ss = open_stream_in(fd_in, NUM_STREAMS);
-	if (!ss)
+	if (unlikely(!ss))
 		fatal("Failed to open_stream_in in runzip_chunk\n");
 
 	while ((len = read_header(ss, &head)) || head) {
@@ -206,10 +206,10 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 	}
 
 	good_cksum = read_u32(ss, 0);
-	if (good_cksum != cksum)
+	if (unlikely(good_cksum != cksum))
 		fatal("Bad checksum 0x%08x - expected 0x%08x\n", cksum, good_cksum);
 
-	if (close_stream_in(ss) != 0)
+	if (unlikely(close_stream_in(ss)))
 		fatal("Failed to close stream!\n");
 
 	return total;

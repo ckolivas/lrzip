@@ -67,7 +67,7 @@ static void write_magic(int fd_in, int fd_out)
 	magic[4] = LRZIP_MAJOR_VERSION;
 	magic[5] = LRZIP_MINOR_VERSION;
 
-	if (fstat(fd_in, &st) != 0)
+	if (unlikely(fstat(fd_in, &st)))
 		fatal("bad magic file descriptor!?\n");
 
 	memcpy(&magic[6], &control.st_size, 8);
@@ -78,10 +78,10 @@ static void write_magic(int fd_in, int fd_out)
 			magic[i + 16] = (char)control.lzma_properties[i];
 	}
 
-	if (lseek(fd_out, 0, SEEK_SET) != 0)
+	if (unlikely(lseek(fd_out, 0, SEEK_SET)))
 		fatal("Failed to seek to BOF to write Magic Header\n");
 
-	if (write(fd_out, magic, sizeof(magic)) != sizeof(magic))
+	if (unlikely(write(fd_out, magic, sizeof(magic)) != sizeof(magic)))
 		fatal("Failed to write magic header\n");
 }
 
@@ -91,14 +91,13 @@ static void read_magic(int fd_in, i64 *expected_size)
 	uint32_t v;
 	int i;
 
-	if (read(fd_in, magic, sizeof(magic)) != sizeof(magic))
+	if (unlikely(read(fd_in, magic, sizeof(magic)) != sizeof(magic)))
 		fatal("Failed to read magic header\n");
 
 	*expected_size = 0;
 
-	if (strncmp(magic, "LRZI", 4) != 0) {
+	if (unlikely(strncmp(magic, "LRZI", 4)))
 		fatal("Not an lrzip file\n");
-	}
 
 	memcpy(&control.major_version, &magic[4], 1);
 	memcpy(&control.minor_version, &magic[5], 1);
@@ -128,10 +127,10 @@ static void preserve_perms(int fd_in, int fd_out)
 {
 	struct stat st;
 
-	if (fstat(fd_in, &st) != 0)
+	if (unlikely(fstat(fd_in, &st)))
 		fatal("Failed to fstat input file\n");
-	if (fchmod(fd_out, (st.st_mode & 0777)) != 0)
-		fatal("Failed to set permissions on %s\n", control.outfile);
+	if (fchmod(fd_out, (st.st_mode & 0777)))
+		print_output("Warning, unable to set permissions on %s\n", control.outfile);
 
 	/* chown fail is not fatal */
 	fchown(fd_out, st.st_uid, st.st_gid);
@@ -146,11 +145,11 @@ static int open_tmpoutfile(void)
 		print_verbose("Outputting to stdout.\n");
 	control.outfile = realloc(NULL, 16);
 	strcpy(control.outfile, "lrzipout.XXXXXX");
-	if (!control.outfile)
+	if (unlikely(!control.outfile))
 		fatal("Failed to allocate outfile name\n");
 
 	fd_out = mkstemp(control.outfile);
-	if (fd_out == -1)
+	if (unlikely(fd_out == -1))
 		fatal("Failed to create out tmpfile: %s\n", strerror(errno));
 	return fd_out;
 }
@@ -165,7 +164,7 @@ static void dump_tmpoutfile(int fd_out)
 	/* flush anything not yet in the temporary file */
 	fsync(fd_out);
 	tmpoutfp = fdopen(fd_out, "r");
-	if (tmpoutfp == NULL)
+	if (unlikely(tmpoutfp == NULL))
 		fatal("Failed to fdopen out tmpfile: %s\n", strerror(errno));
 	rewind(tmpoutfp);
 
@@ -182,11 +181,11 @@ static int open_tmpinfile(void)
 
 	control.infile = malloc(15);
 	strcpy(control.infile, "lrzipin.XXXXXX");
-	if (!control.infile)
+	if (unlikely(!control.infile))
 		fatal("Failed to allocate infile name\n");
 
 	fd_in = mkstemp(control.infile);
-	if (fd_in == -1)
+	if (unlikely(fd_in == -1))
 		fatal("Failed to create in tmpfile: %s\n", strerror(errno));
 	return fd_in;
 }
@@ -200,7 +199,7 @@ static void read_tmpinfile(int fd_in)
 	if (control.flags & FLAG_SHOW_PROGRESS)
 		fprintf(control.msgout, "Copying from stdin.\n");
 	tmpinfp = fdopen(fd_in, "w+");
-	if (tmpinfp == NULL)
+	if (unlikely(tmpinfp == NULL))
 		fatal("Failed to fdopen in tmpfile: %s\n", strerror(errno));
 
 	while ((tmpchar = getchar()) != EOF)
@@ -225,7 +224,7 @@ static void decompress_file(void)
 			  * because manipulations may be made to input filename, set local ptr
 			*/
 			infilecopy = malloc(strlen(control.infile) + strlen(control.suffix) + 1);
-			if (infilecopy == NULL)
+			if (unlikely(infilecopy == NULL))
 				fatal("Failed to allocate memory for infile suffix\n");
 			else {
 				strcpy(infilecopy, control.infile);
@@ -255,7 +254,7 @@ static void decompress_file(void)
 				*tmp='\0';
 
 			control.outfile = malloc((control.outdir == NULL? 0: strlen(control.outdir)) + strlen(tmpoutfile) + 1);
-			if (!control.outfile)
+			if (unlikely(!control.outfile))
 				fatal("Failed to allocate outfile name\n");
 
 			if (control.outdir) {	/* prepend control.outdir */
@@ -275,7 +274,7 @@ static void decompress_file(void)
 		read_tmpinfile(fd_in);
 	} else {
 		fd_in = open(infilecopy, O_RDONLY);
-		if (fd_in == -1) {
+		if (unlikely(fd_in == -1)) {
 			fatal("Failed to open %s: %s\n",
 			      infilecopy,
 			      strerror(errno));
@@ -287,7 +286,7 @@ static void decompress_file(void)
 			fd_out = open(control.outfile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 		else
 			fd_out = open(control.outfile, O_WRONLY | O_CREAT | O_EXCL, 0666);
-		if (fd_out == -1)
+		if (unlikely(fd_out == -1))
 			fatal("Failed to create %s: %s\n", control.outfile, strerror(errno));
 
 		if (!NO_SET_PERMS)
@@ -296,7 +295,7 @@ static void decompress_file(void)
 		fd_out = open_tmpoutfile();
 
 	fd_hist = open(control.outfile, O_RDONLY);
-	if (fd_hist == -1)
+	if (unlikely(fd_hist == -1))
 		fatal("Failed to open history file %s\n", control.outfile);
 
 	read_magic(fd_in, &expected_size);
@@ -313,19 +312,19 @@ static void decompress_file(void)
 		print_output("Output filename is: %s: ", control.outfile);
         print_progress("[OK] - %lld bytes                                \n", expected_size);
 
-	if (close(fd_hist) != 0 || close(fd_out) != 0)
+	if (unlikely(close(fd_hist) != 0 || close(fd_out) != 0))
 		fatal("Failed to close files\n");
 
 	if (TEST_ONLY | STDOUT) {
 		/* Delete temporary files generated for testing or faking stdout */
-		if (unlink(control.outfile) != 0)
+		if (unlikely(unlink(control.outfile)))
 			fatal("Failed to unlink tmpfile: %s\n", strerror(errno));
 	}
 
 	close(fd_in);
 
 	if (!(KEEP_FILES | TEST_ONLY) || STDIN) {
-		if (unlink(control.infile) != 0)
+		if (unlikely(unlink(control.infile)))
 			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
 	}
 
@@ -347,7 +346,7 @@ static void get_fileinfo(void)
 	if (!STDIN) {
 		if ((tmp = strrchr(control.infile, '.')) && strcmp(tmp,control.suffix)) {
 			infilecopy = malloc(strlen(control.infile) + strlen(control.suffix) + 1);
-			if (infilecopy == NULL)
+			if (unlikely(infilecopy == NULL))
 				fatal("Failed to allocate memory for infile suffix\n");
 			else {
 				strcpy(infilecopy, control.infile);
@@ -361,12 +360,12 @@ static void get_fileinfo(void)
 		fd_in = 0;
 	else {
 		fd_in = open(infilecopy, O_RDONLY);
-		if (fd_in == -1)
+		if (unlikely(fd_in == -1))
 			fatal("Failed to open %s: %s\n", infilecopy, strerror(errno));
 	}
 
 	/* Get file size */
-	if (fstat(fd_in, &st) != 0)
+	if (unlikely(fstat(fd_in, &st)))
 		fatal("bad magic file descriptor!?\n");
 	memcpy(&infile_size, &st.st_size, 8);
 
@@ -378,7 +377,7 @@ static void get_fileinfo(void)
 		seekspot = 50;
 	else
 		seekspot = 74;
-	if (lseek(fd_in, seekspot, SEEK_SET) == -1)
+	if (unlikely(lseek(fd_in, seekspot, SEEK_SET) == -1))
 		fatal("Failed to lseek in get_fileinfo: %s\n", strerror(errno));
 
 	/* Read the compression type of the first block. It's possible that
@@ -407,7 +406,7 @@ static void get_fileinfo(void)
 	print_output("Compression ratio: %.3Lf\n", cratio);
 
 	if (STDIN) {
-		if (unlink(control.infile) != 0)
+		if (unlikely(unlink(control.infile)))
 			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
 	}
 
@@ -436,7 +435,7 @@ static void compress_file(void)
 		}
 
 		fd_in = open(control.infile, O_RDONLY);
-		if (fd_in == -1)
+		if (unlikely(fd_in == -1))
 			fatal("Failed to open %s: %s\n", control.infile, strerror(errno));
 	} else
 		fd_in = 0;
@@ -448,7 +447,7 @@ static void compress_file(void)
 					control.outfile = strdup(control.outname);
 				else if ((tmp=strrchr(control.outname, '.')) && strcmp(tmp, control.suffix)) {
 					control.outfile = malloc(strlen(control.outname) + strlen(control.suffix) + 1);
-					if (!control.outfile)
+					if (unlikely(!control.outfile))
 						fatal("Failed to allocate outfile name\n");
 					strcpy(control.outfile, control.outname);
 					strcat(control.outfile, control.suffix);
@@ -466,7 +465,7 @@ static void compress_file(void)
 				tmpinfile = control.infile;
 
 			control.outfile = malloc((control.outdir == NULL? 0: strlen(control.outdir)) + strlen(tmpinfile) + strlen(control.suffix) + 1);
-			if (!control.outfile)
+			if (unlikely(!control.outfile))
 				fatal("Failed to allocate outfile name\n");
 
 			if (control.outdir) {	/* prepend control.outdir */
@@ -482,7 +481,7 @@ static void compress_file(void)
 			fd_out = open(control.outfile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 		else
 			fd_out = open(control.outfile, O_WRONLY | O_CREAT | O_EXCL, 0666);
-		if (fd_out == -1)
+		if (unlikely(fd_out == -1))
 			fatal("Failed to create %s: %s\n", control.outfile, strerror(errno));
 	} else
 		fd_out = open_tmpoutfile();
@@ -491,7 +490,7 @@ static void compress_file(void)
 		preserve_perms(fd_in, fd_out);
 
 	/* write zeroes to 24 bytes at beginning of file */
-	if (write(fd_out, header, sizeof(header)) != sizeof(header))
+	if (unlikely(write(fd_out, header, sizeof(header)) != sizeof(header)))
 		fatal("Cannot write file header\n");
 
 	rzip_fd(fd_in, fd_out);
@@ -502,17 +501,17 @@ static void compress_file(void)
 	if (STDOUT)
 		dump_tmpoutfile(fd_out);
 
-	if (close(fd_in) != 0 || close(fd_out) != 0)
+	if (unlikely(close(fd_in) != 0 || close(fd_out)))
 		fatal("Failed to close files\n");
 
 	if (STDOUT) {
 		/* Delete temporary files generated for testing or faking stdout */
-		if (unlink(control.outfile) != 0)
+		if (unlikely(unlink(control.outfile)))
 			fatal("Failed to unlink tmpfile: %s\n", strerror(errno));
 	}
 
 	if (!KEEP_FILES) {
-		if (unlink(control.infile) != 0)
+		if (unlikely(unlink(control.infile)))
 			fatal("Failed to unlink %s: %s\n", control.infile, strerror(errno));
 	}
 
@@ -724,14 +723,6 @@ int main(int argc, char *argv[])
 	if (argc < 1)
 		control.flags |= FLAG_STDIN;
 
-#if 0
-	/* malloc limited to 2GB on 32bit */
-	if (sizeof(long) == 4 && control.window > 20) {
-		control.window = 20;
-		print_verbose("Limiting control window to 2GB due to 32bit limitations.\n");
-	}
-#endif
-
 	/* OK, if verbosity set, print summary of options selected */
 	if (VERBOSE && !INFO) {
 		print_err("The following options are in effect for this %s.\n",
@@ -783,7 +774,7 @@ int main(int argc, char *argv[])
 		print_err("\n");
 	}
 
-	if (setpriority(PRIO_PROCESS, 0, control.nice_val) == -1)
+	if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val) == -1))
 		fatal("Unable to set nice value\n");
 
 	/* One extra iteration for the case of no parameters means we will default to stdin/out */

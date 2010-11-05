@@ -33,13 +33,13 @@ static inline FILE *fake_fmemopen(void *buf, size_t buflen, char *mode)
 {
 	FILE *in;
 
-	if (strcmp(mode, "r"))
-                fatal("fake_fmemopen only supports mode \"r\".");
+	if (unlikely(strcmp(mode, "r")))
+		fatal("fake_fmemopen only supports mode \"r\".");
 	in = tmpfile();
-	if (!in)
-	        return NULL;
-	if (fwrite(buf, buflen, 1, in) != 1)
-	        return NULL;
+	if (unlikely(!in))
+		return NULL;
+	if (unlikely(fwrite(buf, buflen, 1, in) != 1))
+		return NULL;
 	rewind(in);
         return in;
 }
@@ -48,10 +48,10 @@ static inline FILE *fake_open_memstream(char **buf, size_t *length)
 {
 	FILE *out;
 
-	if (buf == NULL || length == NULL)
-	        fatal("NULL parameter to fake_open_memstream");
+	if (unlikely(buf == NULL || length == NULL))
+		fatal("NULL parameter to fake_open_memstream");
 	out = tmpfile();
-	if (!out)
+	if (unlikely(!out))
 	        return NULL;
 	return out;
 }
@@ -60,17 +60,17 @@ static inline int fake_open_memstream_update_buffer(FILE *fp, uchar **buf, size_
 {
 	long original_pos = ftell(fp);
 
-	if (fseek(fp, 0, SEEK_END) != 0)
+	if (unlikely(fseek(fp, 0, SEEK_END)))
 		return -1;
 	*length = ftell(fp);
 	rewind(fp);
 	*buf = (uchar *)malloc(*length);
-	if (!*buf)
-	        return -1;
-	if (fread(*buf, *length, 1, fp) != 1)
-	        return -1;
-	if (fseek(fp, original_pos, SEEK_SET) != 0)
-	        return -1;
+	if (unlikely(!*buf))
+		return -1;
+	if (unlikely(fread(*buf, *length, 1, fp) != 1))
+		return -1;
+	if (unlikely(fseek(fp, original_pos, SEEK_SET)))
+		return -1;
 	return 0;
 }
 
@@ -94,15 +94,15 @@ static void zpaq_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 		return;
 
 	in = fmemopen(s->buf, s->buflen, "r");
-	if (!in)
+	if (unlikely(!in))
 		fatal("Failed to fmemopen in zpaq_compress_buf\n");
 	out = open_memstream((char **)&c_buf, &dlen);
-	if (!out)
+	if (unlikely(!out))
 		fatal("Failed to open_memstream in zpaq_compress_buf\n");
 
 	zpipe_compress(in, out, control.msgout, s->buflen, (int)(SHOW_PROGRESS));
 
-	if (memstream_update_buffer(out, &c_buf, &dlen) != 0)
+	if (unlikely(memstream_update_buffer(out, &c_buf, &dlen) != 0))
 	        fatal("Failed to memstream_update_buffer in zpaq_compress_buf");
 
 	fclose(in);
@@ -203,19 +203,19 @@ static void lzma_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 	if (lzma_ret != SZ_OK) {
 		switch (lzma_ret) {
 			case SZ_ERROR_MEM:
-				err_msg("\nLZMA ERROR: %d. Try a smaller compression window.\n", SZ_ERROR_MEM);
+				print_err("\nLZMA ERROR: %d. Try a smaller compression window.\n", SZ_ERROR_MEM);
 				break;
 			case SZ_ERROR_PARAM:
-				err_msg("\nLZMA Parameter ERROR: %d. This should not happen.\n", SZ_ERROR_PARAM);
+				print_err("\nLZMA Parameter ERROR: %d. This should not happen.\n", SZ_ERROR_PARAM);
 				break;
 			case SZ_ERROR_OUTPUT_EOF:
-				err_msg("\nHarmless LZMA Output Buffer Overflow error: %d. Incompressible block.\n", SZ_ERROR_OUTPUT_EOF);
+				print_err("\nHarmless LZMA Output Buffer Overflow error: %d. Incompressible block.\n", SZ_ERROR_OUTPUT_EOF);
 				break;
 			case SZ_ERROR_THREAD:
-				err_msg("\nLZMA Multi Thread ERROR: %d. This should not happen.\n", SZ_ERROR_THREAD);
+				print_err("\nLZMA Multi Thread ERROR: %d. This should not happen.\n", SZ_ERROR_THREAD);
 				break;
 			default:
-				err_msg("Unidentified LZMA ERROR: %d. This should not happen.\n", lzma_ret);
+				print_err("Unidentified LZMA ERROR: %d. This should not happen.\n", lzma_ret);
 				break;
 		}
 		/* can pass -1 if not compressible! Thanks Lasse Collin */
@@ -287,19 +287,19 @@ static int zpaq_decompress_buf(struct stream *s)
 	FILE *in, *out;
 
 	in = fmemopen(s->buf, s->buflen, "r");
-	if (!in) {
-		err_msg("Failed to fmemopen in zpaq_decompress_buf\n");
+	if (unlikely(!in)) {
+		print_err("Failed to fmemopen in zpaq_decompress_buf\n");
 		return -1;
 	}
 	out = open_memstream((char **)&c_buf, &dlen);
-	if (!out) {
-		err_msg("Failed to open_memstream in zpaq_decompress_buf\n");
+	if (unlikely(!out)) {
+		print_err("Failed to open_memstream in zpaq_decompress_buf\n");
 		return -1;
 	}
 
 	zpipe_decompress(in, out, control.msgout, s->buflen, (int)(SHOW_PROGRESS));
 
-	if (memstream_update_buffer(out, &c_buf, &dlen) != 0)
+	if (unlikely(memstream_update_buffer(out, &c_buf, &dlen)))
 	        fatal("Failed to memstream_update_buffer in zpaq_decompress_buf");
 
 	fclose(in);
@@ -307,8 +307,8 @@ static int zpaq_decompress_buf(struct stream *s)
 	free(s->buf);
 	s->buf = c_buf;
 
-	if ((i64)dlen != s->buflen) {
-		err_msg("Inconsistent length after decompression. Got %d bytes, expected %d\n", dlen, s->buflen);
+	if (unlikely((i64)dlen != s->buflen)) {
+		print_err("Inconsistent length after decompression. Got %d bytes, expected %lld\n", dlen, s->buflen);
 		return -1;
 	}
 
@@ -323,19 +323,19 @@ static int bzip2_decompress_buf(struct stream *s, i64 c_len)
 
 	c_buf = s->buf;
 	s->buf = malloc(dlen);
-	if (!s->buf) {
-		err_msg("Failed to allocate %d bytes for decompression\n", dlen);
+	if (unlikely(!s->buf)) {
+		print_err("Failed to allocate %d bytes for decompression\n", dlen);
 		return -1;
 	}
 
 	bzerr = BZ2_bzBuffToBuffDecompress((char*)s->buf, &dlen, (char*)c_buf, c_len, 0, 0);
-	if (bzerr != BZ_OK) {
-		err_msg("Failed to decompress buffer - bzerr=%d\n", bzerr);
+	if (unlikely(bzerr != BZ_OK)) {
+		print_err("Failed to decompress buffer - bzerr=%d\n", bzerr);
 		return -1;
 	}
 
-	if (dlen != s->buflen) {
-		err_msg("Inconsistent length after decompression. Got %d bytes, expected %d\n", dlen, s->buflen);
+	if (unlikely(dlen != s->buflen)) {
+		print_err("Inconsistent length after decompression. Got %d bytes, expected %lld\n", dlen, s->buflen);
 		return -1;
 	}
 
@@ -351,19 +351,19 @@ static int gzip_decompress_buf(struct stream *s, i64 c_len)
 
 	c_buf = s->buf;
 	s->buf = malloc(dlen);
-	if (!s->buf) {
-		err_msg("Failed to allocate %d bytes for decompression\n", dlen);
+	if (unlikely(!s->buf)) {
+		print_err("Failed to allocate %ld bytes for decompression\n", dlen);
 		return -1;
 	}
 
 	gzerr = uncompress(s->buf, &dlen, c_buf, c_len);
-	if (gzerr != Z_OK) {
-		err_msg("Failed to decompress buffer - bzerr=%d\n", gzerr);
+	if (unlikely(gzerr != Z_OK)) {
+		print_err("Failed to decompress buffer - bzerr=%d\n", gzerr);
 		return -1;
 	}
 
-	if ((i64)dlen != s->buflen) {
-		err_msg("Inconsistent length after decompression. Got %d bytes, expected %d\n", dlen, s->buflen);
+	if (unlikely((i64)dlen != s->buflen)) {
+		print_err("Inconsistent length after decompression. Got %ld bytes, expected %lld\n", dlen, s->buflen);
 		return -1;
 	}
 
@@ -379,21 +379,21 @@ static int lzma_decompress_buf(struct stream *s, size_t c_len)
 
 	c_buf = s->buf;
 	s->buf = malloc(dlen);
-	if (!s->buf) {
-		err_msg("Failed to allocate %d bytes for decompression\n", dlen);
+	if (unlikely(!s->buf)) {
+		print_err("Failed to allocate %d bytes for decompression\n", dlen);
 		return -1;
 	}
 
 	/* With LZMA SDK 4.63 we pass control.lzma_properties
 	 * which is needed for proper uncompress */
 	lzmaerr = LzmaUncompress(s->buf, &dlen, c_buf, &c_len, control.lzma_properties, 5);
-	if (lzmaerr != 0) {
-		err_msg("Failed to decompress buffer - lzmaerr=%d\n", lzmaerr);
+	if (unlikely(lzmaerr != 0)) {
+		print_err("Failed to decompress buffer - lzmaerr=%d\n", lzmaerr);
 		return -1;
 	}
 
-	if ((i64)dlen != s->buflen) {
-		err_msg("Inconsistent length after decompression. Got %d bytes, expected %d\n", dlen, s->buflen);
+	if (unlikely((i64)dlen != s->buflen)) {
+		print_err("Inconsistent length after decompression. Got %d bytes, expected %lld\n", dlen, s->buflen);
 		return -1;
 	}
 
@@ -409,19 +409,19 @@ static int lzo_decompress_buf(struct stream *s, i64 c_len)
 
 	c_buf = s->buf;
 	s->buf = malloc(dlen);
-	if (!s->buf) {
-		err_msg("Failed to allocate %d bytes for decompression\n", dlen);
+	if (unlikely(!s->buf)) {
+		print_err("Failed to allocate %d bytes for decompression\n", (int)dlen);
 		return -1;
 	}
 
 	lzerr = lzo1x_decompress((uchar*)c_buf,c_len,(uchar*)s->buf,&dlen,NULL);
-	if (lzerr != LZO_E_OK) {
-		err_msg("Failed to decompress buffer - lzerr=%d\n", lzerr);
+	if (unlikely(lzerr != LZO_E_OK)) {
+		print_err("Failed to decompress buffer - lzerr=%d\n", lzerr);
 		return -1;
 	}
 
-	if ((i64)dlen != s->buflen) {
-		err_msg("Inconsistent length after decompression. Got %d bytes, expected %d\n", dlen, s->buflen);
+	if (unlikely((i64)dlen != s->buflen)) {
+		print_err("Inconsistent length after decompression. Got %d bytes, expected %lld\n", (int)dlen, s->buflen);
 		return -1;
 	}
 
@@ -449,7 +449,7 @@ ssize_t write_1g(int fd, void *buf, i64 len)
 		else
 			ret = len;
 		ret = write(fd, offset_buf, (size_t)ret);
-		if (ret < 0)
+		if (unlikely(ret < 0))
 			return ret;
 		len -= ret;
 		offset_buf += ret;
@@ -472,7 +472,7 @@ ssize_t read_1g(int fd, void *buf, i64 len)
 		else
 			ret = len;
 		ret = read(fd, offset_buf, (size_t)ret);
-		if (ret < 0)
+		if (unlikely(ret < 0))
 			return ret;
 		len -= ret;
 		offset_buf += ret;
@@ -487,12 +487,12 @@ static int write_buf(int f, uchar *p, i64 len)
 	ssize_t ret;
 
 	ret = write_1g(f, p, (size_t)len);
-	if (ret == -1) {
-		err_msg("Write of length %d failed - %s\n", len, strerror(errno));
+	if (unlikely(ret == -1)) {
+		print_err("Write of length %lld failed - %s\n", len, strerror(errno));
 		return -1;
 	}
-	if (ret != (ssize_t)len) {
-		err_msg("Partial write!? asked for %d bytes but got %d\n", len, ret);
+	if (unlikely(ret != (ssize_t)len)) {
+		print_err("Partial write!? asked for %lld bytes but got %d\n", len, ret);
 		return -1;
 	}
 	return 0;
@@ -507,7 +507,7 @@ static int write_u8(int f, uchar v)
 /* write a i64 */
 static int write_i64(int f, i64 v)
 {
-	if (write_buf(f, (uchar *)&v, 8))
+	if (unlikely(write_buf(f, (uchar *)&v, 8)))
 		return -1;
 
 	return 0;
@@ -518,12 +518,12 @@ static int read_buf(int f, uchar *p, i64 len)
 	ssize_t ret;
 
 	ret = read_1g(f, p, (size_t)len);
-	if (ret == -1) {
-		err_msg("Read of length %d failed - %s\n", len, strerror(errno));
+	if (unlikely(ret == -1)) {
+		print_err("Read of length %lld failed - %s\n", len, strerror(errno));
 		return -1;
 	}
-	if (ret != (ssize_t)len) {
-		err_msg("Partial read!? asked for %d bytes but got %d\n", len, ret);
+	if (unlikely(ret != (ssize_t)len)) {
+		print_err("Partial read!? asked for %lld bytes but got %lld\n", len, (i64)ret);
 		return -1;
 	}
 	return 0;
@@ -536,14 +536,14 @@ static int read_u8(int f, uchar *v)
 
 static int read_u32(int f, u32 *v)
 {
-	if (read_buf(f, (uchar *)v, 4))
+	if (unlikely(read_buf(f, (uchar *)v, 4)))
 		return -1;
 	return 0;
 }
 
 static int read_i64(int f, i64 *v)
 {
-	if (read_buf(f, (uchar *)v, 8))
+	if (unlikely(read_buf(f, (uchar *)v, 8)))
 		return -1;
 	return 0;
 }
@@ -553,8 +553,8 @@ static int seekto(struct stream_info *sinfo, i64 pos)
 {
 	i64 spos = pos + sinfo->initial_pos;
 
-	if (lseek(sinfo->fd, spos, SEEK_SET) != spos) {
-		err_msg("Failed to seek to %d in stream\n", pos);
+	if (unlikely(lseek(sinfo->fd, spos, SEEK_SET) != spos)) {
+		print_err("Failed to seek to %lld in stream\n", pos);
 		return -1;
 	}
 	return 0;
@@ -570,7 +570,7 @@ void *open_stream_out(int f, int n, i64 limit)
 	int i;
 
 	sinfo = malloc(sizeof(*sinfo));
-	if (!sinfo)
+	if (unlikely(!sinfo))
 		return NULL;
 
 	sinfo->bufsize = 0;
@@ -607,7 +607,7 @@ void *open_stream_out(int f, int n, i64 limit)
 	sinfo->initial_pos = lseek(f, 0, SEEK_CUR);
 
 	sinfo->s = (struct stream *)calloc(sizeof(sinfo->s[0]), n);
-	if (!sinfo->s) {
+	if (unlikely(!sinfo->s)) {
 		free(sinfo);
 		return NULL;
 	}
@@ -626,7 +626,7 @@ retest_malloc:
 
 	for (i = 0; i < n; i++) {
 		sinfo->s[i].buf = malloc(sinfo->bufsize);
-		if (!sinfo->s[i].buf)
+		if (unlikely(!sinfo->s[i].buf))
 			fatal("Unable to malloc buffer of size %lld in open_stream_out\n", sinfo->bufsize);
 	}
 
@@ -650,7 +650,7 @@ void *open_stream_in(int f, int n)
 	int i;
 
 	sinfo = calloc(sizeof(*sinfo), 1);
-	if (!sinfo)
+	if (unlikely(!sinfo))
 		return NULL;
 
 	sinfo->num_streams = n;
@@ -658,7 +658,7 @@ void *open_stream_in(int f, int n)
 	sinfo->initial_pos = lseek(f, 0, SEEK_CUR);
 
 	sinfo->s = (struct stream *)calloc(sizeof(sinfo->s[0]), n);
-	if (!sinfo->s) {
+	if (unlikely(!sinfo->s)) {
 		free(sinfo);
 		return NULL;
 	}
@@ -668,7 +668,7 @@ void *open_stream_in(int f, int n)
 		i64 v1, v2;
 
 again:
-		if (read_u8(f, &c) != 0)
+		if (unlikely(read_u8(f, &c)))
 			goto failed;
 
 		/* Compatibility crap for versions < 0.40 */
@@ -687,33 +687,33 @@ again:
 			sinfo->s[i].last_head = last_head32;
 			header_length = 13;
 		} else {
-			if (read_i64(f, &v1) != 0)
+			if (unlikely(read_i64(f, &v1)))
 				goto failed;
-			if (read_i64(f, &v2) != 0)
+			if (unlikely(read_i64(f, &v2)))
 				goto failed;
-			if (read_i64(f, &sinfo->s[i].last_head) != 0)
+			if (unlikely(read_i64(f, &sinfo->s[i].last_head)))
 				goto failed;
 			header_length = 25;
 		}
 
-		if (c == CTYPE_NONE && v1 == 0 && v2 == 0 && sinfo->s[i].last_head == 0 && i == 0) {
-			err_msg("Enabling stream close workaround\n");
+		if (unlikely(c == CTYPE_NONE && v1 == 0 && v2 == 0 && sinfo->s[i].last_head == 0 && i == 0)) {
+			print_err("Enabling stream close workaround\n");
 			sinfo->initial_pos += header_length;
 			goto again;
 		}
 
 		sinfo->total_read += header_length;
 
-		if (c != CTYPE_NONE) {
-			err_msg("Unexpected initial tag %d in streams\n", c);
+		if (unlikely(c != CTYPE_NONE)) {
+			print_err("Unexpected initial tag %d in streams\n", c);
 			goto failed;
 		}
-		if (v1 != 0) {
-			err_msg("Unexpected initial c_len %lld in streams %lld\n", v1, v2);
+		if (unlikely(v1 != 0)) {
+			print_err("Unexpected initial c_len %lld in streams %lld\n", v1, v2);
 			goto failed;
 		}
-		if (v2 != 0) {
-			err_msg("Unexpected initial u_len %lld in streams\n", v2);
+		if (unlikely(v2 != 0)) {
+			print_err("Unexpected initial u_len %lld in streams\n", v2);
 			goto failed;
 		}
 	}
@@ -732,13 +732,13 @@ int flush_buffer(struct stream_info *sinfo, int stream)
 	i64 c_len = sinfo->s[stream].buflen;
 	int c_type = CTYPE_NONE;
 
-	if (seekto(sinfo, sinfo->s[stream].last_head) != 0)
+	if (unlikely(seekto(sinfo, sinfo->s[stream].last_head)))
 		return -1;
-	if (write_i64(sinfo->fd, sinfo->cur_pos) != 0)
+	if (unlikely(write_i64(sinfo->fd, sinfo->cur_pos)))
 		return -1;
 
 	sinfo->s[stream].last_head = sinfo->cur_pos + 17;
-	if (seekto(sinfo, sinfo->cur_pos) != 0)
+	if (unlikely(seekto(sinfo, sinfo->cur_pos)))
 		return -1;
 
 	if (!(NO_COMPRESS)) {
@@ -755,15 +755,15 @@ int flush_buffer(struct stream_info *sinfo, int stream)
 		else fatal("Dunno wtf compression to use!\n");
 	}
 
-	if (write_u8(sinfo->fd, c_type) != 0 ||
-	    write_i64(sinfo->fd, c_len) != 0 ||
-	    write_i64(sinfo->fd, sinfo->s[stream].buflen) != 0 ||
-	    write_i64(sinfo->fd, 0) != 0) {
+	if (unlikely(write_u8(sinfo->fd, c_type) ||
+	    write_i64(sinfo->fd, c_len) ||
+	    write_i64(sinfo->fd, sinfo->s[stream].buflen) ||
+	    write_i64(sinfo->fd, 0))) {
 		return -1;
 	}
 	sinfo->cur_pos += 25;
 
-	if (write_buf(sinfo->fd, sinfo->s[stream].buf, c_len) != 0)
+	if (unlikely(write_buf(sinfo->fd, sinfo->s[stream].buf, c_len)))
 		return -1;
 	fsync(sinfo->fd);
 	sinfo->cur_pos += c_len;
@@ -771,7 +771,7 @@ int flush_buffer(struct stream_info *sinfo, int stream)
 	sinfo->s[stream].buflen = 0;
 
 	sinfo->s[stream].buf = realloc(sinfo->s[stream].buf, sinfo->bufsize);
-	if (!sinfo->s[stream].buf)
+	if (unlikely(!sinfo->s[stream].buf))
 		fatal("Failed to realloc in flush_buffer\n");
 	return 0;
 }
@@ -782,10 +782,10 @@ static int fill_buffer(struct stream_info *sinfo, int stream)
 	i64 header_length, u_len, c_len;
 	uchar c_type;
 
-	if (seekto(sinfo, sinfo->s[stream].last_head) != 0)
+	if (unlikely(seekto(sinfo, sinfo->s[stream].last_head)))
 		return -1;
 
-	if (read_u8(sinfo->fd, &c_type) != 0)
+	if (unlikely(read_u8(sinfo->fd, &c_type)))
 		return -1;
 	/* Compatibility crap for versions < 0.4 */
 	if (control.major_version == 0 && control.minor_version < 4) {
@@ -802,11 +802,11 @@ static int fill_buffer(struct stream_info *sinfo, int stream)
 		sinfo->s[stream].last_head = last_head32;
 		header_length = 13;
 	} else {
-		if (read_i64(sinfo->fd, &c_len) != 0)
+		if (unlikely(read_i64(sinfo->fd, &c_len)))
 			return -1;
-		if (read_i64(sinfo->fd, &u_len) != 0)
+		if (unlikely(read_i64(sinfo->fd, &u_len)))
 			return -1;
-		if (read_i64(sinfo->fd, &sinfo->s[stream].last_head) != 0)
+		if (unlikely(read_i64(sinfo->fd, &sinfo->s[stream].last_head)))
 			return -1;
 		header_length = 25;
 	}
@@ -817,9 +817,9 @@ static int fill_buffer(struct stream_info *sinfo, int stream)
 		sinfo->s[stream].buf = realloc(sinfo->s[stream].buf, u_len);
 	else
 		sinfo->s[stream].buf = malloc(u_len);
-	if (!sinfo->s[stream].buf)
+	if (unlikely(!sinfo->s[stream].buf))
 		fatal("Unable to malloc buffer of size %lld in fill_buffer\n", u_len);
-	if (read_buf(sinfo->fd, sinfo->s[stream].buf, c_len) != 0)
+	if (unlikely(read_buf(sinfo->fd, sinfo->s[stream].buf, c_len)))
 		return -1;
 
 	sinfo->total_read += c_len;
@@ -829,19 +829,19 @@ static int fill_buffer(struct stream_info *sinfo, int stream)
 
 	if (c_type != CTYPE_NONE) {
 		if (c_type == CTYPE_LZMA) {
-			if (lzma_decompress_buf(&sinfo->s[stream], (size_t)c_len))
+			if (unlikely(lzma_decompress_buf(&sinfo->s[stream], (size_t)c_len)))
 				return -1;
 		} else if (c_type == CTYPE_LZO) {
-			if (lzo_decompress_buf(&sinfo->s[stream], c_len))
+			if (unlikely(lzo_decompress_buf(&sinfo->s[stream], c_len)))
 				return -1;
 		} else if (c_type == CTYPE_BZIP2) {
-			if (bzip2_decompress_buf(&sinfo->s[stream], c_len))
+			if (unlikely(bzip2_decompress_buf(&sinfo->s[stream], c_len)))
 				return -1;
 		} else if (c_type == CTYPE_GZIP) {
-			if (gzip_decompress_buf(&sinfo->s[stream], c_len))
+			if (unlikely(gzip_decompress_buf(&sinfo->s[stream], c_len)))
 				return -1;
 		} else if (c_type == CTYPE_ZPAQ) {
-			if (zpaq_decompress_buf(&sinfo->s[stream]))
+			if (unlikely(zpaq_decompress_buf(&sinfo->s[stream])))
 				return -1;
 		} else fatal("Dunno wtf decompression type to use!\n");
 	}
@@ -865,7 +865,7 @@ int write_stream(void *ss, int stream, uchar *p, i64 len)
 		len -= n;
 
 		if (sinfo->s[stream].buflen == sinfo->bufsize) {
-			if (flush_buffer(sinfo, stream) != 0)
+			if (unlikely(flush_buffer(sinfo, stream)))
 				return -1;
 		}
 	}
@@ -893,7 +893,7 @@ i64 read_stream(void *ss, int stream, uchar *p, i64 len)
 		}
 
 		if (len && sinfo->s[stream].bufp == sinfo->s[stream].buflen) {
-			if (fill_buffer(sinfo, stream) != 0)
+			if (unlikely(fill_buffer(sinfo, stream)))
 				return -1;
 			if (sinfo->s[stream].bufp == sinfo->s[stream].buflen)
 				break;
@@ -912,12 +912,12 @@ int close_stream_out(void *ss)
 	/* reallocate buffers to try and save space */
 	for (i = 0; i < sinfo->num_streams; i++) {
 		if (sinfo->s[i].buflen != 0) {
-			if (!realloc(sinfo->s[i].buf, sinfo->s[i].buflen))
+			if (unlikely(!realloc(sinfo->s[i].buf, sinfo->s[i].buflen)))
 				fatal("Error Reallocating Output Buffer %d\n", i);
 		}
 	}
 	for (i = 0; i < sinfo->num_streams; i++) {
-		if (sinfo->s[i].buflen != 0 && flush_buffer(sinfo, i) != 0)
+		if (unlikely(sinfo->s[i].buflen != 0 && flush_buffer(sinfo, i)))
 			return -1;
 		if (sinfo->s[i].buf)
 			free(sinfo->s[i].buf);
@@ -933,8 +933,8 @@ int close_stream_in(void *ss)
 	struct stream_info *sinfo = ss;
 	int i;
 
-	if (lseek(sinfo->fd, sinfo->initial_pos + sinfo->total_read,
-		  SEEK_SET) != sinfo->initial_pos + sinfo->total_read)
+	if (unlikely(lseek(sinfo->fd, sinfo->initial_pos + sinfo->total_read,
+		  SEEK_SET) != sinfo->initial_pos + sinfo->total_read))
 			return -1;
 	for (i = 0; i < sinfo->num_streams; i++) {
 		if (sinfo->s[i].buf)
@@ -966,14 +966,14 @@ static int lzo_compresses(struct stream *s)
 	if (control.threshold > 1)
 		return 1;
 	wrkmem = (lzo_bytep) malloc(LZO1X_1_MEM_COMPRESS);
-	if (wrkmem == NULL)
+	if (unlikely(wrkmem == NULL))
 		fatal("Unable to allocate wrkmem in lzo_compresses\n");
 
 	in_len = MIN(test_len, buftest_size);
 	dlen = STREAM_BUFSIZE + STREAM_BUFSIZE / 16 + 64 + 3;
 
 	c_buf = malloc(dlen);
-	if (!c_buf)
+	if (unlikely(!c_buf))
 		fatal("Unable to allocate c_buf in lzo_compresses\n");
 
 	print_progress("\tlzo testing for incompressible data...");
