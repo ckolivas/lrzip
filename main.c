@@ -46,7 +46,7 @@ static void usage(void)
 	print_output("     -g            gzip compression using zlib\n");
 	print_output("     -z            zpaq compression (best, extreme compression, extremely slow)\n");
 	print_output("     -M            Maximum window (all available ram)\n");
-	print_output("     -U            Use unlimited window size beyond ramsize (100x slower)\n");
+	print_output("     -U            Use unlimited window size beyond ramsize (potentially much slower)\n");
 	print_output("     -T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)\n");
 	print_output("     -N value      Set nice value to value (default 19)\n");
 	print_output("     -v[v]         Increase verbosity\n");
