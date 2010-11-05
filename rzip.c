@@ -124,10 +124,11 @@ static void remap_low_sb(void)
 
 static inline void remap_high_sb(i64 p)
 {
-	if (unlikely(munmap(sb.buf_high, sb.size_high) != 0))
+	if (unlikely(munmap(sb.buf_high, sb.size_high)))
 		fatal("Failed to munmap in remap_high_sb\n");
 	sb.size_high = sb.high_length; /* In case we shrunk it when we hit the end of the file */
 	sb.offset_high = p;
+	/* Make sure offset is rounded to page size of total offset */
 	sb.offset_high -= (sb.offset_high + sb.orig_offset) % 4096;
 	if (unlikely(sb.offset_high + sb.size_high > sb.orig_size))
 		sb.size_high = sb.orig_size - sb.offset_high;
@@ -138,10 +139,10 @@ static inline void remap_high_sb(i64 p)
 
 /* We use a "sliding mmap" to effectively read more than we can fit into the
  * compression window. This is done by using a maximally sized lower mmap at
- * the beginning of the block, and a one-page-sized mmap block that slides up
- * and down as is required for any offsets beyond the lower one. This is
- * 100x slower than mmap but makes it possible to have unlimited sized
- * compression windows. */
+ * the beginning of the block which slides up once the hash search moves beyond
+ * it, and a 64k mmap block that slides up and down as is required for any
+ * offsets outside the range of the lower one. This is much slower than mmap
+ * but makes it possible to have unlimited sized compression windows. */
 static uchar *get_sb(i64 p)
 {
 	i64 low_end = sb.offset_low + sb.size_low;
@@ -152,14 +153,14 @@ static uchar *get_sb(i64 p)
 		return (sb.buf_low + p - sb.offset_low);
 	if (p >= sb.offset_high && p < (sb.offset_high + sb.size_high))
 		return (sb.buf_high + (p - sb.offset_high));
-	/* (p > sb.size_low &&  p < sb.offset_high) */
+	/* p is not within the low or high buffer range */
 	remap_high_sb(p);
 	return (sb.buf_high + (p - sb.offset_high));
 }
 
 static inline void put_u8(void *ss, int stream, uchar b)
 {
-	if (unlikely(write_stream(ss, stream, &b, 1) != 0))
+	if (unlikely(write_stream(ss, stream, &b, 1)))
 		fatal("Failed to put_u8\n");
 }
 
@@ -226,7 +227,7 @@ int write_sbstream(void *ss, int stream, i64 p, i64 len)
 		p += n;
 		len -= n;
 		if (sinfo->s[stream].buflen == sinfo->bufsize) {
-			if (unlikely(flush_buffer(sinfo, stream) != 0))
+			if (unlikely(flush_buffer(sinfo, stream)))
 				return -1;
 		}
 	}
@@ -407,7 +408,7 @@ static inline i64 match_len(struct rzip_state *st, i64 p0, i64 op, i64 end,
 	if (end < st->last_match)
 		end = st->last_match;
 
-	while (p > end && op > 0 && *get_sb(op - 1) == *get_sb(p-1)) {
+	while (p > end && op > 0 && *get_sb(op - 1) == *get_sb(p - 1)) {
 		op--;
 		p--;
 	}
@@ -673,7 +674,7 @@ static void init_sliding_mmap(struct rzip_state *st, int fd_in, i64 offset)
 	i64 size = st->chunk_size;
 
 	if (sizeof(long) == 4 && size > two_gig) {
-		print_verbose("Limiting to 2G due to 32 bit limitations\n");
+		print_verbose("Limiting to 2GB due to 32 bit limitations\n");
 		size = two_gig;
 	}
 	sb.orig_offset = offset;
@@ -689,14 +690,14 @@ retry:
 		/* Better to shrink the window to the largest size that works than fail */
 		if (sb.buf_low == MAP_FAILED) {
 			size = size / 10 * 9;
-			size -= size % 4096; /* Round to page size */
+			size -= size % 4096;
 			if (unlikely(!size))
 				fatal("Unable to mmap any ram\n");
 			goto retry;
 		}
 		print_maxverbose("Succeeded in preallocating %lld sized mmap\n", size);
 		if (!STDIN) {
-			if (unlikely(munmap(sb.buf_low, size) != 0))
+			if (unlikely(munmap(sb.buf_low, size)))
 				fatal("Failed to munmap\n");
 		} else
 			st->chunk_size = size;
@@ -707,7 +708,7 @@ retry:
 		sb.buf_low = (uchar *)mmap(sb.buf_low, size, PROT_READ, MAP_SHARED, fd_in, offset);
 		if (sb.buf_low == MAP_FAILED) {
 			size = size / 10 * 9;
-			size -= size % 4096; /* Round to page size */
+			size -= size % 4096;
 			if (unlikely(!size))
 				fatal("Unable to mmap any ram\n");
 			goto retry;
@@ -718,7 +719,7 @@ retry:
 
 	if (size < st->chunk_size) {
 		if (UNLIMITED && !STDIN)
-			print_verbose("File is beyond window size, will proceed MUCH slower in unlimited mode with a sliding_mmap buffer\n");
+			print_verbose("File is beyond window size, will proceed in unlimited mode with a sliding_mmap buffer but may be much slower\n");
 		else {
 			print_verbose("Needed to shrink window size to %lld\n", size);
 			st->chunk_size = size;
@@ -866,10 +867,10 @@ void rzip_fd(int fd_in, int fd_out)
 			eta_hours = (unsigned int)(finish_time - elapsed_time) / 3600;
 			eta_minutes = (unsigned int)((finish_time - elapsed_time) - eta_hours * 3600) / 60;
 			eta_seconds = (unsigned int)(finish_time - elapsed_time) - eta_hours * 60 - eta_minutes * 60;
-			chunkmbs=(last_chunk / 1024 / 1024) / (double)(current.tv_sec-last.tv_sec);
+			chunkmbs = (last_chunk / 1024 / 1024) / (double)(current.tv_sec-last.tv_sec);
 			print_verbose("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
-					pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds,
-					eta_hours, eta_minutes, eta_seconds, chunkmbs);
+				       pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds,
+				       eta_hours, eta_minutes, eta_seconds, chunkmbs);
 		}
 		last.tv_sec = current.tv_sec;
 		last.tv_usec = current.tv_usec;

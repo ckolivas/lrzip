@@ -312,7 +312,7 @@ static void decompress_file(void)
 		print_output("Output filename is: %s: ", control.outfile);
         print_progress("[OK] - %lld bytes                                \n", expected_size);
 
-	if (unlikely(close(fd_hist) != 0 || close(fd_out) != 0))
+	if (unlikely(close(fd_hist) || close(fd_out)))
 		fatal("Failed to close files\n");
 
 	if (TEST_ONLY | STDOUT) {
@@ -501,7 +501,7 @@ static void compress_file(void)
 	if (STDOUT)
 		dump_tmpoutfile(fd_out);
 
-	if (unlikely(close(fd_in) != 0 || close(fd_out)))
+	if (unlikely(close(fd_in) || close(fd_out)))
 		fatal("Failed to close files\n");
 
 	if (STDOUT) {

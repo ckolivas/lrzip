@@ -102,7 +102,7 @@ static void zpaq_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 
 	zpipe_compress(in, out, control.msgout, s->buflen, (int)(SHOW_PROGRESS));
 
-	if (unlikely(memstream_update_buffer(out, &c_buf, &dlen) != 0))
+	if (unlikely(memstream_update_buffer(out, &c_buf, &dlen)))
 	        fatal("Failed to memstream_update_buffer in zpaq_compress_buf");
 
 	fclose(in);
@@ -387,7 +387,7 @@ static int lzma_decompress_buf(struct stream *s, size_t c_len)
 	/* With LZMA SDK 4.63 we pass control.lzma_properties
 	 * which is needed for proper uncompress */
 	lzmaerr = LzmaUncompress(s->buf, &dlen, c_buf, &c_len, control.lzma_properties, 5);
-	if (unlikely(lzmaerr != 0)) {
+	if (unlikely(lzmaerr)) {
 		print_err("Failed to decompress buffer - lzmaerr=%d\n", lzmaerr);
 		return -1;
 	}
@@ -675,11 +675,11 @@ again:
 		if (control.major_version == 0 && control.minor_version < 4) {
 			u32 v132, v232, last_head32;
 
-			if (read_u32(f, &v132) != 0)
+			if (unlikely(read_u32(f, &v132)))
 				goto failed;
-			if (read_u32(f, &v232) != 0)
+			if (unlikely(read_u32(f, &v232)))
 				goto failed;
-			if (read_u32(f, &last_head32) != 0)
+			if ((read_u32(f, &last_head32)))
 				goto failed;
 
 			v1 = v132;
@@ -708,11 +708,11 @@ again:
 			print_err("Unexpected initial tag %d in streams\n", c);
 			goto failed;
 		}
-		if (unlikely(v1 != 0)) {
+		if (unlikely(v1)) {
 			print_err("Unexpected initial c_len %lld in streams %lld\n", v1, v2);
 			goto failed;
 		}
-		if (unlikely(v2 != 0)) {
+		if (unlikely(v2)) {
 			print_err("Unexpected initial u_len %lld in streams\n", v2);
 			goto failed;
 		}
@@ -791,11 +791,11 @@ static int fill_buffer(struct stream_info *sinfo, int stream)
 	if (control.major_version == 0 && control.minor_version < 4) {
 		u32 c_len32, u_len32, last_head32;
 
-		if (read_u32(sinfo->fd, &c_len32) != 0)
+		if (unlikely(read_u32(sinfo->fd, &c_len32)))
 			return -1;
-		if (read_u32(sinfo->fd, &u_len32) != 0)
+		if (unlikely(read_u32(sinfo->fd, &u_len32)))
 			return -1;
-		if (read_u32(sinfo->fd, &last_head32) != 0)
+		if (unlikely(read_u32(sinfo->fd, &last_head32)))
 			return -1;
 		c_len = c_len32;
 		u_len = u_len32;
@@ -911,13 +911,13 @@ int close_stream_out(void *ss)
 
 	/* reallocate buffers to try and save space */
 	for (i = 0; i < sinfo->num_streams; i++) {
-		if (sinfo->s[i].buflen != 0) {
+		if (sinfo->s[i].buflen) {
 			if (unlikely(!realloc(sinfo->s[i].buf, sinfo->s[i].buflen)))
 				fatal("Error Reallocating Output Buffer %d\n", i);
 		}
 	}
 	for (i = 0; i < sinfo->num_streams; i++) {
-		if (unlikely(sinfo->s[i].buflen != 0 && flush_buffer(sinfo, i)))
+		if (unlikely(sinfo->s[i].buflen && flush_buffer(sinfo, i)))
 			return -1;
 		if (sinfo->s[i].buf)
 			free(sinfo->s[i].buf);
