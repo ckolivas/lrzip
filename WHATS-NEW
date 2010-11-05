@@ -2,15 +2,21 @@ lrzip-0.5.1
 
 Fixed the build on Darwin.
 Rewrote the rzip compression phase to make it possible to use unlimited sized
-windows now, not limited by ram. Unfortunately it's 100 times slower in this
-mode but you can compress a file of any size as one big compression window with
-it using the new -U option.
+windows now, not limited by ram. Unfortunately it gets progressively slower in
+this mode the bigger the file gets but you can compress a file of any size as
+one big compression window with it using the new -U option. Suggest you try
+the new improved -M mode first or in combination. See the docs for more
+information.
 Changed the memory selection system to simply find the largest reasonable sized
 window and use that by default instead of guessing the window size.
 Setting -M now only affects the window size, trying to find the largest
 unreasonably sized window that will still work.
 The default compression level is now 9 and affects the rzip compression stage
 as well as the backend compression.
+Fixed some potential failures during compression.
+Improved screen output with more reporting in verbose mode, and chunk size
+percentage update.
+Fixed file size reporting on compressed files generated from stdin.
 Changed to 3 point releases in case we get more than 9 subversions ;)
 
 lrzip-0.50

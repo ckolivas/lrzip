@@ -10,11 +10,12 @@ was also using the faked versions on all builds.
 accessing the buffer directly, thus allowing us to have window sizes larger than
 available ram. This is implemented through the use of a "sliding mmap"
 implementation. Sliding mmap uses two mmapped buffers, one large one as
-previously, and one page sized smaller one. When an attempt is made to read
-beyond the end of the large buffer, the small buffer is remapped to the file
-area that's being accessed. While this implementation is 100x slower than direct
-mmapping, it allows us to implement unlimited sized compression windows.
-* Implement the -U option with unlimited sized windows.
+previously, and one smaller one. When an attempt is made to read beyond the end
+of the large buffer, the small buffer is remapped to the file area that's being
+accessed, while the larger one is remapped as the search progresses along the
+file. While this implementation is potentially much slower than direct mmapping,
+it allows us to implement unlimited sized compression windows.
+* Implement the -U option with unlimited sized compression windows.
 * Rework the selection of compression windows. Instead of trying to guess how
 much ram the machine might be able to access, we try to safely buffer as much
 ram as we can, and then use that to determine the file buffer size. Do not
@@ -28,10 +29,15 @@ and the compression backends.
 * More error handling.
 * Change -L to affect rzip compression level directly as well as backend
 compression level and use 9 by default now.
-* More cleanups of information output.
+* Fix file size reporting on compressed files generated from stdin.
+* More cleanups of information output and more information.
+* Add chunk percentage to progress update.
+* Reinstated the 2GB buffer limit on 32 bit machines during compression, though
+the -U mode can work around it now.
+* Code micro-optimisations.
 * Use 3 point release numbering in case one minor version has many subversions.
 * Numerous minor cleanups and tidying.
-* Updated docs and manpages.
+* Updated docs, manpages, and benchmarks.
 
 NOVEMBER 2010, version 0.5 Con Kolivas
 * Changed offset encoding in rzip stage to use variable byte width offsets
