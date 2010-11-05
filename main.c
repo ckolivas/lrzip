@@ -533,7 +533,7 @@ static i64 get_ram(void)
 	sysctl(mib, 2, NULL, &len, NULL, 0);
 	p = malloc(len);
 	sysctl(mib, 2, p, &len, NULL, 0);
-	ramsize = *p
+	ramsize = *p;
 
 	return ramsize;
 }
