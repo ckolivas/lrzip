@@ -583,15 +583,10 @@ void *open_stream_out(int f, int n, i64 limit)
 	   however, the larger the buffer, the better the compression so we
 	   make it as large as the window up to the limit the compressor
 	   will take */
-	if (LZMA_COMPRESS) {
-		if (sizeof(long) == 4) {
-			/* Largest window supported on lzma 32bit is 600MB */
-			if (!cwindow || cwindow > 6)
-				cwindow = 6;
-		}
-		/* Largest window supported on lzma 64bit is 4GB */
-		if (!cwindow || cwindow > 40)
-			cwindow = 40;
+	if (BITS32) {
+		/* Largest window supported on 32bit is 600MB */
+		if (!cwindow || cwindow > 6)
+			cwindow = 6;
 	}
 
 	if (LZMA_COMPRESS || ZPAQ_COMPRESS)

@@ -211,6 +211,8 @@ static inline i64 get_ram(void)
 #define MAXRAM		(control.flags & FLAG_MAXRAM)
 #define UNLIMITED	(control.flags & FLAG_UNLIMITED)
 
+#define BITS32		(sizeof(long) == 4)
+
 #define CTYPE_NONE 3
 #define CTYPE_BZIP2 4
 #define CTYPE_LZO 5
@@ -272,6 +274,7 @@ ssize_t write_1g(int fd, void *buf, i64 len);
 ssize_t read_1g(int fd, void *buf, i64 len);
 void zpipe_compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
 void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
+const i64 two_gig;
 
 #define print_err(format, args...)	do {\
 	fprintf(stderr, format, ##args);	\

@@ -718,7 +718,7 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 }
 
 /* Needs to be less than 31 bits and page aligned on 32 bits */
-static const i64 two_gig = (1ull << 31) - 4096;
+const i64 two_gig = (1ull << 31) - 4096;
 
 /* compress a whole file chunks at a time */
 void rzip_fd(int fd_in, int fd_out)
@@ -797,7 +797,7 @@ void rzip_fd(int fd_in, int fd_out)
 		if (st->chunk_size > len && !STDIN)
 			st->chunk_size = len;
 		st->mmap_size = st->chunk_size;
-		if (sizeof(long) == 4 && st->mmap_size > two_gig) {
+		if (BITS32 && st->mmap_size > two_gig) {
 			print_verbose("Limiting to 2GB due to 32 bit limitations\n");
 			st->mmap_size = two_gig;
 		}
