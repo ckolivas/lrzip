@@ -130,7 +130,7 @@ static void preserve_perms(int fd_in, int fd_out)
 	if (unlikely(fstat(fd_in, &st)))
 		fatal("Failed to fstat input file\n");
 	if (fchmod(fd_out, (st.st_mode & 0777)))
-		print_output("Warning, unable to set permissions on %s\n", control.outfile);
+		print_err("Warning, unable to set permissions on %s\n", control.outfile);
 
 	/* chown fail is not fatal */
 	fchown(fd_out, st.st_uid, st.st_gid);
@@ -430,7 +430,7 @@ static void compress_file(void)
 	if (!STDIN) {
 		/* is extension at end of infile? */
 		if ((tmp = strrchr(control.infile, '.')) && !strcmp(tmp, control.suffix)) {
-			print_output("%s: already has %s suffix. Skipping...\n", control.infile, control.suffix);
+			print_err("%s: already has %s suffix. Skipping...\n", control.infile, control.suffix);
 			return;
 		}
 
@@ -518,32 +518,6 @@ static void compress_file(void)
 	free(control.outfile);
 }
 
-/*
- * Returns ram size in bytes on linux/darwin.
- */
-#ifdef __APPLE__
-static i64 get_ram(void)
-{
-	int mib[2];
-	size_t len;
-	i64 *p, ramsize;
-
-	mib[0] = CTL_HW;
-	mib[1] = HW_MEMSIZE;
-	sysctl(mib, 2, NULL, &len, NULL, 0);
-	p = malloc(len);
-	sysctl(mib, 2, p, &len, NULL, 0);
-	ramsize = *p;
-
-	return ramsize;
-}
-#else
-static i64 get_ram(void)
-{
-	return (i64)sysconf(_SC_PHYS_PAGES) * (i64)sysconf(_SC_PAGE_SIZE);
-}
-#endif
-
 int main(int argc, char *argv[])
 {
 	struct timeval start_time, end_time;
@@ -569,11 +543,8 @@ int main(int argc, char *argv[])
 	control.window = 0;
 	control.threshold = 1.0;	/* default lzo test compression threshold (level 1) with LZMA compression */
 	/* for testing single CPU */
-#ifndef NOTHREAD
-	control.threads = sysconf(_SC_NPROCESSORS_ONLN);	/* get CPUs for LZMA */
-#else
-	control.threads = 1;
-#endif
+	control.threads = PROCESSORS;	/* get CPUs for LZMA */
+	control.page_size = PAGE_SIZE;
 
 	control.nice_val = 19;
 
@@ -720,57 +691,55 @@ int main(int argc, char *argv[])
 		control.flags |= FLAG_SHOW_PROGRESS;
 	}
 
+	if (argc < 1)
+		control.flags |= FLAG_STDIN;
+
 	if (UNLIMITED && STDIN) {
 		print_err("Cannot have -U and stdin, unlimited mode disabled.\n");
 		control.flags &= ~ FLAG_UNLIMITED;
 	}
 
-	if (argc < 1)
-		control.flags |= FLAG_STDIN;
-
 	/* OK, if verbosity set, print summary of options selected */
-	if (VERBOSE && !INFO) {
-		print_err("The following options are in effect for this %s.\n",
+	if (!INFO) {
+		print_verbose("The following options are in effect for this %s.\n",
 			DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
 		if (LZMA_COMPRESS)
-			print_err("Threading is %s. Number of CPUs detected: %lu\n", control.threads > 1? "ENABLED" : "DISABLED",
+			print_verbose("Threading is %s. Number of CPUs detected: %lu\n", control.threads > 1? "ENABLED" : "DISABLED",
 				control.threads);
-		print_err("Nice Value: %d\n", control.nice_val);
-		if (SHOW_PROGRESS)
-			print_err("Show Progress\n");
-		if (VERBOSITY)
-			print_err("Verbose\n");
-		else if (MAX_VERBOSE)
-			print_err("Max Verbosity\n");
+		print_verbose("Detected %lld bytes ram\n", control.ramsize);
+		print_verbose("Nice Value: %d\n", control.nice_val);
+		print_progress("Show Progress\n");
+		print_maxverbose("Max ");
+		print_verbose("Verbose\n");
 		if (FORCE_REPLACE)
-			print_err("Overwrite Files\n");
+			print_verbose("Overwrite Files\n");
 		if (!KEEP_FILES)
-			print_err("Remove input files on completion\n");
+			print_verbose("Remove input files on completion\n");
 		if (control.outdir)
-			print_err("Output Directory Specified: %s\n", control.outdir);
+			print_verbose("Output Directory Specified: %s\n", control.outdir);
 		else if (control.outname)
-			print_err("Output Filename Specified: %s\n", control.outname);
+			print_verbose("Output Filename Specified: %s\n", control.outname);
 		if (TEST_ONLY)
-			print_err("Test file integrity\n");
+			print_verbose("Test file integrity\n");
 
 		/* show compression options */
 		if (!DECOMPRESS) {
-			print_err("Compression mode is: ");
+			print_verbose("Compression mode is: ");
 			if (LZMA_COMPRESS)
-				print_err("LZMA. LZO Test Compression Threshold: %.f\n",
+				print_verbose("LZMA. LZO Test Compression Threshold: %.f\n",
 				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
 			else if (LZO_COMPRESS)
-				print_err("LZO\n");
+				print_verbose("LZO\n");
 			else if (BZIP2_COMPRESS)
-				print_err("BZIP2. LZO Test Compression Threshold: %.f\n",
+				print_verbose("BZIP2. LZO Test Compression Threshold: %.f\n",
 				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
 			else if (ZLIB_COMPRESS)
-				print_err("GZIP\n");
+				print_verbose("GZIP\n");
 			else if (ZPAQ_COMPRESS)
-				print_err("ZPAQ. LZO Test Compression Threshold: %.f\n",
+				print_verbose("ZPAQ. LZO Test Compression Threshold: %.f\n",
 				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
 			else if (NO_COMPRESS)
-				print_err("RZIP\n");
+				print_verbose("RZIP pre-processing only\n");
 			if (control.window) {
 				print_verbose("Compression Window: %lld = %lldMB\n", control.window, control.window * 100ull);
 				print_verbose("Compression Level: %d\n", control.compression_level);
@@ -779,7 +748,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val) == -1))
-		fatal("Unable to set nice value\n");
+		print_err("Warning, unable to set nice value\n");
 
 	/* One extra iteration for the case of no parameters means we will default to stdin/out */
 	for (i = 0; i <= argc; i++) {

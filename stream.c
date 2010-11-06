@@ -235,8 +235,8 @@ static void lzma_compress_buf(struct stream *s, int *c_type, i64 *c_len)
 out:
 	if (MAX_VERBOSE)
 		print_output("\n");
-	else if (SHOW_PROGRESS || VERBOSE)
-		print_output("\r\t                                                                                      \r");
+	else
+		print_progress("\r\t                                                                                      \r");
 }
 
 static void lzo_compress_buf(struct stream *s, int *c_type, i64 *c_len)
@@ -1006,7 +1006,8 @@ static int lzo_compresses(struct stream *s)
 			100 * ((double) best_dlen / (double) in_len), workcounter);
 	else if (VERBOSE)
 		print_output("%s\r", (ret == 0? "FAILED - below threshold" : "OK"));
-	else print_progress("\r\t                                                      \r");
+	else
+		print_progress("\r\t                                                      \r");
 
 	free(wrkmem);
 	free(c_buf);

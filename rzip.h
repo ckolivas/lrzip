@@ -43,19 +43,6 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 
-#ifdef __APPLE__
-#include <sys/sysctl.h>
-#define fmemopen fake_fmemopen
-#define open_memstream fake_open_memstream
-#define memstream_update_buffer fake_open_memstream_update_buffer
-#define mremap fake_mremap
-#ifndef MAP_ANONYMOUS
-#define MAP_ANONYMOUS MAP_ANON
-#endif
-#else /* __APPLE__ */
-#define memstream_update_buffer(A, B, C) (0)
-#endif
-
 #include <lzo/lzoconf.h>
 #include <lzo/lzo1x.h>
 
@@ -136,6 +123,51 @@ typedef long long int i64;
 typedef uint16_t u16;
 typedef uint32_t u32;
 
+#ifndef MAP_ANONYMOUS
+ #define MAP_ANONYMOUS MAP_ANON
+#endif
+
+#if defined(NOTHREAD) || !defined(_SC_NPROCESSORS_ONLN)
+ #define PROCESSORS (1)
+#else
+ #define PROCESSORS (sysconf(_SC_NPROCESSORS_ONLN))
+#endif
+
+#ifdef _SC_PAGE_SIZE
+ #define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
+#else
+ #define PAGE_SIZE (4096)
+#endif
+
+#ifdef __APPLE__
+ #include <sys/sysctl.h>
+ #define fmemopen fake_fmemopen
+ #define open_memstream fake_open_memstream
+ #define memstream_update_buffer fake_open_memstream_update_buffer
+ #define mremap fake_mremap
+static inline i64 get_ram(void)
+{
+	int mib[2];
+	size_t len;
+	i64 *p, ramsize;
+
+	mib[0] = CTL_HW;
+	mib[1] = HW_MEMSIZE;
+	sysctl(mib, 2, NULL, &len, NULL, 0);
+	p = malloc(len);
+	sysctl(mib, 2, p, &len, NULL, 0);
+	ramsize = *p;
+
+	return ramsize;
+}
+#else /* __APPLE__ */
+ #define memstream_update_buffer(A, B, C) (0)
+static inline i64 get_ram(void)
+{
+	return (i64)sysconf(_SC_PHYS_PAGES) * (i64)sysconf(_SC_PAGE_SIZE);
+}
+#endif
+
 #define FLAG_SHOW_PROGRESS 2
 #define FLAG_KEEP_FILES 4
 #define FLAG_TEST_ONLY 8
@@ -204,6 +236,7 @@ struct rzip_control {
 	int major_version;
 	int minor_version;
 	i64 st_size;
+	long page_size;
 } control;
 
 struct stream {

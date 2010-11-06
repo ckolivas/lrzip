@@ -113,7 +113,7 @@ static void remap_low_sb(void)
 		new_offset = sb.orig_size - sb.size_low;
 		top = 1;
 	}
-	new_offset -= new_offset % 4096; /* Round to page size */
+	new_offset -= new_offset % control.page_size; /* Round to page size */
 	print_maxverbose("Sliding main buffer\n");
 	if (unlikely(munmap(sb.buf_low, sb.size_low)))
 		fatal("Failed to munmap in remap_low_sb\n");
@@ -130,7 +130,7 @@ static inline void remap_high_sb(i64 p)
 	sb.size_high = sb.high_length; /* In case we shrunk it when we hit the end of the file */
 	sb.offset_high = p;
 	/* Make sure offset is rounded to page size of total offset */
-	sb.offset_high -= (sb.offset_high + sb.orig_offset) % 4096;
+	sb.offset_high -= (sb.offset_high + sb.orig_offset) % control.page_size;
 	if (unlikely(sb.offset_high + sb.size_high > sb.orig_size))
 		sb.size_high = sb.orig_size - sb.offset_high;
 	sb.buf_high = (uchar *)mmap(sb.buf_high, sb.size_high, PROT_READ, MAP_SHARED, sb.fd, sb.orig_offset + sb.offset_high);
@@ -478,7 +478,7 @@ static void show_distrib(struct rzip_state *st)
 	}
 
 	if (total != st->hash_count)
-		print_output("/tWARNING: hash_count says total %lld\n", st->hash_count);
+		print_err("/tWARNING: hash_count says total %lld\n", st->hash_count);
 
 	print_output("\t%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n", total, primary,
 	       primary*100.0/total);
@@ -577,9 +577,8 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 			chunk_pct = p / (end / 100);
 			if (pct != lastpct || chunk_pct != last_chunkpct) {
 				if (!STDIN)
-					print_progress("Total: %2d%%  Chunk: %2d%%\r", pct, chunk_pct);
-				else
-					print_progress("Chunk: %2d%%\r", chunk_pct);
+					print_progress("Total: %2d%%  ", pct);
+				print_progress("Chunk: %2d%%\r", chunk_pct);
 				lastpct = pct;
 				last_chunkpct = chunk_pct;
 			}
@@ -594,7 +593,10 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 		}
 	}
 
-	print_progress("\n");
+	/* Fake that we got to 100% since we're done :D */
+	if (!STDIN)
+		print_progress("Total: 100%%  ");
+	print_progress("Chunk: 100%%\n");
 
 	if (MAX_VERBOSE)
 		show_distrib(st);
@@ -763,7 +765,7 @@ void rzip_fd(int fd_in, int fd_out)
 			chunk_window = len;
 	}
 	if (chunk_window < len)
-		chunk_window -= chunk_window % 4096;
+		chunk_window -= chunk_window % control.page_size;
 	st->chunk_size = chunk_window;
 
 	st->level = &levels[control.compression_level];
@@ -808,7 +810,7 @@ retry:
 		/* Better to shrink the window to the largest size that works than fail */
 		if (sb.buf_low == MAP_FAILED) {
 			st->mmap_size = st->mmap_size / 10 * 9;
-			st->mmap_size -= st->mmap_size % 4096;
+			st->mmap_size -= st->mmap_size % control.page_size;
 			if (unlikely(!st->mmap_size))
 				fatal("Unable to mmap any ram\n");
 			goto retry;
@@ -834,7 +836,7 @@ retry:
 				if (unlikely(!MAXRAM))
 					fatal("Failed to remap ram\n");
 				st->mmap_size = st->mmap_size / 10 * 9;
-				st->mmap_size -= st->mmap_size % 4096;
+				st->mmap_size -= st->mmap_size % control.page_size;
 				if (unlikely(!st->mmap_size))
 					fatal("Unable to mmap any ram\n");
 				goto retry;
