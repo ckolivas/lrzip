@@ -1,4 +1,7 @@
 lrzip ChangeLog
+NOVEMBER 2010, version 0.520 Con Kolivas
+* Distros don't like 3 point version numbering so just repackaged as 0.520.
+
 NOVEMBER 2010, version 0.5.2 Con Kolivas
 * Fixed the Darwin build, again.
 * Fixed cases of extreme ram usage on 32 bit failing by limiting zpaq to 600MB

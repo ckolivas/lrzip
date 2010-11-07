@@ -23,7 +23,7 @@ struct rzip_control control;
 
 static void usage(void)
 {
-	print_output("lrzip version %d.%d.%d\n", LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
+	print_output("lrzip version %d.%d%d\n", LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
 	print_output("Copyright (C) Con Kolivas 2006-2010\n\n");
 	print_output("Based on rzip ");
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n");
@@ -609,7 +609,7 @@ int main(int argc, char *argv[])
 			control.flags &= ~FLAG_SHOW_PROGRESS;
 			break;
 		case 'V':
-			print_output("lrzip version %d.%d.%d\n",
+			print_output("lrzip version %d.%d%d\n",
 				LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
 			exit(0);
 			break;
