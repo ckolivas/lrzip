@@ -1,3 +1,12 @@
+lrzip-0.5.2
+
+Fixed the Darwin build again.
+Fix the corner case of big ram usage on 32 bit zpaq failing due to the
+compression window not being limited by limiting zpaq to 600MB windows on 32
+bits as well.
+Some previous failures now only induce warnings.
+Improved progress output.
+
 lrzip-0.5.1
 
 Fixed the build on Darwin.

@@ -17,14 +17,14 @@ using lrzip v0.42.
 
 Compression	Size		Percentage	Compress	Decompress
 None		365711360	100
-7z		53315279	14.6		2m4.770s	0m5.360s
-lrzip		52372722	14.3		2m48.477s	0m8.336s
-lrzip -z	43455498	11.9		10m11.335	10m14.296
-lrzip -l	112151676	30.7		0m14.913s	0m5.063s
-lrzip -g	73476127	20.1		0m29.628s	0m5.591s
-lrzip -b	60851152	16.6		0m43.539s	0m12.244s
-bzip2		62416571	17.1		0m44.493s	0m9.819s
-gzip		80563601	22.0		0m14.343s	0m2.781s
+7z		53315279	14.6		2m4s		0m5.4s
+lrzip		52372722	14.3		2m48s		0m8.3s
+lrzip -z	43455498	11.9		10m11s		10m14s
+lrzip -l	112151676	30.7		0m14s		0m5.1s
+lrzip -g	73476127	20.1		0m29s		0m5.6s
+lrzip -b	60851152	16.6		0m43s		0m12.2s
+bzip2		62416571	17.1		0m44s		0m9.8s
+gzip		80563601	22.0		0m14s		0m2.8s
 
 
 These results are interesting to note the compression of lrzip by default is
@@ -53,8 +53,11 @@ Tarball of 6 consecutive kernel trees.
 Compression	Size		Percentage	Compress	Decompress
 None		2373713920	100
 7z		344088002	14.5		17m26s		1m22s
+lrzip		104874109	4.4		11m37s		56s
+lrzip -l	223130711	9.4		05m21s		1m01s
 lrzip -U	73356070	3.1		08m53s		43s
 lrzip -Ul	158851141	6.7		04m31s		35s
+lrzip -Uz	62614573	2.6		24m42s		25m30s
 
 Things start getting very interesting now when lrzip is really starting to
 shine. Note how it's not that much larger for 6 kernel trees than it was for
@@ -62,16 +65,21 @@ one. That's because all the similar data in both kernel trees is being
 compressed as one copy and only the differences really make up the extra size.
 All compression software does this, but not over such large distances. If you
 copy the same data over multiple times, the resulting lrzip archive doesn't
-get much larger at all.
+get much larger at all. You might find this example interesting because the
+-U option is actually faster as well as providing better compression. The
+reason is that the window is not much larger than the amount of ram addressable
+(2GB), and it compresses so much more in the rzip stage that it makes up the
+time by not needing to compress anywhere near as much data with the backend
+compressor.
 
 
 Using the first example (linux-2.6.31.tar) and simply copying the data multiple
 times over gives these results with lrzip(lzo):
 
 Copies		Size		Compressed	Compress	Decompress
-1		365711360	112151676	0m14.913s	0m5.063s
-2		731422720	112151829	0m16.174s	0m6.543s
-3		1097134080	112151832	0m17.466s	0m8.115s
+1		365711360	112151676	0m14.9s		0m5.1s
+2		731422720	112151829	0m16.2s		0m6.5s
+3		1097134080	112151832	0m17.5s		0m8.1s
 
 
 I had the amusing thought that this compression software could be used as a
@@ -92,14 +100,14 @@ These benchmarks were done on the quad core with version 0.5.1
 
 Compression	Size		Percentage	Compress Time	Decompress Time
 None		10737418240	100.0
-gzip		2772899756	 25.8		05m47.35s	2m46.77s
-bzip2		2704781700	 25.2		16m15.603s	6m19.718s
-xz		2272322208	 21.2		50m58.437s	3m52.734s
-7z		2242897134	 20.9		26m36.333s	5m41.198s
-lrzip		1354237684	 12.6		29m13.402s	6m55.441s
-lrzip -M	1079528708	 10.1		23m44.226s	4m05.461s
-lrzip -l	1793312108	 16.7		05m13.246s	3m12.886s
-lrzip -lM	1413268368	 13.2		04m18.338s	2m54.650s
+gzip		2772899756	 25.8		05m47s		2m46s
+bzip2		2704781700	 25.2		16m15s		6m19s
+xz		2272322208	 21.2		50m58s		3m52s
+7z		2242897134	 20.9		26m36s		5m41s
+lrzip		1354237684	 12.6		29m13s		6m55s
+lrzip -M	1079528708	 10.1		23m44s		4m05s
+lrzip -l	1793312108	 16.7		05m13s		3m12s
+lrzip -lM	1413268368	 13.2		04m18s		2m54s
 lrzip -z	1299844906	 12.1		04h32m14s	04h33m
 lrzip -zM	1066902006	  9.9		04h07m14s	04h08m
 
@@ -123,4 +131,4 @@ Or, to make things easier, just use the default settings all the time and be
 happy as lzma gives good results. :D
 
 Con Kolivas
-Tue, 5th Nov 2010
+Tue, 7th Nov 2010

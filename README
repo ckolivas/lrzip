@@ -1,4 +1,4 @@
-lrzip v0.5.1
+lrzip README
 
 Long Range ZIP or Lzma RZIP
 
@@ -123,7 +123,8 @@ As you can see, the -U option gives the same compression in this case as the
 -M option, and for about 50% more time. The advantage to using -U is that it
 will work even when the size can't be encompassed by -M, but progressively
 slower. Why isn't it on by default? If the compression window is a LOT larger
-than ram, with a lot of redundant information it can be drastically slower.
+than ram, with a lot of redundant information it can be drastically slower. I
+may revisit this possibility in the future if I can make it any faster.
 
 Q. Can I use your tool for even more compression than lzma offers?
 A. Yes, the rzip preparation of files makes them more compressible by every
@@ -328,11 +329,12 @@ A. See http://www.7-zip.org and http://www.p7zip.org. Also, see the file
 
 LIMITATIONS
 Due to mmap limitations the maximum size a window can be set to is currently
-2GB on 32bit. Files generated on 64 bit machines with windows >2GB in size
-may not be decompressible on 32bit machines.
+2GB on 32bit unless the -U option is specified. Files generated on 64 bit
+machines with windows >2GB in size might not be decompressible on 32bit
+machines.
 
 BUGS:
-Probably lots.
+Probably lots. Tell me if you spot any :)
 
 
 Links:
@@ -357,7 +359,7 @@ Ed Avis for various fixes. Thanks to Matt Mahoney for zpaq code. Thanks to
 Jukka Laurila for Darwin support. Thanks to George Makrydakis for lrztar.
 
 Con Kolivas <kernel@kolivas.org>
-Mon, 4 Nov 2010
+Mon, 7 Nov 2010
 
 Also documented by
 Peter Hyman <pete@peterhyman.com>

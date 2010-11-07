@@ -1,4 +1,13 @@
 lrzip ChangeLog
+NOVEMBER 2010, version 0.5.2 Con Kolivas
+* Fixed the Darwin build, again.
+* Fixed cases of extreme ram usage on 32 bit failing by limiting zpaq to 600MB
+windows as well.
+* Check page size if we can instead of assuming it's always 4k.
+* Improve the progress output.
+* Change failure to chmod and failure to set nice level to warnings only.
+* Standardise what's a stderr message and what's output.
+
 NOVEMBER 2010, version 0.5.1 Con Kolivas
 * Fix Darwin build - Darwin doesn't support mremap so introduce a fake wrapper
 for it.
