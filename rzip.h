@@ -35,6 +35,8 @@
 #include <signal.h>
 #include <bzlib.h>
 #include <zlib.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include <sys/resource.h>
 #include <netinet/in.h>
 
@@ -233,7 +235,7 @@ struct rzip_control {
 	unsigned long long window;
 	unsigned long flags;
 	unsigned long long ramsize;
-	unsigned long threads;
+	int threads;
 	int nice_val;		// added for consistency
 	int major_version;
 	int minor_version;
