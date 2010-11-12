@@ -140,7 +140,7 @@ static inline int fake_open_memstream_update_buffer(FILE *fp, uchar **buf, size_
   length in c_len
 */
 
-static void zpaq_compress_buf(struct compress_thread *cthread)
+static void zpaq_compress_buf(struct compress_thread *cthread, long thread)
 {
 	uchar *c_buf = NULL;
 	size_t dlen = 0;
@@ -156,7 +156,8 @@ static void zpaq_compress_buf(struct compress_thread *cthread)
 	if (unlikely(!out))
 		fatal("Failed to open_memstream in zpaq_compress_buf\n");
 
-	zpipe_compress(in, out, control.msgout, cthread->s_len, (int)(SHOW_PROGRESS));
+	zpipe_compress(in, out, control.msgout, cthread->s_len, (int)(SHOW_PROGRESS),
+		       thread);
 
 	if (unlikely(memstream_update_buffer(out, &c_buf, &dlen)))
 	        fatal("Failed to memstream_update_buffer in zpaq_compress_buf");
@@ -823,7 +824,7 @@ void *compthread(void *t)
 		else if (ZLIB_COMPRESS)
 			gzip_compress_buf(cti);
 		else if (ZPAQ_COMPRESS)
-			zpaq_compress_buf(cti);
+			zpaq_compress_buf(cti, i);
 		else fatal("Dunno wtf compression to use!\n");
 	}
 
