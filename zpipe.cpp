@@ -1738,7 +1738,7 @@ static void compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, i
 		len++;
 		pct = (len * 100 / buf_len);
 		if (pct != last_pct) {
-			fprintf(msgout, "\r\tZPAQ Chunk %i of 2 compress: %i%%          \r", (chunk + 1), pct);
+			fprintf(msgout, "\r\t\t\tZPAQ Chunk %i of 2 compress: %i%%          \r", (chunk + 1), pct);
 			fflush(msgout);
 			last_pct = pct;
 		}

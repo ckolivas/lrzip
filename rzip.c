@@ -221,16 +221,15 @@ int write_sbstream(void *ss, int stream, i64 p, i64 len)
 		n = MIN(sinfo->bufsize - sinfo->s[stream].buflen, len);
 
 		for (i = 0; i < n; i++) {
-			memcpy(sinfo->s[stream].buf+sinfo->s[stream].buflen + i,
+			memcpy(sinfo->s[stream].buf + sinfo->s[stream].buflen + i,
 			       get_sb(p + i), 1);
 		}
 		sinfo->s[stream].buflen += n;
 		p += n;
 		len -= n;
-		if (sinfo->s[stream].buflen == sinfo->bufsize) {
-			if (unlikely(flush_buffer(sinfo, stream)))
-				return -1;
-		}
+
+		if (sinfo->s[stream].buflen == sinfo->bufsize)
+			flush_buffer(sinfo, stream);
 	}
 	return 0;
 }
@@ -350,7 +349,7 @@ static tag clean_one_from_hash(struct rzip_state *st)
 again:
 	better_than_min = increase_mask(st->minimum_tag_mask);
 	if (!st->tag_clean_ptr)
-		print_maxverbose("\nStarting sweep for mask %u\n", (unsigned int)st->minimum_tag_mask);
+		print_maxverbose("Starting sweep for mask %u\n", (unsigned int)st->minimum_tag_mask);
 
 	for (; st->tag_clean_ptr < (1U << st->hash_bits); st->tag_clean_ptr++) {
 		if (empty_hash(st, st->tag_clean_ptr))
@@ -478,9 +477,9 @@ static void show_distrib(struct rzip_state *st)
 	}
 
 	if (total != st->hash_count)
-		print_err("/tWARNING: hash_count says total %lld\n", st->hash_count);
+		print_err("WARNING: hash_count says total %lld\n", st->hash_count);
 
-	print_output("\t%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n", total, primary,
+	print_output("%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n", total, primary,
 	       primary*100.0/total);
 }
 
@@ -711,8 +710,6 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 			fatal("Failed to munmap in rzip_chunk\n");
 	}
 
-	if (!NO_COMPRESS)
-		print_verbose("Performing backend compression phase\n");
 	if (unlikely(close_stream_out(st->ss)))
 		fatal("Failed to flush/close streams in rzip_chunk\n");
 }

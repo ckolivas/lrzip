@@ -258,6 +258,7 @@ struct stream_info {
 	i64 cur_pos;
 	i64 initial_pos;
 	i64 total_read;
+	long thread_no;
 };
 
 void fatal(const char *format, ...);
@@ -270,7 +271,7 @@ int write_stream(void *ss, int stream, uchar *p, i64 len);
 i64 read_stream(void *ss, int stream, uchar *p, i64 len);
 int close_stream_out(void *ss);
 int close_stream_in(void *ss);
-int flush_buffer(struct stream_info *sinfo, int stream);
+void flush_buffer(struct stream_info *sinfo, int stream);
 void read_config(struct rzip_control *s);
 ssize_t write_1g(int fd, void *buf, i64 len);
 ssize_t read_1g(int fd, void *buf, i64 len);
