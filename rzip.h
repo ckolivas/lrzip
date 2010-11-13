@@ -182,12 +182,11 @@ static inline i64 get_ram(void)
 #define FLAG_ZPAQ_COMPRESS 1024
 #define FLAG_VERBOSITY 2048
 #define FLAG_VERBOSITY_MAX 4096
-#define FLAG_NO_SET_PERMS 8192
-#define FLAG_STDIN 16384
-#define FLAG_STDOUT 32768
-#define FLAG_INFO 65536
-#define FLAG_MAXRAM 131072
-#define FLAG_UNLIMITED 262144
+#define FLAG_STDIN 8192
+#define FLAG_STDOUT 16384
+#define FLAG_INFO 32768
+#define FLAG_MAXRAM 65536
+#define FLAG_UNLIMITED 131072
 
 #define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
 #define FLAG_NOT_LZMA (FLAG_NO_COMPRESS | FLAG_LZO_COMPRESS | FLAG_BZIP2_COMPRESS | FLAG_ZLIB_COMPRESS | FLAG_ZPAQ_COMPRESS)
@@ -206,7 +205,6 @@ static inline i64 get_ram(void)
 #define VERBOSE		(control.flags & FLAG_VERBOSE)
 #define VERBOSITY	(control.flags & FLAG_VERBOSITY)
 #define MAX_VERBOSE	(control.flags & FLAG_VERBOSITY_MAX)
-#define NO_SET_PERMS	(control.flags & FLAG_NO_SET_PERMS)
 #define STDIN		(control.flags & FLAG_STDIN)
 #define STDOUT		(control.flags & FLAG_STDOUT)
 #define INFO		(control.flags & FLAG_INFO)

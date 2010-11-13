@@ -841,6 +841,9 @@ retry:
 		} else
 			mmap_stdin(sb.buf_low, st);
 
+		if (MAXRAM)
+			print_maxverbose("Succeeded in allocating %lld sized mmap\n", st->mmap_size);
+
 		if (st->mmap_size < st->chunk_size)
 			print_verbose("Compression window is larger than ram allocated, will proceed with unlimited mode possibly much slower\n");
 

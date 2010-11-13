@@ -37,9 +37,8 @@ static void usage(void)
 	print_output("     -S suffix     specify compressed suffix (default '.lrz')\n");
 	print_output("     -f            force overwrite of any existing files\n");
 	print_output("     -D            delete existing files\n");
-	print_output("     -P            don't set permissions on output file - may leave it world-readable\n");
 	print_output("     -q            don't show compression progress\n");
-	print_output("     -L level      set lzma/bzip2/gzip compression level (1-9, default 9)\n");
+	print_output("     -L level      set lzma/bzip2/gzip compression level (1-9, default 7)\n");
 	print_output("     -n            no backend compression - prepare for other compressor\n");
 	print_output("     -l            lzo compression (ultra fast)\n");
 	print_output("     -b            bzip2 compression\n");
@@ -49,6 +48,7 @@ static void usage(void)
 	print_output("     -U            Use unlimited window size beyond ramsize (potentially much slower)\n");
 	print_output("     -T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)\n");
 	print_output("     -N value      Set nice value to value (default 19)\n");
+	print_output("     -p value      Set processor count to override number of threads\n");
 	print_output("     -v[v]         Increase verbosity\n");
 	print_output("     -V            show version\n");
 	print_output("     -t            test compressed file integrity\n");
@@ -289,8 +289,7 @@ static void decompress_file(void)
 		if (unlikely(fd_out == -1))
 			fatal("Failed to create %s: %s\n", control.outfile, strerror(errno));
 
-		if (!NO_SET_PERMS)
-			preserve_perms(fd_in, fd_out);
+		preserve_perms(fd_in, fd_out);
 	} else
 		fd_out = open_tmpoutfile();
 
@@ -487,8 +486,7 @@ static void compress_file(void)
 	} else
 		fd_out = open_tmpoutfile();
 
-        if (!NO_SET_PERMS)
-		preserve_perms(fd_in, fd_out);
+	preserve_perms(fd_in, fd_out);
 
 	/* write zeroes to 24 bytes at beginning of file */
 	if (unlikely(write(fd_out, header, sizeof(header)) != sizeof(header)))
@@ -539,7 +537,7 @@ int main(int argc, char *argv[])
 	if (strstr(argv[0], "lrunzip"))
 		control.flags |= FLAG_DECOMPRESS;
 
-	control.compression_level = 9;
+	control.compression_level = 7;
 	control.ramsize = get_ram();
 	control.window = 0;
 	control.threshold = 1.0;	/* default lzo test compression threshold (level 1) with LZMA compression */
@@ -563,7 +561,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(&control);
 
-	while ((c = getopt(argc, argv, "L:hdS:tVvDfqo:w:nlbMUO:T:N:gPzi")) != -1) {
+	while ((c = getopt(argc, argv, "L:hdS:tVvDfqo:w:nlbMUO:T:N:p:gzi")) != -1) {
 		switch (c) {
 		case 'L':
 			control.compression_level = atoi(optarg);
@@ -664,8 +662,10 @@ int main(int argc, char *argv[])
 				fatal("Can only use one of -l, -b, -g, -z or -n\n");
 			control.flags |= FLAG_ZLIB_COMPRESS;
 			break;
-		case 'P':
-			control.flags |= FLAG_NO_SET_PERMS;
+		case 'p':
+			control.threads = atoi(optarg);
+			if (control.threads < 1)
+				fatal("Must have at least one thread\n");
 			break;
 		case 'z':
 			if (control.flags & FLAG_NOT_LZMA)
