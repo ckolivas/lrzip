@@ -1,3 +1,18 @@
+lrzip-0.530
+
+MASSIVE MULTITHREADING on the compression phase. Lrzip will now use as many
+threads as you have CPU cores for the back end compression, and even continue
+doing the rzip preprocessing stage as long as it can which the other threads
+continue. This makes the slower compression algorithms (lzma and zpaq) much
+faster on multicore machines, to the point of making zpaq compression almost
+as fast as single threaded lzma compression.
+-p option added to allow you to specify number of processors to override the
+built-in test, or if you wish to disable threading.
+-P option to not set permissions has now been removed since failing to set
+permissions is only a warning now and not a failure.
+Further improvements to the progress output.
+Updated benchmarks and docs.
+
 lrzip-0.520
 
 Just changed version numbering back to 2 point.

@@ -1,4 +1,26 @@
 lrzip ChangeLog
+NOVEMBER 2010, version 0.530 Con Kolivas
+* Massive rewrite of backend compression phase. Now the stream is split up
+into as many chunks as there are CPUs, of at least 10MB in size, that are
+still mallocable. Once the stream has reached a chunk of this size, its buffer
+is handed to a new backend compression thread which works while the rzip stream
+continues processing. This has the effect of parallelising workloads almost
+linearly up to the number of CPUs on the slower compression backends. ZPAQ,
+in particular, is effectively 4x faster on quad core now. Decompression is
+unchanged.
+* Added the -p option to allow the number of processors to be specified to
+override the detected number.
+* Changed the default level back to 7 as 9 wasn't offering significanly more
+compression but was adding time.
+* Increased the size of all the buffers to other backends now as well, since
+each block adds overhead with its header.
+* Numerous alterations to screen output to cope with new threaded compression
+phase.
+* Deprecated the -P option since not setting the file permissions only
+generates a warning now, not a failure.
+* Updated docs and benchmarks.
+
+
 NOVEMBER 2010, version 0.520 Con Kolivas
 * Distros don't like 3 point version numbering so just repackaged as 0.520.
 

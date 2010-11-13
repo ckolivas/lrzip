@@ -708,8 +708,9 @@ int main(int argc, char *argv[])
 			print_verbose("Threading is %s. Number of CPUs detected: %d\n", control.threads > 1? "ENABLED" : "DISABLED",
 				control.threads);
 		print_verbose("Detected %lld bytes ram\n", control.ramsize);
+		print_verbose("Comrpession level %d\n", control.compression_level);
 		print_verbose("Nice Value: %d\n", control.nice_val);
-		print_progress("Show Progress\n");
+		print_verbose("Show Progress\n");
 		print_maxverbose("Max ");
 		print_verbose("Verbose\n");
 		if (FORCE_REPLACE)

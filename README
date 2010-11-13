@@ -106,6 +106,10 @@ compression, and even use a compression window larger than you have ram.
 Expect serious swapping to occur if your file is larger than your ram and for
 it to take many times longer.
 
+Q. I want the absolute fastest decent compression I can possibly get.
+A. Try the command line options -Ml. This will use the maximum possible
+memory, lzo backend compression, and level 7 compression (1 isn't much faster).
+
 Q. How much slower is the unlimited mode?
 A. It depends on 2 things. First, just how much larger than your ram the file
 is, as the bigger the difference, the slower it will be. The second is how much
@@ -161,12 +165,11 @@ lrzip source code. Libraries with functions similar to compress() and
 decompress() functions of zlib would make the process most painless. Please
 tell me if you have such a library so I can include it :)
 
-Q. What's this "Progress percentage pausing during lzma compression" message?
+Q. What's this "Starting lzma back end compression thread..." message?
 A. While I'm a big fan of progress percentage being visible, unfortunately
 lzma compression can't currently be tracked when handing over 100+MB chunks
 over to the lzma library. Therefore you'll see progress percentage until
-each chunk is handed over to the lzma library. lzo, bzip2 or no compression
-doesn't have this problem and shows progress continuously.
+each chunk is handed over to the lzma library.
 
 Q. What's this "lzo testing for incompressible data" message?
 A. Other compression is much slower, and lzo is the fastest. To help speed up
@@ -189,10 +192,6 @@ option with lzma and are never anywhere near as large as the compression
 requirements. However if you're on 64bit and you use a compression window
 greater than 2GB, it might not be possible to decompress it on 32bit machines.
 
-Q. I've changed the compression level with -L in combination with -l or -z and
-the file size doesn't vary?
-A. That's right, -l and -z only has one compression level.
-
 Q. Why are you including bzip2 compression?
 A. To maintain a similar compression format to the original rzip (although the
 other modes are more useful).
@@ -211,11 +210,14 @@ the only compression format that can do any significant compression of
 multimedia.
 
 Q. Is this multithreaded?
-A. As of version 0.21, the answer is yes for lzma compression only thanks to a
-multithreaded lzma library. However I have not found the gains to scale well
-with number of cpus, but there are definite performance gains with more cpus.
-It is important to note that the mulithreading actually decreases the
-compression somewhat. It's a tradeoff either way.
+A. As of version 0.530, it is HEAVILY multithreaded with the back end
+compression phase, and will continue to process the rzip pre-processing phase
+so when using one of the more CPU intensive backend compressions like lzma or
+zpaq, SMP machines will show massive speed improvements. Lrzip will detect the
+number of CPUs to use, but it can be overridden with the -p option if the
+slightly better compression is desired more than speed. Decompression at the
+moment is not multithreaded, but is already much faster than the compression
+phase (except for zpaq), but enhancements for decompression are planned.
 
 Q. This uses heaps of memory, can I make it use less?
 A. Well you can by setting -w to the lowest value (1) but the huge use of

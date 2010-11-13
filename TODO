@@ -17,7 +17,7 @@ Get the ASM working on 64bit.
 
 Clean up the config system since it's a mystery to me.
 
-Increased multi-threading.
+Multi-threading on decompression.
 
 Make stdout work without a temporary file.
 

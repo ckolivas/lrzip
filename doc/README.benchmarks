@@ -13,28 +13,26 @@ backend.
 linux-2.6.31.tar
 
 These are benchmarks performed on a 3GHz quad core Intel Core2 with 8GB ram
-using lrzip v0.42.
+using lrzip v0.530
 
 Compression	Size		Percentage	Compress	Decompress
 None		365711360	100
-7z		53315279	14.6		2m4s		0m5.4s
-lrzip		52372722	14.3		2m48s		0m8.3s
-lrzip -z	43455498	11.9		10m11s		10m14s
-lrzip -l	112151676	30.7		0m14s		0m5.1s
-lrzip -g	73476127	20.1		0m29s		0m5.6s
-lrzip -b	60851152	16.6		0m43s		0m12.2s
-bzip2		62416571	17.1		0m44s		0m9.8s
-gzip		80563601	22.0		0m14s		0m2.8s
+7z		53315279	14.6		1m58s		0m5.6s
+lrzip		52724172	14.4		1m33s		0m15.6s
+lrzip -z	43223954	11.8		3m42s		10m14s
+lrzip -l	110893724	30.3		0m21s		0m13.4s
+lrzip -g	72746424	19.9		0m25s		0m13.8s
+lrzip -b	60774043	16.6		0m29s		0m19.8s
+bzip2		62416571	17.1		0m44s		0m10.5s
+gzip		80563601	22.0		0m14s		0m3.0s
 
 
 These results are interesting to note the compression of lrzip by default is
-only slightly better than lzma, but at some cost in time at the compress and
-decompress end of the spectrum. Clearly zpaq compression is much better than any
-other compression algorithm by far, but the speed cost on both compression and
-decompression is extreme. At this size compression, lzo is interesting because
-it's faster than simply copying the file but only offers modest compression.
-What lrzip offers at this end of the spectrum is extreme compression if
-desired.
+only slightly better than lzma, but it's significantly faster thanks to its
+heavily multithreaded nature. Decompression is slower but I'm working on that.
+Zpaq offers by far the best compression but at the cost of extra time. However
+with the heavily threaded nature of lrzip, it's not a lot longer given how
+much better its compression is.
 
 
 Let's take six kernel trees one version apart as a tarball, linux-2.6.31 to
@@ -96,7 +94,7 @@ system and some basic working software on it. The default options on the
 
 10GB Virtual image:
 
-These benchmarks were done on the quad core with version 0.5.1
+These benchmarks were done on the quad core with version 0.530
 
 Compression	Size		Percentage	Compress Time	Decompress Time
 None		10737418240	100.0
@@ -104,24 +102,26 @@ gzip		2772899756	 25.8		05m47s		2m46s
 bzip2		2704781700	 25.2		16m15s		6m19s
 xz		2272322208	 21.2		50m58s		3m52s
 7z		2242897134	 20.9		26m36s		5m41s
-lrzip		1354237684	 12.6		29m13s		6m55s
-lrzip -M	1079528708	 10.1		23m44s		4m05s
-lrzip -l	1793312108	 16.7		05m13s		3m12s
-lrzip -lM	1413268368	 13.2		04m18s		2m54s
-lrzip -z	1299844906	 12.1		04h32m14s	04h33m
-lrzip -zM	1066902006	  9.9		04h07m14s	04h08m
+lrzip		1299228155	 12.1		16m12s		4m32s
+lrzip -M	1079682231	 10.1		12m03s		4m05s
+lrzip -l	1754694010	 16.3		05m30s		3m12s
+lrzip -lM	1414958844	 13.2		05m15s		2m57s
+lrzip -zM	1066902006	  9.9		71m20s		04h08m
 
 
 At this end of the spectrum things really start to heat up. The compression
 advantage is massive, with the lzo backend even giving much better results than
-7z, and over a ridiculously short time. The default lzma backend is slightly
-slower than 7z, but provides a lot more compression. What appears to be a big
-disappointment is actually zpaq here which takes more than 8 times longer than
-lzma for a measly .2% improvement. The reason is that most of the advantage here
-is achieved by the rzip first stage since there's a lot of redundant space over
-huge distances on a virtual image. The -M option which works the memory
-subsystem rather hard making noticeable impact on the rest of the machine also
-does further wonders for the compression and times.
+7z, and over a ridiculously short time. The improvements in version 0.530 in
+scalability with multiple CPUs has a huge impact on compression time here,
+with zpaq almost being as fast on quad core as xz is, yet producing a file
+less than half the size. Note that decompression was not multithreaded on
+v0.530, hence why zpaq decompression was so slow.
+What appears to be a big disappointment is actually zpaq here which takes more
+than 6 times longer than lzma for a measly .2% improvement. The reason is that
+most of the advantage here is achieved by the rzip first stage since there's a
+lot of redundant space over huge distances on a virtual image. The -M option
+which works the memory subsystem rather hard making noticeable impact on the
+rest of the machine also does further wonders for the compression and times.
 
 This should help govern what compression you choose. Small files are nicely
 compressed with zpaq. Intermediate files are nicely compressed with lzma.
@@ -131,4 +131,4 @@ Or, to make things easier, just use the default settings all the time and be
 happy as lzma gives good results. :D
 
 Con Kolivas
-Tue, 7th Nov 2010
+Tue, 13th Nov 2010
