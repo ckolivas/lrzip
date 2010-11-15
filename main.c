@@ -129,11 +129,12 @@ static void preserve_perms(int fd_in, int fd_out)
 
 	if (unlikely(fstat(fd_in, &st)))
 		fatal("Failed to fstat input file\n");
-	if (fchmod(fd_out, (st.st_mode & 0777)))
+	if (unlikely(fchmod(fd_out, (st.st_mode & 0777))))
 		print_err("Warning, unable to set permissions on %s\n", control.outfile);
 
 	/* chown fail is not fatal */
-	fchown(fd_out, st.st_uid, st.st_gid);
+	if (unlikely(fchown(fd_out, st.st_uid, st.st_gid)))
+		print_err("Warning, unable to set owner on %s\n", control.outfile);
 }
 
 /* Open a temporary outputfile to emulate stdout */
@@ -383,7 +384,8 @@ static void get_fileinfo(void)
 	/* Read the compression type of the first block. It's possible that
 	   not all blocks are compressed so this may not be accurate.
 	 */
-	read(fd_in, &ctype, 1);
+	if (unlikely(read(fd_in, &ctype, 1) != 1))
+		fatal("Failed to read in get_fileinfo\n");
 
 	cratio = (long double)expected_size / (long double)infile_size;
 	
@@ -708,7 +710,7 @@ int main(int argc, char *argv[])
 			print_verbose("Threading is %s. Number of CPUs detected: %d\n", control.threads > 1? "ENABLED" : "DISABLED",
 				control.threads);
 		print_verbose("Detected %lld bytes ram\n", control.ramsize);
-		print_verbose("Comrpession level %d\n", control.compression_level);
+		print_verbose("Compression level %d\n", control.compression_level);
 		print_verbose("Nice Value: %d\n", control.nice_val);
 		print_verbose("Show Progress\n");
 		print_maxverbose("Max ");
