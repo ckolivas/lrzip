@@ -1742,7 +1742,7 @@ static void compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len,
 			fprintf(msgout, "\r\t\t\t\tZPAQ\t");
 			for (i = 0; i < thread; i++)
 				fprintf(msgout, "\t\t");
-			fprintf(msgout, "%d: %i/2: %i%%\r",
+			fprintf(msgout, "%ld: %i/2: %i%%\r",
 				thread, (chunk + 1), pct);
 			fflush(msgout);
 			last_pct = pct;
