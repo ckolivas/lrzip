@@ -1,4 +1,19 @@
 lrzip ChangeLog
+NOVEMBER 2010, version 0.540 Con Kolivas
+* Massive rewrite of backend decompression phse, implementing multithreading.
+This is done by taking each stream of data on read in into separate buffers for
+up to as many threads as CPUs. As each thread's data becomes available, feed it
+into runzip once it is requests more of the stream. Provided there are enough
+chunks in the originally compressed data, this provides a massive speedup
+potentially proportional to the number of CPUs. The slower the backend
+compression, the better the speed up (i.e. zpaq is the best sped up).
+* Fix the output of zpaq compress and decompress from trampling on itself and racing and consuming a lot of CPU time printing to the console.
+* When limiting cwindow to 6 on 32 bits, ensure that control.window is also set.
+* When testing for the maximum size of testmalloc, the multiple used was out by one, so increase it.
+* Minor output tweaks.
+* Build warning fixes.
+* Updated benchmarks.
+
 NOVEMBER 2010, version 0.530 Con Kolivas
 * Massive rewrite of backend compression phase. Now the stream is split up
 into as many chunks as there are CPUs, of at least 10MB in size, that are
@@ -19,7 +34,6 @@ phase.
 * Deprecated the -P option since not setting the file permissions only
 generates a warning now, not a failure.
 * Updated docs and benchmarks.
-
 
 NOVEMBER 2010, version 0.520 Con Kolivas
 * Distros don't like 3 point version numbering so just repackaged as 0.520.

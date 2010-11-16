@@ -1,3 +1,17 @@
+lrzip-0.540
+
+MASSIVE MULTITHREADING on the decompression phase. Provided there are enough
+chunks of data in the archived file, lrzip will use as many threads as there
+are CPUs for the backend decompression. Much like the multithreading on the
+compression side, it makes the slower compression algorithms speed up the most.
+Fixed output from being scrambled and consuming a lot of CPU time on threaded
+zpaq compression.
+Further fixes to ensure window sizes work on 32 bit machines.
+Be more careful about testing for how much ram lrzip can use.
+Minor build warning fixes.
+Minor tweaks to screen output.
+Updated benchmarks.
+
 lrzip-0.530
 
 MASSIVE MULTITHREADING on the compression phase. Lrzip will now use as many

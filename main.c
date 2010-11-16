@@ -376,8 +376,10 @@ static void get_fileinfo(void)
 	/* Version < 0.4 had different file format */
 	if (control.major_version == 0 && control.minor_version < 4)
 		seekspot = 50;
-	else
+	else if (control.major_version == 0 && control.minor_version == 4)
 		seekspot = 74;
+	else
+		seekspot = 75;
 	if (unlikely(lseek(fd_in, seekspot, SEEK_SET) == -1))
 		fatal("Failed to lseek in get_fileinfo: %s\n", strerror(errno));
 
@@ -403,6 +405,8 @@ static void get_fileinfo(void)
 		print_output("rzip + gzip\n");
 	else if (ctype == CTYPE_ZPAQ)
 		print_output("rzip + zpaq\n");
+	else
+		print_output("Dunno wtf\n");
 	print_output("Decompressed file size: %llu\n", expected_size);
 	print_output("Compressed file size: %llu\n", infile_size);
 	print_output("Compression ratio: %.3Lf\n", cratio);
@@ -704,11 +708,11 @@ int main(int argc, char *argv[])
 
 	/* OK, if verbosity set, print summary of options selected */
 	if (!INFO) {
-		print_verbose("The following options are in effect for this %s.\n",
-			DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
-		if (LZMA_COMPRESS)
-			print_verbose("Threading is %s. Number of CPUs detected: %d\n", control.threads > 1? "ENABLED" : "DISABLED",
-				control.threads);
+		if (!TEST_ONLY)
+			print_verbose("The following options are in effect for this %s.\n",
+				      DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
+		print_verbose("Threading is %s. Number of CPUs detected: %d\n", control.threads > 1? "ENABLED" : "DISABLED",
+			      control.threads);
 		print_verbose("Detected %lld bytes ram\n", control.ramsize);
 		print_verbose("Compression level %d\n", control.compression_level);
 		print_verbose("Nice Value: %d\n", control.nice_val);
@@ -727,7 +731,7 @@ int main(int argc, char *argv[])
 			print_verbose("Test file integrity\n");
 
 		/* show compression options */
-		if (!DECOMPRESS) {
+		if (!DECOMPRESS && !TEST_ONLY) {
 			print_verbose("Compression mode is: ");
 			if (LZMA_COMPRESS)
 				print_verbose("LZMA. LZO Test Compression Threshold: %.f\n",
