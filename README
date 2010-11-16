@@ -210,14 +210,13 @@ the only compression format that can do any significant compression of
 multimedia.
 
 Q. Is this multithreaded?
-A. As of version 0.530, it is HEAVILY multithreaded with the back end
-compression phase, and will continue to process the rzip pre-processing phase
-so when using one of the more CPU intensive backend compressions like lzma or
-zpaq, SMP machines will show massive speed improvements. Lrzip will detect the
-number of CPUs to use, but it can be overridden with the -p option if the
-slightly better compression is desired more than speed. Decompression at the
-moment is not multithreaded, but is already much faster than the compression
-phase (except for zpaq), but enhancements for decompression are planned.
+A. As of version 0.540, it is HEAVILY multithreaded with the back end
+compression and decompression phase, and will continue to process the rzip
+pre-processing phase so when using one of the more CPU intensive backend
+compressions like lzma or zpaq, SMP machines will show massive speed
+improvements. Lrzip will detect the number of CPUs to use, but it can be
+overridden with the -p option if the slightly better compression is desired more
+than speed.
 
 Q. This uses heaps of memory, can I make it use less?
 A. Well you can by setting -w to the lowest value (1) but the huge use of
@@ -361,7 +360,7 @@ Ed Avis for various fixes. Thanks to Matt Mahoney for zpaq code. Thanks to
 Jukka Laurila for Darwin support. Thanks to George Makrydakis for lrztar.
 
 Con Kolivas <kernel@kolivas.org>
-Mon, 7 Nov 2010
+Mon, 16 Nov 2010
 
 Also documented by
 Peter Hyman <pete@peterhyman.com>
