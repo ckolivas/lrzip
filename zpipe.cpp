@@ -1568,11 +1568,12 @@ bool find_start(FILE *in) {
 }
 
 // Decompress to stdout
-static void decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress) {
+static void decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len,
+		       int progress, long thread) {
 
 	long long int len = 0;
-	static int last_pct = 0, chunk = 0;
-	int pct = 0;
+	int last_pct = 0;
+	int i, pct = 0;
   // Find start of block
   while (find_start(in)) {
     if (getc(in)!=LEVEL || getc(in)!=1)
@@ -1600,8 +1601,12 @@ static void decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len,
 	if (progress) {
 		len++;
 		pct = (len * 100 / buf_len);
-		if (pct != last_pct) {
-			fprintf(msgout, "\r        ZPAQ Chunk %d of 2 Decompress: %i%%  \r", (chunk + 1), pct);
+		if (pct / 10 != last_pct / 10) {
+			fprintf(msgout, "\r\t\t\t\tZPAQ\t");
+			for (i = 0; i < thread; i++)
+				fprintf(msgout, "\t");
+			fprintf(msgout, "%ld: %i%%\r",
+				thread + 1, pct);
 			fflush(msgout);
 			last_pct = pct;
 		}
@@ -1623,16 +1628,11 @@ static void decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len,
     }
     if (c!=255) error("missing end of block marker");
   }
-  if (progress) {
-	fprintf(msgout, "\t                                             \r");
-	fflush(msgout);
-  }
-  chunk ^= 1;
 }
 
-extern "C" void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress)
+extern "C" void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress, long thread)
 {
-	decompress(in, out, msgout, buf_len, progress);
+	decompress(in, out, msgout, buf_len, progress, thread);
 }
 
 //////////////////////////// Compressor ////////////////////////////
@@ -1708,7 +1708,7 @@ static void compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len,
     207,8,112,56,0};
 
 	long long int len = 0;
-	static int last_pct = 0, chunk = 0;
+	int last_pct = 0;
 	int i, pct = 0;
     // Initialize
   ZPAQL z;  // model
@@ -1738,22 +1738,18 @@ static void compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len,
 	if (progress) {
 		len++;
 		pct = (len * 100 / buf_len);
-		if (pct != last_pct && !(pct % 10)) {
+		if (pct / 10 != last_pct / 10) {
 			fprintf(msgout, "\r\t\t\t\tZPAQ\t");
 			for (i = 0; i < thread; i++)
-				fprintf(msgout, "\t\t");
-			fprintf(msgout, "%ld: %i/2: %i%%\r",
-				thread, (chunk + 1), pct);
+				fprintf(msgout, "\t");
+			fprintf(msgout, "%ld: %i%%\r",
+				thread + 1, pct);
 			fflush(msgout);
 			last_pct = pct;
 		}
 	}
     enc.compress(c);
     sha1.put(c);
-  }
-  if (progress) {
-	//fprintf(msgout, "\t                                             \r");
-	//fflush(msgout);
   }
  enc.compress(-1);  // end of segment
 
@@ -1767,7 +1763,6 @@ static void compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len,
 
   // Optional: append a byte not 'z' to allow non-ZPAQ data to be appended
   //putc(0, out);
-  chunk ^= 1;
 }
 
 extern "C" void zpipe_compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len,

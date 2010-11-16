@@ -257,6 +257,9 @@ struct stream_info {
 	i64 initial_pos;
 	i64 total_read;
 	long thread_no;
+	long next_thread;
+	int uncomp_stream;
+	int eos; /* End of streams */
 };
 
 void fatal(const char *format, ...);
@@ -274,7 +277,7 @@ void read_config(struct rzip_control *s);
 ssize_t write_1g(int fd, void *buf, i64 len);
 ssize_t read_1g(int fd, void *buf, i64 len);
 void zpipe_compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress, long thread);
-void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress);
+void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress, long thread);
 const i64 two_gig;
 
 #define print_err(format, args...)	do {\

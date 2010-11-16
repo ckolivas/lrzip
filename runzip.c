@@ -197,7 +197,7 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 				break;
 		}
 		p = 100 * ((double)(tally + total) / (double)expected_size);
-		if (p != l)  {
+		if (p / 10 != l / 10)  {
 			prog_done = (double)(tally + total) / (double)divisor[divisor_index];
 			print_progress("%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
 					p, prog_done, prog_tsize, suffix[divisor_index] );
