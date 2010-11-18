@@ -872,7 +872,7 @@ retry:
 		/* this will count only when size > window */
 		if (last.tv_sec > 0) {
 			if (!passes)
-				passes = s.st_size / st->chunk_size + 1;
+				passes = s.st_size / st->chunk_size;
 			elapsed_time = current.tv_sec - start.tv_sec;
 			finish_time = elapsed_time / (pct_base / 100.0);
 			elapsed_hours = (unsigned int)(elapsed_time) / 3600;
