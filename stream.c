@@ -717,7 +717,7 @@ void *open_stream_out(int f, int n, i64 limit)
 	 * ram. We need enough for the 2 streams and for the compression
 	 * backend at most, being conservative. */
 retest_malloc:
-	testmalloc = malloc(sinfo->bufsize * (n + 2));
+	testmalloc = malloc(sinfo->bufsize * (n + 1));
 	if (!testmalloc) {
 		sinfo->bufsize = sinfo->bufsize / 10 * 9;
 		goto retest_malloc;
