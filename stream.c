@@ -649,9 +649,9 @@ static pthread_t *threads;
    compression level and algorithm */
 void *open_stream_out(int f, int n, i64 limit)
 {
-	unsigned cwindow = control.window;
 	struct stream_info *sinfo;
 	uchar *testmalloc;
+	unsigned cwindow;
 	int i;
 
 	sinfo = malloc(sizeof(*sinfo));
@@ -690,11 +690,14 @@ void *open_stream_out(int f, int n, i64 limit)
 	sinfo->fd = f;
 
 	if (BITS32) {
-		/* Largest window supported on 32bit is 600MB */
-		if (!cwindow || cwindow > 6)
-			cwindow = 6;
-		control.window = cwindow;
+		/* Largest window we can safely support on 32bit is 2GB */
+		if (!control.window || control.window > 20)
+			control.window = 20;
+		/* Largest window supported by lzma is 300MB */
+		if (LZMA_COMPRESS && control.window > 3)
+			control.window = 3;
 	}
+	cwindow = control.window;
 
 	/* No point making the stream larger than the amount of data */
 	if (cwindow)

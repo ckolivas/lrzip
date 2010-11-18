@@ -101,6 +101,11 @@ struct sliding_buffer {
 	int fd;		/* The fd of the mmap */
 } sb;	/* Sliding buffer */
 
+static void round_to_page(i64 *size)
+{
+	*size -= *size % control.page_size;
+}
+
 static void remap_low_sb(void)
 {
 	static int top = 0;
@@ -113,8 +118,8 @@ static void remap_low_sb(void)
 		new_offset = sb.orig_size - sb.size_low;
 		top = 1;
 	}
-	new_offset -= new_offset % control.page_size; /* Round to page size */
-	print_maxverbose("Sliding main buffer\n");
+	round_to_page(&new_offset);
+	print_maxverbose("Sliding main buffer   \n");
 	if (unlikely(munmap(sb.buf_low, sb.size_low)))
 		fatal("Failed to munmap in remap_low_sb\n");
 	sb.offset_low = new_offset;
@@ -592,11 +597,6 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 		}
 	}
 
-	/* Fake that we got to 100% since we're done :D */
-	if (!STDIN)
-		print_progress("Total: 100%%  ");
-	print_progress("Chunk: 100%%\n");
-
 	if (MAX_VERBOSE)
 		show_distrib(st);
 
@@ -772,7 +772,7 @@ void rzip_fd(int fd_in, int fd_out)
 
 	init_hash_indexes(st);
 
-	passes = 1 + s.st_size / chunk_window;
+	passes = 0;
 
 	/* set timers and chunk counter */
 	last.tv_sec = last.tv_usec = 0;
@@ -871,6 +871,8 @@ retry:
 		gettimeofday(&current, NULL);
 		/* this will count only when size > window */
 		if (last.tv_sec > 0) {
+			if (!passes)
+				passes = s.st_size / st->chunk_size + 1;
 			elapsed_time = current.tv_sec - start.tv_sec;
 			finish_time = elapsed_time / (pct_base / 100.0);
 			elapsed_hours = (unsigned int)(elapsed_time) / 3600;
@@ -885,13 +887,13 @@ retry:
 					pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds,
 					eta_hours, eta_minutes, eta_seconds, chunkmbs);
 			else
-				print_verbose("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
-					pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds, chunkmbs);
+				print_verbose("\nPass %d -- Elapsed Time: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
+					pass, elapsed_hours, elapsed_minutes, elapsed_seconds, chunkmbs);
 		}
 		last.tv_sec = current.tv_sec;
 		last.tv_usec = current.tv_usec;
 		rzip_chunk(st, fd_in, fd_out, offset, pct_base, pct_multiple);
-		/* st->chunk_bytes may be shrunk in rzip_chunk */
+		/* st->chunk_size may be shrunk in rzip_chunk */
 		last_chunk = st->chunk_size;
 		len -= st->chunk_size;
 	}

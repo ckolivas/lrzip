@@ -114,21 +114,10 @@ Q. How much slower is the unlimited mode?
 A. It depends on 2 things. First, just how much larger than your ram the file
 is, as the bigger the difference, the slower it will be. The second is how much
 redundant data there is. The more there is, the slower, but ultimately the
-better the compression. Using the example of a 10GB virtual image on a machine
-with 8GB ram, it would allocate about 5.5GB by default, yet is capable of
-allocating all the ram for the 10GB file in -M mode.
-
-Options		Size		Compress	Decompress
--l		1793312108	05m13s		3m12s
--lM		1413268368	04m18s		2m54s
--lU		1413268368	06m05s		2m54s
-
-As you can see, the -U option gives the same compression in this case as the
--M option, and for about 50% more time. The advantage to using -U is that it
-will work even when the size can't be encompassed by -M, but progressively
-slower. Why isn't it on by default? If the compression window is a LOT larger
-than ram, with a lot of redundant information it can be drastically slower. I
-may revisit this possibility in the future if I can make it any faster.
+better the compression. Why isn't it on by default? If the compression window is
+a LOT larger than ram, with a lot of redundant information it can be drastically
+slower. I may revisit this possibility in the future if I can make it any
+faster.
 
 Q. Can I use your tool for even more compression than lzma offers?
 A. Yes, the rzip preparation of files makes them more compressible by every
@@ -256,8 +245,8 @@ possible with the -M option, and going beyond that with the -U option.
 Q. Can I use swapspace as ram for lrzip with a massive window?
 A. It will indirectly do this with -M mode enabled. If you want the windows
 even larger, -U (unlimited) mode will make the compression window as big as
-the file itself no matter how big it is, but it will slow down 100 times
-during the compression phase once it has reached your full ram.
+the file itself no matter how big it is, but it will slow down proportionately
+more the bigger the file is than your ram.
 
 Q. Why do you nice it to +19 by default? Can I speed up the compression by
 changing the nice value?

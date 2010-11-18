@@ -17,12 +17,10 @@ Get the ASM working on 64bit.
 
 Clean up the config system since it's a mystery to me.
 
-Multi-threading on decompression.
-
 Make stdout work without a temporary file.
 
 Make stdin on decompression work without a temporary file.
 
 Make testing file integrity work without a temporary file.
 
-Stop breaking Darwin builds :P
+Fix darwin build since it doesn't support unnamed semamphores.

@@ -19,7 +19,7 @@
 
 #define LRZIP_MAJOR_VERSION 0
 #define LRZIP_MINOR_VERSION 5
-#define LRZIP_MINOR_SUBVERSION 40
+#define LRZIP_MINOR_SUBVERSION 41
 
 #define NUM_STREAMS 2
 
@@ -121,6 +121,7 @@ extern int errno;
 #define likely(x)	__builtin_expect(!!(x), 1)
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 
+typedef unsigned long long u64;
 typedef long long int i64;
 typedef uint16_t u16;
 typedef uint32_t u32;
