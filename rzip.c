@@ -119,7 +119,7 @@ static void remap_low_sb(void)
 		top = 1;
 	}
 	round_to_page(&new_offset);
-	print_maxverbose("Sliding main buffer   \n");
+	print_maxverbose("Sliding main buffer to offset %lld\n", new_offset);
 	if (unlikely(munmap(sb.buf_low, sb.size_low)))
 		fatal("Failed to munmap in remap_low_sb\n");
 	sb.offset_low = new_offset;
@@ -673,8 +673,11 @@ static void mmap_stdin(uchar *buf, struct rzip_state *st)
 static void init_sliding_mmap(struct rzip_state *st, int fd_in, i64 offset)
 {
 	/* Initialise the high buffer */
-	if (UNLIMITED) {
+	if (!STDIN) {
 		sb.high_length = 65536;
+		/* Round up to the next biggest page size */
+		if (sb.high_length % control.page_size)
+			sb.high_length += control.page_size - (sb.high_length % control.page_size);
 		sb.buf_high = (uchar *)mmap(NULL, sb.high_length, PROT_READ, MAP_SHARED, fd_in, offset);
 		if (unlikely(sb.buf_high == MAP_FAILED))
 			fatal("Unable to mmap buf_high in init_sliding_mmap\n");
@@ -699,13 +702,13 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 	if (unlikely(!st->ss))
 		fatal("Failed to open streams in rzip_chunk\n");
 
-	print_verbose("Performing rzip pre-processing phase\n");
+	print_verbose("Beginning rzip pre-processing phase\n");
 	hash_search(st, pct_base, pct_multiple);
 
 	/* unmap buffer before closing and reallocating streams */
 	if (unlikely(munmap(sb.buf_low, sb.size_low)))
 		fatal("Failed to munmap in rzip_chunk\n");
-	if (UNLIMITED) {
+	if (!STDIN) {
 		if (unlikely(munmap(sb.buf_high, sb.size_high)))
 			fatal("Failed to munmap in rzip_chunk\n");
 	}
@@ -753,17 +756,34 @@ void rzip_fd(int fd_in, int fd_out)
 	} else
 		control.st_size = 0;
 
+	/* Optimal use of ram involves no more than 2/3 of it, so if we
+	 * expressly request more with -M or -U, use a sliding mmap */
+	control.max_mmap = control.ramsize / 3 * 2;
+	if (MAXRAM)
+		control.max_chunk = control.ramsize;
+	else
+		control.max_chunk = control.max_mmap;
+
+	/* On 32 bits we can have a big window with sliding mmap, but can
+	 * not enable much per mmap/malloc */
+	if (BITS32)
+		control.max_mmap = MIN(control.max_mmap, two_gig / 3);
+	round_to_page(&control.max_chunk);
+	round_to_page(&control.max_mmap);
+	if (UNLIMITED)
+		control.max_chunk = control.st_size;
+
 	if (control.window)
 		chunk_window = control.window * CHUNK_MULTIPLE;
-	else {
-		if (STDIN)
-			chunk_window = control.ramsize;
-		else
-			chunk_window = len;
-	}
-	if (chunk_window < len)
-		chunk_window -= chunk_window % control.page_size;
-	st->chunk_size = chunk_window;
+	else
+		chunk_window = control.max_chunk;
+
+	if (!STDIN)
+		st->chunk_size = MIN(chunk_window, len);
+	else
+		st->chunk_size = chunk_window;
+	if (st->chunk_size < len)
+		round_to_page(&st->chunk_size);
 
 	st->level = &levels[control.compression_level];
 	st->fd_in = fd_in;
@@ -783,69 +803,53 @@ void rzip_fd(int fd_in, int fd_out)
 		i64 offset = s.st_size - len;
 		int bits = 8;
 
-		/* Flushing the dirty data will decrease our chances of
-		 * running out of memory when we allocate ram again on the
-		 * next chunk. It will also prevent thrashing on-disk due to
-		 * concurrent reads and writes if we're on the same device. */
-		if (last_chunk)
-			print_verbose("Flushing data to disk.\n");
-		fsync(fd_out);
-
-		if (st->chunk_size > len && !STDIN)
-			st->chunk_size = len;
-		st->mmap_size = st->chunk_size;
-		if (BITS32 && st->mmap_size > two_gig) {
-			print_verbose("Limiting to 2GB due to 32 bit limitations\n");
-			st->mmap_size = two_gig;
+		st->chunk_size = control.max_chunk;
+		st->mmap_size = control.max_mmap;
+		if (!STDIN) {
+			st->chunk_size = MIN(st->chunk_size, len);
+			st->mmap_size = MIN(st->mmap_size, len);
 		}
 
 retry:
-		/* Mmapping anonymously first will tell us how much ram we can use in
-		 * advance and zeroes it which has a defragmenting effect on ram
-		 * before the real read in. */
-		sb.buf_low = mmap(NULL, st->mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-		/* Better to shrink the window to the largest size that works than fail */
-		if (sb.buf_low == MAP_FAILED) {
-			st->mmap_size = st->mmap_size / 10 * 9;
-			st->mmap_size -= st->mmap_size % control.page_size;
-			if (unlikely(!st->mmap_size))
-				fatal("Unable to mmap any ram\n");
-			goto retry;
-		}
-
-		/* NOTE the buf is saved here for STDIN mode */
-		if (!STDIN) {
-			if (unlikely(munmap(sb.buf_low, st->mmap_size)))
-				fatal("Failed to munmap\n");
-		}
-
-		if (!MAXRAM) {
-			print_maxverbose("Succeeded in allocating %lld sized mmap\n", st->mmap_size);
-			if (!UNLIMITED)
-				st->chunk_size = st->mmap_size;
-		} else
-			st->mmap_size = st->chunk_size;
-
-		if (!STDIN) {
-			/* The buf is saved here for !STDIN mode */
-			sb.buf_low = (uchar *)mmap(sb.buf_low, st->mmap_size, PROT_READ, MAP_SHARED, fd_in, offset);
+		if (STDIN) {
+			/* NOTE the buf is saved here for STDIN mode */
+			sb.buf_low = mmap(NULL, st->mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+			/* Better to shrink the window to the largest size that works than fail */
 			if (sb.buf_low == MAP_FAILED) {
-				if (unlikely(!MAXRAM))
-					fatal("Failed to remap ram\n");
 				st->mmap_size = st->mmap_size / 10 * 9;
-				st->mmap_size -= st->mmap_size % control.page_size;
+				round_to_page(&st->mmap_size);
 				if (unlikely(!st->mmap_size))
 					fatal("Unable to mmap any ram\n");
 				goto retry;
 			}
-		} else
 			mmap_stdin(sb.buf_low, st);
+		} else {
+			/* NOTE the buf is saved here for !STDIN mode */
+			if (st->mmap_size < st->chunk_size)
+				print_maxverbose("Enabling sliding mmap mode and using mmap of %lld bytes with window of %lld bytes\n", st->mmap_size, st->chunk_size);
 
-		if (MAXRAM)
-			print_maxverbose("Succeeded in allocating %lld sized mmap\n", st->mmap_size);
+			/* The buf is saved here for !STDIN mode */
+			sb.buf_low = (uchar *)mmap(sb.buf_low, st->mmap_size, PROT_READ, MAP_SHARED, fd_in, offset);
+			if (sb.buf_low == MAP_FAILED) {
+				st->mmap_size = st->mmap_size / 10 * 9;
+				round_to_page(&st->mmap_size);
+				if (unlikely(!st->mmap_size))
+					fatal("Unable to mmap any ram\n");
+				goto retry;
+			}
+		}
+		print_maxverbose("Succeeded in testing %lld sized mmap for rzip pre-processing\n", st->mmap_size);
 
-		if (st->mmap_size < st->chunk_size)
-			print_verbose("Compression window is larger than ram allocated, will proceed with unlimited mode possibly much slower\n");
+		if (st->chunk_size > control.ramsize)
+			print_verbose("Compression window is larger than ram, will proceed with unlimited mode possibly much slower\n");
+
+		if (!passes && !STDIN) {
+			passes = s.st_size / st->chunk_size + !!(s.st_size % st->chunk_size);
+			if (passes == 1)
+				print_verbose("Will take 1 pass\n");
+			else
+				print_verbose("Will take %d passes\n", passes);
+		}
 
 		sb.orig_offset = offset;
 		print_maxverbose("Chunk size: %lld\n", st->chunk_size);
@@ -871,8 +875,6 @@ retry:
 		gettimeofday(&current, NULL);
 		/* this will count only when size > window */
 		if (last.tv_sec > 0) {
-			if (!passes)
-				passes = s.st_size / st->chunk_size;
 			elapsed_time = current.tv_sec - start.tv_sec;
 			finish_time = elapsed_time / (pct_base / 100.0);
 			elapsed_hours = (unsigned int)(elapsed_time) / 3600;

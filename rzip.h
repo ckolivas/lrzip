@@ -19,7 +19,7 @@
 
 #define LRZIP_MAJOR_VERSION 0
 #define LRZIP_MINOR_VERSION 5
-#define LRZIP_MINOR_SUBVERSION 41
+#define LRZIP_MINOR_SUBVERSION 42
 
 #define NUM_STREAMS 2
 
@@ -121,7 +121,6 @@ extern int errno;
 #define likely(x)	__builtin_expect(!!(x), 1)
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 
-typedef unsigned long long u64;
 typedef long long int i64;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -231,9 +230,11 @@ struct rzip_control {
 	int compression_level;
 	unsigned char lzma_properties[5]; // lzma properties, encoded
 	double threshold;
-	unsigned long long window;
+	i64 window;
 	unsigned long flags;
-	unsigned long long ramsize;
+	i64 ramsize;
+	i64 max_chunk;
+	i64 max_mmap;
 	int threads;
 	int nice_val;		// added for consistency
 	int major_version;

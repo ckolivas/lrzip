@@ -644,6 +644,7 @@ static int seekto(struct stream_info *sinfo, i64 pos)
 }
 
 static pthread_t *threads;
+extern const i64 two_gig;
 
 /* open a set of output streams, compressing with the given
    compression level and algorithm */
@@ -651,7 +652,6 @@ void *open_stream_out(int f, int n, i64 limit)
 {
 	struct stream_info *sinfo;
 	uchar *testmalloc;
-	unsigned cwindow;
 	int i;
 
 	sinfo = malloc(sizeof(*sinfo));
@@ -689,21 +689,9 @@ void *open_stream_out(int f, int n, i64 limit)
 	sinfo->cur_pos = 0;
 	sinfo->fd = f;
 
-	if (BITS32) {
-		/* Largest window we can safely support on 32bit is 2GB */
-		if (!control.window || control.window > 20)
-			control.window = 20;
-		/* Largest window supported by lzma is 300MB */
-		if (LZMA_COMPRESS && control.window > 3)
-			control.window = 3;
-	}
-	cwindow = control.window;
-
-	/* No point making the stream larger than the amount of data */
-	if (cwindow)
-		sinfo->bufsize = MIN(STREAM_BUFSIZE * 10 * cwindow, limit);
-	else
-		sinfo->bufsize = limit;
+	/* Serious limits imposed on 32 bit capabilities */
+	if (BITS32)
+		limit = MIN(limit, two_gig / 3);
 
 	sinfo->initial_pos = lseek(f, 0, SEEK_CUR);
 
@@ -717,12 +705,19 @@ void *open_stream_out(int f, int n, i64 limit)
 	 * ram. We need enough for the 2 streams and for the compression
 	 * backend at most, being conservative. */
 retest_malloc:
-	testmalloc = malloc(sinfo->bufsize * (n + 1));
+	testmalloc = malloc(limit * (n + 1));
 	if (!testmalloc) {
-		sinfo->bufsize = sinfo->bufsize / 10 * 9;
+		limit = limit / 10 * 9;
 		goto retest_malloc;
 	}
 	free(testmalloc);
+	print_maxverbose("Succeeded in testing %lld sized malloc for back end compression\n", limit * (n + 1));
+
+	/* Largest window supported by lzma is 300MB */
+	if (LZMA_COMPRESS)
+		limit = MIN(limit, 3 * STREAM_BUFSIZE * 10);
+
+	sinfo->bufsize = limit;
 
 	/* Make the bufsize no smaller than STREAM_BUFSIZE. Round up the
 	 * bufsize to fit X threads into it */

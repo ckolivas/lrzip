@@ -1,4 +1,18 @@
 lrzip ChangeLog
+NOVEMBER 2010, version 0.542 Con Kolivas
+* Choose sane defaults for memory usage since linux ludicriously overcommits.
+* Use sliding mmap for any compression windows greater than 2/3 ram.
+* Consolidate and simplify testing of allocatable ram.
+* Minor tweaks to output.
+* Round up the size of the high buffer in sliding mmap to one page.
+* Squeeze a little more out of 32 bit compression windows.
+
+NOVEMBER 2010, version 0.541 Con Kolivas
+* Fix wrong number of passes reported.
+* Re-fix the off-by-one that wasn't off-by-one.
+* Limit lzma compression windows to 300MB as per reports of failures with larger
+windows.
+
 NOVEMBER 2010, version 0.540 Con Kolivas
 * Massive rewrite of backend decompression phse, implementing multithreading.
 This is done by taking each stream of data on read in into separate buffers for
@@ -7,9 +21,11 @@ into runzip once it is requests more of the stream. Provided there are enough
 chunks in the originally compressed data, this provides a massive speedup
 potentially proportional to the number of CPUs. The slower the backend
 compression, the better the speed up (i.e. zpaq is the best sped up).
-* Fix the output of zpaq compress and decompress from trampling on itself and racing and consuming a lot of CPU time printing to the console.
+* Fix the output of zpaq compress and decompress from trampling on itself and
+racing and consuming a lot of CPU time printing to the console.
 * When limiting cwindow to 6 on 32 bits, ensure that control.window is also set.
-* When testing for the maximum size of testmalloc, the multiple used was out by one, so increase it.
+* When testing for the maximum size of testmalloc, the multiple used was out by
+one, so increase it.
 * Minor output tweaks.
 * Build warning fixes.
 * Updated benchmarks.

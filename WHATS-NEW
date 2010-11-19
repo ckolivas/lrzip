@@ -1,3 +1,14 @@
+lrzip-0.542
+
+Lrzip will now try to select sane defaults for memory usage in cases where the
+virtual memory heavily overcommits (eg. Linux) as this seriously slows down
+compression.
+For compression windows larger than 2/3 ram, lrzip will now use a sliding mmap
+buffer for better performance.
+The progress output is more informative in max verbose mode, and will no longer
+do more passes than it estimates.
+32 bit machines should be able to use slightly larger windows.
+
 lrzip-0.540
 
 MASSIVE MULTITHREADING on the decompression phase. Provided there are enough
