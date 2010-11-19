@@ -732,7 +732,7 @@ void rzip_fd(int fd_in, int fd_out)
 	struct timeval current, start, last;
 	struct stat s, s2;
 	struct rzip_state *st;
-	i64 len = 0, chunk_window, last_chunk = 0;
+	i64 len = 0, last_chunk = 0;
 	int pass = 0, passes;
 	unsigned int eta_hours, eta_minutes, eta_seconds, elapsed_hours,
 		     elapsed_minutes, elapsed_seconds;
@@ -759,29 +759,26 @@ void rzip_fd(int fd_in, int fd_out)
 	/* Optimal use of ram involves no more than 2/3 of it, so if we
 	 * expressly request more with -M or -U, use a sliding mmap */
 	control.max_mmap = control.ramsize / 3 * 2;
-	if (MAXRAM)
-		control.max_chunk = control.ramsize;
-	else
-		control.max_chunk = control.max_mmap;
-
 	/* On 32 bits we can have a big window with sliding mmap, but can
-	 * not enable much per mmap/malloc */
+	 * not enable much per mmap/malloc with 3 big buffers required*/
 	if (BITS32)
 		control.max_mmap = MIN(control.max_mmap, two_gig / 3);
-	round_to_page(&control.max_chunk);
 	round_to_page(&control.max_mmap);
+
+	if (MAXRAM && !STDIN)
+		control.max_chunk = control.max_mmap / 2 * 3;
+	else
+		control.max_chunk = control.max_mmap;
 	if (UNLIMITED)
 		control.max_chunk = control.st_size;
-
 	if (control.window)
-		chunk_window = control.window * CHUNK_MULTIPLE;
-	else
-		chunk_window = control.max_chunk;
+		control.max_chunk = MIN(control.max_chunk, control.window * CHUNK_MULTIPLE);
+	round_to_page(&control.max_chunk);
 
 	if (!STDIN)
-		st->chunk_size = MIN(chunk_window, len);
+		st->chunk_size = MIN(control.max_chunk, len);
 	else
-		st->chunk_size = chunk_window;
+		st->chunk_size = control.max_mmap;
 	if (st->chunk_size < len)
 		round_to_page(&st->chunk_size);
 
