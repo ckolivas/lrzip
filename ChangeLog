@@ -6,6 +6,7 @@ NOVEMBER 2010, version 0.542 Con Kolivas
 * Minor tweaks to output.
 * Round up the size of the high buffer in sliding mmap to one page.
 * Squeeze a little more out of 32 bit compression windows.
+* Fix sliding mmap from not working on 2nd pass onwards.
 
 NOVEMBER 2010, version 0.541 Con Kolivas
 * Fix wrong number of passes reported.

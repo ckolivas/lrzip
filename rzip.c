@@ -99,6 +99,7 @@ struct sliding_buffer {
 	i64 size_high;	/* "" high "" */
 	i64 high_length;/* How big the high buffer should be */
 	int fd;		/* The fd of the mmap */
+	int low_top;	/* The low buffer has hit the top */
 } sb;	/* Sliding buffer */
 
 static void round_to_page(i64 *size)
@@ -108,15 +109,14 @@ static void round_to_page(i64 *size)
 
 static void remap_low_sb(void)
 {
-	static int top = 0;
 	i64 new_offset;
 
-	if (top)
+	if (sb.low_top)
 		return;
 	new_offset = sb.offset_search;
 	if (new_offset + sb.size_low > sb.orig_size) {
 		new_offset = sb.orig_size - sb.size_low;
-		top = 1;
+		sb.low_top = 1;
 	}
 	round_to_page(&new_offset);
 	print_maxverbose("Sliding main buffer to offset %lld\n", new_offset);
@@ -684,6 +684,7 @@ static void init_sliding_mmap(struct rzip_state *st, int fd_in, i64 offset)
 		sb.size_high = sb.high_length;
 		sb.offset_high = 0;
 	}
+	sb.low_top = 0;
 	sb.offset_low = 0;
 	sb.offset_search = 0;
 	sb.size_low = st->mmap_size;
@@ -765,8 +766,9 @@ void rzip_fd(int fd_in, int fd_out)
 		control.max_mmap = MIN(control.max_mmap, two_gig / 3);
 	round_to_page(&control.max_mmap);
 
+	/* Set maximum chunk size to ram size. */
 	if (MAXRAM && !STDIN)
-		control.max_chunk = control.max_mmap / 2 * 3;
+		control.max_chunk = control.ramsize;
 	else
 		control.max_chunk = control.max_mmap;
 	if (UNLIMITED)

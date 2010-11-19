@@ -8,6 +8,8 @@ buffer for better performance.
 The progress output is more informative in max verbose mode, and will no longer
 do more passes than it estimates.
 32 bit machines should be able to use slightly larger windows.
+The sliding mmap not working on 2nd pass onwards has been fixed which should
+speed up the slowdown of death.
 
 lrzip-0.540
 
