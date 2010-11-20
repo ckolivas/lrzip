@@ -699,7 +699,10 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 {
 	init_sliding_mmap(st, fd_in, offset);
 
-	st->ss = open_stream_out(fd_out, NUM_STREAMS, st->chunk_size);
+	if (MAXRAM)
+		st->ss = open_stream_out(fd_out, NUM_STREAMS, st->chunk_size);
+	else
+		st->ss = open_stream_out(fd_out, NUM_STREAMS, st->mmap_size);
 	if (unlikely(!st->ss))
 		fatal("Failed to open streams in rzip_chunk\n");
 
@@ -766,11 +769,11 @@ void rzip_fd(int fd_in, int fd_out)
 		control.max_mmap = MIN(control.max_mmap, two_gig / 3);
 	round_to_page(&control.max_mmap);
 
-	/* Set maximum chunk size to ram size. */
+	/* Set maximum chunk size to proportion of ram according to mode */
 	if (MAXRAM && !STDIN)
-		control.max_chunk = control.ramsize;
+		control.max_chunk = control.ramsize / 2 * 3;
 	else
-		control.max_chunk = control.max_mmap;
+		control.max_chunk = control.ramsize / 3 * 2;
 	if (UNLIMITED)
 		control.max_chunk = control.st_size;
 	if (control.window)
