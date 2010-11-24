@@ -24,3 +24,6 @@ Make stdin on decompression work without a temporary file.
 Make testing file integrity work without a temporary file.
 
 Fix darwin build since it doesn't support unnamed semamphores.
+
+Parallelise compression further by moving into next stream while backend
+threads still continue on earlier stream.

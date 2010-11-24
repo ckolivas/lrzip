@@ -1,4 +1,11 @@
 lrzip ChangeLog
+NOVEMBER 2010, version 0.543 Con Kolivas
+* Fix for when there are multiple stream 0 entries per chunk, which would
+cause a failure on decompression.
+* Fix lzma windows being set far too small by mistake at all times.
+* Decrease nice level of main process compared to back end threads as it tends
+to be the rate limiting step.
+
 NOVEMBER 2010, version 0.542 Con Kolivas
 * Choose sane defaults for memory usage since linux ludicriously overcommits.
 * Use sliding mmap for any compression windows greater than 2/3 ram.

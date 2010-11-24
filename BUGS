@@ -1,3 +1,5 @@
-BUGME May 2010
+BUGME November 2010
 
-Nil known.
+Fails on mac osx : needs unnamed semaphores converted to named to work. Last
+working version 0.530.
+

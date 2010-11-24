@@ -1,3 +1,12 @@
+lrzip-0.543
+
+A fix for when large files being decompressed fail with multithreaded
+decompression.
+Slight speedup on multithreaded workloads by decreasing the nice value of the
+main process compared to the back end threads as it tends to be the rate
+limiting component.
+Fixed lzma compression windows being set way too small by default.
+
 lrzip-0.542
 
 Lrzip will now try to select sane defaults for memory usage in cases where the

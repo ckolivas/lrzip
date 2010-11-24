@@ -645,7 +645,6 @@ static int seekto(struct stream_info *sinfo, i64 pos)
 }
 
 static pthread_t *threads;
-extern const i64 two_gig;
 
 /* open a set of output streams, compressing with the given
    compression level and algorithm */
