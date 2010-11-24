@@ -248,6 +248,7 @@ struct stream {
 	uchar *buf;
 	i64 buflen;
 	i64 bufp;
+	int eos;
 };
 
 struct stream_info {
@@ -260,8 +261,6 @@ struct stream_info {
 	i64 total_read;
 	long thread_no;
 	long next_thread;
-	int uncomp_stream;
-	int eos; /* End of streams */
 };
 
 void fatal(const char *format, ...);

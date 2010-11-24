@@ -755,8 +755,15 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val) == -1))
-		print_err("Warning, unable to set nice value\n");
+	/* Set the main nice value to half that of the backend threads since
+	 * the rzip stage is usually the rate limiting step */
+	if (control.nice_val > 0) {
+		if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val / 2) == -1))
+			print_err("Warning, unable to set nice value\n");
+	} else {
+		if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val) == -1))
+			print_err("Warning, unable to set nice value\n");
+	}
 
 	/* One extra iteration for the case of no parameters means we will default to stdin/out */
 	for (i = 0; i <= argc; i++) {
