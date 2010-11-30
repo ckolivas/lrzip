@@ -141,6 +141,8 @@ typedef uint32_t u32;
  #define PAGE_SIZE (4096)
 #endif
 
+void fatal(const char *format, ...);
+
 #ifdef __APPLE__
  #include <sys/sysctl.h>
  #define fmemopen fake_fmemopen
@@ -166,7 +168,26 @@ static inline i64 get_ram(void)
  #define memstream_update_buffer(A, B, C) (0)
 static inline i64 get_ram(void)
 {
-	return (i64)sysconf(_SC_PHYS_PAGES) * (i64)sysconf(_SC_PAGE_SIZE);
+	i64 ramsize;
+	FILE *meminfo;
+	char aux[256];
+	char *ignore;
+
+	ramsize = (i64)sysconf(_SC_PHYS_PAGES) * PAGE_SIZE;
+	if (ramsize > 0)
+		return ramsize;
+
+	/* Workaround for uclibc which doesn't properly support sysconf */
+	if(!(meminfo = fopen("/proc/meminfo", "r")))
+		fatal("fopen\n");
+
+	while(!feof(meminfo) && !fscanf(meminfo, "MemTotal: %Lu kB", &ramsize))
+		ignore = fgets(aux, sizeof(aux), meminfo);
+	if (fclose(meminfo) == -1)
+		fatal("fclose");
+	ramsize *= 1000;
+
+	return ramsize;
 }
 #endif
 
@@ -263,7 +284,6 @@ struct stream_info {
 	long next_thread;
 };
 
-void fatal(const char *format, ...);
 void sighandler();
 i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size);
 void rzip_fd(int fd_in, int fd_out);
