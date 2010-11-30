@@ -105,6 +105,8 @@ struct sliding_buffer {
 static void round_to_page(i64 *size)
 {
 	*size -= *size % control.page_size;
+	if (unlikely(!*size))
+		*size = control.page_size;
 }
 
 static void remap_low_sb(void)
