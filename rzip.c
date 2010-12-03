@@ -709,10 +709,7 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 {
 	init_sliding_mmap(st, fd_in, offset);
 
-	if (MAXRAM)
-		st->ss = open_stream_out(fd_out, NUM_STREAMS, st->chunk_size);
-	else
-		st->ss = open_stream_out(fd_out, NUM_STREAMS, st->mmap_size);
+	st->ss = open_stream_out(fd_out, NUM_STREAMS, st->chunk_size);
 	if (unlikely(!st->ss))
 		fatal("Failed to open streams in rzip_chunk\n");
 
@@ -770,13 +767,16 @@ void rzip_fd(int fd_in, int fd_out)
 	} else
 		control.st_size = 0;
 
-	/* Optimal use of ram involves no more than 2/3 of it, so if we
-	 * expressly request more with -M or -U, use a sliding mmap */
-	control.max_mmap = control.ramsize / 3 * 2;
-	/* On 32 bits we can have a big window with sliding mmap, but can
-	 * not enable much per mmap/malloc with 3 big buffers required*/
+	/* Optimal use of ram involves no more than 2/3 of it, but 32 bit
+	 * kernels struggle to dish out enough ram */
 	if (BITS32)
-		control.max_mmap = MIN(control.max_mmap, two_gig / 3);
+		control.max_mmap = control.ramsize / 6;
+	else
+		control.max_mmap = control.ramsize / 3 * 2;
+	/* On 32 bits we can have a big window with sliding mmap, but can
+	 * not enable much per mmap/malloc */
+	if (BITS32)
+		control.max_mmap = MIN(control.max_mmap, two_gig / 2);
 	round_to_page(&control.max_mmap);
 
 	/* Set maximum chunk size to proportion of ram according to mode */

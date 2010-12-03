@@ -650,6 +650,7 @@ void *open_stream_out(int f, int n, i64 limit)
 {
 	struct stream_info *sinfo;
 	uchar *testmalloc;
+	i64 testsize;
 	int i;
 
 	sinfo = malloc(sizeof(*sinfo));
@@ -689,7 +690,7 @@ void *open_stream_out(int f, int n, i64 limit)
 
 	/* Serious limits imposed on 32 bit capabilities */
 	if (BITS32)
-		limit = MIN(limit, two_gig / 3);
+		limit = MIN(limit, two_gig / 6);
 
 	sinfo->initial_pos = lseek(f, 0, SEEK_CUR);
 
@@ -703,13 +704,17 @@ void *open_stream_out(int f, int n, i64 limit)
 	 * ram. We need enough for the 2 streams and for the compression
 	 * backend at most, being conservative. */
 retest_malloc:
-	testmalloc = malloc(limit * (n + 1));
+	if (BITS32)
+		testsize = limit * n * 3;
+	else
+		testsize = limit * (n + 1);
+	testmalloc = malloc(testsize);
 	if (!testmalloc) {
 		limit = limit / 10 * 9;
 		goto retest_malloc;
 	}
 	free(testmalloc);
-	print_maxverbose("Succeeded in testing %lld sized malloc for back end compression\n", limit * (n + 1));
+	print_maxverbose("Succeeded in testing %lld sized malloc for back end compression\n", testsize);
 
 	sinfo->bufsize = limit;
 
@@ -765,7 +770,7 @@ void *open_stream_in(int f, int n)
 
 	ucthread = calloc(sizeof(struct uncomp_thread), total_threads);
 	if (unlikely(!ucthread))
-		fatal("Unable to calloc cthread in open_stream_out\n");
+		fatal("Unable to calloc cthread in open_stream_in\n");
 
 	for (i = 0; i < total_threads; i++) {
 		init_sem(&ucthread[i].complete);
