@@ -755,6 +755,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* Decrease usable ram size on 32 bits due to kernel/userspace split */
+	if (BITS32)
+		control.ramsize = MAX(control.ramsize - 900000000ll, 900000000ll);
+
 	/* Set the main nice value to half that of the backend threads since
 	 * the rzip stage is usually the rate limiting step */
 	if (control.nice_val > 0) {
