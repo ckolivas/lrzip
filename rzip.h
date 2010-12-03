@@ -22,6 +22,7 @@
 #define LRZIP_MINOR_SUBVERSION 43
 
 #define NUM_STREAMS 2
+#define STREAM_BUFSIZE (1024 * 1024 * 10)
 
 #include "config.h"
 
