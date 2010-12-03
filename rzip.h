@@ -270,6 +270,9 @@ struct stream {
 	i64 buflen;
 	i64 bufp;
 	int eos;
+	long uthread_no;
+	long unext_thread;
+	long base_thread;
 };
 
 struct stream_info {
