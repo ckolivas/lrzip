@@ -288,16 +288,16 @@ static void lzma_compress_buf(struct compress_thread *cthread)
 	if (lzma_ret != SZ_OK) {
 		switch (lzma_ret) {
 			case SZ_ERROR_MEM:
-				print_err("\nLZMA ERROR: %d. Try a smaller compression window.\n", SZ_ERROR_MEM);
+				print_err("LZMA ERROR: %d. Try a smaller compression window.\n", SZ_ERROR_MEM);
 				break;
 			case SZ_ERROR_PARAM:
-				print_err("\nLZMA Parameter ERROR: %d. This should not happen.\n", SZ_ERROR_PARAM);
+				print_err("LZMA Parameter ERROR: %d. This should not happen.\n", SZ_ERROR_PARAM);
 				break;
 			case SZ_ERROR_OUTPUT_EOF:
-				print_maxverbose("\nHarmless LZMA Output Buffer Overflow error: %d. Incompressible block.\n", SZ_ERROR_OUTPUT_EOF);
+				print_maxverbose("Harmless LZMA Output Buffer Overflow error: %d. Incompressible block.\n", SZ_ERROR_OUTPUT_EOF);
 				break;
 			case SZ_ERROR_THREAD:
-				print_err("\nLZMA Multi Thread ERROR: %d. This should not happen.\n", SZ_ERROR_THREAD);
+				print_err("LZMA Multi Thread ERROR: %d. This should not happen.\n", SZ_ERROR_THREAD);
 				break;
 			default:
 				print_err("Unidentified LZMA ERROR: %d. This should not happen.\n", lzma_ret);
