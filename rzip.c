@@ -166,20 +166,21 @@ static uchar *get_sb(i64 p)
 	return (sb.buf_high + (p - sb.offset_high));
 }
 
-static inline void put_u8(void *ss, int stream, uchar b)
+/* All put_u8/u32/vchars go to stream 0 */
+static inline void put_u8(void *ss, uchar b)
 {
-	if (unlikely(write_stream(ss, stream, &b, 1)))
+	if (unlikely(write_stream(ss, 0, &b, 1)))
 		fatal("Failed to put_u8\n");
 }
 
-static inline void put_u32(void *ss, int stream, uint32_t s)
+static inline void put_u32(void *ss, uint32_t s)
 {
-	if (unlikely(write_stream(ss, stream, (uchar *)&s, 4)))
+	if (unlikely(write_stream(ss, 0, (uchar *)&s, 4)))
 		fatal("Failed to put_u32\n");
 }
 
 /* Put a variable length of bytes dependant on how big the chunk is */
-static inline void put_vchars(void *ss, int stream, i64 s, int length)
+static inline void put_vchars(void *ss, i64 s, int length)
 {
 	int bytes;
 
@@ -187,14 +188,14 @@ static inline void put_vchars(void *ss, int stream, i64 s, int length)
 		int bits = bytes * 8;
 		uchar sb = (s >> bits) & (i64)0XFF;
 
-		put_u8(ss, stream, sb);
+		put_u8(ss, sb);
 	}
 }
 
 static void put_header(void *ss, uchar head, i64 len)
 {
-	put_u8(ss, 0, head);
-	put_vchars(ss, 0, len, 2);
+	put_u8(ss, head);
+	put_vchars(ss, len, 2);
 }
 
 static void put_match(struct rzip_state *st, i64 p, i64 offset, i64 len)
@@ -207,7 +208,7 @@ static void put_match(struct rzip_state *st, i64 p, i64 offset, i64 len)
 
 		ofs = (p - offset);
 		put_header(st->ss, 1, n);
-		put_vchars(st->ss, 0, ofs, st->chunk_bytes);
+		put_vchars(st->ss, ofs, st->chunk_bytes);
 
 		st->stats.matches++;
 		st->stats.match_bytes += n;
@@ -614,7 +615,7 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 	}
 
 	put_literal(st, 0, 0);
-	put_u32(st->ss, 0, st->cksum);
+	put_u32(st->ss, st->cksum);
 }
 
 
