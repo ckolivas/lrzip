@@ -288,7 +288,7 @@ static void lzma_compress_buf(struct compress_thread *cthread)
 	if (lzma_ret != SZ_OK) {
 		switch (lzma_ret) {
 			case SZ_ERROR_MEM:
-				print_err("LZMA ERROR: %d. Try a smaller compression window.\n", SZ_ERROR_MEM);
+				print_verbose("LZMA ERROR: %d. Can't allocate enough RAM for compression window.\n", SZ_ERROR_MEM);
 				break;
 			case SZ_ERROR_PARAM:
 				print_err("LZMA Parameter ERROR: %d. This should not happen.\n", SZ_ERROR_PARAM);
@@ -304,8 +304,14 @@ static void lzma_compress_buf(struct compress_thread *cthread)
 				break;
 		}
 		/* can pass -1 if not compressible! Thanks Lasse Collin */
-		print_maxverbose("Incompressible block\n");
 		free(c_buf);
+		if (lzma_ret == SZ_ERROR_MEM) {
+			/* lzma compress can be fragile on 32 bit. If it fails,
+			 * fall back to bzip2 compression so the block doesn't
+			 * remain uncompressed */
+			print_verbose("Falling back to bzip2 compression.\n");
+			bzip2_compress_buf(cthread);
+		}
 		return;
 	}
 	if ((i64)dlen >= cthread->c_len) {

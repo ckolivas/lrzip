@@ -101,10 +101,11 @@ Q. How do I make a static build?
 A. make static
 
 Q. I want the absolute maximum compression I can possibly get, what do I do?
-A. Try the command line options -MUz. This will use all available ram and ZPAQ
-compression, and even use a compression window larger than you have ram.
-Expect serious swapping to occur if your file is larger than your ram and for
-it to take many times longer.
+A. Try the command line options -MUzp 1. This will use all available ram and
+ZPAQ compression, and even use a compression window larger than you have ram.
+The -p 1 option disables multithreading which improves compression but at the
+expense of speed. Expect serious swapping to occur if your file is larger than
+your ram and for it to take many times longer.
 
 Q. I want the absolute fastest decent compression I can possibly get.
 A. Try the command line options -Ml. This will use the maximum possible
