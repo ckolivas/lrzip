@@ -1,4 +1,22 @@
 lrzip ChangeLog
+DECEMBER 2010, version 0.544 Con Kolivas
+* Make multiple stream 0 entry decompression more robust by creating separate
+thread groups for stream 0 and stream 1.
+* uclibc fails to return valid values for memory size with sysconf so create
+a workaround.
+* 32 bits has memory allocation errors on large files so be ruthless with
+limiting window sizes and use more sliding mmap.
+* Split up compression streams according to proportion of hash search thus
+evenly distributing work to threads based on raw data length rather than
+rzip pre-processed data. This makes for more CPU usage on compression and
+smoother write out on decompression with small speed ups.
+* Remove unnecessary argument passing.
+* Fix -U causing a floating point error with ultra small sized files.
+* 32 bits still sometimes fails the lzma compression stage due to internal
+memory allocation issues, so use bzip2 as a fallback on blocks that fail to
+compress.
+* Minor cleanups.
+
 NOVEMBER 2010, version 0.543 Con Kolivas
 * Fix for when there are multiple stream 0 entries per chunk, which would
 cause a failure on decompression.

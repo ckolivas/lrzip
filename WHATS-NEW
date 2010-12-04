@@ -1,3 +1,15 @@
+lrzip-0.544
+
+Hopefully a fix for corrupt decompression on large files with multiple stream 0
+entries.
+Fix for use under uclibc.
+Fix for memory allocation errors on large files on 32 bits.
+Smooth out spacing of compression threads making better use of CPU on compress
+and decompress.
+Fix for using -U on ultra-small files.
+Use bzip2 on blocks that lzma fails to compress to make sure they are still
+compressed.
+
 lrzip-0.543
 
 A fix for when large files being decompressed fail with multithreaded
