@@ -281,10 +281,11 @@ static void lzma_compress_buf(struct compress_thread *cthread)
 	 * and receive properties in control->lzma_properties */
 
 	lzma_ret = LzmaCompress(c_buf, &dlen, cthread->s_buf,
-		(size_t)cthread->s_len, control.lzma_properties, &prop_size, control.compression_level,
-			      0, /* dict size. set default */
-			      -1, -1, -1, -1, /* lc, lp, pb, fb */
-			      control.threads);
+		(size_t)cthread->s_len, control.lzma_properties, &prop_size,
+				control.compression_level * 7 / 9 ? : 1, /* only 7 levels with lzma, scale them */
+				0, /* dict size. set default, choose by level */
+				-1, -1, -1, -1, /* lc, lp, pb, fb */
+				control.threads);
 	if (lzma_ret != SZ_OK) {
 		switch (lzma_ret) {
 			case SZ_ERROR_MEM:
