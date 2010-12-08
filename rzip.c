@@ -218,26 +218,26 @@ static void put_match(struct rzip_state *st, i64 p, i64 offset, i64 len)
 	} while (len);
 }
 
-/* write some data to stream 1 mmap encoded. Return -1 on failure */
-int write_sbstream(void *ss, i64 p, i64 len)
+/* write some data to a stream mmap encoded. Return -1 on failure */
+int write_sbstream(void *ss, int stream, i64 p, i64 len)
 {
 	struct stream_info *sinfo = ss;
 
 	while (len) {
 		i64 n, i;
 
-		n = MIN(sinfo->bufsize - sinfo->s[1].buflen, len);
+		n = MIN(sinfo->bufsize - sinfo->s[stream].buflen, len);
 
 		for (i = 0; i < n; i++) {
-			memcpy(sinfo->s[1].buf + sinfo->s[1].buflen + i,
+			memcpy(sinfo->s[stream].buf + sinfo->s[stream].buflen + i,
 			       get_sb(p + i), 1);
 		}
-		sinfo->s[1].buflen += n;
+		sinfo->s[stream].buflen += n;
 		p += n;
 		len -= n;
 
-		if (sinfo->s[1].buflen == sinfo->bufsize)
-			flush_buffer(sinfo, 1);
+		if (sinfo->s[stream].buflen == sinfo->bufsize)
+			flush_buffer(sinfo, stream);
 	}
 	return 0;
 }
@@ -254,7 +254,7 @@ static void put_literal(struct rzip_state *st, i64 last, i64 p)
 
 		put_header(st->ss, 0, len);
 
-		if (unlikely(len && write_sbstream(st->ss, last, len)))
+		if (unlikely(len && write_sbstream(st->ss, 1, last, len)))
 			fatal("Failed to write_stream in put_literal\n");
 		last += len;
 	} while (p > last);
@@ -493,7 +493,6 @@ static void show_distrib(struct rzip_state *st)
 
 static void hash_search(struct rzip_state *st, double pct_base, double pct_multiple)
 {
-	struct stream_info *sinfo = st->ss;
 	i64 cksum_limit = 0, p, end;
 	tag t = 0;
 	struct {
@@ -541,12 +540,6 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 		i64 reverse, mlen, offset = 0;
 
 		p++;
-		/* Flush stream 1 at equal intervals if the buffer has not
-		 * filled to bufsize */
-		if (sinfo->s[1].eos < p / (st->chunk_size / control.threads) &&
-		    p >= STREAM_BUFSIZE) {
-			flush_buffer(sinfo, 1);
-		}
 		sb.offset_search = p;
 		t = next_tag(st, p, t);
 

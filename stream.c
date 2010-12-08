@@ -21,6 +21,8 @@
 
 #include "rzip.h"
 
+#define STREAM_BUFSIZE (1024 * 1024 * 10)
+
 struct compress_thread{
 	uchar *s_buf;	/* Uncompressed buffer -> Compressed buffer */
 	uchar c_type;	/* Compression type */
@@ -930,8 +932,6 @@ static void *compthread(void *t)
 void flush_buffer(struct stream_info *sinfo, int stream)
 {
 	long i = sinfo->thread_no;
-
-	sinfo->s[stream].eos++;
 
 	/* Make sure this thread doesn't already exist */
 	wait_sem(&cthread[i].free);
