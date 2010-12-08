@@ -544,7 +544,7 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 		/* Flush stream 1 at equal intervals if the buffer has not
 		 * filled to bufsize */
 		if (sinfo->s[1].eos < p / (st->chunk_size / control.threads) &&
-		    sinfo->s[1].buflen >= STREAM_BUFSIZE) {
+		    p >= STREAM_BUFSIZE) {
 			flush_buffer(sinfo, 1);
 		}
 		sb.offset_search = p;
