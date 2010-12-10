@@ -716,7 +716,7 @@ void *open_stream_out(int f, int n, i64 limit, char cbytes)
 
 	/* Serious limits imposed on 32 bit capabilities */
 	if (BITS32)
-		limit = MIN(limit, two_gig / 6);
+		limit = MIN(limit, two_gig / 3);
 
 	sinfo->s = calloc(sizeof(struct stream), n);
 	if (unlikely(!sinfo->s)) {
@@ -728,10 +728,7 @@ void *open_stream_out(int f, int n, i64 limit, char cbytes)
 	 * ram. We need enough for the 2 streams and for the compression
 	 * backend at most, being conservative. */
 retest_malloc:
-	if (BITS32)
-		testsize = limit * n * 3;
-	else
-		testsize = limit * (n + 1);
+	testsize = limit * (n + 1);
 	testmalloc = malloc(testsize);
 	if (!testmalloc) {
 		limit = limit / 10 * 9;
@@ -747,10 +744,6 @@ retest_malloc:
 	sinfo->bufsize = MIN(sinfo->bufsize,
 			     MAX((sinfo->bufsize + control.threads - 1) / control.threads, STREAM_BUFSIZE));
 
-	/* Largest window supported by lzma on 32 bits is 300MB */
-	if (BITS32 && LZMA_COMPRESS)
-		sinfo->bufsize = MIN(sinfo->bufsize, 3 * STREAM_BUFSIZE * 10);
-
 	if (control.threads > 1)
 		print_maxverbose("Using %d threads to compress up to %lld bytes each.\n",
 			control.threads, sinfo->bufsize);
@@ -764,17 +757,6 @@ retest_malloc:
 			fatal("Unable to malloc buffer of size %lld in open_stream_out\n", sinfo->bufsize);
 	}
 
-#if 0
-	/* write the initial headers */
-	for (i = 0; i < n; i++) {
-		sinfo->s[i].last_head = sinfo->cur_pos + 17;
-		write_u8(sinfo->fd, CTYPE_NONE);
-		write_i64(sinfo->fd, 0);
-		write_i64(sinfo->fd, 0);
-		write_i64(sinfo->fd, 0);
-		sinfo->cur_pos += 25;
-	}
-#endif
 	return (void *)sinfo;
 }
 

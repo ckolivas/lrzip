@@ -760,16 +760,16 @@ void rzip_fd(int fd_in, int fd_out)
 	} else
 		control.st_size = 0;
 
-	/* Optimal use of ram involves no more than 2/3 of it, but 32 bit
-	 * kernels struggle to dish out enough ram */
-	if (BITS32)
-		control.max_mmap = control.ramsize / 6;
-	else
-		control.max_mmap = control.ramsize / 3 * 2;
+	/* Optimal use of ram involves using no more than 2/3 of it, so we
+	 * allocate 1/3 of it to the main buffer and use a sliding mmap
+	 * buffer to work on 2/3 ram size, leaving enough ram for the
+	 * compression backends */
+	control.max_mmap = control.ramsize / 3;
+
 	/* On 32 bits we can have a big window with sliding mmap, but can
 	 * not enable much per mmap/malloc */
 	if (BITS32)
-		control.max_mmap = MIN(control.max_mmap, two_gig / 2);
+		control.max_mmap = MIN(control.max_mmap, two_gig);
 	round_to_page(&control.max_mmap);
 
 	/* Set maximum chunk size to proportion of ram according to mode */
