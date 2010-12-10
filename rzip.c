@@ -702,7 +702,7 @@ static void rzip_chunk(struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 {
 	init_sliding_mmap(st, fd_in, offset);
 
-	st->ss = open_stream_out(fd_out, NUM_STREAMS, st->chunk_size);
+	st->ss = open_stream_out(fd_out, NUM_STREAMS, st->chunk_size, st->chunk_bytes);
 	if (unlikely(!st->ss))
 		fatal("Failed to open streams in rzip_chunk\n");
 
@@ -803,6 +803,8 @@ void rzip_fd(int fd_in, int fd_out)
 	last.tv_sec = last.tv_usec = 0;
 	gettimeofday(&start, NULL);
 
+	prepare_streamout_threads();
+
 	while (len > 0 || (STDIN && !st->stdin_eof)) {
 		double pct_base, pct_multiple;
 		i64 offset = s.st_size - len;
@@ -859,7 +861,7 @@ retry:
 		sb.orig_offset = offset;
 		print_maxverbose("Chunk size: %lld\n", st->chunk_size);
 
-		/* Determine the chunk byte width and write it to the file
+		/* Determine the chunk byte width to write to the file
 		 * This allows archives of different chunk sizes to have
 		 * optimal byte width entries. When working with stdin we
 		 * won't know in advance how big it is so it will always be
@@ -870,8 +872,6 @@ retry:
 		if (bits % 8)
 			st->chunk_bytes++;
 		print_maxverbose("Byte width: %d\n", st->chunk_bytes);
-		if (unlikely(write(fd_out, &st->chunk_bytes, 1) != 1))
-			fatal("Failed to write chunk_bytes size in rzip_fd\n");
 
 		pct_base = (100.0 * (s.st_size - len)) / s.st_size;
 		pct_multiple = ((double)st->chunk_size) / s.st_size;
@@ -904,6 +904,8 @@ retry:
 		last_chunk = st->chunk_size;
 		len -= st->chunk_size;
 	}
+
+	close_streamout_threads();
 
 	gettimeofday(&current, NULL);
 	chunkmbs = (s.st_size / 1024 / 1024) / ((double)(current.tv_sec-start.tv_sec)? : 1);

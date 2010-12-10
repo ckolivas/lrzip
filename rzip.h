@@ -286,12 +286,14 @@ struct stream_info {
 	i64 total_read;
 	long thread_no;
 	long next_thread;
+	int chunks;
+	char chunk_bytes;
 };
 
 void sighandler();
 i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size);
 void rzip_fd(int fd_in, int fd_out);
-void *open_stream_out(int f, int n, i64 limit);
+void *open_stream_out(int f, int n, i64 limit, char cbytes);
 void *open_stream_in(int f, int n);
 int write_stream(void *ss, int stream, uchar *p, i64 len);
 i64 read_stream(void *ss, int stream, uchar *p, i64 len);
@@ -304,6 +306,8 @@ ssize_t read_1g(int fd, void *buf, i64 len);
 void zpipe_compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress, long thread);
 void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress, long thread);
 const i64 two_gig;
+void prepare_streamout_threads(void);
+void close_streamout_threads(void);
 
 #define print_err(format, args...)	do {\
 	fprintf(stderr, format, ##args);	\
