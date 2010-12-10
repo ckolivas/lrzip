@@ -789,7 +789,7 @@ void *open_stream_in(int f, int n)
 	if (unlikely(!sinfo))
 		return NULL;
 
-	total_threads = control.threads * n;
+	total_threads = control.threads + 1;
 	threads = calloc(sizeof(pthread_t), total_threads);
 	if (unlikely(!threads))
 		return NULL;
@@ -815,11 +815,14 @@ void *open_stream_in(int f, int n)
 		return NULL;
 	}
 
+	sinfo->s[0].total_threads = 1;
+	sinfo->s[1].total_threads = control.threads;
+
 	for (i = 0; i < n; i++) {
 		uchar c;
 		i64 v1, v2;
 
-		sinfo->s[i].base_thread = control.threads * i;
+		sinfo->s[i].base_thread = i;
 		sinfo->s[i].uthread_no = sinfo->s[i].base_thread;
 		sinfo->s[i].unext_thread = sinfo->s[i].base_thread;
 
@@ -1104,9 +1107,10 @@ fill_another:
 	if (!last_head)
 		s->eos = 1;
 
-	if (++s->uthread_no == s->base_thread + control.threads)
+	if (++s->uthread_no == s->base_thread + s->total_threads)
 		s->uthread_no = s->base_thread;
-	if (!trywait_sem(&ucthread[s->uthread_no].free)) {
+	if (s->uthread_no != s->unext_thread &&
+	    !trywait_sem(&ucthread[s->uthread_no].free)) {
 		post_sem(&ucthread[s->uthread_no].free);
 		goto fill_another;
 	}
@@ -1119,7 +1123,7 @@ out:
 
 	post_sem(&ucthread[s->unext_thread].ready);
 
-	if (++s->unext_thread == s->base_thread + control.threads)
+	if (++s->unext_thread == s->base_thread + s->total_threads)
 		s->unext_thread = s->base_thread;
 
 	return 0;

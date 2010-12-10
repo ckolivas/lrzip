@@ -274,6 +274,7 @@ struct stream {
 	long uthread_no;
 	long unext_thread;
 	long base_thread;
+	int total_threads;
 };
 
 struct stream_info {
