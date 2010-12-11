@@ -831,11 +831,7 @@ retry:
 			}
 			mmap_stdin(sb.buf_low, st);
 		} else {
-			/* NOTE the buf is saved here for !STDIN mode */
-			if (st->mmap_size < st->chunk_size)
-				print_maxverbose("Enabling sliding mmap mode and using mmap of %lld bytes with window of %lld bytes\n", st->mmap_size, st->chunk_size);
-
-			/* The buf is saved here for !STDIN mode */
+			/* NOTE The buf is saved here for !STDIN mode */
 			sb.buf_low = (uchar *)mmap(sb.buf_low, st->mmap_size, PROT_READ, MAP_SHARED, fd_in, offset);
 			if (sb.buf_low == MAP_FAILED) {
 				st->mmap_size = st->mmap_size / 10 * 9;
@@ -844,6 +840,8 @@ retry:
 					fatal("Unable to mmap any ram\n");
 				goto retry;
 			}
+			if (st->mmap_size < st->chunk_size)
+				print_maxverbose("Enabling sliding mmap mode and using mmap of %lld bytes with window of %lld bytes\n", st->mmap_size, st->chunk_size);
 		}
 		print_maxverbose("Succeeded in testing %lld sized mmap for rzip pre-processing\n", st->mmap_size);
 
