@@ -424,13 +424,14 @@ static int zpaq_decompress_buf(struct uncomp_thread *ucthread, long thread)
 
 	fclose(in);
 	fclose(out);
-	free(ucthread->s_buf);
-	ucthread->s_buf = c_buf;
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %lld bytes, expected %lld\n", (i64)dlen, ucthread->u_len);
 		return -1;
 	}
+
+	free(ucthread->s_buf);
+	ucthread->s_buf = c_buf;
 
 	return 0;
 }
@@ -438,70 +439,83 @@ static int zpaq_decompress_buf(struct uncomp_thread *ucthread, long thread)
 static int bzip2_decompress_buf(struct uncomp_thread *ucthread)
 {
 	u32 dlen = ucthread->u_len;
+	int ret = 0, bzerr;
 	uchar *c_buf;
-	int bzerr;
 
 	c_buf = ucthread->s_buf;
 	ucthread->s_buf = malloc(dlen);
 	if (unlikely(!ucthread->s_buf)) {
 		print_err("Failed to allocate %d bytes for decompression\n", dlen);
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 	bzerr = BZ2_bzBuffToBuffDecompress((char*)ucthread->s_buf, &dlen, (char*)c_buf, ucthread->c_len, 0, 0);
 	if (unlikely(bzerr != BZ_OK)) {
 		print_err("Failed to decompress buffer - bzerr=%d\n", bzerr);
-		return -1;
+		ret = -1;
+		goto out_free;
 	}
 
 	if (unlikely(dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %d bytes, expected %lld\n", dlen, ucthread->u_len);
-		return -1;
+		ret = -1;
 	}
 
+out_free:
 	free(c_buf);
-	return 0;
+out:
+	if (ret == -1)
+		ucthread->s_buf = c_buf;
+	return ret;
 }
 
 static int gzip_decompress_buf(struct uncomp_thread *ucthread)
 {
 	unsigned long dlen = ucthread->u_len;
+	int ret = 0, gzerr;
 	uchar *c_buf;
-	int gzerr;
 
 	c_buf = ucthread->s_buf;
 	ucthread->s_buf = malloc(dlen);
 	if (unlikely(!ucthread->s_buf)) {
 		print_err("Failed to allocate %ld bytes for decompression\n", dlen);
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 	gzerr = uncompress(ucthread->s_buf, &dlen, c_buf, ucthread->c_len);
 	if (unlikely(gzerr != Z_OK)) {
 		print_err("Failed to decompress buffer - bzerr=%d\n", gzerr);
-		return -1;
+		ret = -1;
+		goto out_free;
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %ld bytes, expected %lld\n", dlen, ucthread->u_len);
-		return -1;
+		ret = -1;
 	}
 
+out_free:
 	free(c_buf);
-	return 0;
+out:
+	if (ret == -1)
+		ucthread->s_buf = c_buf;
+	return ret;
 }
 
 static int lzma_decompress_buf(struct uncomp_thread *ucthread)
 {
 	size_t dlen = (size_t)ucthread->u_len;
+	int ret = 0, lzmaerr;
 	uchar *c_buf;
-	int lzmaerr;
 
 	c_buf = ucthread->s_buf;
 	ucthread->s_buf = malloc(dlen);
 	if (unlikely(!ucthread->s_buf)) {
 		print_err("Failed to allocate %lldd bytes for decompression\n", (i64)dlen);
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 	/* With LZMA SDK 4.63 we pass control.lzma_properties
@@ -509,44 +523,55 @@ static int lzma_decompress_buf(struct uncomp_thread *ucthread)
 	lzmaerr = LzmaUncompress(ucthread->s_buf, &dlen, c_buf, (SizeT *)&ucthread->c_len, control.lzma_properties, 5);
 	if (unlikely(lzmaerr)) {
 		print_err("Failed to decompress buffer - lzmaerr=%d\n", lzmaerr);
-		return -1;
+		ret = -1;
+		goto out_free;
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %lld bytes, expected %lld\n", (i64)dlen, ucthread->u_len);
-		return -1;
+		ret = -1;
 	}
 
+out_free:
 	free(c_buf);
-	return 0;
+out:
+	if (ret == -1)
+		ucthread->s_buf = c_buf;
+	return ret;
 }
 
 static int lzo_decompress_buf(struct uncomp_thread *ucthread)
 {
 	lzo_uint dlen = ucthread->u_len;
+	int ret = 0, lzerr;
 	uchar *c_buf;
-	int lzerr;
 
 	c_buf = ucthread->s_buf;
 	ucthread->s_buf = malloc(dlen);
 	if (unlikely(!ucthread->s_buf)) {
 		print_err("Failed to allocate %lu bytes for decompression\n", (unsigned long)dlen);
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 	lzerr = lzo1x_decompress((uchar*)c_buf, ucthread->c_len, (uchar*)ucthread->s_buf, &dlen,NULL);
 	if (unlikely(lzerr != LZO_E_OK)) {
 		print_err("Failed to decompress buffer - lzerr=%d\n", lzerr);
-		return -1;
+		ret = -1;
+		goto out_free;
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %lu bytes, expected %lld\n", (unsigned long)dlen, ucthread->u_len);
-		return -1;
+		ret = -1;
 	}
 
+out_free:
 	free(c_buf);
-	return 0;
+out:
+	if (ret == -1)
+		ucthread->s_buf = c_buf;
+	return ret;
 }
 
 /* WORK FUNCTIONS */
