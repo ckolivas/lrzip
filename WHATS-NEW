@@ -1,3 +1,19 @@
+lrzip-0.550
+
+Speed up compression on large files that take more than one pass by overlapping
+work on successive streams, thus using multiple CPUs better.
+Fix for failures to decompress large files. Decompression will be slightly
+slower but more reliable.
+Faster lzma compression by default, less prone to memory failures, but at slight
+compression cost.
+Recover from multithreaded failures by serialising work that there isn't enough
+ram to do in parallel.
+Revert the "smooth out spacing" change in 0.544 as it slowed things down instead
+of speeding them up.
+Larger compression windows are back for 32 bits now that memory usage is kept
+under better control.
+Fixed some memory allocation issues which may have been causing subtle bugs.
+
 lrzip-0.544
 
 Hopefully a fix for corrupt decompression on large files with multiple stream 0

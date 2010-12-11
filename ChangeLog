@@ -1,4 +1,29 @@
 lrzip ChangeLog
+DECEMBER 2010, version 0.550 Con Kolivas
+* Move the threading on compression to higher up in the code, allowing the next
+stream to start using compression threads before the previous stream has
+finished. This speeds up compression on files that take more than one pass to
+compress.
+* Limit the number of threads decompressing stream 0 to just 1 since it's always
+followed by stream 1 chunks, and it may lead to failure to decompress due to
+running out of memory by running too many threads. 
+* Default compression level and window size on lzma is set to 7 which is the
+highest it goes. Scale the 9 lrzip levels into 7, thus making the default lzma
+level 5 which uses a lot less memory and is substantially faster at the cost of
+some compression.
+* Rationalise the memory testing now that the default lzma settings use a lot
+less ram by default, and make all systems use no more than 1/3 ram in one mmap.
+This allows larger windows to be used by 32 bit at last without memory
+allocation errors.
+* Revert "Make threads spawn at regular intervals along chunk size thus speeding
+up compression" as it actually slowed it down instead of speeding it up.
+* Cope with compression/decompression threads failing by waiting till the
+previous thread has finished its work, thus serialising the work and using less
+ram, making success more likely.
+* Fix some dodgy callocs which weren't really allocating enough ram.
+* Destory semaphores used in stream_in on closing the stream.
+* Minor output improvements.
+
 DECEMBER 2010, version 0.544 Con Kolivas
 * Make multiple stream 0 entry decompression more robust by creating separate
 thread groups for stream 0 and stream 1.
