@@ -21,7 +21,7 @@ up compression" as it actually slowed it down instead of speeding it up.
 previous thread has finished its work, thus serialising the work and using less
 ram, making success more likely.
 * Fix some dodgy callocs which weren't really allocating enough ram.
-* Destory semaphores used in stream_in on closing the stream.
+* Destroy semaphores used in stream_in on closing the stream.
 * Minor output improvements.
 
 DECEMBER 2010, version 0.544 Con Kolivas
