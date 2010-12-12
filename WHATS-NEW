@@ -1,3 +1,9 @@
+lrzip-0.551
+
+Compressing from stdin should be unbroken again.
+Compression values returned at the end of stdin work.
+lzma failing to compress a block will not cause a failure.
+
 lrzip-0.550
 
 Speed up compression on large files that take more than one pass by overlapping

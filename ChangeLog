@@ -1,4 +1,9 @@
 lrzip ChangeLog
+DECEMBER 2010, version 0.551 Con Kolivas
+* Fix stdin failing due to getting sizes all wrong.
+* Fix stdin compression values not being shown at end.
+* Fix inappropriate failure when lzma doesn't compress block.
+
 DECEMBER 2010, version 0.550 Con Kolivas
 * Move the threading on compression to higher up in the code, allowing the next
 stream to start using compression threads before the previous stream has
