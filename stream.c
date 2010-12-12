@@ -336,7 +336,8 @@ retry:
 			 * remain uncompressed */
 			print_verbose("Unable to allocate enough RAM for any sized compression window, falling back to bzip2 compression.\n");
 			return bzip2_compress_buf(cthread);
-		}
+		} else if (lzma_ret == SZ_ERROR_OUTPUT_EOF)
+			return 0;
 		return -1;
 	}
 

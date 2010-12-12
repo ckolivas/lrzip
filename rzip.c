@@ -663,7 +663,7 @@ static void mmap_stdin(uchar *buf, struct rzip_state *st)
 			buf = mremap(buf, st->chunk_size, total, 0);
 			if (unlikely(buf == MAP_FAILED))
 				fatal("Failed to remap to smaller buf in mmap_stdin\n");
-			st->chunk_size = total;
+			st->mmap_size = st->chunk_size = total;
 			st->stdin_eof = 1;
 			break;
 		}
@@ -782,6 +782,7 @@ void rzip_fd(int fd_in, int fd_out)
 	if (control.window)
 		control.max_chunk = MIN(control.max_chunk, control.window * CHUNK_MULTIPLE);
 	round_to_page(&control.max_chunk);
+	control.max_mmap = MIN(control.max_mmap, control.max_chunk);
 
 	if (!STDIN)
 		st->chunk_size = MIN(control.max_chunk, len);
@@ -829,6 +830,7 @@ retry:
 					fatal("Unable to mmap any ram\n");
 				goto retry;
 			}
+			st->chunk_size = st->mmap_size;
 			mmap_stdin(sb.buf_low, st);
 		} else {
 			/* NOTE The buf is saved here for !STDIN mode */
@@ -906,6 +908,8 @@ retry:
 	close_streamout_threads();
 
 	gettimeofday(&current, NULL);
+	if (STDIN)
+		s.st_size = control.st_size;
 	chunkmbs = (s.st_size / 1024 / 1024) / ((double)(current.tv_sec-start.tv_sec)? : 1);
 
 	fstat(fd_out, &s2);
