@@ -192,6 +192,10 @@ static inline i64 get_ram(void)
 }
 #endif
 
+#ifdef __FreeBSD__
+ #define mremap fake_mremap
+#endif
+
 #define FLAG_SHOW_PROGRESS 2
 #define FLAG_KEEP_FILES 4
 #define FLAG_TEST_ONLY 8
