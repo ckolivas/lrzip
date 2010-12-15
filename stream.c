@@ -195,7 +195,7 @@ static int zpaq_compress_buf(struct compress_thread *cthread, long thread)
 	fclose(in);
 	fclose(out);
 
-	if ((i64)dlen >= cthread->c_len) {
+	if (unlikely((i64)dlen >= cthread->c_len)) {
 		print_maxverbose("Incompressible block\n");
 		/* Incompressible, leave as CTYPE_NONE */
 		free(c_buf);
@@ -212,6 +212,7 @@ static int zpaq_compress_buf(struct compress_thread *cthread, long thread)
 static int bzip2_compress_buf(struct compress_thread *cthread)
 {
 	u32 dlen = cthread->s_len;
+	int bzip2_ret;
 	uchar *c_buf;
 
 	if (!lzo_compresses(cthread->s_buf, cthread->s_len))
@@ -223,12 +224,24 @@ static int bzip2_compress_buf(struct compress_thread *cthread)
 		return -1;
 	}
 
-	if (BZ2_bzBuffToBuffCompress((char *)c_buf, &dlen,
+	bzip2_ret = BZ2_bzBuffToBuffCompress((char *)c_buf, &dlen,
 		(char *)cthread->s_buf, cthread->s_len,
-		control.compression_level, 0, control.compression_level * 10) != BZ_OK) {
-			free(c_buf);
-			print_maxverbose("BZ2 compress failed\n");
-			return -1;
+		control.compression_level, 0, control.compression_level * 10);
+
+	/* if compressed data is bigger then original data leave as
+	 * CTYPE_NONE */
+
+	if (bzip2_ret == BZ_OUTBUFF_FULL) {
+		print_maxverbose("Incompressible block\n");
+		/* Incompressible, leave as CTYPE_NONE */
+		free(c_buf);
+		return 0;
+	}
+
+	if (unlikely(bzip2_ret != BZ_OK)) {
+		free(c_buf);
+		print_maxverbose("BZ2 compress failed\n");
+		return -1;
 	}
 
 	if (unlikely(dlen >= cthread->c_len)) {
@@ -249,6 +262,7 @@ static int gzip_compress_buf(struct compress_thread *cthread)
 {
 	unsigned long dlen = cthread->s_len;
 	uchar *c_buf;
+	int gzip_ret;
 
 	c_buf = malloc(dlen);
 	if (!c_buf) {
@@ -256,14 +270,26 @@ static int gzip_compress_buf(struct compress_thread *cthread)
 		return -1;
 	}
 
-	if (compress2(c_buf, &dlen, cthread->s_buf, cthread->s_len,
-		control.compression_level) != Z_OK) {
-			free(c_buf);
-			print_maxverbose("compress2 failed\n");
-			return -1;
+	gzip_ret = compress2(c_buf, &dlen, cthread->s_buf, cthread->s_len,
+		control.compression_level);
+
+	/* if compressed data is bigger then original data leave as
+	 * CTYPE_NONE */
+
+	if (gzip_ret == Z_BUF_ERROR) {
+		print_maxverbose("Incompressible block\n");
+		/* Incompressible, leave as CTYPE_NONE */
+		free(c_buf);
+		return 0;
 	}
 
-	if ((i64)dlen >= cthread->c_len) {
+	if (unlikely(gzip_ret != Z_OK)) {
+		free(c_buf);
+		print_maxverbose("compress2 failed\n");
+		return -1;
+	}
+
+	if (unlikely((i64)dlen >= cthread->c_len)) {
 		print_maxverbose("Incompressible block\n");
 		/* Incompressible, leave as CTYPE_NONE */
 		free(c_buf);
