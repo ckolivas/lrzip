@@ -1,6 +1,6 @@
 /*
-   Copyright (C) Andrew Tridgell 1998-2003,
-   Con Kolivas 2006-2010
+   Copyright (C) 2006-2010 Con Kolivas
+   Copyright (C) 1998-2003 Andrew Tridgell
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -13,8 +13,7 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+   along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 /* lrzip compression - main program */
 #include "rzip.h"
