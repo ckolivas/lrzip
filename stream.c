@@ -1207,7 +1207,14 @@ fill_another:
 			 s->uthread_no, c_len, stream);
 	create_pthread(&threads[s->uthread_no], NULL, ucompthread, (void *)s->uthread_no);
 
-	if (!last_head)
+	if (stream == 0 && last_head && control.threads > 1) {
+		int i;
+
+		print_verbose("Interleaved streams detected, dropping to single threaded decompression as a precaution.\n");
+		for (i = 0; i < NUM_STREAMS; i++)
+			sinfo->s[i].total_threads = 1;
+		control.threads = 1;
+	} else if (!last_head)
 		s->eos = 1;
 
 	if (++s->uthread_no == s->base_thread + s->total_threads)
