@@ -43,6 +43,7 @@ struct uncomp_thread{
 	sem_t ready;	/* Taken this thread's data so it can die */
 	sem_t free;
 	int stream;
+	int fd;
 } *ucthread;
 
 void init_sem(sem_t *sem)
@@ -962,6 +963,9 @@ static void *compthread(void *t)
 	cti->c_type = CTYPE_NONE;
 	cti->c_len = cti->s_len;
 
+	/* Flushing writes to disk, frees up any dirty ram, improving chances
+	 * of succeeding in allocating more ram */
+	fsync(ctis->fd);
 retry:
 	if (!NO_COMPRESS && cti->c_len) {
 		if (LZMA_COMPRESS)
@@ -1036,8 +1040,6 @@ retry:
 	ctis->cur_pos += cti->c_len;
 	free(cti->s_buf);
 
-	fsync(ctis->fd);
-
 	post_sem(&cti->complete);
 	post_sem(&cti->free);
 
@@ -1087,6 +1089,7 @@ static void *ucompthread(void *t)
 	if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val) == -1))
 		print_err("Warning, unable to set nice value on thread\n");
 
+	fsync(uci->fd);
 retry:
 	if (uci->c_type != CTYPE_NONE) {
 		switch (uci->c_type) {
@@ -1201,6 +1204,7 @@ fill_another:
 	ucthread[s->uthread_no].u_len = u_len;
 	ucthread[s->uthread_no].c_type = c_type;
 	ucthread[s->uthread_no].stream = stream;
+	ucthread[s->uthread_no].fd = sinfo->fd;
 	s->last_head = last_head;
 
 	print_maxverbose("Starting thread %ld to decompress %lld bytes from stream %d\n",
@@ -1225,9 +1229,9 @@ fill_another:
 		goto fill_another;
 	}
 out:
-	/* This ready tells the decompression thread we're up to it */
+	/* This "ready" tells the decompression thread we're up to it */
 	post_sem(&ucthread[s->unext_thread].ready);
-	/* This complete is the deco thread telling us it's finished
+	/* This "complete" is the deco thread telling us it's finished
 	 * decompressing data */
 	wait_sem(&ucthread[s->unext_thread].complete);
 
@@ -1235,7 +1239,7 @@ out:
 	s->buflen = ucthread[s->unext_thread].u_len;
 	s->bufp = 0;
 
-	/* This ready tells the decompression thread we've taken the buffer so
+	/* This "ready" tells the decompression thread we've taken the buffer so
 	 * it can exit */
 	post_sem(&ucthread[s->unext_thread].ready);
 
