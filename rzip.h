@@ -191,7 +191,7 @@ static inline i64 get_ram(void)
 }
 #endif
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
  #define mremap fake_mremap
 #endif
 
