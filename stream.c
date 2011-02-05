@@ -783,7 +783,7 @@ void *open_stream_out(int f, int n, i64 limit, char cbytes)
 	struct stream_info *sinfo;
 	uchar *testmalloc;
 	i64 testsize;
-	int i;
+	int i, testbufs;
 
 	sinfo = calloc(sizeof(struct stream_info), 1);
 	if (unlikely(!sinfo))
@@ -795,10 +795,6 @@ void *open_stream_out(int f, int n, i64 limit, char cbytes)
 	sinfo->num_streams = n;
 	sinfo->fd = f;
 
-	/* Serious limits imposed on 32 bit capabilities */
-	if (BITS32)
-		limit = MIN(limit, two_gig / 3);
-
 	sinfo->s = calloc(sizeof(struct stream), n);
 	if (unlikely(!sinfo->s)) {
 		free(sinfo);
@@ -807,9 +803,19 @@ void *open_stream_out(int f, int n, i64 limit, char cbytes)
 
 	/* Find the largest we can make the window based on ability to malloc
 	 * ram. We need enough for the 2 streams and for the compression
-	 * backend at most, being conservative. */
+	 * backend at most, being conservative. We don't need any for the
+	 * backend compression if we won't be doing any.
+	 */
+	testbufs = n;
+	if (!NO_COMPRESS)
+		testbufs++;
+
+	/* Serious limits imposed on 32 bit capabilities */
+	if (BITS32)
+		limit = MIN(limit, two_gig / testbufs);
+
 retest_malloc:
-	testsize = limit * (n + 1);
+	testsize = limit * testbufs;
 	testmalloc = malloc(testsize);
 	if (!testmalloc) {
 		limit = limit / 10 * 9;
