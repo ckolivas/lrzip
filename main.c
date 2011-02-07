@@ -292,6 +292,7 @@ static void decompress_file(void)
 		preserve_perms(fd_in, fd_out);
 	} else
 		fd_out = open_tmpoutfile();
+	control.fd_out = fd_out;
 
 	fd_hist = open(control.outfile, O_RDONLY);
 	if (unlikely(fd_hist == -1))
@@ -490,6 +491,7 @@ static void compress_file(void)
 			fatal("Failed to create %s: %s\n", control.outfile, strerror(errno));
 	} else
 		fd_out = open_tmpoutfile();
+	control.fd_out = fd_out;
 
 	preserve_perms(fd_in, fd_out);
 

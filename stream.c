@@ -43,7 +43,6 @@ struct uncomp_thread{
 	sem_t ready;	/* Taken this thread's data so it can die */
 	sem_t free;
 	int stream;
-	int fd;
 } *ucthread;
 
 void init_sem(sem_t *sem)
@@ -969,7 +968,7 @@ static void *compthread(void *t)
 	cti->c_type = CTYPE_NONE;
 	cti->c_len = cti->s_len;
 
-	/* Flushing writes to disk, frees up any dirty ram, improving chances
+	/* Flushing writes to disk frees up any dirty ram, improving chances
 	 * of succeeding in allocating more ram */
 	fsync(ctis->fd);
 retry:
@@ -1095,7 +1094,6 @@ static void *ucompthread(void *t)
 	if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val) == -1))
 		print_err("Warning, unable to set nice value on thread\n");
 
-	fsync(uci->fd);
 retry:
 	if (uci->c_type != CTYPE_NONE) {
 		switch (uci->c_type) {
@@ -1190,6 +1188,7 @@ fill_another:
 
 	/* Wait till the next thread is free */
 	wait_sem(&ucthread[s->uthread_no].free);
+	fsync(control.fd_out);
 
 	s_buf = malloc(u_len);
 	if (unlikely(u_len && !s_buf))
@@ -1205,7 +1204,6 @@ fill_another:
 	ucthread[s->uthread_no].u_len = u_len;
 	ucthread[s->uthread_no].c_type = c_type;
 	ucthread[s->uthread_no].stream = stream;
-	ucthread[s->uthread_no].fd = sinfo->fd;
 	s->last_head = last_head;
 
 	print_maxverbose("Starting thread %ld to decompress %lld bytes from stream %d\n",

@@ -266,6 +266,7 @@ struct rzip_control {
 	int minor_version;
 	i64 st_size;
 	long page_size;
+	int fd_out;
 } control;
 
 struct stream {
