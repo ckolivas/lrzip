@@ -1128,10 +1128,7 @@ retry:
 
 static int threads_busy;
 
-/* Fill a buffer from a stream - return -1 on failure. Note we can end up
- * running one more thread than control.threads as we always recruit one thread
- * when fill_buffer is called. This is to ensure that we don't block waiting
- * for stream 0 to fill. */
+/* fill a buffer from a stream - return -1 on failure */
 static int fill_buffer(struct stream_info *sinfo, int stream)
 {
 	i64 header_length, u_len, c_len, last_head;
@@ -1217,7 +1214,7 @@ fill_another:
 		s->eos = 1;
 	if (s->eos) {
 		stream ^= 1;
-		if (sinfo->s[stream].eos || threads_busy >= control.threads)
+		if (sinfo->s[stream].eos)
 			goto out;
 		s = &sinfo->s[stream];
 		goto fill_different_stream;
