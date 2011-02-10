@@ -65,30 +65,23 @@ static i64 read_header(void *ss, uchar *head)
 
 static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 {
-	i64 ret = 0;
 	uchar *buf;
 
 	if (unlikely(len < 0))
-		fatal("len %lld is negative in unzip_literal!\n", len);
+		fatal("len %lld is negative in unzip_literal!\n",len);
 
-	while (len > 0) {
-		i64 stream_read;
+	buf = malloc(len);
+	if (unlikely(!buf))
+		fatal("Failed to malloc literal buffer of size %lld\n", len);
 
-		buf = (uchar *)malloc(len);
-		if (unlikely(!buf))
-			fatal("Failed to malloc literal buffer of size %lld\n", len);
+	read_stream(ss, 1, buf, len);
+	if (unlikely(write_1g(fd_out, buf, (size_t)len) != (ssize_t)len))
+		fatal("Failed to write literal buffer of size %lld\n", len);
 
-		stream_read = read_stream(ss, 1, buf, len);
-		if (unlikely(write_1g(fd_out, buf, (size_t)stream_read) != (ssize_t)stream_read))
-			fatal("Failed to write literal buffer of size %lld\n", stream_read);
+	*cksum = CrcUpdate(*cksum, buf, len);
 
-		*cksum = CrcUpdate(*cksum, buf, stream_read);
-
-		free(buf);
-		len -= stream_read;
-		ret += stream_read;
-	}
-	return ret;
+	free(buf);
+	return len;
 }
 
 static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum, int chunk_bytes)
@@ -113,7 +106,7 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 		uchar *buf;
 		n = MIN(len, offset);
 
-		buf = (uchar *)malloc(n);
+		buf = malloc(n);
 		if (unlikely(!buf))
 			fatal("Failed to malloc match buffer of size %lld\n", n);
 

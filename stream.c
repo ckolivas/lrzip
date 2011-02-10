@@ -1271,7 +1271,7 @@ i64 read_stream(void *ss, int stream, uchar *p, i64 len)
 
 		if (len && sinfo->s[stream].bufp == sinfo->s[stream].buflen) {
 			if (unlikely(fill_buffer(sinfo, stream)))
-				fatal("Failed to fill_buffer from read_stream\n");
+				return -1;
 			if (sinfo->s[stream].bufp == sinfo->s[stream].buflen)
 				break;
 		}
