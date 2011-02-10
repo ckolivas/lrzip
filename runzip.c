@@ -70,8 +70,6 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 	if (unlikely(len < 0))
 		fatal("len %lld is negative in unzip_literal!\n",len);
 
-	/* We use anonymous mmap instead of malloc to allow us to allocate up
-	 * to 2^44 even on 32 bits */
 	buf = (uchar *)mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	if (unlikely(buf == MAP_FAILED))
 		fatal("Failed to allocate literal buffer of size %lld\n", len);

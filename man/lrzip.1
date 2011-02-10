@@ -209,7 +209,7 @@ LRZIP operates in two stages. The first stage finds and encodes large chunks of
 duplicated data over potentially very long distances in the input file. The
 second stage is to use a compression algorithm to compress the output of the
 first stage. The compression algorithm can be chosen to be optimised for extreme
-size (zpaq), size (lzma - default), speed (lzo), legacy (bzip2) or (gzip) or can
+size (zpaq), size (lzma - default), speed (lzo), legacy (bzip2 or gzip) or can
 be omitted entirely doing only the first stage. A one stage only compressed file
 can almost always improve both the compression size and speed done by a
 subsequent compression program.
@@ -290,9 +290,9 @@ zpaq was written by Matt Mahoney.
 lrzip was bastardised from rzip by Con Kolivas.
 .br
 Peter Hyman added informational output, updated LZMA SDK,
-and aded multi-threading capabilities.
+and added multi-threading capabilities.
 .PP
-If you wish to report a problem or make a suggestion then please email Con at
+If you wish to report a problem, or make a suggestion, then please email Con at
 kernel@kolivas.org
 .PP
 lrzip is released under the GNU General Public License version 2.
