@@ -1259,7 +1259,7 @@ i64 read_stream(void *ss, int stream, uchar *p, i64 len)
 	while (len) {
 		i64 n;
 
-		n = MIN(sinfo->s[stream].buflen-sinfo->s[stream].bufp, len);
+		n = MIN(sinfo->s[stream].buflen - sinfo->s[stream].bufp, len);
 
 		if (n > 0) {
 			memcpy(p, sinfo->s[stream].buf + sinfo->s[stream].bufp, n);
