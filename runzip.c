@@ -70,9 +70,9 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 	if (unlikely(len < 0))
 		fatal("len %lld is negative in unzip_literal!\n",len);
 
-	buf = (uchar *)mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	if (unlikely(buf == MAP_FAILED))
-		fatal("Failed to allocate literal buffer of size %lld\n", len);
+	buf = malloc(len);
+	if (unlikely(!buf))
+		fatal("Failed to malloc literal buffer of size %lld\n", len);
 
 	read_stream(ss, 1, buf, len);
 	if (unlikely(write_1g(fd_out, buf, (size_t)len) != (ssize_t)len))
@@ -80,7 +80,7 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 
 	*cksum = CrcUpdate(*cksum, buf, len);
 
-	munmap(buf, len);
+	free(buf);
 	return len;
 }
 
@@ -106,9 +106,9 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 		uchar *buf;
 		n = MIN(len, offset);
 
-		buf = (uchar *)mmap(NULL, n, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-		if (unlikely(buf == MAP_FAILED))
-			fatal("Failed to allocate match buffer of size %lld\n", n);
+		buf = malloc(n);
+		if (unlikely(!buf))
+			fatal("Failed to malloc match buffer of size %lld\n", n);
 
 		if (unlikely(read_1g(fd_hist, buf, (size_t)n) != (ssize_t)n))
 			fatal("Failed to read %d bytes in unzip_match\n", n);
@@ -119,7 +119,7 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 		*cksum = CrcUpdate(*cksum, buf, n);
 
 		len -= n;
-		munmap(buf, n);
+		free(buf);
 		total += n;
 	}
 
