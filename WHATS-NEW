@@ -1,3 +1,11 @@
+lrzip-0.552
+
+Fixed a potential silent corruption bug on decompression.
+Fixed compilation on freebsd.
+Fixed failures on incompressible blocks with bzip2 or gzip.
+Fixed osx failing to work. It does not support threaded compression or
+decompression but should work again.
+
 lrzip-0.551
 
 Compressing from stdin should be unbroken again.

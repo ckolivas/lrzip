@@ -1,4 +1,18 @@
 lrzip ChangeLog
+FEBRUARY 2011, version 0.552 Con Kolivas
+* Fix incompressible blocks causing failure with bzip2 and gzip.
+* Freebsd doesn't do mremap, use the fake one.
+* Update copyright notices.
+* Flush writes to disk before allocating ram.
+* Relax memory allocation when no back end compression will be used.
+* Clean up unnecessary semaphore usage in decompression.
+* Fix minor typos.
+* Convert mmaps to malloc in runzip as they may silently fail if not a
+multiple of page size, thereby leading to silent corruption on decompression.
+* Return the correct length by unzip_literal.
+* Use wrappers to serialise threads on OSX and bypass use of unnamed semaphores
+which aren't supported.
+
 DECEMBER 2010, version 0.551 Con Kolivas
 * Fix stdin failing due to getting sizes all wrong.
 * Fix stdin compression values not being shown at end.
