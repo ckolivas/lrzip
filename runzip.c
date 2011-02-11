@@ -71,7 +71,7 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 	if (unlikely(len < 0))
 		fatal("len %lld is negative in unzip_literal!\n",len);
 
-	buf = malloc(len);
+	buf = (uchar *)malloc(len);
 	if (unlikely(!buf))
 		fatal("Failed to malloc literal buffer of size %lld\n", len);
 
@@ -110,7 +110,7 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 		uchar *buf;
 		n = MIN(len, offset);
 
-		buf = malloc(n);
+		buf = (uchar *)malloc(n);
 		if (unlikely(!buf))
 			fatal("Failed to malloc match buffer of size %lld\n", n);
 

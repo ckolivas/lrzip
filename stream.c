@@ -606,7 +606,7 @@ ssize_t write_1g(int fd, void *buf, i64 len)
 		else
 			ret = len;
 		ret = write(fd, offset_buf, (size_t)ret);
-		if (unlikely(ret < 0))
+		if (unlikely(ret <= 0))
 			return ret;
 		len -= ret;
 		offset_buf += ret;
@@ -629,7 +629,7 @@ ssize_t read_1g(int fd, void *buf, i64 len)
 		else
 			ret = len;
 		ret = read(fd, offset_buf, (size_t)ret);
-		if (unlikely(ret < 0))
+		if (unlikely(ret <= 0))
 			return ret;
 		len -= ret;
 		offset_buf += ret;
