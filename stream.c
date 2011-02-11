@@ -45,51 +45,6 @@ struct uncomp_thread{
 	int stream;
 } *ucthread;
 
-void init_sem(sem_t *sem)
-{
-	if (unlikely(sem_init(sem, 0, 0)))
-		fatal("sem_init\n");
-}
-
-static inline void post_sem(sem_t *s)
-{
-retry:
-	if (unlikely((sem_post(s)) == -1)) {
-		if (errno == EINTR)
-			goto retry;
-		fatal("sem_post failed");
-	}
-}
-
-static inline void wait_sem(sem_t *s)
-{
-retry:
-	if (unlikely((sem_wait(s)) == -1)) {
-		if (errno == EINTR)
-			goto retry;
-		fatal("sem_wait failed");
-	}
-}
-
-static inline void destroy_sem(sem_t *s)
-{
-	if (unlikely(sem_destroy(s)))
-		fatal("sem_destroy failed\n");
-}
-
-void create_pthread(pthread_t  * thread, pthread_attr_t * attr,
-	void * (*start_routine)(void *), void *arg)
-{
-	if (pthread_create(thread, attr, start_routine, arg))
-		fatal("pthread_create");
-}
-
-void join_pthread(pthread_t th, void **thread_return)
-{
-	if (pthread_join(th, thread_return))
-		fatal("pthread_join");
-}
-
 /* just to keep things clean, declare function here
  * but move body to the end since it's a work function
 */
