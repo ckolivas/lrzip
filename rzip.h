@@ -164,38 +164,6 @@ static inline i64 get_ram(void)
 
 	return ramsize;
 }
-
-/* OSX doesn't support unnamed semaphores so we fake the threading by
- * serialising threads and ignore all the semaphore calls.
- */
-static inline void init_sem(sem_t *sem __attribute__((unused)))
-{
-}
-
-static inline void post_sem(sem_t *s __attribute__((unused)))
-{
-}
-
-static inline void wait_sem(sem_t *s __attribute__((unused)))
-{
-}
-
-static inline void destroy_sem(sem_t *s __attribute__((unused)))
-{
-}
-
-static inline void create_pthread(pthread_t  * thread, pthread_attr_t * attr,
-	void * (*start_routine)(void *), void *arg)
-{
-	if (pthread_create(thread, attr, start_routine, arg))
-		fatal("pthread_create");
-	if (pthread_join(*thread, NULL))
-		fatal("pthread_join");
-}
-
-static inline void join_pthread(pthread_t th __attribute__((unused)), void **thread_return __attribute__((unused)))
-{
-}
 #else /* __APPLE__ */
  #define memstream_update_buffer(A, B, C) (0)
 static inline i64 get_ram(void)
@@ -220,51 +188,6 @@ static inline i64 get_ram(void)
 	ramsize *= 1000;
 
 	return ramsize;
-}
-
-static inline void init_sem(sem_t *sem)
-{
-	if (unlikely(sem_init(sem, 0, 0)))
-		fatal("sem_init\n");
-}
-
-static inline void post_sem(sem_t *s)
-{
-retry:
-	if (unlikely((sem_post(s)) == -1)) {
-		if (errno == EINTR)
-			goto retry;
-		fatal("sem_post failed");
-	}
-}
-
-static inline void wait_sem(sem_t *s)
-{
-retry:
-	if (unlikely((sem_wait(s)) == -1)) {
-		if (errno == EINTR)
-			goto retry;
-		fatal("sem_wait failed");
-	}
-}
-
-static inline void destroy_sem(sem_t *s)
-{
-	if (unlikely(sem_destroy(s)))
-		fatal("sem_destroy failed\n");
-}
-
-static inline void create_pthread(pthread_t  *thread, pthread_attr_t * attr,
-	void * (*start_routine)(void *), void *arg)
-{
-	if (pthread_create(thread, attr, start_routine, arg))
-		fatal("pthread_create");
-}
-
-static inline void join_pthread(pthread_t th, void **thread_return)
-{
-	if (pthread_join(th, thread_return))
-		fatal("pthread_join");
 }
 #endif
 
