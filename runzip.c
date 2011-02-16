@@ -91,6 +91,7 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum, int chunk_bytes)
 {
 	i64 offset, n, total, cur_pos;
+	uchar *buf, *off_buf;
 
 	if (unlikely(len < 0))
 		fatal("len %lld is negative in unzip_match!\n",len);
@@ -106,26 +107,28 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 		fatal("Seek failed by %d from %d on history file in unzip_match - %s\n",
 		      offset, cur_pos, strerror(errno));
 
+	buf = (uchar *)malloc(len);
+	if (unlikely(!buf))
+		fatal("Failed to malloc match buffer of size %lld\n", len);
+	off_buf = buf;
+
 	while (len) {
-		uchar *buf;
 		n = MIN(len, offset);
 
-		buf = (uchar *)malloc(n);
-		if (unlikely(!buf))
-			fatal("Failed to malloc match buffer of size %lld\n", n);
-
-		if (unlikely(read_1g(fd_hist, buf, (size_t)n) != (ssize_t)n))
+		if (unlikely(read_1g(fd_hist, off_buf, (size_t)n) != (ssize_t)n))
 			fatal("Failed to read %d bytes in unzip_match\n", n);
 
-		if (unlikely(write_1g(fd_out, buf, (size_t)n) != (ssize_t)n))
+		if (unlikely(write_1g(fd_out, off_buf, (size_t)n) != (ssize_t)n))
 			fatal("Failed to write %d bytes in unzip_match\n", n);
 
-		*cksum = CrcUpdate(*cksum, buf, n);
+		*cksum = CrcUpdate(*cksum, off_buf, n);
 
 		len -= n;
-		free(buf);
+		off_buf += n;
 		total += n;
 	}
+
+	free(buf);
 
 	return total;
 }
