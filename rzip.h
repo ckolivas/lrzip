@@ -36,7 +36,6 @@
 #include <bzlib.h>
 #include <zlib.h>
 #include <pthread.h>
-#include <semaphore.h>
 #include <sys/resource.h>
 #include <netinet/in.h>
 
