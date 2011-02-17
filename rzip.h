@@ -24,6 +24,7 @@
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
 #include "config.h"
+#include "md5.h"
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -266,6 +267,8 @@ struct rzip_control {
 	i64 st_size;
 	long page_size;
 	int fd_out;
+	struct md5_ctx ctx;
+	i64 md5_read; // How far into the file the md5 has done so far 
 } control;
 
 struct stream {

@@ -47,7 +47,8 @@ OBJS= main.o rzip.o runzip.o stream.o util.o \
   LzFindMt.o \
   LzmaDec.o \
   LzmaEnc.o \
-  LzmaLib.o
+  LzmaLib.o \
+  md5.o
 
 DOCFILES= AUTHORS BUGS ChangeLog COPYING README README-NOT-BACKWARD-COMPATIBLE \
 	  TODO WHATS-NEW \
@@ -103,6 +104,9 @@ LzFindMt.o: @top_srcdir@/lzma/C/LzFindMt.c
 
 zpipe.o: zpipe.cpp
 	$(CXX) $(CXXFLAGS) -DNDEBUG zpipe.cpp
+
+md5.o: md5.c
+	$(CC) $(CFLAGS) md5.c
 
 install: all
 	mkdir -p $(DESTDIR)${INSTALL_BIN}

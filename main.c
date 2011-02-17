@@ -551,6 +551,7 @@ int main(int argc, char *argv[])
 	/* for testing single CPU */
 	control.threads = PROCESSORS;	/* get CPUs for LZMA */
 	control.page_size = PAGE_SIZE;
+	control.md5_read = 0;
 
 	control.nice_val = 19;
 
