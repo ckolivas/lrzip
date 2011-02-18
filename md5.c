@@ -124,15 +124,23 @@ md5_finish_ctx (struct md5_ctx *ctx, void *resbuf)
   return md5_read_ctx (ctx, resbuf);
 }
 
-int md5_midstream (FILE *stream, struct md5_ctx *ctx)
+/* Compute MD5 message digest for bytes read from STREAM.  The
+   resulting message digest number will be written into the 16 bytes
+   beginning at RESBLOCK.  */
+int
+md5_stream (FILE *stream, void *resblock)
 {
+  struct md5_ctx ctx;
   size_t sum;
 
   char *buffer = malloc (BLOCKSIZE + 72);
   if (!buffer)
     return 1;
 
-  /* Iterate over the file contents so far written.  */
+  /* Initialize the computation context.  */
+  md5_init_ctx (&ctx);
+
+  /* Iterate over full file contents.  */
   while (1)
     {
       /* We read the file in blocks of BLOCKSIZE bytes.  One call of the
@@ -174,34 +182,18 @@ int md5_midstream (FILE *stream, struct md5_ctx *ctx)
       /* Process buffer with BLOCKSIZE bytes.  Note that
          BLOCKSIZE % 64 == 0
        */
-      md5_process_block (buffer, BLOCKSIZE, ctx);
+      md5_process_block (buffer, BLOCKSIZE, &ctx);
     }
 
 process_partial_block:
 
   /* Process any remaining bytes.  */
   if (sum > 0)
-    md5_process_bytes (buffer, sum, ctx);
+    md5_process_bytes (buffer, sum, &ctx);
 
-  free (buffer);
-  return 0;
-}
-
-/* Compute MD5 message digest for bytes read from STREAM.  The
-   resulting message digest number will be written into the 16 bytes
-   beginning at RESBLOCK.  */
-int
-md5_stream (FILE *stream, void *resblock)
-{
-  struct md5_ctx ctx;
-
-  /* Initialize the computation context.  */
-  md5_init_ctx (&ctx);
-
-  md5_midstream(stream, &ctx);
- 
   /* Construct result in desired memory.  */
   md5_finish_ctx (&ctx, resblock);
+  free (buffer);
   return 0;
 }
 
