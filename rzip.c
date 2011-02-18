@@ -98,7 +98,6 @@ struct sliding_buffer {
 	i64 size_high;	/* "" high "" */
 	i64 high_length;/* How big the high buffer should be */
 	int fd;		/* The fd of the mmap */
-	int low_top;	/* The low buffer has hit the top */
 } sb;	/* Sliding buffer */
 
 static void round_to_page(i64 *size)
@@ -113,20 +112,20 @@ static void remap_low_sb(void)
 	i64 new_offset, md5_off;
 
 	new_offset = sb.offset_search;
-	if (new_offset + sb.size_low > sb.orig_size) {
-		new_offset = sb.orig_size - sb.size_low;
-		sb.low_top = 1;
-	}
 	round_to_page(&new_offset);
 	print_maxverbose("Sliding main buffer to offset %lld\n", new_offset);
 	if (unlikely(munmap(sb.buf_low, sb.size_low)))
 		fatal("Failed to munmap in remap_low_sb\n");
+	if (new_offset + sb.size_low > sb.orig_size)
+		sb.size_low = sb.orig_size - new_offset;
 	sb.offset_low = new_offset;
 	sb.buf_low = (uchar *)mmap(sb.buf_low, sb.size_low, PROT_READ, MAP_SHARED, sb.fd, sb.orig_offset + sb.offset_low);
 	if (unlikely(sb.buf_low == MAP_FAILED))
 		fatal("Failed to re mmap in remap_low_sb\n");
+print_output("md5read %lld offset_low %lld\n", control.md5_read, sb.offset_low);
 	md5_off = control.md5_read - sb.offset_low;
 	md5_process_bytes(sb.buf_low + md5_off, sb.size_low - md5_off, &control.ctx);
+	control.md5_read += sb.size_low - md5_off;
 }
 
 static inline void remap_high_sb(i64 p)
@@ -154,7 +153,7 @@ static uchar *get_sb(i64 p)
 {
 	i64 low_end = sb.offset_low + sb.size_low;
 
-	if (unlikely(sb.offset_search > low_end && !sb.low_top))
+	if (unlikely(sb.offset_search > low_end))
 		remap_low_sb();
 	if (p >= sb.offset_low && p < low_end)
 		return (sb.buf_low + p - sb.offset_low);
@@ -688,7 +687,6 @@ static void init_sliding_mmap(struct rzip_state *st, int fd_in, i64 offset)
 		sb.size_high = sb.high_length;
 		sb.offset_high = 0;
 	}
-	sb.low_top = 0;
 	sb.offset_low = 0;
 	sb.offset_search = 0;
 	sb.size_low = st->mmap_size;
@@ -745,6 +743,7 @@ void rzip_fd(int fd_in, int fd_out)
 	char md5_resblock[MD5_DIGEST_SIZE];
 
 	md5_init_ctx (&control.ctx);
+	control.md5_read = 0;
 
 	st = calloc(sizeof(*st), 1);
 	if (unlikely(!st))
@@ -849,7 +848,7 @@ retry:
 			if (st->mmap_size < st->chunk_size)
 				print_maxverbose("Enabling sliding mmap mode and using mmap of %lld bytes with window of %lld bytes\n", st->mmap_size, st->chunk_size);
 			md5_process_bytes(sb.buf_low, st->mmap_size, &control.ctx);
-			control.md5_read = st->mmap_size;
+			control.md5_read += st->mmap_size;
 		}
 		print_maxverbose("Succeeded in testing %lld sized mmap for rzip pre-processing\n", st->mmap_size);
 
@@ -918,7 +917,6 @@ retry:
 		 * few bytes because it's less than one page. */
 		i64 md5_off, len, offset = control.md5_read;
 		uchar *buf;
-
 		round_to_page(&offset);
 		len = sb.orig_size - offset;
 		buf = (uchar *)mmap(NULL, len, PROT_READ, MAP_SHARED, sb.fd, offset);
@@ -926,6 +924,7 @@ retry:
 			fatal("Failed to mmap last md5 calculation in rzip_fd\n");
 		md5_off = control.md5_read - offset;
 		md5_process_bytes(buf + md5_off, len - md5_off, &control.ctx);
+print_output("\nUpdating md5 size %lld read %lld off %lld len %lld\n", sb.orig_size, control.md5_read, md5_off, len - md5_off);
 		if (unlikely(munmap(buf, len)))
 			fatal("Failed to munmap in last md5 calculation in rzip_fd\n");
 	}
