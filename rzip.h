@@ -195,23 +195,24 @@ static inline i64 get_ram(void)
  #define mremap fake_mremap
 #endif
 
-#define FLAG_SHOW_PROGRESS 2
-#define FLAG_KEEP_FILES 4
-#define FLAG_TEST_ONLY 8
-#define FLAG_FORCE_REPLACE 16
-#define FLAG_DECOMPRESS 32
-#define FLAG_NO_COMPRESS 64
-#define FLAG_LZO_COMPRESS 128
-#define FLAG_BZIP2_COMPRESS 256
-#define FLAG_ZLIB_COMPRESS 512
-#define FLAG_ZPAQ_COMPRESS 1024
-#define FLAG_VERBOSITY 2048
-#define FLAG_VERBOSITY_MAX 4096
-#define FLAG_STDIN 8192
-#define FLAG_STDOUT 16384
-#define FLAG_INFO 32768
-#define FLAG_MAXRAM 65536
-#define FLAG_UNLIMITED 131072
+#define FLAG_SHOW_PROGRESS	(1 << 0)
+#define FLAG_KEEP_FILES		(1 << 1)
+#define FLAG_TEST_ONLY		(1 << 2)
+#define FLAG_FORCE_REPLACE	(1 << 3)
+#define FLAG_DECOMPRESS		(1 << 4)
+#define FLAG_NO_COMPRESS	(1 << 5)
+#define FLAG_LZO_COMPRESS	(1 << 6)
+#define FLAG_BZIP2_COMPRESS	(1 << 7)
+#define FLAG_ZLIB_COMPRESS	(1 << 8)
+#define FLAG_ZPAQ_COMPRESS	(1 << 9)
+#define FLAG_VERBOSITY		(1 << 10)
+#define FLAG_VERBOSITY_MAX	(1 << 11)
+#define FLAG_STDIN		(1 << 12)
+#define FLAG_STDOUT		(1 << 13)
+#define FLAG_INFO		(1 << 14)
+#define FLAG_MAXRAM		(1 << 15)
+#define FLAG_UNLIMITED		(1 << 16)
+#define FLAG_HASH		(1 << 17)
 
 #define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
 #define FLAG_NOT_LZMA (FLAG_NO_COMPRESS | FLAG_LZO_COMPRESS | FLAG_BZIP2_COMPRESS | FLAG_ZLIB_COMPRESS | FLAG_ZPAQ_COMPRESS)
@@ -235,6 +236,7 @@ static inline i64 get_ram(void)
 #define INFO		(control.flags & FLAG_INFO)
 #define MAXRAM		(control.flags & FLAG_MAXRAM)
 #define UNLIMITED	(control.flags & FLAG_UNLIMITED)
+#define HASH_CHECK	(control.flags & FLAG_HASH)
 
 #define BITS32		(sizeof(long) == 4)
 

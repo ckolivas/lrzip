@@ -929,11 +929,14 @@ retry:
 		if (unlikely(munmap(buf, len)))
 			fatal("Failed to munmap in last md5 calculation in rzip_fd\n");
 	}
+
 	md5_finish_ctx (&control.ctx, md5_resblock);
-	print_verbose("MD5 sum: ");
-	for (j = 0; j < MD5_DIGEST_SIZE; j++)
-		print_verbose("%02x", md5_resblock[j] & 0xFF);
-	print_verbose("\n");
+	if (HASH_CHECK || VERBOSE) {
+		print_output("MD5 sum: ");
+		for (j = 0; j < MD5_DIGEST_SIZE; j++)
+			print_output("%02x", md5_resblock[j] & 0xFF);
+		print_output("\n");
+	}
 
 	gettimeofday(&current, NULL);
 	if (STDIN)

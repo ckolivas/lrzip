@@ -224,16 +224,38 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
  */
 i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 {
+	char md5_resblock[MD5_DIGEST_SIZE];
 	struct timeval start,end;
+	FILE *md5_stream;
 	i64 total = 0;
+	int j;
+
+	md5_init_ctx (&control.ctx);
+	md5_stream = fopen(control.outfile, "r");
+	if (unlikely(md5_stream == NULL))
+		fatal("Failed to fdopen md5_stream in runzip_fd\n");
 
 	gettimeofday(&start,NULL);
 
-	while (total < expected_size)
+	while (total < expected_size) {
 		total += runzip_chunk(fd_in, fd_out, fd_hist, expected_size, total);
+		if (md5_midstream(md5_stream, &control.ctx))
+			fatal("Failed md5_midstream in runzip_fd\n");
+	}
 
 	gettimeofday(&end,NULL);
 	print_progress("\nAverage DeCompression Speed: %6.3fMB/s\n",
 			(total / 1024 / 1024) / (double)((end.tv_sec-start.tv_sec)? : 1));
+
+	if (unlikely(fclose(md5_stream)))
+		fatal("Failed to fclose md5_stream in runzip_fd\n");
+	md5_finish_ctx (&control.ctx, md5_resblock);
+	if (HASH_CHECK || VERBOSE) {
+		print_output("MD5 sum: ");
+		for (j = 0; j < MD5_DIGEST_SIZE; j++)
+			print_output("%02x", md5_resblock[j] & 0xFF);
+		print_output("\n");
+	}
+
 	return total;
 }
