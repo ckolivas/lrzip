@@ -109,7 +109,7 @@ static void round_to_page(i64 *size)
 
 static void remap_low_sb(void)
 {
-	i64 new_offset, md5_off;
+	i64 new_offset;
 
 	new_offset = sb.offset_search;
 	round_to_page(&new_offset);
@@ -122,10 +122,6 @@ static void remap_low_sb(void)
 	sb.buf_low = (uchar *)mmap(sb.buf_low, sb.size_low, PROT_READ, MAP_SHARED, sb.fd, sb.orig_offset + sb.offset_low);
 	if (unlikely(sb.buf_low == MAP_FAILED))
 		fatal("Failed to re mmap in remap_low_sb\n");
-print_output("md5read %lld offset_low %lld\n", control.md5_read, sb.offset_low);
-	md5_off = control.md5_read - sb.offset_low;
-	md5_process_bytes(sb.buf_low + md5_off, sb.size_low - md5_off, &control.ctx);
-	control.md5_read += sb.size_low - md5_off;
 }
 
 static inline void remap_high_sb(i64 p)
@@ -591,10 +587,16 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 
 		if (p > (i64)cksum_limit) {
 			i64 i, n = st->chunk_size - p;
+			uchar *ckbuf = malloc(n);
 
+			if (!ckbuf)
+				fatal("Failed to malloc ckbuf in hash_search\n");
 			for (i = 0; i < n; i++)
-				st->cksum = CrcUpdate(st->cksum, get_sb(cksum_limit + i), 1);
+				memcpy(ckbuf + i, get_sb(cksum_limit + i), 1);
+			st->cksum = CrcUpdate(st->cksum, ckbuf, n);
+			md5_process_bytes(ckbuf, n, &control.ctx);
 			cksum_limit += n;
+			free(ckbuf);
 		}
 	}
 
@@ -606,10 +608,16 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 
 	if (st->chunk_size > cksum_limit) {
 		i64 i, n = st->chunk_size - cksum_limit;
+		uchar *ckbuf = malloc(n);
 
+		if (!ckbuf)
+			fatal("Failed to malloc ckbuf in hash_search\n");
 		for (i = 0; i < n; i++)
-			st->cksum = CrcUpdate(st->cksum, get_sb(cksum_limit + i), 1);
+			memcpy(ckbuf + i, get_sb(cksum_limit + i), 1);
+		st->cksum = CrcUpdate(st->cksum, ckbuf, n);
+		md5_process_bytes(ckbuf, n, &control.ctx);
 		cksum_limit += n;
+		free(ckbuf);
 	}
 
 	put_literal(st, 0, 0);
@@ -669,8 +677,6 @@ static void mmap_stdin(uchar *buf, struct rzip_state *st)
 		len -= ret;
 	}
 	control.st_size += total;
-	md5_process_bytes(buf, total, &control.ctx);
-	control.md5_read += total;
 }
 
 static void init_sliding_mmap(struct rzip_state *st, int fd_in, i64 offset)
@@ -743,7 +749,6 @@ void rzip_fd(int fd_in, int fd_out)
 	char md5_resblock[MD5_DIGEST_SIZE];
 
 	md5_init_ctx (&control.ctx);
-	control.md5_read = 0;
 
 	st = calloc(sizeof(*st), 1);
 	if (unlikely(!st))
@@ -847,8 +852,6 @@ retry:
 			}
 			if (st->mmap_size < st->chunk_size)
 				print_maxverbose("Enabling sliding mmap mode and using mmap of %lld bytes with window of %lld bytes\n", st->mmap_size, st->chunk_size);
-			md5_process_bytes(sb.buf_low, st->mmap_size, &control.ctx);
-			control.md5_read += st->mmap_size;
 		}
 		print_maxverbose("Succeeded in testing %lld sized mmap for rzip pre-processing\n", st->mmap_size);
 
@@ -911,23 +914,6 @@ retry:
 	}
 
 	close_streamout_threads();
-
-	if (unlikely(!STDIN && control.md5_read < sb.orig_size)) {
-		/* This happens when the low_sb buffer doesn't map the last
-		 * few bytes because it's less than one page. */
-		i64 md5_off, len, offset = control.md5_read;
-		uchar *buf;
-		round_to_page(&offset);
-		len = sb.orig_size - offset;
-		buf = (uchar *)mmap(NULL, len, PROT_READ, MAP_SHARED, sb.fd, offset);
-		if (unlikely(buf == MAP_FAILED))
-			fatal("Failed to mmap last md5 calculation in rzip_fd\n");
-		md5_off = control.md5_read - offset;
-		md5_process_bytes(buf + md5_off, len - md5_off, &control.ctx);
-print_output("\nUpdating md5 size %lld read %lld off %lld len %lld\n", sb.orig_size, control.md5_read, md5_off, len - md5_off);
-		if (unlikely(munmap(buf, len)))
-			fatal("Failed to munmap in last md5 calculation in rzip_fd\n");
-	}
 
 	md5_finish_ctx (&control.ctx, md5_resblock);
 	if (HASH_CHECK || VERBOSE) {
