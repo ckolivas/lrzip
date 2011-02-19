@@ -40,7 +40,6 @@
 # define md5_process_bytes __md5_process_bytes
 # define md5_finish_ctx __md5_finish_ctx
 # define md5_read_ctx __md5_read_ctx
-# define md5_stream __md5_stream
 # define md5_buffer __md5_buffer
 #endif
 
@@ -122,79 +121,6 @@ md5_finish_ctx (struct md5_ctx *ctx, void *resbuf)
   md5_process_block (ctx->buffer, size * 4, ctx);
 
   return md5_read_ctx (ctx, resbuf);
-}
-
-/* Compute MD5 message digest for bytes read from STREAM.  The
-   resulting message digest number will be written into the 16 bytes
-   beginning at RESBLOCK.  */
-int
-md5_stream (FILE *stream, void *resblock)
-{
-  struct md5_ctx ctx;
-  size_t sum;
-
-  char *buffer = malloc (BLOCKSIZE + 72);
-  if (!buffer)
-    return 1;
-
-  /* Initialize the computation context.  */
-  md5_init_ctx (&ctx);
-
-  /* Iterate over full file contents.  */
-  while (1)
-    {
-      /* We read the file in blocks of BLOCKSIZE bytes.  One call of the
-         computation function processes the whole buffer so that with the
-         next round of the loop another block can be read.  */
-      size_t n;
-      sum = 0;
-
-      /* Read block.  Take care for partial reads.  */
-      while (1)
-        {
-          n = fread (buffer + sum, 1, BLOCKSIZE - sum, stream);
-
-          sum += n;
-
-          if (sum == BLOCKSIZE)
-            break;
-
-          if (n == 0)
-            {
-              /* Check for the error flag IFF N == 0, so that we don't
-                 exit the loop after a partial read due to e.g., EAGAIN
-                 or EWOULDBLOCK.  */
-              if (ferror (stream))
-                {
-                  free (buffer);
-                  return 1;
-                }
-              goto process_partial_block;
-            }
-
-          /* We've read at least one byte, so ignore errors.  But always
-             check for EOF, since feof may be true even though N > 0.
-             Otherwise, we could end up calling fread after EOF.  */
-          if (feof (stream))
-            goto process_partial_block;
-        }
-
-      /* Process buffer with BLOCKSIZE bytes.  Note that
-         BLOCKSIZE % 64 == 0
-       */
-      md5_process_block (buffer, BLOCKSIZE, &ctx);
-    }
-
-process_partial_block:
-
-  /* Process any remaining bytes.  */
-  if (sum > 0)
-    md5_process_bytes (buffer, sum, &ctx);
-
-  /* Construct result in desired memory.  */
-  md5_finish_ctx (&ctx, resblock);
-  free (buffer);
-  return 0;
 }
 
 /* Compute MD5 message digest for LEN bytes beginning at BUFFER.  The
