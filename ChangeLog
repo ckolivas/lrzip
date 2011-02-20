@@ -1,4 +1,30 @@
 lrzip ChangeLog
+FEBRUARY 2011, version 0.560 Con Kolivas
+* Rewrote the locking implementation to use pthread_mutexes instead of
+semaphores. This makes multi-threading work on OSX.
+* Re-use a single malloc in unzip_match instead of multiple malloc/frees.
+* Imported the md5 code from coreutils and modified them to be used by lrzip.
+* Implemented md5 hash checking on compression and decompression by using
+buffers to pass to the existing crc checking and re-using them for the md5
+checking.
+* Sped up the hash checking on compression by not reading the whole chunk at
+once to do the hash check, and instead read one paged size chunk.
+* Store the md5 hash value at the end of the archive, maintaining backward
+compatibility with existing 0.5 versions of lrzip, and place a flag in the
+header denoting its existence.
+* Use the header flag for md5's existence to determine what hash check to
+perform on decompression.
+* Add hash value display to maximum verbose output and in information mode.
+* Add -H option to enable hash value displaying without verbose mode. 
+* Display what hash checking will be used on decompression in verbose mode and
+in information displayed with -i.
+* Add -c option to perform a hash check on the file generated on decompression,
+comparing it to that stored in the lrzip archive, or that generated on
+decompression on archives that do not have it stored.
+* Delete broken or damaged files generated on interruption or when they fail
+integrity testing by default.
+* Implement the -k option to keep broken or damaged files.
+
 FEBRUARY 2011, version 0.552 Con Kolivas
 * Fix incompressible blocks causing failure with bzip2 and gzip.
 * Freebsd doesn't do mremap, use the fake one.

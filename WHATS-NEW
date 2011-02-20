@@ -1,3 +1,22 @@
+lrzip-0.560
+
+Implemented OSX multi-threading by converting all semaphores to pthread_mutexes.
+Converted the integrity checking to also use md5 hash checking. As a bonus it
+is still backwardly compatible by still storing the crc value, and yet is
+faster on large files than the old one. On decompression it detects whether
+the md5 value has been stored and chooses what integrity checking to use.
+Implemented the -H feature which shows the md5 hash value on compression and
+decompression. It is also shown in max verbose mode.
+Added information about what integrity testing will be used in verbose mode,
+and with the -i option.
+Added the -c option which will perform a hash check on the file generated on
+disk on decompression, comparing it to that from the archive to validate the
+decompressed file.
+Modified lrzip to delete broken or damaged files when lrzip is interrupted or
+the file generated fails an integrity test.
+Added the -k keep option to keep broken or damaged files.
+Case reports of corruption have been confirmed to NOT BE DUE TO LRZIP.
+
 lrzip-0.552
 
 Fixed a potential silent corruption bug on decompression.
