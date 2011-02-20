@@ -917,7 +917,7 @@ retry:
 
 	md5_finish_ctx (&control.ctx, md5_resblock);
 	if (HASH_CHECK || VERBOSE) {
-		print_output("MD5 sum: ");
+		print_output("MD5: ");
 		for (j = 0; j < MD5_DIGEST_SIZE; j++)
 			print_output("%02x", md5_resblock[j] & 0xFF);
 		print_output("\n");
