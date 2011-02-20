@@ -23,8 +23,6 @@ Make stdin on decompression work without a temporary file.
 
 Make testing file integrity work without a temporary file.
 
-Fix darwin build since it doesn't support unnamed semamphores.
-
 Add error detection and correction with either reed-solomon or low density
 parity checking.
 

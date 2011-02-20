@@ -12,10 +12,12 @@ than bzip2).
 Quick lowdown of the most used options:
 
  lrztar directory
-This will produce an archive directory.tar.lrz compressed with lzma
+This will produce an archive directory.tar.lrz compressed with lzma (it ONLY
+works with a directory!)
 
  lrzuntar directory.tar.lrz
-This will completely extract an archived directory
+This will completely extract an archived directory (this also ONLY works with
+a directory!)
 
  lrzip filename
 This will produce an archive filename.lrz compressed with lzma (best all
@@ -101,8 +103,8 @@ Q. How do I make a static build?
 A. make static
 
 Q. I want the absolute maximum compression I can possibly get, what do I do?
-A. Try the command line options -MUzp 1. This will use all available ram and
-ZPAQ compression, and even use a compression window larger than you have ram.
+A. Try the command line options -MUzp 1 -L 9. This uses all available ram and
+ZPAQ compression, and even uses a compression window larger than you have ram.
 The -p 1 option disables multithreading which improves compression but at the
 expense of speed. Expect serious swapping to occur if your file is larger than
 your ram and for it to take many times longer.
@@ -121,7 +123,7 @@ slower. I may revisit this possibility in the future if I can make it any
 faster.
 
 Q. Can I use your tool for even more compression than lzma offers?
-A. Yes, the rzip preparation of files makes them more compressible by every
+A. Yes, the rzip preparation of files makes them more compressible by most
 other compression technique I have tried. Using the -n option will generate
 a .lrz file smaller than the original which should be more compressible, and
 since it is smaller it will compress faster than it otherwise would have.
@@ -175,7 +177,7 @@ compression which are not worth pursuing. Most of the time it is clear one way
 or the other that data is compressible or not. If you wish to disable this
 test and force it to try compressing it anyway, use -T 0.
 
-Q. I Have truckloads of ram so I can compress files much better, but can my
+Q. I have truckloads of ram so I can compress files much better, but can my
 generated file be decompressed on machines with less ram?
 A. Yes. Ram requirements for decompression go up only by the -L compression
 option with lzma and are never anywhere near as large as the compression
@@ -219,8 +221,8 @@ A. With a recent enough compiler (gcc>4) setting both CFLAGS and CXXFLAGS to
 	-O3 -march=native -fomit-frame-pointer
 
 Q. What compiler does this work with?
-A. It was been tested on gcc, ekopath and the intel compiler successfully.
-Whether the commercial compilers help or not, I could not tell you.
+A. It has been tested on gcc, ekopath and the intel compiler successfully
+previously. Whether the commercial compilers help or not, I could not tell you.
 
 Q. What codebase are you basing this on?
 A. rzip v2.1 and lzma sdk907, but it should be possible to stay in sync with
@@ -348,9 +350,10 @@ and the update to the multithreaded lzma library and all sorts of other
 features. Thanks to René Rhéaume for fixing executable stacks and
 Ed Avis for various fixes. Thanks to Matt Mahoney for zpaq code. Thanks to
 Jukka Laurila for Darwin support. Thanks to George Makrydakis for lrztar.
+Thanks to Ulrich Drepper for his md5 implementation.
 
 Con Kolivas <kernel@kolivas.org>
-Mon, 16 Nov 2010
+Mon, 21 Feb 2011
 
 Also documented by
 Peter Hyman <pete@peterhyman.com>
