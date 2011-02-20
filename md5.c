@@ -1,6 +1,8 @@
-/* -*- buffer-read-only: t -*- vi: set ro: */
-/* DO NOT EDIT! GENERATED AUTOMATICALLY! */
-/* Functions to compute MD5 message digest of files or memory blocks.
+/*
+   Copyright (C) 2011 Con Kolivas
+   Copyright (C) 1995-2011 Ulrich Drepper.
+   
+   Functions to compute MD5 message digest of files or memory blocks.
    according to the definition of MD5 in RFC 1321 from April 1992.
    Copyright (C) 1995-1997, 1999-2001, 2005-2006, 2008-2011 Free Software
    Foundation, Inc.
