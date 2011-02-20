@@ -55,6 +55,9 @@ Here is a summary of the options to lrzip\&.
   \-V            show version
   \-t            test compressed file integrity
   \-i            show compressed file information
+  \-H            display md5 hash integrity information
+  \-c            check integrity of file written on decompression
+  \-k            keep broken or damaged files
 
 If no filenames or "-" is specified, stdin/out will be used (stdin/out is
 inefficient with lrzip and not recommended usage).
@@ -193,10 +196,37 @@ to a temporary file and then deleting it.
 .IP
 .IP "\fB-i\fP"
 This shows information about a compressed file. It shows the compressed size,
-the decompressed size, the compression ratio and what compression was used.
+the decompressed size, the compression ratio, what compression was used and
+what hash checking will be used for internal integrity checking.
 Note that the compression mode is detected from the first block only and
 it will show no compression used if the first block was incompressible, even
-if later blocks were compressible.
+if later blocks were compressible. 
+.IP
+.IP "\fB-H\fP"
+This shows the md5 hash value calculated on compressing or decompressing an
+lrzip archive. By default all compression has the md5 value calculated and
+stored in all archives since version 0.560. On decompression, when an md5
+value has been found, it will be calculated and used for integrity checking.
+If the md5 value is not stored in the archive, it will not be calcuated unless
+explicitly specified with this option, or check integrity (see below) has been
+requested.
+.IP
+.IP "\fB-c\fP"
+This option enables integrity checking of the file written to disk on
+decompression. All decompression is tested internally in lrzip with either
+crc32 or md5 hash checking depending on the version of the archive already.
+However the file written to disk may be corrupted for other reasons to do with
+other userspace problems such as faulty library versions, drivers, hardware
+failure and so on. Enabling this option will make lrzip perform an md5 hash
+check on the file that's written to disk. When the archive has the md5 value
+stored in it, it is compared to this. Otherwise it is compard to the value
+calculated during decompression. This offers an extra guarantee that the file
+written is the same as the original archived.
+.IP
+.IP "\fB-k\fP"
+This option will keep broken or damaged files instead of deleting them.
+When compression or decompression is interrupted either by user or error, or
+a file decompressed fails an integrity check, it is normally deleted by LRZIP.
 .IP
 .PP
 .SH "INSTALLATION"
@@ -262,8 +292,7 @@ with increasing ram sizes.
 .PP
 .SH "BUGS"
 .PP
-Rare reports of corruption on decompression of archives larger than 20GB.
-Checking the output always with md5sum or equivalent is suggested.
+Nil known.
 
 .PP
 .SH "SEE ALSO"

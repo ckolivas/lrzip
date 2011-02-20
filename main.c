@@ -52,7 +52,7 @@ static void usage(void)
 	print_output("     -V            show version\n");
 	print_output("     -t            test compressed file integrity\n");
 	print_output("     -i            show compressed file information\n");
-	print_output("     -H            display md5 Hash integrity information\n");
+	print_output("     -H            display md5 hash integrity information\n");
 	print_output("     -c            check integrity of file written on decompression\n");
 	print_output("     -k            keep broken or damaged output files\n");
 	print_output("\nIf no filenames or \"-\" is specified, stdin/out will be used.\n");
