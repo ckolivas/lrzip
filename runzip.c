@@ -282,10 +282,10 @@ i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 			int i, j;
 
 			memcpy(md5_stored, md5_resblock, MD5_DIGEST_SIZE);
-			if (unlikely(lseek(fd_out, 0, SEEK_SET) == -1))
-				fatal("Failed to lseek fd_out in runzip_fd\n");
-			if (unlikely((md5_fstream = fdopen(fd_out, "r")) == NULL))
-				fatal("Failed to fdopen fd_out in runzip_fd\n");
+			if (unlikely(lseek(fd_hist, 0, SEEK_SET) == -1))
+				fatal("Failed to lseek fd_hist in runzip_fd\n");
+			if (unlikely((md5_fstream = fdopen(fd_hist, "r")) == NULL))
+				fatal("Failed to fdopen fd_hist in runzip_fd\n");
 			if (unlikely(md5_stream(md5_fstream, md5_resblock)))
 				fatal("Failed to md5_stream in runzip_fd\n");
 			/* We dont' close the file here as it's closed in main */
