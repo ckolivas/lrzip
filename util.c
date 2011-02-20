@@ -1,5 +1,6 @@
 /*
-   Copyright (C) 2006-2010 Con Kolivas
+   Copyright (C) 2006-2011 Con Kolivas
+   Copyright (C) 2008 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
    This program is free software; you can redistribute it and/or modify
@@ -42,7 +43,7 @@ void fatal(const char *format, ...)
 	}
 
 	/* Delete temporary files generated for testing or faking stdio */
-	if (TEST_ONLY || STDOUT)
+	if (TEST_ONLY || STDOUT || !KEEP_BROKEN)
 		unlink(control.outfile);
 
 	if (DECOMPRESS && STDIN)
@@ -56,7 +57,7 @@ void fatal(const char *format, ...)
 void sighandler()
 {
 	/* Delete temporary files generated for testing or faking stdio */
-	if (TEST_ONLY || STDOUT)
+	if (TEST_ONLY || STDOUT || !KEEP_BROKEN)
 		unlink(control.outfile);
 
 	if (DECOMPRESS && STDIN)

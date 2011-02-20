@@ -54,6 +54,7 @@ static void usage(void)
 	print_output("     -i            show compressed file information\n");
 	print_output("     -H            display md5 Hash integrity information\n");
 	print_output("     -c            check integrity of file written on decompression\n");
+	print_output("     -k            keep broken or damaged output files\n");
 	print_output("\nIf no filenames or \"-\" is specified, stdin/out will be used.\n");
 }
 
@@ -606,7 +607,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(&control);
 
-	while ((c = getopt(argc, argv, "L:hdS:tVvDfqo:w:nlbMUO:T:N:p:gziHc")) != -1) {
+	while ((c = getopt(argc, argv, "L:hdS:tVvDfqo:w:nlbMUO:T:N:p:gziHck")) != -1) {
 		switch (c) {
 		case 'L':
 			control.compression_level = atoi(optarg);
@@ -726,6 +727,9 @@ int main(int argc, char *argv[])
 		case 'c':
 			control.flags |= FLAG_CHECK;
 			control.flags |= FLAG_HASH;
+			break;
+		case 'k':
+			control.flags |= FLAG_KEEP_BROKEN;
 			break;
 		case 'h':
 			usage();
