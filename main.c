@@ -53,6 +53,7 @@ static void usage(void)
 	print_output("     -t            test compressed file integrity\n");
 	print_output("     -i            show compressed file information\n");
 	print_output("     -H            display md5 Hash integrity information\n");
+	print_output("     -c            check integrity of file written on decompression\n");
 	print_output("\nIf no filenames or \"-\" is specified, stdin/out will be used.\n");
 }
 
@@ -605,7 +606,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(&control);
 
-	while ((c = getopt(argc, argv, "L:hdS:tVvDfqo:w:nlbMUO:T:N:p:gziH")) != -1) {
+	while ((c = getopt(argc, argv, "L:hdS:tVvDfqo:w:nlbMUO:T:N:p:gziHc")) != -1) {
 		switch (c) {
 		case 'L':
 			control.compression_level = atoi(optarg);
@@ -722,6 +723,10 @@ int main(int argc, char *argv[])
 		case 'H':
 			control.flags |= FLAG_HASH;
 			break;
+		case 'c':
+			control.flags |= FLAG_CHECK;
+			control.flags |= FLAG_HASH;
+			break;
 		case 'h':
 			usage();
 			return -1;
@@ -746,6 +751,9 @@ int main(int argc, char *argv[])
 		print_err("Cannot have -U and stdin, unlimited mode disabled.\n");
 		control.flags &= ~ FLAG_UNLIMITED;
 	}
+
+	if (CHECK_FILE && (!DECOMPRESS || !TEST_ONLY))
+		print_err("Can only check file written on decompression or testing.\n");
 
 	/* OK, if verbosity set, print summary of options selected */
 	if (!INFO) {

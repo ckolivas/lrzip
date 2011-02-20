@@ -276,6 +276,35 @@ i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 				print_output("%02x", md5_resblock[i] & 0xFF);
 			print_output("\n");
 		}
+
+		if (CHECK_FILE) {
+			FILE *md5_fstream;
+			int i, j;
+
+			memcpy(md5_stored, md5_resblock, MD5_DIGEST_SIZE);
+			if (unlikely(lseek(fd_out, 0, SEEK_SET) == -1))
+				fatal("Failed to lseek fd_out in runzip_fd\n");
+			if (unlikely((md5_fstream = fdopen(fd_out, "r")) == NULL))
+				fatal("Failed to fdopen fd_out in runzip_fd\n");
+			if (unlikely(md5_stream(md5_fstream, md5_resblock)))
+				fatal("Failed to md5_stream in runzip_fd\n");
+			/* We dont' close the file here as it's closed in main */
+			for (i = 0; i < MD5_DIGEST_SIZE; i++)
+				if (md5_stored[i] != md5_resblock[i]) {
+					print_output("MD5 CHECK FAILED.\nStored:");
+					for (j = 0; j < MD5_DIGEST_SIZE; j++)
+						print_output("%02x", md5_stored[j] & 0xFF);
+					print_output("\nOutput file:");
+					for (j = 0; j < MD5_DIGEST_SIZE; j++)
+						print_output("%02x", md5_resblock[j] & 0xFF);
+					fatal("\n");
+				}
+			print_output("MD5 integrity of written file matches archive\n");
+			if (!HAS_MD5)
+				print_output("Note this lrzip archive did not have a stored md5 value.\n"
+				"The archive decompression was validated with crc32 and the md5 hash was "
+				"calculated on decompression\n");
+		}
 	}
 
 	return total;
