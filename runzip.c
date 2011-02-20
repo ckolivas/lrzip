@@ -82,8 +82,10 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 	if (unlikely(write_1g(fd_out, buf, (size_t)stream_read) != (ssize_t)stream_read))
 		fatal("Failed to write literal buffer of size %lld\n", stream_read);
 
-	*cksum = CrcUpdate(*cksum, buf, stream_read);
-	md5_process_bytes(buf, stream_read, &control.ctx);
+	if (!HAS_MD5)
+		*cksum = CrcUpdate(*cksum, buf, stream_read);
+	if (!NO_MD5)
+		md5_process_bytes(buf, stream_read, &control.ctx);
 
 	free(buf);
 	return stream_read;
@@ -122,8 +124,10 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 		if (unlikely(write_1g(fd_out, off_buf, (size_t)n) != (ssize_t)n))
 			fatal("Failed to write %d bytes in unzip_match\n", n);
 
-		*cksum = CrcUpdate(*cksum, off_buf, n);
-		md5_process_bytes(off_buf, n, &control.ctx);
+		if (!HAS_MD5)
+			*cksum = CrcUpdate(*cksum, off_buf, n);
+		if (!NO_MD5)
+			md5_process_bytes(off_buf, n, &control.ctx);
 
 		len -= n;
 		off_buf += n;
@@ -211,9 +215,12 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 		}
 	}
 
-	good_cksum = read_u32(ss, 0);
-	if (unlikely(good_cksum != cksum))
-		fatal("Bad checksum 0x%08x - expected 0x%08x\n", cksum, good_cksum);
+	if (!HAS_MD5) {
+		good_cksum = read_u32(ss, 0);
+		if (unlikely(good_cksum != cksum))
+			fatal("Bad checksum: 0x%08x - expected: 0x%08x\n", cksum, good_cksum);
+		print_maxverbose("Checksum for block: 0x%08x\n", cksum);
+	}
 
 	if (unlikely(close_stream_in(ss)))
 		fatal("Failed to close stream!\n");
@@ -227,11 +234,12 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 {
 	char md5_resblock[MD5_DIGEST_SIZE];
+	char md5_stored[MD5_DIGEST_SIZE];
 	struct timeval start,end;
 	i64 total = 0;
-	int j;
 
-	md5_init_ctx (&control.ctx);
+	if (!NO_MD5)
+		md5_init_ctx (&control.ctx);
 	gettimeofday(&start,NULL);
 
 	while (total < expected_size)
@@ -241,12 +249,33 @@ i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 	print_progress("\nAverage DeCompression Speed: %6.3fMB/s\n",
 			(total / 1024 / 1024) / (double)((end.tv_sec-start.tv_sec)? : 1));
 
-	md5_finish_ctx (&control.ctx, md5_resblock);
-	if (HASH_CHECK || VERBOSE) {
-		print_output("MD5: ");
-		for (j = 0; j < MD5_DIGEST_SIZE; j++)
-			print_output("%02x", md5_resblock[j] & 0xFF);
-		print_output("\n");
+	if (!NO_MD5) {
+		int i,j;
+
+		md5_finish_ctx (&control.ctx, md5_resblock);
+		if (HAS_MD5) {
+			if (unlikely(lseek(fd_in, -MD5_DIGEST_SIZE, SEEK_END)) == -1)
+				fatal("Failed to seek to md5 data in runzip_fd\n");
+			if (unlikely(read(fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
+				fatal("Failed to read md5 data in runzip_fd\n");
+			for (i = 0; i < MD5_DIGEST_SIZE; i++)
+				if (md5_stored[i] != md5_resblock[i]) {
+					print_output("MD5 CHECK FAILED.\nStored:");
+					for (j = 0; j < MD5_DIGEST_SIZE; j++)
+						print_output("%02x", md5_stored[j] & 0xFF);
+					print_output("\nOutput file:");
+					for (j = 0; j < MD5_DIGEST_SIZE; j++)
+						print_output("%02x", md5_resblock[j] & 0xFF);
+					fatal("\n");
+				}
+		}
+
+		if (HASH_CHECK || MAX_VERBOSE) {
+			print_output("MD5: ");
+			for (i = 0; i < MD5_DIGEST_SIZE; i++)
+				print_output("%02x", md5_resblock[i] & 0xFF);
+			print_output("\n");
+		}
 	}
 
 	return total;

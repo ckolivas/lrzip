@@ -78,6 +78,12 @@ static void write_magic(int fd_in, int fd_out)
 			magic[i + 16] = (char)control.lzma_properties[i];
 	}
 
+	/* This is a flag that the archive contains an md5 sum at the end
+	 * which can be used as an integrity check instead of crc check.
+	 * crc is still stored for compatibility with 0.5 versions.
+	 */
+	magic[21] = 1;
+
 	if (unlikely(lseek(fd_out, 0, SEEK_SET)))
 		fatal("Failed to seek to BOF to write Magic Header\n");
 
@@ -89,7 +95,7 @@ static void read_magic(int fd_in, i64 *expected_size)
 {
 	char magic[24];
 	uint32_t v;
-	int i;
+	int md5, i;
 
 	if (unlikely(read(fd_in, magic, sizeof(magic)) != sizeof(magic)))
 		fatal("Failed to read magic header\n");
@@ -116,6 +122,12 @@ static void read_magic(int fd_in, i64 *expected_size)
 		for (i = 0; i < 5; i++)
 			control.lzma_properties[i] = magic[i + 16];
 	}
+
+	/* Whether this archive contains md5 data at the end or not */
+	md5 = magic[21];
+	if (md5 == 1)
+		control.flags |= FLAG_MD5;
+
 	print_verbose("Detected lrzip version %d.%d file.\n", control.major_version, control.minor_version);
 	if (control.major_version > LRZIP_MAJOR_VERSION ||
 	    (control.major_version == LRZIP_MAJOR_VERSION && control.minor_version > LRZIP_MINOR_VERSION))
@@ -300,6 +312,14 @@ static void decompress_file(void)
 		fatal("Failed to open history file %s\n", control.outfile);
 
 	read_magic(fd_in, &expected_size);
+	if (NO_MD5)
+		print_verbose("Not performing MD5 hash check\n");
+	if (HAS_MD5)
+		print_verbose("MD5 ");
+	else
+		print_verbose("CRC32 ");
+	print_verbose("being used for integrity testing.\n");
+
 	print_progress("Decompressing...");
 
 	runzip_fd(fd_in, fd_out, fd_hist, expected_size);
@@ -411,6 +431,21 @@ static void get_fileinfo(void)
 	print_output("Decompressed file size: %llu\n", expected_size);
 	print_output("Compressed file size: %llu\n", infile_size);
 	print_output("Compression ratio: %.3Lf\n", cratio);
+	if (HAS_MD5) {
+		char md5_stored[MD5_DIGEST_SIZE];
+		int i;
+
+		print_output("MD5 used for integrity testing\n");
+		if (unlikely(lseek(fd_in, -MD5_DIGEST_SIZE, SEEK_END)) == -1)
+			fatal("Failed to seek to md5 data in runzip_fd\n");
+		if (unlikely(read(fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
+			fatal("Failed to read md5 data in runzip_fd\n");
+		print_output("MD5: ");
+		for (i = 0; i < MD5_DIGEST_SIZE; i++)
+			print_output("%02x", md5_stored[i] & 0xFF);
+		print_output("\n");
+	} else
+		print_output("CRC32 used for integrity testing\n");
 
 	if (STDIN) {
 		if (unlikely(unlink(control.infile)))

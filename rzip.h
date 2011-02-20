@@ -213,6 +213,7 @@ static inline i64 get_ram(void)
 #define FLAG_MAXRAM		(1 << 15)
 #define FLAG_UNLIMITED		(1 << 16)
 #define FLAG_HASH		(1 << 17)
+#define FLAG_MD5		(1 << 18)
 
 #define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
 #define FLAG_NOT_LZMA (FLAG_NO_COMPRESS | FLAG_LZO_COMPRESS | FLAG_BZIP2_COMPRESS | FLAG_ZLIB_COMPRESS | FLAG_ZPAQ_COMPRESS)
@@ -237,6 +238,9 @@ static inline i64 get_ram(void)
 #define MAXRAM		(control.flags & FLAG_MAXRAM)
 #define UNLIMITED	(control.flags & FLAG_UNLIMITED)
 #define HASH_CHECK	(control.flags & FLAG_HASH)
+#define HAS_MD5		(control.flags & FLAG_MD5)
+
+#define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
 #define BITS32		(sizeof(long) == 4)
 
