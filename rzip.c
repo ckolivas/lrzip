@@ -586,7 +586,7 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 		}
 
 		if (p > (i64)cksum_limit) {
-			i64 i, n = st->chunk_size - p;
+			i64 i, n = MIN(st->chunk_size - p, control.page_size);
 			uchar *ckbuf = malloc(n);
 
 			if (!ckbuf)
