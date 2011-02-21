@@ -32,6 +32,16 @@
 
 #include "rzip.h"
 
+static void unlink_files(void)
+{
+	/* Delete temporary files generated for testing or faking stdio */
+	if (TEST_ONLY || STDOUT || !KEEP_BROKEN)
+		unlink(control.outfile);
+
+	if ((DECOMPRESS || TEST_ONLY) && STDIN)
+		unlink(control.infile);
+}
+
 void fatal(const char *format, ...)
 {
 	va_list ap;
@@ -42,13 +52,7 @@ void fatal(const char *format, ...)
 		va_end(ap);
 	}
 
-	/* Delete temporary files generated for testing or faking stdio */
-	if (TEST_ONLY || STDOUT || !KEEP_BROKEN)
-		unlink(control.outfile);
-
-	if (DECOMPRESS && STDIN)
-		unlink(control.infile);
-
+	unlink_files();
 	perror(NULL);
 	print_output("Fatal error - exiting\n");
 	exit(1);
@@ -56,13 +60,7 @@ void fatal(const char *format, ...)
 
 void sighandler()
 {
-	/* Delete temporary files generated for testing or faking stdio */
-	if (TEST_ONLY || STDOUT || !KEEP_BROKEN)
-		unlink(control.outfile);
-
-	if (DECOMPRESS && STDIN)
-		unlink(control.infile);
-
+	unlink_files();
 	exit(0);
 }
 
