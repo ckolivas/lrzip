@@ -1,6 +1,6 @@
 /*
    Copyright (C) 2006-2011 Con Kolivas
-   Copyright (C) 2008 Peter Hyman
+   Copyright (C) 2008, 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
    This program is free software; you can redistribute it and/or modify
@@ -42,6 +42,13 @@ static void unlink_files(void)
 		unlink(control.infile);
 }
 
+static void fatal_exit(void)
+{
+	unlink_files();
+	print_output("Fatal error - exiting\n");
+	exit(1);
+}
+
 /* Failure when there is likely to be a meaningful error in perror */
 void fatal(const char *format, ...)
 {
@@ -53,10 +60,8 @@ void fatal(const char *format, ...)
 		va_end(ap);
 	}
 
-	unlink_files();
 	perror(NULL);
-	print_output("Fatal error - exiting\n");
-	exit(1);
+	fatal_exit();
 }
 
 void failure(const char *format, ...)
@@ -69,9 +74,7 @@ void failure(const char *format, ...)
 		va_end(ap);
 	}
 
-	unlink_files();
-	print_output("Fatal error - exiting\n");
-	exit(1);
+	fatal_exit();
 }
 
 void sighandler()

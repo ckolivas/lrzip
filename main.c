@@ -1,5 +1,6 @@
 /*
    Copyright (C) 2006-2011 Con Kolivas
+   Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
    This program is free software; you can redistribute it and/or modify
@@ -23,10 +24,10 @@ struct rzip_control control;
 static void usage(void)
 {
 	print_output("lrzip version %d.%d%d\n", LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
-	print_output("Copyright (C) Con Kolivas 2006-2011\n\n");
+	print_output("Copyright (C) Con Kolivas 2006-2011\n");
 	print_output("Based on rzip ");
-	print_output("Copyright (C) Andrew Tridgell 1998-2003\n");
-	print_output("usage: lrzip [options] <file...>\n");
+	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
+	print_output("Usage: lrzip [options] <file...>\n");
 	print_output("General options:\n");
 	print_output("     -c            check integrity of file written on decompression\n");
 	print_output("     -d            decompress\n");
