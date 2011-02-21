@@ -83,6 +83,13 @@ void sighandler()
 	exit(0);
 }
 
+void round_to_page(i64 *size)
+{
+	*size -= *size % control.page_size;
+	if (unlikely(!*size))
+		*size = control.page_size;
+}
+
 void read_config( struct rzip_control *control )
 {
 	/* check for lrzip.conf in ., $HOME/.lrzip and /etc/lrzip */

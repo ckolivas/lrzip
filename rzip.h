@@ -301,9 +301,11 @@ struct stream_info {
 	int num_streams;
 	int fd;
 	i64 bufsize;
+	i64 max_bufsize;
 	i64 cur_pos;
 	i64 initial_pos;
 	i64 total_read;
+	i64 ram_alloced;
 	long thread_no;
 	long next_thread;
 	int chunks;
@@ -328,6 +330,7 @@ void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, 
 const i64 two_gig;
 void prepare_streamout_threads(void);
 void close_streamout_threads(void);
+void round_to_page(i64 *size);
 
 #define print_err(format, args...)	do {\
 	fprintf(stderr, format, ##args);	\
