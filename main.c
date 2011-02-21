@@ -55,7 +55,11 @@ static void usage(void)
 	print_output("     -H            display md5 hash integrity information\n");
 	print_output("     -c            check integrity of file written on decompression\n");
 	print_output("     -k            keep broken or damaged output files\n");
+	print_output("LRZIP=NOCONFIG environment variable setting can be used to bypass lrzip.conf.\n");
+	print_output("TMP environment variable will be used for storage of temporary files when needed.\n\
+TMPDIR may also be stored in lrzip.conf file.\n");
 	print_output("\nIf no filenames or \"-\" is specified, stdin/out will be used.\n");
+
 }
 
 static void write_magic(int fd_in, int fd_out)
@@ -158,10 +162,18 @@ static int open_tmpoutfile(void)
 
 	if (STDOUT)
 		print_verbose("Outputting to stdout.\n");
-	control.outfile = realloc(NULL, 16);
-	strcpy(control.outfile, "lrzipout.XXXXXX");
-	if (unlikely(!control.outfile))
-		fatal("Failed to allocate outfile name\n");
+	if (control.tmpdir) {
+		control.outfile = realloc(NULL, strlen(control.tmpdir)+16);
+		if (unlikely(!control.outfile))
+			fatal("Failed to allocate outfile name\n");
+		strcpy(control.outfile, control.tmpdir);
+		strcat(control.outfile, "lrzipout.XXXXXX");
+	} else {
+		control.outfile = realloc(NULL, 16);
+		if (unlikely(!control.outfile))
+			fatal("Failed to allocate outfile name\n");
+		strcpy(control.outfile, "lrzipout.XXXXXX");
+	}
 
 	fd_out = mkstemp(control.outfile);
 	if (unlikely(fd_out == -1))
@@ -194,10 +206,18 @@ static int open_tmpinfile(void)
 {
 	int fd_in;
 
-	control.infile = malloc(15);
-	strcpy(control.infile, "lrzipin.XXXXXX");
-	if (unlikely(!control.infile))
-		fatal("Failed to allocate infile name\n");
+	if (control.tmpdir) {
+		control.infile = malloc(strlen(control.tmpdir)+15);
+		if (unlikely(!control.infile))
+			fatal("Failed to allocate infile name\n");
+		strcpy(control.infile, control.tmpdir);
+		strcat(control.infile, "lrzipin.XXXXXX");
+	} else {
+		control.infile = malloc(15);
+		if (unlikely(!control.infile))
+			fatal("Failed to allocate infile name\n");
+		strcpy(control.infile, "lrzipin.XXXXXX");
+	}
 
 	fd_in = mkstemp(control.infile);
 	if (unlikely(fd_in == -1))
@@ -570,6 +590,7 @@ int main(int argc, char *argv[])
 	int c, i;
 	int hours,minutes;
 	extern int optind;
+	i64 temp_chunk, temp_window; /* to show heurisitic computed values */
 	char *eptr; /* for environment */
 
 	memset(&control, 0, sizeof(control));
@@ -578,6 +599,7 @@ int main(int argc, char *argv[])
 	control.flags = FLAG_SHOW_PROGRESS | FLAG_KEEP_FILES;
 	control.suffix = ".lrz";
 	control.outdir = NULL;
+	control.tmpdir = NULL;
 
 	if (strstr(argv[0], "lrunzip"))
 		control.flags |= FLAG_DECOMPRESS;
@@ -596,88 +618,92 @@ int main(int argc, char *argv[])
 	/* generate crc table */
 	CrcGenerateTable();
 
+	/* Get Temp Dir */
+	eptr = getenv("TMP");
+	if (eptr != NULL) {
+		control.tmpdir = malloc(strlen(eptr)+2);
+		if (control.tmpdir == NULL)
+			fatal("Failed to allocate for tmpdir\n");
+		strcpy(control.tmpdir, eptr);
+		if (strcmp(eptr+strlen(eptr) - 1, "/")) 	/* need a trailing slash */
+			strcat(control.tmpdir, "/");
+	}
+
 	/* Get Preloaded Defaults from lrzip.conf
 	 * Look in ., $HOME/.lrzip/, /etc/lrzip.
 	 * If LRZIP=NOCONFIG is set, then ignore config
 	 */
-
 	eptr = getenv("LRZIP");
 	if (eptr == NULL)
 		read_config(&control);
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(&control);
 
-	while ((c = getopt(argc, argv, "L:hdS:tVvDfqo:w:nlbMUO:T:N:p:gziHck")) != -1) {
+	while ((c = getopt(argc, argv, "L:h?dS:tVvDfqo:w:nlbMUO:T:N:p:gziHck")) != -1) {
 		switch (c) {
-		case 'L':
-			control.compression_level = atoi(optarg);
-			if (control.compression_level < 1 || control.compression_level > 9)
-				fatal("Invalid compression level (must be 1-9)\n");
+		case 'b':
+			if (control.flags & FLAG_NOT_LZMA)
+				fatal("Can only use one of -l, -b, -g, -z or -n\n");
+			control.flags |= FLAG_BZIP2_COMPRESS;
 			break;
-		case 'w':
-			control.window = atol(optarg);
+		case 'c':
+			control.flags |= FLAG_CHECK;
+			control.flags |= FLAG_HASH;
 			break;
 		case 'd':
 			control.flags |= FLAG_DECOMPRESS;
 			break;
-		case 'S':
-			control.suffix = optarg;
-			break;
-		case 'o':
-			if (control.outdir)
-				fatal("Cannot have -o and -O together\n");
-			control.outname = optarg;
+		case 'D':
+			control.flags &= ~FLAG_KEEP_FILES;
 			break;
 		case 'f':
 			control.flags |= FLAG_FORCE_REPLACE;
 			break;
-		case 'D':
-			control.flags &= ~FLAG_KEEP_FILES;
+		case 'g':
+			if (control.flags & FLAG_NOT_LZMA)
+				fatal("Can only use one of -l, -b, -g, -z or -n\n");
+			control.flags |= FLAG_ZLIB_COMPRESS;
 			break;
-		case 't':
-			if (control.outname)
-				fatal("Cannot specify an output file name when just testing.\n");
-			if (!KEEP_FILES)
-				fatal("Doubt that you want to delete a file when just testing.\n");
-			control.flags |= FLAG_TEST_ONLY;
+		case 'h':
+		case '?':
+			usage();
+			return -1;
+		case 'H':
+			control.flags |= FLAG_HASH;
 			break;
-		case 'v':
-			/* set verbosity flag */
-			if (!(control.flags & FLAG_VERBOSITY) && !(control.flags & FLAG_VERBOSITY_MAX))
-				control.flags |= FLAG_VERBOSITY;
-			else if ((control.flags & FLAG_VERBOSITY)) {
-				control.flags &= ~FLAG_VERBOSITY;
-				control.flags |= FLAG_VERBOSITY_MAX;
-			}
+		case 'i':
+			control.flags |= FLAG_INFO;
 			break;
-		case 'q':
-			control.flags &= ~FLAG_SHOW_PROGRESS;
-			break;
-		case 'V':
-			print_output("lrzip version %d.%d%d\n",
-				LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
-			exit(0);
+		case 'k':
+			control.flags |= FLAG_KEEP_BROKEN;
 			break;
 		case 'l':
 			if (control.flags & FLAG_NOT_LZMA)
 				fatal("Can only use one of -l, -b, -g, -z or -n\n");
 			control.flags |= FLAG_LZO_COMPRESS;
 			break;
-		case 'b':
-			if (control.flags & FLAG_NOT_LZMA)
-				fatal("Can only use one of -l, -b, -g, -z or -n\n");
-			control.flags |= FLAG_BZIP2_COMPRESS;
+		case 'L':
+			control.compression_level = atoi(optarg);
+			if (control.compression_level < 1 || control.compression_level > 9)
+				fatal("Invalid compression level (must be 1-9)\n");
+			break;
+		case 'M':
+			control.flags |= FLAG_MAXRAM;
 			break;
 		case 'n':
 			if (control.flags & FLAG_NOT_LZMA)
 				fatal("Can only use one of -l, -b, -g, -z or -n\n");
 			control.flags |= FLAG_NO_COMPRESS;
 			break;
-		case 'M':
-			control.flags |= FLAG_MAXRAM;
+		case 'N':
+			control.nice_val = atoi(optarg);
+			if (control.nice_val < -20 || control.nice_val > 19)
+				fatal("Invalid nice value (must be -20..19)\n");
 			break;
-		case 'U':
-			control.flags |= FLAG_UNLIMITED;
+		case 'o':
+			if (control.outdir)
+				fatal("Cannot have -o and -O together\n");
+			control.outname = optarg;
 			break;
 		case 'O':
 			if (control.outname)	/* can't mix -o and -O */
@@ -689,6 +715,24 @@ int main(int argc, char *argv[])
 			if (strcmp(optarg+strlen(optarg) - 1, "/")) 	/* need a trailing slash */
 				strcat(control.outdir, "/");
 			break;
+		case 'p':
+			control.threads = atoi(optarg);
+			if (control.threads < 1)
+				fatal("Must have at least one thread\n");
+			break;
+		case 'q':
+			control.flags &= ~FLAG_SHOW_PROGRESS;
+			break;
+		case 'S':
+			control.suffix = optarg;
+			break;
+		case 't':
+			if (control.outname)
+				fatal("Cannot specify an output file name when just testing.\n");
+			if (!KEEP_FILES)
+				fatal("Doubt that you want to delete a file when just testing.\n");
+			control.flags |= FLAG_TEST_ONLY;
+			break;
 		case 'T':
 			/* invert argument, a threshold of 1 means that the compressed result can be
 			 * 90%-100% of the sample size
@@ -698,42 +742,31 @@ int main(int argc, char *argv[])
 				fatal("Threshold value must be between 0 and 10\n");
 			control.threshold = 1.05 - control.threshold / 20;
 			break;
-		case 'N':
-			control.nice_val = atoi(optarg);
-			if (control.nice_val < -20 || control.nice_val > 19)
-				fatal("Invalid nice value (must be -20..19)\n");
+		case 'U':
+			control.flags |= FLAG_UNLIMITED;
 			break;
-		case 'g':
-			if (control.flags & FLAG_NOT_LZMA)
-				fatal("Can only use one of -l, -b, -g, -z or -n\n");
-			control.flags |= FLAG_ZLIB_COMPRESS;
+		case 'v':
+			/* set verbosity flag */
+			if (!(control.flags & FLAG_VERBOSITY) && !(control.flags & FLAG_VERBOSITY_MAX))
+				control.flags |= FLAG_VERBOSITY;
+			else if ((control.flags & FLAG_VERBOSITY)) {
+				control.flags &= ~FLAG_VERBOSITY;
+				control.flags |= FLAG_VERBOSITY_MAX;
+			}
 			break;
-		case 'p':
-			control.threads = atoi(optarg);
-			if (control.threads < 1)
-				fatal("Must have at least one thread\n");
+		case 'V':
+			print_output("lrzip version %d.%d%d\n",
+				LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
+			exit(0);
+			break;
+		case 'w':
+			control.window = atol(optarg);
 			break;
 		case 'z':
 			if (control.flags & FLAG_NOT_LZMA)
 				fatal("Can only use one of -l, -b, -g, -z or -n\n");
 			control.flags |= FLAG_ZPAQ_COMPRESS;
 			break;
-		case 'i':
-			control.flags |= FLAG_INFO;
-			break;
-		case 'H':
-			control.flags |= FLAG_HASH;
-			break;
-		case 'c':
-			control.flags |= FLAG_CHECK;
-			control.flags |= FLAG_HASH;
-			break;
-		case 'k':
-			control.flags |= FLAG_KEEP_BROKEN;
-			break;
-		case 'h':
-			usage();
-			return -1;
 		}
 	}
 
@@ -748,6 +781,16 @@ int main(int argc, char *argv[])
 		control.flags |= FLAG_SHOW_PROGRESS;
 	}
 
+	/* perform checks on MAXRAM, UNLIMITED, and control.window */
+	if (MAXRAM && UNLIMITED) {
+		print_err("Cannot have -U and -M, MAX window disabled.\n");
+		control.flags ^= MAXRAM;
+	}
+	if ((MAXRAM || UNLIMITED) && control.window) {
+		print_err("If -M or -U used, cannot specify a window size with -w.\n");
+		control.window = 0;
+	}
+
 	if (argc < 1)
 		control.flags |= FLAG_STDIN;
 
@@ -758,6 +801,10 @@ int main(int argc, char *argv[])
 
 	if (CHECK_FILE && (!DECOMPRESS || !TEST_ONLY))
 		print_err("Can only check file written on decompression or testing.\n");
+
+	/* Decrease usable ram size on 32 bits due to kernel/userspace split */
+	if (BITS32)
+		control.ramsize = MAX(control.ramsize - 900000000ll, 900000000ll);
 
 	/* OK, if verbosity set, print summary of options selected */
 	if (!INFO) {
@@ -782,6 +829,8 @@ int main(int argc, char *argv[])
 			print_verbose("Output Filename Specified: %s\n", control.outname);
 		if (TEST_ONLY)
 			print_verbose("Test file integrity\n");
+		if (control.tmpdir)
+			print_verbose("Temporary Directory set as: %s\n", control.tmpdir);
 
 		/* show compression options */
 		if (!DECOMPRESS && !TEST_ONLY) {
@@ -801,16 +850,24 @@ int main(int argc, char *argv[])
 				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
 			else if (NO_COMPRESS)
 				print_verbose("RZIP pre-processing only\n");
-			if (control.window) {
+			if (control.window) 
 				print_verbose("Compression Window: %lld = %lldMB\n", control.window, control.window * 100ull);
-				print_verbose("Compression Level: %d\n", control.compression_level);
+			/* show heuristically computed window size */
+			if (!control.window && !UNLIMITED) {
+				if (MAXRAM && !STDIN)
+					temp_chunk = control.ramsize / 2 * 3;
+				else
+					temp_chunk = control.ramsize / 3 * 2;
+				temp_window = temp_chunk / (100 * 1024 * 1024); 
+				print_verbose("Heuristically Computed Compression Window: %lld = %lldMB\n", temp_window, temp_window * 100ull);
 			}
+			if (MAXRAM)
+				print_verbose("Using all available RAM for Window size\n");
+			if (UNLIMITED)
+				print_verbose("Using Unlimited Window size\n");
 		}
 	}
 
-	/* Decrease usable ram size on 32 bits due to kernel/userspace split */
-	if (BITS32)
-		control.ramsize = MAX(control.ramsize - 900000000ll, 900000000ll);
 
 	/* Set the main nice value to half that of the backend threads since
 	 * the rzip stage is usually the rate limiting step */

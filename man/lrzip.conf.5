@@ -26,7 +26,11 @@ beginning with a \fB#\fP or that is blank will be ignored\&.
 WINDOW = 5
 # Compression Level 1-9 (7 Default).
 COMPRESSIONLEVEL = 7
-# Compression Method, rzip, gzip, bzip2, lzo, or lzma (default).
+# Unlimited Ram Compression
+# UNLIMITED = YES
+# Use Maximum Ram
+# MAXRAM = YES
+# Compression Method, rzip, gzip, bzip2, lzo, or lzma (default), zpaq.
 COMPRESSIONMETHOD = lzma
 # Test Threshold value 1-10 (2 Default).
 TESTTHRESHOLD = 2
@@ -47,6 +51,9 @@ NICE = 19
 # this parameter and value are case sensitive
 # value must be YES to activate
 # REPLACEFILE = NO
+
+# Select Temporary Directory when stdin/stdout or Test file is used
+TMPDIR = /tmp
 .fi
 .PP
 .SH "NOTES"

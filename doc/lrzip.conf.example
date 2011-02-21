@@ -3,33 +3,39 @@
 # valid parameters are separated with an = and a value
 # parameters and values are not case sensitive
 # 
-# lrzip 0.24, peter hyman, pete@peterhyman.com
+# lrzip 0.24+, peter hyman, pete@peterhyman.com
 # ignored by earlier versions.
 
 # Compression Window size in 100MB. Normally selected by program.
-WINDOW = 5
+# WINDOW = 20
 
 # Compression Level 1-9 (7 Default).
-COMPRESSIONLEVEL = 7
+# COMPRESSIONLEVEL = 7
 
-# Compression Method, rzip, gzip, bzip2, lzo, or lzma (default).
+# Use -U setting, Unlimited ram. Yes or No
+# UNLIMITED = NO
+
+# Use -M setting, Maximum ram. Yes or No
+# MAXRAM = NO
+
+# Compression Method, rzip, gzip, bzip2, lzo, or lzma (default), or zpaq.
 # If specified here, command line options not usable.
-# COMPRESSIONMETHOD = lzo 
+# COMPRESSIONMETHOD = lzma
 
 # Test Threshold value 1-10 (2 Default).
-TESTTHRESHOLD = 2
+# TESTTHRESHOLD = 2
 
 # Default output directory
 # OUTPUTDIRECTORY = location
 
 # Verbosity, true or 1, or max or 2
-VERBOSITY = max
+# VERBOSITY = max
 
 # Show Progress as file is parsed, true or 1, false or 0
-SHOWPROGRESS = true
+# SHOWPROGRESS = true
 
 # Set Niceness. 19 is default. -20 to 19 is the allowable range
-NICE = 19
+# NICE = 19
 
 # Delete source file after compression
 # this parameter and value are case sensitive
@@ -43,3 +49,5 @@ NICE = 19
 
 # REPLACEFILE = YES 
 
+# Override for Temporary Directory. Only valid when stdin/out or Test is used
+# TMPDIR = /tmp

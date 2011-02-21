@@ -58,7 +58,10 @@ Here is a summary of the options to lrzip\&.
   \-H            display md5 hash integrity information
   \-c            check integrity of file written on decompression
   \-k            keep broken or damaged files
-
+  
+LRZIP=NOCONFIG environment variable setting can be used to bypass lrzip.conf.
+TMP environment variable will be used for storage of temporary files when needed.
+TMPDIR may also be stored in lrzip.conf file.
 If no filenames or "-" is specified, stdin/out will be used (stdin/out is
 inefficient with lrzip and not recommended usage).
 
@@ -68,7 +71,7 @@ inefficient with lrzip and not recommended usage).
 .PP
 .SH "OPTIONS"
 .PP
-.IP "\fB-h\fP"
+.IP "\fB-h|-?\fP"
 Print an options summary page
 .IP
 .IP "\fB-V\fP"

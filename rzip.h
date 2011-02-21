@@ -260,6 +260,7 @@ struct rzip_control {
 	char *outname;
 	char *outfile;
 	char *outdir;
+	char *tmpdir; // when stdin, stdout, or test used
 	FILE *msgout; //stream for output messages
 	const char *suffix;
 	int compression_level;

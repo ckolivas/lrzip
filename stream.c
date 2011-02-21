@@ -1340,7 +1340,7 @@ static int lzo_compresses(uchar *s_buf, i64 s_len)
 	if (unlikely(!c_buf))
 		fatal("Unable to allocate c_buf in lzo_compresses\n");
 
-	print_verbose("lzo testing for incompressible data...\n");
+	print_verbose("lzo testing for incompressible data...");
 
 	/* Test progressively larger blocks at a time and as soon as anything
 	   compressible is found, jump out as a success */

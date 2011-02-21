@@ -124,15 +124,20 @@ void read_config( struct rzip_control *control )
 
 		if (!strcasecmp(parameter, "window"))
 			control->window = atoi(parametervalue);
-		else if (!strcasecmp(parameter, "compressionlevel")) {
+		else if (!strcasecmp(parameter, "unlimited")) {
+			if (!strcasecmp(parametervalue, "yes"))
+				control->flags |= FLAG_UNLIMITED;
+		} else if (!strcasecmp(parameter, "maxram")) {
+			if (!strcasecmp(parametervalue, "yes"))
+				control->flags |= FLAG_MAXRAM;
+		} else if (!strcasecmp(parameter, "compressionlevel")) {
 			control->compression_level = atoi(parametervalue);
 			if ( control->compression_level < 1 || control->compression_level > 9 )
 				fatal("CONF.FILE error. Compression Level must between 1 and 9");
 		} else if (!strcasecmp(parameter, "compressionmethod")) {
-			/* valid are rzip, gzip, bzip2, lzo, lzma (default) */
+			/* valid are rzip, gzip, bzip2, lzo, lzma (default), and zpaq */
 			if (control->flags & FLAG_NOT_LZMA)
 				fatal("CONF.FILE error. Can only specify one compression method");
-
 			if (!strcasecmp(parametervalue, "bzip2"))
 				control->flags |= FLAG_BZIP2_COMPRESS;
 			else if (!strcasecmp(parametervalue, "gzip"))
@@ -181,7 +186,15 @@ void read_config( struct rzip_control *control )
 			/* replace lrzip file must be case sensitive */
 			if (!strcmp(parametervalue, "YES"))
 				control->flags |= FLAG_FORCE_REPLACE;
+		} else if (!strcasecmp(parameter, "tmpdir")) {
+			control->tmpdir = realloc(NULL, strlen(parametervalue) + 2);
+			if (!control->tmpdir)
+				fatal("Fatal Memory Error in read_config");
+			strcpy(control->tmpdir, parametervalue);
+			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
+				strcat(control->tmpdir, "/");
 		}
+
 	}
 
 	/* clean up */
