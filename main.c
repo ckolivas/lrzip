@@ -909,6 +909,17 @@ int main(int argc, char *argv[])
 		sigaction(SIGTERM, &handler, 0);
 		sigaction(SIGINT, &handler, 0);
 
+		if (!FORCE_REPLACE) {
+			if (STDIN && isatty(fileno((FILE *)stdin))) {
+				print_err("Will not read stdin from a terminal. Use -f to override.\n");
+				exit (1);
+			}
+			if (STDIN && isatty(fileno((FILE *)stdout))) {
+				print_err("Will not write stdout to a terminal. Use -f to override.\n");
+				exit (1);
+			}
+		}
+
 		gettimeofday(&start_time, NULL);
 
 		if (control.flags & (FLAG_DECOMPRESS | FLAG_TEST_ONLY))
