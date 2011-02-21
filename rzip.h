@@ -142,6 +142,7 @@ typedef uint32_t u32;
 #endif
 
 void fatal(const char *format, ...);
+void failure(const char *format, ...);
 
 #ifdef __APPLE__
  #include <sys/sysctl.h>

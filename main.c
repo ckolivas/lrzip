@@ -112,7 +112,7 @@ static void read_magic(int fd_in, i64 *expected_size)
 	*expected_size = 0;
 
 	if (unlikely(strncmp(magic, "LRZI", 4)))
-		fatal("Not an lrzip file\n");
+		failure("Not an lrzip file\n");
 
 	memcpy(&control.major_version, &magic[4], 1);
 	memcpy(&control.minor_version, &magic[5], 1);
@@ -646,7 +646,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'b':
 			if (control.flags & FLAG_NOT_LZMA)
-				fatal("Can only use one of -l, -b, -g, -z or -n\n");
+				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			control.flags |= FLAG_BZIP2_COMPRESS;
 			break;
 		case 'c':
@@ -664,7 +664,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'g':
 			if (control.flags & FLAG_NOT_LZMA)
-				fatal("Can only use one of -l, -b, -g, -z or -n\n");
+				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			control.flags |= FLAG_ZLIB_COMPRESS;
 			break;
 		case 'h':
@@ -682,35 +682,35 @@ int main(int argc, char *argv[])
 			break;
 		case 'l':
 			if (control.flags & FLAG_NOT_LZMA)
-				fatal("Can only use one of -l, -b, -g, -z or -n\n");
+				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			control.flags |= FLAG_LZO_COMPRESS;
 			break;
 		case 'L':
 			control.compression_level = atoi(optarg);
 			if (control.compression_level < 1 || control.compression_level > 9)
-				fatal("Invalid compression level (must be 1-9)\n");
+				failure("Invalid compression level (must be 1-9)\n");
 			break;
 		case 'M':
 			control.flags |= FLAG_MAXRAM;
 			break;
 		case 'n':
 			if (control.flags & FLAG_NOT_LZMA)
-				fatal("Can only use one of -l, -b, -g, -z or -n\n");
+				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			control.flags |= FLAG_NO_COMPRESS;
 			break;
 		case 'N':
 			control.nice_val = atoi(optarg);
 			if (control.nice_val < -20 || control.nice_val > 19)
-				fatal("Invalid nice value (must be -20..19)\n");
+				failure("Invalid nice value (must be -20..19)\n");
 			break;
 		case 'o':
 			if (control.outdir)
-				fatal("Cannot have -o and -O together\n");
+				failure("Cannot have -o and -O together\n");
 			control.outname = optarg;
 			break;
 		case 'O':
 			if (control.outname)	/* can't mix -o and -O */
-				fatal("Cannot have options -o and -O together\n");
+				failure("Cannot have options -o and -O together\n");
 			control.outdir = malloc(strlen(optarg) + 2);
 			if (control.outdir == NULL)
 				fatal("Failed to allocate for outdir\n");
@@ -721,7 +721,7 @@ int main(int argc, char *argv[])
 		case 'p':
 			control.threads = atoi(optarg);
 			if (control.threads < 1)
-				fatal("Must have at least one thread\n");
+				failure("Must have at least one thread\n");
 			break;
 		case 'q':
 			control.flags &= ~FLAG_SHOW_PROGRESS;
@@ -731,9 +731,9 @@ int main(int argc, char *argv[])
 			break;
 		case 't':
 			if (control.outname)
-				fatal("Cannot specify an output file name when just testing.\n");
+				failure("Cannot specify an output file name when just testing.\n");
 			if (!KEEP_FILES)
-				fatal("Doubt that you want to delete a file when just testing.\n");
+				failure("Doubt that you want to delete a file when just testing.\n");
 			control.flags |= FLAG_TEST_ONLY;
 			break;
 		case 'T':
@@ -742,7 +742,7 @@ int main(int argc, char *argv[])
 			*/
 			control.threshold = atoi(optarg);
 			if (control.threshold < 0 || control.threshold > 10)
-				fatal("Threshold value must be between 0 and 10\n");
+				failure("Threshold value must be between 0 and 10\n");
 			control.threshold = 1.05 - control.threshold / 20;
 			break;
 		case 'U':
@@ -767,7 +767,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'z':
 			if (control.flags & FLAG_NOT_LZMA)
-				fatal("Can only use one of -l, -b, -g, -z or -n\n");
+				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			control.flags |= FLAG_ZPAQ_COMPRESS;
 			break;
 		}
@@ -777,7 +777,7 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	if (control.outname && argc > 1)
-		fatal("Cannot specify output filename with more than 1 file\n");
+		failure("Cannot specify output filename with more than 1 file\n");
 
 	if (VERBOSE && !SHOW_PROGRESS) {
 		print_err("Cannot have -v and -q options. -v wins.\n");

@@ -42,6 +42,7 @@ static void unlink_files(void)
 		unlink(control.infile);
 }
 
+/* Failure when there is likely to be a meaningful error in perror */
 void fatal(const char *format, ...)
 {
 	va_list ap;
@@ -54,6 +55,21 @@ void fatal(const char *format, ...)
 
 	unlink_files();
 	perror(NULL);
+	print_output("Fatal error - exiting\n");
+	exit(1);
+}
+
+void failure(const char *format, ...)
+{
+	va_list ap;
+
+	if (format) {
+		va_start(ap, format);
+		vfprintf(stderr, format, ap);
+		va_end(ap);
+	}
+
+	unlink_files();
 	print_output("Fatal error - exiting\n");
 	exit(1);
 }
@@ -131,11 +147,11 @@ void read_config( struct rzip_control *control )
 		} else if (!strcasecmp(parameter, "compressionlevel")) {
 			control->compression_level = atoi(parametervalue);
 			if ( control->compression_level < 1 || control->compression_level > 9 )
-				fatal("CONF.FILE error. Compression Level must between 1 and 9");
+				failure("CONF.FILE error. Compression Level must between 1 and 9");
 		} else if (!strcasecmp(parameter, "compressionmethod")) {
 			/* valid are rzip, gzip, bzip2, lzo, lzma (default), and zpaq */
 			if (control->flags & FLAG_NOT_LZMA)
-				fatal("CONF.FILE error. Can only specify one compression method");
+				failure("CONF.FILE error. Can only specify one compression method");
 			if (!strcasecmp(parametervalue, "bzip2"))
 				control->flags |= FLAG_BZIP2_COMPRESS;
 			else if (!strcasecmp(parametervalue, "gzip"))
@@ -147,11 +163,11 @@ void read_config( struct rzip_control *control )
 			else if (!strcasecmp(parametervalue, "zpaq"))
 				control->flags |= FLAG_ZPAQ_COMPRESS;
 			else if (strcasecmp(parametervalue, "lzma"))
-				fatal("CONF.FILE error. Invalid compression method %s specified",parametervalue);
+				failure("CONF.FILE error. Invalid compression method %s specified",parametervalue);
 		} else if (!strcasecmp(parameter, "testthreshold")) {
 			control->threshold = atoi(parametervalue);
 			if (control->threshold < 1 || control->threshold > 10)
-				fatal("CONF.FILE error. Threshold value out of range %d", parametervalue);
+				failure("CONF.FILE error. Threshold value out of range %d", parametervalue);
 			control->threshold = 1.05-control->threshold / 20;
 		} else if (!strcasecmp(parameter, "outputdirectory")) {
 			control->outdir = malloc(strlen(parametervalue) + 2);
@@ -162,7 +178,7 @@ void read_config( struct rzip_control *control )
 				strcat(control->outdir, "/");
 		} else if (!strcasecmp(parameter,"verbosity")) {
 			if (control->flags & FLAG_VERBOSE)
-				fatal("CONF.FILE error. Verbosity already defined.");
+				failure("CONF.FILE error. Verbosity already defined.");
 
 			if (!strcasecmp(parametervalue, "true") || !strcasecmp(parametervalue, "1"))
 				control->flags |= FLAG_VERBOSITY;
@@ -171,7 +187,7 @@ void read_config( struct rzip_control *control )
 		} else if (!strcasecmp(parameter,"nice")) {
 			control->nice_val = atoi(parametervalue);
 			if (control->nice_val < -20 || control->nice_val > 19)
-				fatal("CONF.FILE error. Nice must be between -20 and 19");
+				failure("CONF.FILE error. Nice must be between -20 and 19");
 		} else if (!strcasecmp(parameter, "showprogress")) {
 			/* true by default */
 			if (!strcasecmp(parametervalue, "false") || !strcasecmp(parametervalue," 0"))

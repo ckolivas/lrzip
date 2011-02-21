@@ -589,7 +589,7 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 			i64 i, n = MIN(st->chunk_size - p, control.page_size);
 			uchar *ckbuf = malloc(n);
 
-			if (!ckbuf)
+			if (unlikely(!ckbuf))
 				fatal("Failed to malloc ckbuf in hash_search\n");
 			for (i = 0; i < n; i++)
 				memcpy(ckbuf + i, get_sb(cksum_limit + i), 1);
@@ -610,7 +610,7 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 		i64 i, n = st->chunk_size - cksum_limit;
 		uchar *ckbuf = malloc(n);
 
-		if (!ckbuf)
+		if (unlikely(!ckbuf))
 			fatal("Failed to malloc ckbuf in hash_search\n");
 		for (i = 0; i < n; i++)
 			memcpy(ckbuf + i, get_sb(cksum_limit + i), 1);

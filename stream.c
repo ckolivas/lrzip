@@ -94,7 +94,7 @@ static inline FILE *fake_fmemopen(void *buf, size_t buflen, char *mode)
 	FILE *in;
 
 	if (unlikely(strcmp(mode, "r")))
-		fatal("fake_fmemopen only supports mode \"r\".");
+		failure("fake_fmemopen only supports mode \"r\".");
 	in = tmpfile();
 	if (unlikely(!in))
 		return NULL;
@@ -109,7 +109,7 @@ static inline FILE *fake_open_memstream(char **buf, size_t *length)
 	FILE *out;
 
 	if (unlikely(buf == NULL || length == NULL))
-		fatal("NULL parameter to fake_open_memstream");
+		failure("NULL parameter to fake_open_memstream");
 	out = tmpfile();
 	if (unlikely(!out))
 	        return NULL;
@@ -949,14 +949,14 @@ retry:
 			ret = gzip_compress_buf(cti);
 		else if (ZPAQ_COMPRESS)
 			ret = zpaq_compress_buf(cti, i);
-		else fatal("Dunno wtf compression to use!\n");
+		else failure("Dunno wtf compression to use!\n");
 	}
 
 	/* If compression fails for whatever reason multithreaded, then wait
 	 * for the previous thread to finish, serialising the work to decrease
 	 * the memory requirements, increasing the chance of success */
 	if (unlikely(ret && waited))
-		fatal("Failed to compress in compthread\n");
+		failure("Failed to compress in compthread\n");
 
 	if (!waited) {
 		lock_mutex(&output_lock);
@@ -1087,7 +1087,7 @@ retry:
 				ret = zpaq_decompress_buf(uci, i);
 				break;
 			default:
-				fatal("Dunno wtf decompression type to use!\n");
+				failure("Dunno wtf decompression type to use!\n");
 				break;
 		}
 	}
@@ -1096,7 +1096,7 @@ retry:
 	 * parallel */
 	if (unlikely(ret)) {
 		if (unlikely(waited))
-			fatal("Failed to decompress in ucompthread\n");
+			failure("Failed to decompress in ucompthread\n");
 		print_maxverbose("Unable to decompress in parallel, waiting for previous thread to complete before trying again\n");
 		/* We do not strictly need to wait for this, so it's used when
 		 * decompression fails due to inadequate memory to try again
@@ -1127,7 +1127,7 @@ static int fill_buffer(struct stream_info *sinfo, int stream)
 		goto out;
 fill_another:
 	if (unlikely(ucthread[s->uthread_no].busy))
-		fatal("Trying to start a busy thread, this shouldn't happen!\n");
+		failure("Trying to start a busy thread, this shouldn't happen!\n");
 
 	if (unlikely(seekto(sinfo, s->last_head)))
 		return -1;

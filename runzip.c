@@ -69,7 +69,7 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 	uchar *buf;
 
 	if (unlikely(len < 0))
-		fatal("len %lld is negative in unzip_literal!\n",len);
+		failure("len %lld is negative in unzip_literal!\n",len);
 
 	buf = (uchar *)malloc(len);
 	if (unlikely(!buf))
@@ -97,7 +97,7 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 	uchar *buf, *off_buf;
 
 	if (unlikely(len < 0))
-		fatal("len %lld is negative in unzip_match!\n",len);
+		failure("len %lld is negative in unzip_match!\n",len);
 
 	total = 0;
 	cur_pos = lseek(fd_out, 0, SEEK_CUR);
@@ -218,7 +218,7 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 	if (!HAS_MD5) {
 		good_cksum = read_u32(ss, 0);
 		if (unlikely(good_cksum != cksum))
-			fatal("Bad checksum: 0x%08x - expected: 0x%08x\n", cksum, good_cksum);
+			failure("Bad checksum: 0x%08x - expected: 0x%08x\n", cksum, good_cksum);
 		print_maxverbose("Checksum for block: 0x%08x\n", cksum);
 	}
 
@@ -266,7 +266,7 @@ i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 					print_output("\nOutput file:");
 					for (j = 0; j < MD5_DIGEST_SIZE; j++)
 						print_output("%02x", md5_resblock[j] & 0xFF);
-					fatal("\n");
+					failure("\n");
 				}
 		}
 
@@ -297,7 +297,7 @@ i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 					print_output("\nOutput file:");
 					for (j = 0; j < MD5_DIGEST_SIZE; j++)
 						print_output("%02x", md5_resblock[j] & 0xFF);
-					fatal("\n");
+					failure("\n");
 				}
 			print_output("MD5 integrity of written file matches archive\n");
 			if (!HAS_MD5)
