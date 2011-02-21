@@ -912,10 +912,12 @@ int main(int argc, char *argv[])
 		if (!FORCE_REPLACE) {
 			if (STDIN && isatty(fileno((FILE *)stdin))) {
 				print_err("Will not read stdin from a terminal. Use -f to override.\n");
+				usage();
 				exit (1);
 			}
 			if (STDIN && isatty(fileno((FILE *)stdout))) {
 				print_err("Will not write stdout to a terminal. Use -f to override.\n");
+				usage();
 				exit (1);
 			}
 		}
