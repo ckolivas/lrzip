@@ -55,10 +55,10 @@ static void usage(void)
 	print_output("     -H            display md5 hash integrity information\n");
 	print_output("     -c            check integrity of file written on decompression\n");
 	print_output("     -k            keep broken or damaged output files\n");
-	print_output("LRZIP=NOCONFIG environment variable setting can be used to bypass lrzip.conf.\n");
+	print_output("\nLRZIP=NOCONFIG environment variable setting can be used to bypass lrzip.conf.\n");
 	print_output("TMP environment variable will be used for storage of temporary files when needed.\n\
 TMPDIR may also be stored in lrzip.conf file.\n");
-	print_output("\nIf no filenames or \"-\" is specified, stdin/out will be used.\n");
+	print_output("If no filenames or \"-\" is specified, stdin/out will be used.\n");
 
 }
 
