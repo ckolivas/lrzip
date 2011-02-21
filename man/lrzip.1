@@ -31,39 +31,45 @@ Here is a summary of the options to lrzip\&.
 .nf
 
 
-  \-w size       compression window in hundreds of MB
-                default chosen by heuristic dependent on ram and chosen compression
+General options:
+  \-c            check integrity of file written on decompression
   \-d            decompress
+  \-H            display md5 hash integrity information
+  \-i            show compressed file information
+  \-q            don't show compression progress
+  \-t            test compressed file integrity
+  \-v[v]         Increase verbosity
+  \-V            show version
+Options affecting output:
+  \-D            delete existing files
+  \-f            force overwrite of any existing files
+  \-k            keep broken or damaged output files
   \-o filename   specify the output file name and/or path
   \-O directory  specify the output directory when \-o is not used
   \-S suffix     specify compressed suffix (default '.lrz')
-  \-f            force overwrite of any existing files
-  \-D            delete existing files
-  \-q            don't show compression progress
-  \-L level      set rzip/lzma/bzip2/gzip compression level (1\-9, default 7)
-  \-n            no backend compression. Prepare for other compressor
-  \-l            lzo compression (ultra fast)
+Options affecting compression:
   \-b            bzip2 compression
   \-g            gzip compression using zlib
+  \-l            lzo compression (ultra fast)
+  \-n            no backend compression - prepare for other compressor
   \-z            zpaq compression (best, extreme compression, extremely slow)
+Low level options:
+  \-L level      set lzma/bzip2/gzip compression level (1\-9, default 7)
   \-M            Maximum window (all available ram)
-  \-U            Use unlimited window size beyond ramsize (potentially much slower)
-  \-T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)
   \-N value      Set nice value to value (default 19)
   \-p value      Set processor count to override number of threads
-  \-v[v]         Verbose. Multiple invocations Increase verbosity
-  \-V            show version
-  \-t            test compressed file integrity
-  \-i            show compressed file information
-  \-H            display md5 hash integrity information
-  \-c            check integrity of file written on decompression
-  \-k            keep broken or damaged files
-  
+  \-T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)
+  \-U            Use unlimited window size beyond ramsize (potentially much slower)
+  \-w size       maximum compression window in hundreds of MB
+                default chosen by heuristic dependent on ram and chosen compression
+
 LRZIP=NOCONFIG environment variable setting can be used to bypass lrzip.conf.
 TMP environment variable will be used for storage of temporary files when needed.
 TMPDIR may also be stored in lrzip.conf file.
-If no filenames or "-" is specified, stdin/out will be used (stdin/out is
-inefficient with lrzip and not recommended usage).
+
+If no filenames or "-" is specified, stdin/out will be used.
+(stdin/out is inefficient with lrzip and not recommended usage).
+
 
 .fi
 
