@@ -842,8 +842,11 @@ void *open_stream_in(int f, int n)
 		return NULL;
 
 	/* We have one thread dedicated to stream 0, and one more thread than
-	 * CPUs to keep them busy. */
-	total_threads = control.threads + 2;
+	 * CPUs to keep them busy, unless we're running single-threaded. */
+	if (control.threads > 1)
+		total_threads = control.threads + 2;
+	else
+		total_threads = control.threads + 1;
 	threads = calloc(sizeof(pthread_t), total_threads);
 	if (unlikely(!threads))
 		return NULL;
