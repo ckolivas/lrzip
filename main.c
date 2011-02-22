@@ -794,13 +794,14 @@ int main(int argc, char *argv[])
 	if (BITS32)
 		control.ramsize = MAX(control.ramsize - 900000000ll, 900000000ll);
 
-	/* Work out the compression overhead per compression thread */
+	/* Work out the compression overhead per compression thread for the
+	 * compression back-ends that need a lot of ram */
 	if (LZMA_COMPRESS) {
 		int level = control.compression_level * 7 / 9 ? : 1;
 		i64 dictsize = (level <= 5 ? (1 << (level * 2 + 14)) :
 				(level == 6 ? (1 << 25) : (1 << 26)));
 
-		control.overhead = (dictsize * 23/ 2) + (4 * 1024 * 1024);
+		control.overhead = (dictsize * 23 / 2) + (4 * 1024 * 1024);
 	} else if (ZPAQ_COMPRESS)
 		control.overhead = 112 * 1024 * 1024;
 
