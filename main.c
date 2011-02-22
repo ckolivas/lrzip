@@ -52,7 +52,6 @@ static void usage(void)
 	print_output("     -z            zpaq compression (best, extreme compression, extremely slow)\n");
 	print_output("Low level options:\n");
 	print_output("     -L level      set lzma/bzip2/gzip compression level (1-9, default 7)\n");
-	print_output("     -M            Maximum window (all available ram)\n");
 	print_output("     -N value      Set nice value to value (default 19)\n");
 	print_output("     -p value      Set processor count to override number of threads\n");
 	print_output("     -T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)\n");
@@ -643,7 +642,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(&control);
 
-	while ((c = getopt(argc, argv, "L:h?dS:tVvDfqo:w:nlbMUO:T:N:p:gziHck")) != -1) {
+	while ((c = getopt(argc, argv, "L:h?dS:tVvDfqo:w:nlbUO:T:N:p:gziHck")) != -1) {
 		switch (c) {
 		case 'b':
 			if (control.flags & FLAG_NOT_LZMA)
@@ -690,9 +689,6 @@ int main(int argc, char *argv[])
 			control.compression_level = atoi(optarg);
 			if (control.compression_level < 1 || control.compression_level > 9)
 				failure("Invalid compression level (must be 1-9)\n");
-			break;
-		case 'M':
-			control.flags |= FLAG_MAXRAM;
 			break;
 		case 'n':
 			if (control.flags & FLAG_NOT_LZMA)
@@ -785,13 +781,8 @@ int main(int argc, char *argv[])
 		control.flags |= FLAG_SHOW_PROGRESS;
 	}
 
-	/* perform checks on MAXRAM, UNLIMITED, and control.window */
-	if (MAXRAM && UNLIMITED) {
-		print_err("Cannot have -U and -M, MAX window disabled.\n");
-		control.flags ^= MAXRAM;
-	}
-	if ((MAXRAM || UNLIMITED) && control.window) {
-		print_err("If -M or -U used, cannot specify a window size with -w.\n");
+	if (UNLIMITED && control.window) {
+		print_err("If -U used, cannot specify a window size with -w.\n");
 		control.window = 0;
 	}
 
@@ -868,15 +859,10 @@ int main(int argc, char *argv[])
 				print_verbose("Compression Window: %lld = %lldMB\n", control.window, control.window * 100ull);
 			/* show heuristically computed window size */
 			if (!control.window && !UNLIMITED) {
-				if (MAXRAM && !STDIN)
-					temp_chunk = control.ramsize / 2 * 3;
-				else
-					temp_chunk = control.ramsize / 3 * 2;
+				temp_chunk = control.ramsize / 3 * 2;
 				temp_window = temp_chunk / (100 * 1024 * 1024); 
 				print_verbose("Heuristically Computed Compression Window: %lld = %lldMB\n", temp_window, temp_window * 100ull);
 			}
-			if (MAXRAM)
-				print_verbose("Using all available RAM for Window size\n");
 			if (UNLIMITED)
 				print_verbose("Using Unlimited Window size\n");
 		}

@@ -151,9 +151,6 @@ void read_config( struct rzip_control *control )
 		else if (!strcasecmp(parameter, "unlimited")) {
 			if (!strcasecmp(parametervalue, "yes"))
 				control->flags |= FLAG_UNLIMITED;
-		} else if (!strcasecmp(parameter, "maxram")) {
-			if (!strcasecmp(parametervalue, "yes"))
-				control->flags |= FLAG_MAXRAM;
 		} else if (!strcasecmp(parameter, "compressionlevel")) {
 			control->compression_level = atoi(parametervalue);
 			if ( control->compression_level < 1 || control->compression_level > 9 )
