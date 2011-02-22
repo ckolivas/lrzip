@@ -862,7 +862,7 @@ int main(int argc, char *argv[])
 
 	/* Set the main nice value to half that of the backend threads since
 	 * the rzip stage is usually the rate limiting step */
-	if (control.nice_val > 0) {
+	if (control.nice_val > 0 && !NO_COMPRESS) {
 		if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val / 2) == -1))
 			print_err("Warning, unable to set nice value\n");
 	} else {
