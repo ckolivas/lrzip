@@ -1605,7 +1605,7 @@ static void decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len,
 			fprintf(msgout, "\r\t\t\t\tZPAQ\t");
 			for (i = 0; i < thread; i++)
 				fprintf(msgout, "\t");
-			fprintf(msgout, "%ld: %i%%\r",
+			fprintf(msgout, "%ld: %i%% \r",
 				thread + 1, pct);
 			fflush(msgout);
 			last_pct = pct;
@@ -1742,7 +1742,7 @@ static void compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len,
 			fprintf(msgout, "\r\t\t\t\tZPAQ\t");
 			for (i = 0; i < thread; i++)
 				fprintf(msgout, "\t");
-			fprintf(msgout, "%ld: %i%%\r",
+			fprintf(msgout, "%ld: %i%% \r",
 				thread + 1, pct);
 			fflush(msgout);
 			last_pct = pct;
