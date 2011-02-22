@@ -59,8 +59,8 @@ static void usage(void)
 	print_output("     -w size       maximum compression window in hundreds of MB\n");
 	print_output("                   default chosen by heuristic dependent on ram and chosen compression\n");
 	print_output("\nLRZIP=NOCONFIG environment variable setting can be used to bypass lrzip.conf.\n");
-	print_output("TMP environment variable will be used for storage of temporary files when needed.\n\
-TMPDIR may also be stored in lrzip.conf file.\n");
+	print_output("TMP environment variable will be used for storage of temporary files when needed.\n");
+	print_output("TMPDIR may also be stored in lrzip.conf file.\n");
 	print_output("\nIf no filenames or \"-\" is specified, stdin/out will be used.\n");
 
 }
