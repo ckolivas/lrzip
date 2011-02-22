@@ -94,7 +94,7 @@ system and some basic working software on it. The default options on the
 
 10GB Virtual image:
 
-These benchmarks were done on the quad core with version 0.550
+These benchmarks were done on the quad core with version 0.561
 
 Compression	Size		Percentage	Compress Time	Decompress Time
 None		10737418240	100.0
@@ -102,11 +102,11 @@ gzip		2772899756	 25.8		05m47s		2m46s
 bzip2		2704781700	 25.2		16m15s		6m19s
 xz		2272322208	 21.2		50m58s		3m52s
 7z		2242897134	 20.9		26m36s		5m41s
-lrzip		1372218189	 12.8		11m03s		3m43s
-lrzip -M	1079682231	 10.2		09m30s		3m02s
-lrzip -l	1831906483	 17.1		05m38s		3m05s
-lrzip -lM	1414958844	 13.2		05m24s		2m52s
-lrzip -zM	1066902006	  9.9		71m20s		72m0s
+lrzip		1372218189	 12.8		10m23s		2m53s
+lrzip -U	1095735108	 10.2		08m44s		2m45s
+lrzip -l	1831894161	 17.1		04m53s		2m37s
+lrzip -lU	1414959433	 13.2		04m48s		2m38s
+lrzip -zU	1067075961	  9.9		69m36s		69m35s
 
 
 At this end of the spectrum things really start to heat up. The compression
@@ -118,9 +118,10 @@ less than half the size.
 What appears to be a big disappointment is actually zpaq here which takes more
 than 6 times longer than lzma for a measly .3% improvement. The reason is that
 most of the advantage here is achieved by the rzip first stage since there's a
-lot of redundant space over huge distances on a virtual image. The -M option
+lot of redundant space over huge distances on a virtual image. The -U option
 which works the memory subsystem rather hard making noticeable impact on the
-rest of the machine also does further wonders for the compression and times.
+rest of the machine also does further wonders for the compression (virtually
+always) and even the times in this particular case.
 
 This should help govern what compression you choose. Small files are nicely
 compressed with zpaq. Intermediate files are nicely compressed with lzma.
@@ -130,4 +131,4 @@ Or, to make things easier, just use the default settings all the time and be
 happy as lzma gives good results. :D
 
 Con Kolivas
-Tue, 16th Nov 2010
+Tue, 22 Feb 2011
