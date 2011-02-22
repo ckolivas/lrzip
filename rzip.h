@@ -266,6 +266,7 @@ struct rzip_control {
 	FILE *msgout; //stream for output messages
 	const char *suffix;
 	int compression_level;
+	i64 overhead; // compressor overhead
 	unsigned char lzma_properties[5]; // lzma properties, encoded
 	double threshold;
 	i64 window;

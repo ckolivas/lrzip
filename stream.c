@@ -720,9 +720,12 @@ void prepare_streamout_threads(void)
 
 	/* As we serialise the generation of threads during the rzip
 	 * pre-processing stage, it's faster to have one more thread available
-	 * to keep all CPUs busy. */
+	 * to keep all CPUs busy. There is no point splitting up the chunks
+	 * into multiple threads if there will be no compression back end. */
 	if (control.threads > 1)
 		++control.threads;
+	if (NO_COMPRESS)
+		control.threads = 1;
 	threads = calloc(sizeof(pthread_t), control.threads);
 	if (unlikely(!threads))
 		fatal("Unable to calloc threads in prepare_streamout_threads\n");
@@ -780,20 +783,25 @@ void *open_stream_out(int f, int n, i64 limit, char cbytes)
 	}
 
 	/* Find the largest we can make the window based on ability to malloc
-	 * ram. We need enough for the 2 streams and for the compression
-	 * backend at most, being conservative. We don't need any for the
-	 * backend compression if we won't be doing any.
-	 */
-	testbufs = n;
-	if (!NO_COMPRESS)
-		testbufs++;
+	 * ram. We need 2 buffers for each compression thread and the overhead
+	 * of each compression back end. No 2nd buf is required when there is
+	 * no back end compression. We limit the total regardless to 1/3 ram
+	 * for when the OS lies due to heavy overcommit. */
+	if (NO_COMPRESS)
+		testbufs = 1;
+	else
+		testbufs = 2;
 
 	/* Serious limits imposed on 32 bit capabilities */
 	if (BITS32)
-		limit = MIN(limit, two_gig / testbufs);
+		limit = MIN(limit, (two_gig / testbufs) -
+			(control.overhead * control.threads));
 
+	testsize = (limit * testbufs) + (control.overhead * control.threads);
+	if (testsize > control.ramsize / 3)
+		limit = (control.ramsize / 3 - (control.overhead * control.threads)) / testbufs;
 retest_malloc:
-	testsize = limit * testbufs;
+	testsize = (limit * testbufs) + (control.overhead * control.threads);
 	testmalloc = malloc(testsize);
 	if (!testmalloc) {
 		limit = limit / 10 * 9;
@@ -802,23 +810,25 @@ retest_malloc:
 	free(testmalloc);
 	print_maxverbose("Succeeded in testing %lld sized malloc for back end compression\n", testsize);
 
+	sinfo->max_bufsize = limit / control.threads;
+
 	/* We start with slightly smaller buffers to start loading CPUs as soon
 	 * as possible and make them exponentially larger approaching the
 	 * tested maximum size. We ensure the buffers are of a minimum size,
 	 * though, as compression efficency drops off dramatically with tiny
 	 * buffers. */
 	if (control.threads > 1) {
-		sinfo->max_bufsize = limit / control.threads;
 		sinfo->bufsize = sinfo->max_bufsize * 63 / 100;
 		round_to_page(&sinfo->bufsize);
 		sinfo->bufsize = MAX(sinfo->bufsize, STREAM_BUFSIZE);
-	}
+	} else
+		sinfo->bufsize = sinfo->max_bufsize;
 
 	if (control.threads > 1)
 		print_maxverbose("Using up to %d threads to compress up to %lld bytes each.\n",
 			control.threads, sinfo->max_bufsize);
 	else
-		print_maxverbose("Using 1 thread to compress up to %lld bytes\n",
+		print_maxverbose("Using only 1 thread to compress up to %lld bytes\n",
 			sinfo->bufsize);
 
 	for (i = 0; i < n; i++) {
