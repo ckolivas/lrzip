@@ -1,3 +1,25 @@
+lrzip-0.561
+
+Multi-threaded performance has been improved with a significant speed-up on
+both compression and decompression. New benchmark results have been added to
+the README.benchmarks file.
+Visual output has been further improved, with an updated help menu and no
+unrelated system errors on failure.
+lrzip.conf supports the newer options available.
+TMP environment is now respected when using temporary files and TMPDIR can be
+set in lrzip.conf.
+LRZIP=NOCONFIG environment variable setting can be used to bypass lrzip.conf.
+The -M option has been removed as the -U option achieves more and has
+understandable semantics.
+Memory usage should be very tightly controlled on compression now by default,
+using the most possible without running out of ram.
+Temporary files generated when doing -t from stdin will no longer be left lying
+around.
+lrzip will no longer stupidly sit waiting to read from stdin/stdout when called
+from a terminal without other arguments.
+Executable size will be slightly smaller due to stripping symbols by default
+now.
+
 lrzip-0.560
 
 Implemented OSX multi-threading by converting all semaphores to pthread_mutexes.

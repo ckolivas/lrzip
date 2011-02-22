@@ -1,4 +1,24 @@
 lrzip ChangeLog
+FEBRUARY 2011, version 0.561 Con Kolivas
+* Clean up the messy help output.
+* Refuse to read from or write to terminal in stdin/stdout mode.
+* Delete temporary files generated when testing from stdin.
+* Don't call perror on failures that aren't system related.
+* Improve visual output.
+* Significant multi-threading speed-ups - Use one more thread than CPUs, and
+use a smaller buffer on the first thread and slightly more each next thread
+until the next stream. Then repeat the cycle.
+* Don't split up the chunks into multiple threads when no back end
+compression is being used.
+* Take into account the precise amount of overhead that the memory hungry
+back-end compression modes lzma and zpaq use when determining how much ram to
+allocate, and limit total back-end compression ram to 1/3.
+* Deprecate the -M option as it is no longer of any significant utility
+compared to the -U option.
+* Strip symbols by default in compilation and add -W -Wall to CXXFLAGS to be
+consistent with CFLAGS.
+* Update benchmarks.
+
 FEBRUARY 2011, Peter Hyman
 * Minor updates to man pages, lrzip.conf example file.
 * Update main help screen to include environment settings.
