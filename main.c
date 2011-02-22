@@ -54,7 +54,7 @@ static void usage(void)
 	print_output("     -L level      set lzma/bzip2/gzip compression level (1-9, default 7)\n");
 	print_output("     -N value      Set nice value to value (default 19)\n");
 	print_output("     -p value      Set processor count to override number of threads\n");
-	print_output("     -T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)\n");
+	print_output("     -T            Disable LZO compressibility testing\n");
 	print_output("     -U            Use unlimited window size beyond ramsize (potentially much slower)\n");
 	print_output("     -w size       maximum compression window in hundreds of MB\n");
 	print_output("                   default chosen by heuristic dependent on ram and chosen compression\n");
@@ -599,7 +599,7 @@ int main(int argc, char *argv[])
 	memset(&control, 0, sizeof(control));
 
 	control.msgout = stderr;
-	control.flags = FLAG_SHOW_PROGRESS | FLAG_KEEP_FILES;
+	control.flags = FLAG_SHOW_PROGRESS | FLAG_KEEP_FILES | FLAG_THRESHOLD;
 	control.suffix = ".lrz";
 	control.outdir = NULL;
 	control.tmpdir = NULL;
@@ -610,7 +610,6 @@ int main(int argc, char *argv[])
 	control.compression_level = 7;
 	control.ramsize = get_ram();
 	control.window = 0;
-	control.threshold = 1.0;	/* default lzo test compression threshold (level 1) with LZMA compression */
 	/* for testing single CPU */
 	control.threads = PROCESSORS;	/* get CPUs for LZMA */
 	control.page_size = PAGE_SIZE;
@@ -642,7 +641,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(&control);
 
-	while ((c = getopt(argc, argv, "L:h?dS:tVvDfqo:w:nlbUO:T:N:p:gziHck")) != -1) {
+	while ((c = getopt(argc, argv, "L:h?dS:tVvDfqo:w:nlbUO:TN:p:gziHck")) != -1) {
 		switch (c) {
 		case 'b':
 			if (control.flags & FLAG_NOT_LZMA)
@@ -734,13 +733,7 @@ int main(int argc, char *argv[])
 			control.flags |= FLAG_TEST_ONLY;
 			break;
 		case 'T':
-			/* invert argument, a threshold of 1 means that the compressed result can be
-			 * 90%-100% of the sample size
-			*/
-			control.threshold = atoi(optarg);
-			if (control.threshold < 0 || control.threshold > 10)
-				failure("Threshold value must be between 0 and 10\n");
-			control.threshold = 1.05 - control.threshold / 20;
+			control.flags &= ~FLAG_THRESHOLD;
 			break;
 		case 'U':
 			control.flags |= FLAG_UNLIMITED;
@@ -841,18 +834,15 @@ int main(int argc, char *argv[])
 		if (!DECOMPRESS && !TEST_ONLY) {
 			print_verbose("Compression mode is: ");
 			if (LZMA_COMPRESS)
-				print_verbose("LZMA. LZO Test Compression Threshold: %.f\n",
-				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
+				print_verbose("LZMA. LZO Compressibility testing %s\n", (LZO_TEST? "enabled" : "disabled"));
 			else if (LZO_COMPRESS)
 				print_verbose("LZO\n");
 			else if (BZIP2_COMPRESS)
-				print_verbose("BZIP2. LZO Test Compression Threshold: %.f\n",
-				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
+				print_verbose("BZIP2. LZO Compressibility testing %s\n", (LZO_TEST? "enabled" : "disabled"));
 			else if (ZLIB_COMPRESS)
 				print_verbose("GZIP\n");
 			else if (ZPAQ_COMPRESS)
-				print_verbose("ZPAQ. LZO Test Compression Threshold: %.f\n",
-				       (control.threshold < 1.05 ? 21 - control.threshold * 20 : 0));
+				print_verbose("ZPAQ. LZO Compressibility testing %s\n", (LZO_TEST? "enabled" : "disabled"));
 			else if (NO_COMPRESS)
 				print_verbose("RZIP pre-processing only\n");
 			if (control.window) 

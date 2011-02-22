@@ -30,7 +30,7 @@ function lrztar_local() {
     trap '[[ -z $tname ]] || rm -rf "$tname" &> /dev/null' 1 2 3 15
     which tar   &> /dev/null || { printf "lrztar: no tar in your path\n"; return 1; }
     which lrzip &> /dev/null || { printf "lrztar: no lrzip in your path\n"; return 1; }
-    while getopts w:O:S:DqL:nlbgzUT:N:p:vfodtVhHck x; do
+    while getopts w:O:S:DqL:nlbgzUTN:p:vfodtVhHck x; do
     [[ $x == [otV] ]] || ((v_$x=1)) &> /dev/null \
         || { printf "lrztar: invalid option for lrztar %s\n" "$x"; return 1; }
     done

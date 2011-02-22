@@ -1,5 +1,6 @@
 lrzip ChangeLog
 FEBRUARY 2011, version 0.561 Con Kolivas
+* Change the lzo testing to a bool on/off instead of taking a parameter.
 * Clean up the messy help output.
 * Refuse to read from or write to terminal in stdin/stdout mode.
 * Delete temporary files generated when testing from stdin.

@@ -217,6 +217,7 @@ static inline i64 get_ram(void)
 #define FLAG_MD5		(1 << 17)
 #define FLAG_CHECK		(1 << 18)
 #define FLAG_KEEP_BROKEN	(1 << 19)
+#define FLAG_THRESHOLD		(1 << 20)
 
 #define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
 #define FLAG_NOT_LZMA (FLAG_NO_COMPRESS | FLAG_LZO_COMPRESS | FLAG_BZIP2_COMPRESS | FLAG_ZLIB_COMPRESS | FLAG_ZPAQ_COMPRESS)
@@ -243,6 +244,7 @@ static inline i64 get_ram(void)
 #define HAS_MD5		(control.flags & FLAG_MD5)
 #define CHECK_FILE	(control.flags & FLAG_CHECK)
 #define KEEP_BROKEN	(control.flags & FLAG_KEEP_BROKEN)
+#define LZO_TEST	(control.flags & FLAG_THRESHOLD)
 
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
@@ -266,7 +268,6 @@ struct rzip_control {
 	int compression_level;
 	i64 overhead; // compressor overhead
 	unsigned char lzma_properties[5]; // lzma properties, encoded
-	double threshold;
 	i64 window;
 	unsigned long flags;
 	i64 ramsize;

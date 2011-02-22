@@ -262,41 +262,13 @@ cpu process scheduler how to prioritise workloads, and if your application is
 the _only_ thing running it will be no faster at nice -20 nor will it be any
 slower at +19.
 
-Q. What is the Threshold option, -T ## (1-10)?
-A. It is for adjusting the sensitivity of the LZO test that is used when LZMA
-compression is selected. When highly random or already-compressed data chunks
-are evaluated for LZMA compression, sometimes LZO compression actually will
-create a larger chunk than the original.
-
-The Threshold is used to determine a minimum compression amount relative to
-the size of the data being evaluated. A value of 1 is the default. This
-means that the compression threshold amount is >0% of the size of the
-original data. If the threshold is not achieved, the LZMA compression will not
-be done and the chunk will not be compressed. Values can be from 0 (bypass the
-test) to 10 (maximum compression efficiency expected). The following table can
-be used.
-
-For LZO compressor test
-T value		Compression %	Compression Ratio
-  0		    Ignored
-  1		    0-5%	     1.00-1.05	very low compression expected
-  2		    5-10%	     1.05-1.10	default value
-  3		    10-20%	     1.12-1.25
-  4		    20-30%           1.25-1.43
-  5		    30-40%	     1.43-1.66
-  6		    40-50%           1.66-2.00
-  7		    50-60%           2.00-2.50
-  8                 60-70%	     2.50-3.33
-  9		    70-80%           3.33-5.00
-  10                 80+%           5x+
-
-Whenever the data chunk does not compress to the Threshold value, no LZMA
-compression will be attempted. For example, if you select -T 5, LZMA
-compression will be performed if the projected compression ratio is
-less than 1.43. Otherwise, data will be written in rzip format. Setting
-a very high T value will result in a lot of uncompressed data in the lrzip
-file. However, a lot of time will be saved. For most people you shouldn't ever
-need to touch this.
+Q. What is the LZO Testing option, -T?
+A. LZO testing is normally performed for the slower back-end compression of LZMA
+and ZPAQ. The reasoning is that if it is completely incompressible by LZO then
+it will also be incompressible by them. Thus if a block fails to be compressed
+by the very fast LZO, lrzip will not attempt to compress that block with the
+slower compressor, thereby saving time. If this option is enabled, it will
+bypass the LZO testing and attempt to compress each block regardless.
 
 Q. Compression and decompression progress on large archives slows down and
 speeds up. There's also a jump in the percentage at the end?

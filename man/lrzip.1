@@ -57,7 +57,7 @@ Low level options:
   \-L level      set lzma/bzip2/gzip compression level (1\-9, default 7)
   \-N value      Set nice value to value (default 19)
   \-p value      Set processor count to override number of threads
-  \-T value      Compression threshold with LZO test. (0 (nil) - 10 (high), default 1)
+  \-T            Disable LZO compressibility testing
   \-U            Use unlimited window size beyond ramsize (potentially much slower)
   \-w size       maximum compression window in hundreds of MB
                 default chosen by heuristic dependent on ram and chosen compression
@@ -110,13 +110,15 @@ progressively slower the larger the difference between ram and the file size,
 so is best reserved for when the smallest possible size is desired on a very
 large file, and the time taken is not important.
 .IP
-.IP "\fB-T 0\&.\&.10\fP"
-Sets the LZO compression threshold when testing a data chunk when slower
-compression is used. The threshold level can be from 0 to 10.
-This option is used to speed up compression by avoiding doing the slow
-compression pass. The reasoning is that if it is completely incompressible
-by LZO then it will also be incompressible by them, thereby saving time.
-The default is 1.
+.IP "\fB-T\fP"
+Disables the LZO compressibility threshold testing when a slower compression
+back-end is used. LZO testing is normally performed for the slower back-end
+compression of LZMA and ZPAQ. The reasoning is that if it is completely
+incompressible by LZO then it will also be incompressible by them. Thus if a
+block fails to be compressed by the very fast LZO, lrzip will not attempt to
+compress that block with the slower compressor, thereby saving time. If this
+option is enabled, it will bypass the LZO testing and attempt to compress each
+block regardless.
 .IP
 .IP "\fB-d\fP"
 Decompress. If this option is not used then lrzip looks at

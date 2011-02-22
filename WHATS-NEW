@@ -19,6 +19,8 @@ lrzip will no longer stupidly sit waiting to read from stdin/stdout when called
 from a terminal without other arguments.
 Executable size will be slightly smaller due to stripping symbols by default
 now.
+The -T option no longer takes an argument. It simply denotes that lzo testing
+should be disabled.
 
 lrzip-0.560
 

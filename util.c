@@ -172,10 +172,9 @@ void read_config( struct rzip_control *control )
 			else if (strcasecmp(parametervalue, "lzma"))
 				failure("CONF.FILE error. Invalid compression method %s specified",parametervalue);
 		} else if (!strcasecmp(parameter, "testthreshold")) {
-			control->threshold = atoi(parametervalue);
-			if (control->threshold < 1 || control->threshold > 10)
-				failure("CONF.FILE error. Threshold value out of range %d", parametervalue);
-			control->threshold = 1.05-control->threshold / 20;
+			/* true by default */
+			if (!strcasecmp(parametervalue, "false") || !strcasecmp(parametervalue," 0"))
+				control->flags &= ~FLAG_THRESHOLD;
 		} else if (!strcasecmp(parameter, "outputdirectory")) {
 			control->outdir = malloc(strlen(parametervalue) + 2);
 			if (!control->outdir)

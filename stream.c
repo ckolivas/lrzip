@@ -1364,7 +1364,7 @@ static int lzo_compresses(uchar *s_buf, i64 s_len)
 	int workcounter = 0;	/* count # of passes */
 	lzo_uint best_dlen = UINT_MAX; /* save best compression estimate */
 
-	if (control.threshold > 1)
+	if (!LZO_TEST)
 		return 1;
 	wrkmem = (lzo_bytep) malloc(LZO1X_1_MEM_COMPRESS);
 	if (unlikely(wrkmem == NULL))
@@ -1377,8 +1377,6 @@ static int lzo_compresses(uchar *s_buf, i64 s_len)
 	if (unlikely(!c_buf))
 		fatal("Unable to allocate c_buf in lzo_compresses\n");
 
-	print_verbose("lzo testing for incompressible data...");
-
 	/* Test progressively larger blocks at a time and as soon as anything
 	   compressible is found, jump out as a success */
 	while (test_len > 0) {
@@ -1388,7 +1386,7 @@ static int lzo_compresses(uchar *s_buf, i64 s_len)
 		if (dlen < best_dlen)
 			best_dlen = dlen;	/* save best value */
 
-		if ((double) dlen < (double)in_len * control.threshold) {
+		if (dlen < in_len) {
 			ret = 1;
 			break;
 		}
@@ -1401,12 +1399,9 @@ static int lzo_compresses(uchar *s_buf, i64 s_len)
 			in_len = MIN(test_len, buftest_size);
 		}
 	}
-	if (MAX_VERBOSE)
-		print_output("%s for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
-			(ret == 0? "FAILED - below threshold" : "OK"), save_len,
+	print_maxverbose("lzo testing %s for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
+			(ret == 0? "FAILED" : "OK"), save_len,
 			100 * ((double) best_dlen / (double) in_len), workcounter);
-	else if (VERBOSE)
-		print_output("%s\n", (ret == 0? "FAILED - below threshold" : "OK"));
 
 	free(wrkmem);
 	free(c_buf);
