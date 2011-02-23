@@ -697,7 +697,6 @@ int main(int argc, char *argv[])
 	int c, i;
 	int hours,minutes;
 	extern int optind;
-	i64 temp_chunk, temp_window; /* to show heurisitic computed values */
 	char *eptr; /* for environment */
 
 	memset(&control, 0, sizeof(control));
@@ -894,10 +893,6 @@ int main(int argc, char *argv[])
 	if (CHECK_FILE && (!DECOMPRESS || !TEST_ONLY))
 		print_err("Can only check file written on decompression or testing.\n");
 
-	/* Decrease usable ram size on 32 bits due to kernel/userspace split */
-	if (BITS32)
-		control.ramsize = MAX(control.ramsize - 900000000ll, 900000000ll);
-
 	/* Work out the compression overhead per compression thread for the
 	 * compression back-ends that need a lot of ram */
 	if (LZMA_COMPRESS) {
@@ -911,6 +906,8 @@ int main(int argc, char *argv[])
 
 	/* OK, if verbosity set, print summary of options selected */
 	if (!INFO) {
+		i64 temp_chunk, temp_window, temp_ramsize; /* to show heurisitic computed values */
+
 		if (!TEST_ONLY)
 			print_verbose("The following options are in effect for this %s.\n",
 				      DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
@@ -954,7 +951,10 @@ int main(int argc, char *argv[])
 				print_verbose("Compression Window: %lld = %lldMB\n", control.window, control.window * 100ull);
 			/* show heuristically computed window size */
 			if (!control.window && !UNLIMITED) {
-				temp_chunk = control.ramsize / 3 * 2;
+				temp_ramsize = control.ramsize;
+				if (BITS32)
+					temp_ramsize = MAX(temp_ramsize - 900000000ll, 900000000ll);
+				temp_chunk = temp_ramsize / 3 * 2;
 				temp_window = temp_chunk / (100 * 1024 * 1024); 
 				print_verbose("Heuristically Computed Compression Window: %lld = %lldMB\n", temp_window, temp_window * 100ull);
 			}
@@ -963,6 +963,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* Decrease usable ram size on 32 bits due to kernel/userspace split */
+	if (BITS32)
+		control.ramsize = MAX(control.ramsize - 900000000ll, 900000000ll);
 
 	/* Set the main nice value to half that of the backend threads since
 	 * the rzip stage is usually the rate limiting step */
