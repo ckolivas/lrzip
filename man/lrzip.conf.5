@@ -17,31 +17,38 @@ $HOME/\&./lrzip
 .PP
 Parameters are set in \fBPARAMETER\&=VALUE\fP fashion where any line
 beginning with a \fB#\fP or that is blank will be ignored\&.
+Parameter values are not case sensitive\&.
 .PP
 .SH "CONFIG FILE EXAMPLE"
 .nf
 # This is a comment.
 
 # Compression Window size in 100MB. Normally selected by program.
-WINDOW = 5
+# WINDOW = 5
 # Compression Level 1-9 (7 Default).
-COMPRESSIONLEVEL = 7
+# COMPRESSIONLEVEL = 7
 # Unlimited Ram Compression
 # UNLIMITED = YES
-# Use Maximum Ram
-# MAXRAM = YES
 # Compression Method, rzip, gzip, bzip2, lzo, or lzma (default), zpaq.
-COMPRESSIONMETHOD = lzma
-# Test Threshold value 1-10 (2 Default).
-TESTTHRESHOLD = 2
+# COMPRESSIONMETHOD = LZMA
+# Perform LZO Test. Default = YES (-T option, NO)
+# LZOTEST = NO
+# Hash Check on decompression, YES
+# HASHCHECK = YES
+# Show HASH value on Compression even if Verbose is off, YES
+# SHOWHASH = YES
+
 # Default output directory
-OUTPUTDIRECTORY = location
-# Verbosity, true or 1, or max or 2
-VERBOSITY = max
-# Show Progress as file is parsed, true or 1, false or 0
-SHOWPROGRESS = true
+# OUTPUTDIRECTORY = location
+# Verbosity, Yes or Max
+# VERBOSITY = MAX
+# Show Progress as file is parsed, YES, NO (yes is default)
+# SHOWPROGRESS = NO
 # Set Niceness. 19 is default. \-20 to 19 is the allowable range
-NICE = 19
+# NICE = 19
+
+# Keep broken or damaged output files, YES
+# KEEPBROKEN = YES
 # Delete source file after compression
 # this parameter and value are case sensitive
 # value must be YES to activate
@@ -53,7 +60,7 @@ NICE = 19
 # REPLACEFILE = NO
 
 # Select Temporary Directory when stdin/stdout or Test file is used
-TMPDIR = /tmp
+# TMPDIR = /tmp
 .fi
 .PP
 .SH "NOTES"

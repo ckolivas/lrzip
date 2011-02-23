@@ -355,3 +355,9 @@ void round_to_page(i64 *size);
 	if (MAX_VERBOSE)	\
 		print_output(format, ##args);	\
 } while (0)
+
+/* Macros for testing parameters */
+
+#define isparameter( parmstring, value )	(!strcasecmp( parmstring, value ))
+#define iscaseparameter( parmvalue, value )	(!strcmp( parmvalue, value ))
+

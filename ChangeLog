@@ -21,20 +21,20 @@ consistent with CFLAGS.
 * Update benchmarks.
 * Add verbose and max verbose modes for -i information giving a breakdown of
 each rzip chunk and compressed block.
+* Modify purpose of -T threshold option to mean Disable LZO pre-compression
+ testing. Threshold level test deprecated.
 
 FEBRUARY 2011, Peter Hyman
 * Minor updates to man pages, lrzip.conf example file.
 * Update main help screen to include environment settings.
 * Update to respect $TMP environment variable for TMP files.
 * Updated control structure to include tmpdir pointer.
-* Update lrzip.conf parser to respect -U -M options.
+* Update lrzip.conf parser to respect -U, -H, -T, k, and -c options.
 * Update lrzip.conf example to include new parameters.
 * Reorder main Switch loop in main.c for readability.
-* Have MAXRAM and control.window be exclusive. MAXRAM wins.
 * Have UNLIMITED and control.window be exclusive. UNLIMITED wins.
-* Have UNLIMITED and MAXRAM be exclusive. UNLIMITED wins.
 * Corrects heuristic computation in rzip.c which would override
-  MAXRAM or UNLIMITED if control.window set
+  UNLIMITED if control.window set
 * Show heuristically computed control.window when computed.
 * Remove display compression level from control.window verbose output.
 * Update print_verbose format for Testing for incompressible data in stream.c

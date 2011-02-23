@@ -146,75 +146,89 @@ void read_config( struct rzip_control *control )
 
 		/* have valid parameter line, now assign to control */
 
-		if (!strcasecmp(parameter, "window"))
+		if (isparameter(parameter, "window"))
 			control->window = atoi(parametervalue);
-		else if (!strcasecmp(parameter, "unlimited")) {
-			if (!strcasecmp(parametervalue, "yes"))
+		else if (isparameter(parameter, "unlimited")) {
+			if (isparameter(parametervalue, "yes"))
 				control->flags |= FLAG_UNLIMITED;
-		} else if (!strcasecmp(parameter, "compressionlevel")) {
+		} else if (isparameter(parameter, "compressionlevel")) {
 			control->compression_level = atoi(parametervalue);
 			if ( control->compression_level < 1 || control->compression_level > 9 )
 				failure("CONF.FILE error. Compression Level must between 1 and 9");
-		} else if (!strcasecmp(parameter, "compressionmethod")) {
+		} else if (isparameter(parameter, "compressionmethod")) {
 			/* valid are rzip, gzip, bzip2, lzo, lzma (default), and zpaq */
 			if (control->flags & FLAG_NOT_LZMA)
 				failure("CONF.FILE error. Can only specify one compression method");
-			if (!strcasecmp(parametervalue, "bzip2"))
+			if (isparameter(parametervalue, "bzip2"))
 				control->flags |= FLAG_BZIP2_COMPRESS;
-			else if (!strcasecmp(parametervalue, "gzip"))
+			else if (isparameter(parametervalue, "gzip"))
 				control->flags |= FLAG_ZLIB_COMPRESS;
-			else if (!strcasecmp(parametervalue, "lzo"))
+			else if (isparameter(parametervalue, "lzo"))
 				control->flags |= FLAG_LZO_COMPRESS;
-			else if (!strcasecmp(parametervalue, "rzip"))
+			else if (isparameter(parametervalue, "rzip"))
 				control->flags |= FLAG_NO_COMPRESS;
-			else if (!strcasecmp(parametervalue, "zpaq"))
+			else if (isparameter(parametervalue, "zpaq"))
 				control->flags |= FLAG_ZPAQ_COMPRESS;
-			else if (strcasecmp(parametervalue, "lzma"))
-				failure("CONF.FILE error. Invalid compression method %s specified",parametervalue);
-		} else if (!strcasecmp(parameter, "testthreshold")) {
-			/* true by default */
-			if (!strcasecmp(parametervalue, "false") || !strcasecmp(parametervalue," 0"))
+			else if (!isparameter(parametervalue, "lzma")) /* oops, not lzma! */
+				failure("CONF.FILE error. Invalid compression method %s specified\n",parametervalue);
+		} else if (isparameter(parameter, "lzotest")) {
+			/* default is yes */
+			if (isparameter(parametervalue, "no"))
 				control->flags &= ~FLAG_THRESHOLD;
-		} else if (!strcasecmp(parameter, "outputdirectory")) {
+		} else if (isparameter(parameter, "hashcheck")) {
+			if (isparameter(parametervalue, "yes")) {
+				control->flags |= FLAG_CHECK;
+				control->flags |= FLAG_HASH;
+			}
+		} else if (isparameter(parameter, "showhash")) {
+			if (isparameter(parametervalue, "yes"))
+				control->flags |= FLAG_HASH;
+		} else if (isparameter(parameter, "outputdirectory")) {
 			control->outdir = malloc(strlen(parametervalue) + 2);
 			if (!control->outdir)
 				fatal("Fatal Memory Error in read_config");
 			strcpy(control->outdir, parametervalue);
 			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
 				strcat(control->outdir, "/");
-		} else if (!strcasecmp(parameter,"verbosity")) {
+		} else if (isparameter(parameter,"verbosity")) {
 			if (control->flags & FLAG_VERBOSE)
 				failure("CONF.FILE error. Verbosity already defined.");
-
-			if (!strcasecmp(parametervalue, "true") || !strcasecmp(parametervalue, "1"))
+			if (isparameter(parametervalue, "yes"))
 				control->flags |= FLAG_VERBOSITY;
-			else if (!strcasecmp(parametervalue,"max") || !strcasecmp(parametervalue, "2"))
+			else if (isparameter(parametervalue,"max"))
 				control->flags |= FLAG_VERBOSITY_MAX;
-		} else if (!strcasecmp(parameter,"nice")) {
+			else /* oops, unrecognized value */
+				print_err("lrzip.conf: Unrecognized verbosity value %s. Ignored.\n", parametervalue);
+		} else if (isparameter(parameter, "showprogress")) {
+			/* Yes by default */
+			if (isparameter(parametervalue, "NO"))
+				control->flags &= ~FLAG_SHOW_PROGRESS;
+		} else if (isparameter(parameter,"nice")) {
 			control->nice_val = atoi(parametervalue);
 			if (control->nice_val < -20 || control->nice_val > 19)
 				failure("CONF.FILE error. Nice must be between -20 and 19");
-		} else if (!strcasecmp(parameter, "showprogress")) {
-			/* true by default */
-			if (!strcasecmp(parametervalue, "false") || !strcasecmp(parametervalue," 0"))
-				control->flags &= ~FLAG_SHOW_PROGRESS;
-		} else if (!strcmp(parameter, "DELETEFILES")) {
-				/* delete files must be case sensitive */
-					if (!strcmp(parametervalue, "YES"))
+		} else if (isparameter(parameter, "keepbroken")) {
+			if (isparameter(parametervalue, "yes" ))
+				control->flags |= FLAG_KEEP_BROKEN;
+		} else if (iscaseparameter(parameter, "DELETEFILES")) {
+			/* delete files must be case sensitive */
+			if (iscaseparameter(parametervalue, "YES"))
 				control->flags &= ~FLAG_KEEP_FILES;
-		} else if (!strcmp(parameter, "REPLACEFILE")) {
+		} else if (iscaseparameter(parameter, "REPLACEFILE")) {
 			/* replace lrzip file must be case sensitive */
-			if (!strcmp(parametervalue, "YES"))
+			if (iscaseparameter(parametervalue, "YES"))
 				control->flags |= FLAG_FORCE_REPLACE;
-		} else if (!strcasecmp(parameter, "tmpdir")) {
+		} else if (isparameter(parameter, "tmpdir")) {
 			control->tmpdir = realloc(NULL, strlen(parametervalue) + 2);
 			if (!control->tmpdir)
 				fatal("Fatal Memory Error in read_config");
 			strcpy(control->tmpdir, parametervalue);
 			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
 				strcat(control->tmpdir, "/");
-		}
-
+		} else
+			/* oops, we have an invalid parameter, display */
+			print_err("lrzip.conf: Unrecognized parameter value, %s = %s. Continuing.\n",\
+				       parameter, parametervalue);
 	}
 
 	/* clean up */

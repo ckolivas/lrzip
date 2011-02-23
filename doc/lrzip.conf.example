@@ -19,20 +19,29 @@
 # If specified here, command line options not usable.
 # COMPRESSIONMETHOD = lzma
 
-# Test Threshold value 1-10 (2 Default).
-# TESTTHRESHOLD = 2
+# Perform LZO Test. Default = YES (-T option, NO)
+# LZOTEST = NO
+
+# Hash Check on decompression, YES
+# HASHCHECK = YES
+
+# Show HASH value on Compression even if Verbose is off, YES
+# SHOWHASH = YES
 
 # Default output directory
 # OUTPUTDIRECTORY = location
 
-# Verbosity, true or 1, or max or 2
+# Verbosity, Yes or Max
 # VERBOSITY = max
 
-# Show Progress as file is parsed, true or 1, false or 0
+# Show Progress as file is parsed, Yes or no
 # SHOWPROGRESS = true
 
 # Set Niceness. 19 is default. -20 to 19 is the allowable range
 # NICE = 19
+
+# Keep broken or damaged output files, YES
+# KEEPBROKEN = YES
 
 # Delete source file after compression
 # this parameter and value are case sensitive
