@@ -324,8 +324,12 @@ static void decompress_file(void)
 			fd_out = open(control.outfile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 		else
 			fd_out = open(control.outfile, O_WRONLY | O_CREAT | O_EXCL, 0666);
-		if (unlikely(fd_out == -1))
+		if (unlikely(fd_out == -1)) {
+			/* We must ensure we don't delete a file that already
+			 * exists just because we tried to create a new one */
+			control.flags |= FLAG_KEEP_BROKEN;
 			fatal("Failed to create %s: %s\n", control.outfile, strerror(errno));
+		}
 
 		preserve_perms(fd_in, fd_out);
 	} else
@@ -644,8 +648,12 @@ static void compress_file(void)
 			fd_out = open(control.outfile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 		else
 			fd_out = open(control.outfile, O_WRONLY | O_CREAT | O_EXCL, 0666);
-		if (unlikely(fd_out == -1))
+		if (unlikely(fd_out == -1)) {
+			/* We must ensure we don't delete a file that already
+			 * exists just because we tried to create a new one */
+			control.flags |= FLAG_KEEP_BROKEN;
 			fatal("Failed to create %s: %s\n", control.outfile, strerror(errno));
+		}
 	} else
 		fd_out = open_tmpoutfile();
 	control.fd_out = fd_out;
