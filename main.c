@@ -378,15 +378,40 @@ static void decompress_file(void)
 	free(infilecopy);
 }
 
+static void get_header_info(int fd_in, uchar *ctype, i64 *c_len, i64 *u_len, i64 *last_head)
+{
+	if (unlikely(read(fd_in, ctype, 1) != 1))
+		fatal("Failed to read in get_header_info\n");
+	
+	if (control.major_version == 0 && control.minor_version < 4) {
+		u32 c_len32, u_len32, last_head32;
+
+		if (unlikely(read(fd_in, &c_len32, 4) != 4))
+			fatal("Failed to read in get_header_info");
+		if (unlikely(read(fd_in, &u_len32, 4) != 4))
+			fatal("Failed to read in get_header_info");
+		if (unlikely(read(fd_in, &last_head32, 4) != 4))
+			fatal("Failed to read in get_header_info");
+		*c_len = c_len32;
+		*u_len = u_len32;
+		*last_head = last_head32;
+	} else {
+		if (unlikely(read(fd_in, c_len, 8) != 8))
+			fatal("Failed to read in get_header_info");
+		if (unlikely(read(fd_in, u_len, 8) != 8))
+			fatal("Failed to read in get_header_info");
+		if (unlikely(read(fd_in, last_head, 8) != 8))
+			fatal("Failed to read_i64 in get_header_info");
+	}
+}
+
 static void get_fileinfo(void)
 {
-	int fd_in;
-	uchar ctype = 0;
+	i64 expected_size, infile_size;
+	int seekspot, fd_in;
 	long double cratio;
-	i64 expected_size;
-	i64 infile_size;
+	uchar ctype = 0;
 	struct stat st;
-	int seekspot;
 
 	char *tmp, *infilecopy = NULL;
 
@@ -456,6 +481,7 @@ static void get_fileinfo(void)
 	print_output("Decompressed file size: %llu\n", expected_size);
 	print_output("Compressed file size: %llu\n", infile_size);
 	print_output("Compression ratio: %.3Lf\n", cratio);
+
 	if (HAS_MD5) {
 		char md5_stored[MD5_DIGEST_SIZE];
 		int i;
@@ -472,10 +498,80 @@ static void get_fileinfo(void)
 	} else
 		print_output("CRC32 used for integrity testing\n");
 
+	if (VERBOSE || MAX_VERBOSE) {
+		i64 u_len, c_len, last_head, utotal = 0, ctotal = 0, ofs = 25,
+		    stream_head[2];
+		int header_length = 25, stream = 0, chunk = 0;
+
+		if (control.major_version == 0 && control.minor_version < 4)
+			header_length = 13;
+next_chunk:
+		stream = 0;
+		stream_head[0] = 0;
+		stream_head[1] = stream_head[0] + header_length;
+
+		print_output("Rzip chunk %d:\n", ++chunk);
+		while (stream < NUM_STREAMS) {
+			int block = 1;
+
+			if (unlikely(lseek(fd_in, stream_head[stream] + ofs, SEEK_SET)) == -1)
+				fatal("Failed to seek to header data in get_fileinfo\n");
+			get_header_info(fd_in, &ctype, &c_len, &u_len, &last_head);
+
+			print_output("Stream: %d\n", stream);
+			print_maxverbose("Offset: %lld\n", ofs);
+			print_output("Block\tComp\tPercent\tSize\n");
+			do {
+				if (unlikely(lseek(fd_in, last_head + ofs, SEEK_SET)) == -1)
+					fatal("Failed to seek to header data in get_fileinfo\n");
+				get_header_info(fd_in, &ctype, &c_len, &u_len, &last_head);
+				print_output("%d\t", block);
+				if (ctype == CTYPE_NONE)
+					print_output("none");
+				else if (ctype == CTYPE_BZIP2)
+					print_output("bzip2");
+				else if (ctype == CTYPE_LZO)
+					print_output("lzo");
+				else if (ctype == CTYPE_LZMA)
+					print_output("lzma");
+				else if (ctype == CTYPE_GZIP)
+					print_output("gzip");
+				else if (ctype == CTYPE_ZPAQ)
+					print_output("zpaq");
+				else
+					print_output("Dunno wtf");
+				utotal += u_len;
+				ctotal += c_len;
+				print_output("\t%.1f%%\t%lld / %lld", (double)c_len / (double)(u_len / 100), c_len, u_len);
+				print_maxverbose("\tHead: %lld", last_head);
+				print_output("\n");
+				block++;
+			} while (last_head);
+			++stream;
+		}
+		ofs = lseek(fd_in, 0, SEEK_CUR) + c_len;
+		/* Chunk byte entry */
+		if (control.major_version == 0 && control.minor_version > 4)
+			ofs++;
+		if (ofs < infile_size - MD5_DIGEST_SIZE)
+			goto next_chunk;
+		print_output("Rzip compression: %.1f%% %lld / %lld\n",
+			     (double)utotal / (double)(expected_size / 100),
+			     utotal, expected_size);
+		print_output("Back end compression: %.1f%% %lld / %lld\n",
+			     (double)ctotal / (double)(utotal / 100),
+			     ctotal, utotal);
+		print_output("Overall compression: %.1f%% %lld / %lld\n",
+			     (double)ctotal / (double)(expected_size / 100),
+			     ctotal, expected_size);
+	}
+
 	if (STDIN) {
 		if (unlikely(unlink(control.infile)))
 			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
-	}
+	} else
+		if (unlikely(close(fd_in)))
+			fatal("Failed to close fd_in in get_fileinfo\n");
 
 	free(control.outfile);
 	free(infilecopy);

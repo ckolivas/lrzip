@@ -21,6 +21,7 @@ Executable size will be slightly smaller due to stripping symbols by default
 now.
 The -T option no longer takes an argument. It simply denotes that lzo testing
 should be disabled.
+Verbose added to -i now prints a lot more information about an lrzip archive.
 
 lrzip-0.560
 

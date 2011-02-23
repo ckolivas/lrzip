@@ -19,6 +19,8 @@ compared to the -U option.
 * Strip symbols by default in compilation and add -W -Wall to CXXFLAGS to be
 consistent with CFLAGS.
 * Update benchmarks.
+* Add verbose and max verbose modes for -i information giving a breakdown of
+each rzip chunk and compressed block.
 
 FEBRUARY 2011, Peter Hyman
 * Minor updates to man pages, lrzip.conf example file.
