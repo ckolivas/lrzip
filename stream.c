@@ -821,6 +821,8 @@ retest_malloc:
 		sinfo->bufsize = sinfo->max_bufsize * 63 / 100;
 		round_to_page(&sinfo->bufsize);
 		sinfo->bufsize = MAX(sinfo->bufsize, STREAM_BUFSIZE);
+		if (sinfo->bufsize > sinfo->max_bufsize)
+			sinfo->max_bufsize = sinfo->bufsize;
 	} else
 		sinfo->bufsize = sinfo->max_bufsize;
 
