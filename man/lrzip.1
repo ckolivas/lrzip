@@ -202,7 +202,9 @@ the decompressed size, the compression ratio, what compression was used and
 what hash checking will be used for internal integrity checking.
 Note that the compression mode is detected from the first block only and
 it will show no compression used if the first block was incompressible, even
-if later blocks were compressible. 
+if later blocks were compressible. If verbose options \-v or \-vv are added,
+a breakdown of all the internal blocks and progressively more information
+pertaining to them will also be shown.
 .IP
 .IP "\fB-H\fP"
 This shows the md5 hash value calculated on compressing or decompressing an
