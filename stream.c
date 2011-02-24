@@ -814,22 +814,21 @@ retest_malloc:
 	free(testmalloc);
 	print_maxverbose("Succeeded in testing %lld sized malloc for back end compression\n", testsize);
 
-	sinfo->max_bufsize = limit / control.threads;
+	sinfo->max_bufsize = MIN(limit,
+			     MAX((limit + control.threads - 1) / control.threads,
+				 STREAM_BUFSIZE));
+	sinfo->bufsize = sinfo->max_bufsize;
 
 	/* We start with slightly smaller buffers to start loading CPUs as soon
 	 * as possible and make them exponentially larger approaching the
 	 * tested maximum size. We ensure the buffers are of a minimum size,
 	 * though, as compression efficency drops off dramatically with tiny
 	 * buffers. */
-	if (control.threads > 1) {
+	if (control.threads > 1 && sinfo->max_bufsize > STREAM_BUFSIZE) {
 		sinfo->bufsize = sinfo->max_bufsize * 63 / 100;
-		round_to_page(&sinfo->bufsize);
 		sinfo->bufsize = MAX(sinfo->bufsize, STREAM_BUFSIZE);
-		if (sinfo->bufsize > sinfo->max_bufsize)
-			sinfo->max_bufsize = sinfo->bufsize;
-	} else
-		sinfo->bufsize = sinfo->max_bufsize;
-
+	}
+	
 	if (control.threads > 1)
 		print_maxverbose("Using up to %d threads to compress up to %lld bytes each.\n",
 			control.threads, sinfo->max_bufsize);
@@ -1073,11 +1072,8 @@ static void clear_buffer(struct stream_info *sinfo, int stream, int newbuf)
 			 i, cthread[i].s_len, stream);
 	create_pthread(&threads[i], NULL, compthread, (void *)i);
 
-	if (control.threads > 1) {
+	if (control.threads > 1)
 		sinfo->bufsize += (sinfo->max_bufsize - sinfo->bufsize) * 63 / 100;
-		round_to_page(&sinfo->bufsize);
-		sinfo->bufsize = MAX(sinfo->bufsize, STREAM_BUFSIZE);
-	}
 
 	if (newbuf) {
 		/* The stream buffer has been given to the thread, allocate a new one */
