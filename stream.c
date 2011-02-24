@@ -156,7 +156,7 @@ static int zpaq_compress_buf(struct compress_thread *cthread, long thread)
 
 	in = fmemopen(cthread->s_buf, cthread->s_len, "r");
 	if (unlikely(!in)) {
-		print_maxverbose("Failed to fmemopen in zpaq_compress_buf\n");
+		print_err("Failed to fmemopen in zpaq_compress_buf\n");
 		return -1;
 	}
 	out = open_memstream((char **)&c_buf, &dlen);
@@ -200,7 +200,7 @@ static int bzip2_compress_buf(struct compress_thread *cthread)
 
 	c_buf = malloc(dlen);
 	if (!c_buf) {
-		print_maxverbose("Unable to allocate c_buf\n");
+		print_err("Unable to allocate c_buf in bzip2_compress_buf\n");
 		return -1;
 	}
 
@@ -246,7 +246,7 @@ static int gzip_compress_buf(struct compress_thread *cthread)
 
 	c_buf = malloc(dlen);
 	if (!c_buf) {
-		print_maxverbose("Unable to allocate c_buf\n");
+		print_err("Unable to allocate c_buf in gzip_compress_buf\n");
 		return -1;
 	}
 
@@ -300,8 +300,10 @@ static int lzma_compress_buf(struct compress_thread *cthread)
 retry:
 	dlen = cthread->s_len;
 	c_buf = malloc(dlen);
-	if (!c_buf)
+	if (!c_buf) {
+		print_err("Unable to allocate c_buf in lzma_compress_buf\n");
 		return -1;
+	}
 
 	/* with LZMA SDK 4.63, we pass compression level and threads only
 	 * and receive properties in control->lzma_properties */
@@ -377,8 +379,10 @@ static int lzo_compress_buf(struct compress_thread *cthread)
 	}
 
 	c_buf = malloc(dlen);
-	if (!c_buf)
+	if (!c_buf) {
+		print_err("Unable to allocate c_buf in lzo_compress_buf");
 		goto out_free;
+	}
 
 	return_var = lzo1x_1_compress(cthread->s_buf, in_len, c_buf, &dlen, wrkmem);
 	ret = 0;
