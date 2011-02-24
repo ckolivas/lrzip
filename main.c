@@ -528,9 +528,13 @@ next_chunk:
 			do {
 				i64 head_off;
 
+				if (unlikely(last_head + ofs > infile_size))
+					failure("Offset greater than archive size, likely corrupted/truncated archive.\n");
 				if (unlikely(head_off = lseek(fd_in, last_head + ofs, SEEK_SET)) == -1)
 					fatal("Failed to seek to header data in get_fileinfo\n");
 				get_header_info(fd_in, &ctype, &c_len, &u_len, &last_head);
+				if (unlikely(last_head < 0))
+					failure("Last head entry negative, likely corrupted archive.\n");
 				print_output("%d\t", block);
 				if (ctype == CTYPE_NONE)
 					print_output("none");
@@ -561,6 +565,8 @@ next_chunk:
 			ofs++;
 		if (ofs < infile_size - MD5_DIGEST_SIZE)
 			goto next_chunk;
+		if (unlikely(ofs > infile_size))
+			failure("Offset greater than archive size, likely corrupted/truncated archive.\n");
 		print_output("Rzip compression: %.1f%% %lld / %lld\n",
 			     (double)utotal / (double)(expected_size / 100),
 			     utotal, expected_size);
