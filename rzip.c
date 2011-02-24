@@ -773,14 +773,18 @@ void rzip_fd(int fd_in, int fd_out)
 		control.max_mmap = MIN(control.max_mmap, two_gig);
 	round_to_page(&control.max_mmap);
 
-	/* Set maximum chunk size to 2/3 of ram */
-	control.max_chunk = control.ramsize / 3 * 2;
+	/* Set maximum chunk size to 2/3 of ram if not unlimited or specified
+	 * by a control window. When it's smaller than the file size, round it
+	 * to page size for efficiency. */
 	if (UNLIMITED)
 		control.max_chunk = control.st_size;
-	if (control.window)
+	else if (control.window)
 		control.max_chunk = MIN(control.max_chunk, control.window * CHUNK_MULTIPLE);
-	round_to_page(&control.max_chunk);
+	else
+		control.max_chunk = control.ramsize / 3 * 2;
 	control.max_mmap = MIN(control.max_mmap, control.max_chunk);
+	if (control.max_mmap < control.st_size)
+		round_to_page(&control.max_chunk);
 
 	if (!STDIN)
 		st->chunk_size = MIN(control.max_chunk, len);
