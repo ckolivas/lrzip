@@ -526,7 +526,9 @@ next_chunk:
 			print_maxverbose("Offset: %lld\n", ofs);
 			print_output("Block\tComp\tPercent\tSize\n");
 			do {
-				if (unlikely(lseek(fd_in, last_head + ofs, SEEK_SET)) == -1)
+				i64 head_off;
+
+				if (unlikely(head_off = lseek(fd_in, last_head + ofs, SEEK_SET)) == -1)
 					fatal("Failed to seek to header data in get_fileinfo\n");
 				get_header_info(fd_in, &ctype, &c_len, &u_len, &last_head);
 				print_output("%d\t", block);
@@ -547,7 +549,7 @@ next_chunk:
 				utotal += u_len;
 				ctotal += c_len;
 				print_output("\t%.1f%%\t%lld / %lld", (double)c_len / (double)(u_len / 100), c_len, u_len);
-				print_maxverbose("\tHead: %lld", last_head);
+				print_maxverbose("\tOffset: %lld\tHead: %lld", head_off, last_head);
 				print_output("\n");
 				block++;
 			} while (last_head);
