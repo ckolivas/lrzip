@@ -31,6 +31,7 @@ static void usage(void)
 	print_output("General options:\n");
 	print_output("     -c            check integrity of file written on decompression\n");
 	print_output("     -d            decompress\n");
+	print_output("     -h|-?         show help\n");
 	print_output("     -H            display md5 hash integrity information\n");
 	print_output("     -i            show compressed file information\n");
 	print_output("     -q            don't show compression progress\n");
