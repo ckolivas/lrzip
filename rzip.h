@@ -301,7 +301,6 @@ struct stream_info {
 	int num_streams;
 	int fd;
 	i64 bufsize;
-	i64 max_bufsize;
 	i64 cur_pos;
 	i64 initial_pos;
 	i64 total_read;

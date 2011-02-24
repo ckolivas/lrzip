@@ -6,9 +6,8 @@ FEBRUARY 2011, version 0.561 Con Kolivas
 * Delete temporary files generated when testing from stdin.
 * Don't call perror on failures that aren't system related.
 * Improve visual output.
-* Significant multi-threading speed-ups - Use one more thread than CPUs, and
-use a smaller buffer on the first thread and slightly more each next thread
-until the next stream. Then repeat the cycle.
+* Significant multi-threading speed-ups - as the spawning of threads is
+partially serialised, use one more thread than CPUs.
 * Don't split up the chunks into multiple threads when no back end
 compression is being used.
 * Take into account the precise amount of overhead that the memory hungry
