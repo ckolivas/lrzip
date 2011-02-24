@@ -26,7 +26,8 @@ AC_SUBST(SHELL)
 AC_SYS_LARGEFILE
 
 if test x"$GCC" = xyes; then
-        CFLAGS="$CFLAGS -Wall -W"
+        CFLAGS="-Wall -W -s -O2 $CFLAGS"
+        CXXFLAGS="-Wall -W -s -O2 $CXXFLAGS"
 fi
 
 AC_CHECK_HEADERS(fcntl.h sys/time.h sys/unistd.h unistd.h)

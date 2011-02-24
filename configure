@@ -3871,7 +3871,8 @@ fi
 
 
 if test x"$GCC" = xyes; then
-        CFLAGS="$CFLAGS -Wall -W"
+        CFLAGS="-Wall -W -s -O2 $CFLAGS"
+        CXXFLAGS="-Wall -W -s -O2 $CXXFLAGS"
 fi
 
 ac_ext=c

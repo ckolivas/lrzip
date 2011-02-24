@@ -23,6 +23,8 @@ consistent with CFLAGS.
 each rzip chunk and compressed block.
 * Modify purpose of -T threshold option to mean Disable LZO pre-compression
  testing. Threshold level test deprecated.
+* Make failure to allocate a buffer in the compress_ functions put out an
+error message always rather than just in max_verbose mode.
 
 FEBRUARY 2011, Peter Hyman
 * Minor updates to man pages, lrzip.conf example file.
