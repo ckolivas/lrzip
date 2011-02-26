@@ -1,2 +1,22 @@
 *~
+*.o
+*.lo
+config.*
+Makefile
+*.in
+.deps
+.libs
+*.la
+aclocal.m4
+autom4te.cache/
+configure
+depcomp
+install-sh
+libtool
+lrzip
+lrzip*.tar.bz2
+lrzip*.tar.gz
+ltmain.sh
+missing
+stamp-h1
 

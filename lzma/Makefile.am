@@ -1,0 +1,12 @@
+SUBDIRS = C
+MAINTAINERCLEANFILES = Makefile.in
+
+lzmadocdir = @docdir@/lzma
+lzmadoc_DATA = \
+  7zC.txt \
+  7zFormat.txt \
+  Methods.txt \
+  history.txt \
+  lzma.txt \
+  README \
+  README-Alloc

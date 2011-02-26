@@ -67,7 +67,9 @@
 #ifdef HAVE_CTYPE_H
 #include <ctype.h>
 #endif
+#ifdef HAVE_ERRNO_H
 #include <errno.h>
+#endif
 #include <sys/mman.h>
 
 /* needed for CRC routines */
@@ -116,7 +118,7 @@ extern char *sys_errlist[];
 #define strerror(i) sys_errlist[i]
 #endif
 
-#ifndef HAVE_ERRNO_DECL
+#ifndef HAVE_ERRNO_H
 extern int errno;
 #endif
 
