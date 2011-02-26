@@ -826,6 +826,8 @@ retry:
 			sb.buf_low = mmap(NULL, st->mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 			/* Better to shrink the window to the largest size that works than fail */
 			if (sb.buf_low == MAP_FAILED) {
+				if (unlikely(errno != ENOMEM))
+					fatal("Failed to mmap %s\n", control.infile);
 				st->mmap_size = st->mmap_size / 10 * 9;
 				round_to_page(&st->mmap_size);
 				if (unlikely(!st->mmap_size))
@@ -838,6 +840,8 @@ retry:
 			/* NOTE The buf is saved here for !STDIN mode */
 			sb.buf_low = (uchar *)mmap(sb.buf_low, st->mmap_size, PROT_READ, MAP_SHARED, fd_in, offset);
 			if (sb.buf_low == MAP_FAILED) {
+				if (unlikely(errno != ENOMEM))
+					fatal("Failed to mmap %s\n", control.infile);
 				st->mmap_size = st->mmap_size / 10 * 9;
 				round_to_page(&st->mmap_size);
 				if (unlikely(!st->mmap_size))
