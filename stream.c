@@ -23,7 +23,7 @@
 
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
-struct compress_thread{
+static struct compress_thread{
 	uchar *s_buf;	/* Uncompressed buffer -> Compressed buffer */
 	uchar c_type;	/* Compression type */
 	i64 s_len;	/* Data length uncompressed */
@@ -33,7 +33,7 @@ struct compress_thread{
 	int stream;
 } *cthread;
 
-struct uncomp_thread{
+static struct uncomp_thread{
 	uchar *s_buf;
 	i64 u_len, c_len;
 	i64 last_head;
