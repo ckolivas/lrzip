@@ -659,7 +659,7 @@ static void mmap_stdin(uchar *buf, struct rzip_state *st)
 		if (ret == 0) {
 			/* Should be EOF */
 			print_maxverbose("Shrinking chunk to %lld\n", total);
-			buf = mremap(buf, st->chunk_size, total, 0);
+			buf = (uchar *)mremap(buf, st->chunk_size, total, 0);
 			if (unlikely(buf == MAP_FAILED))
 				fatal("Failed to remap to smaller buf in mmap_stdin\n");
 			st->mmap_size = st->chunk_size = total;
