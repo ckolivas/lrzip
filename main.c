@@ -321,18 +321,6 @@ static void decompress_file(void)
 		}
 	}
 
-	/* Check if there's enough free space on the device chosen to fit the
-	 * decompressed file. */
-	if (unlikely(fstatvfs(fd_in, &fbuf)))
-		fatal("Failed to fstatvfs in decompress_file\n");
-	free_space = fbuf.f_bsize * fbuf.f_bavail;
-	if (free_space < expected_size) {
-		if (FORCE_REPLACE)
-			print_err("Warning, inadequate free space detected, but attempting to decompress due to -f option being used.\n");
-		else
-			failure("Inadequate free space to decompress file, use -f to override.\n");
-	}
-
 	if (!(TEST_ONLY | STDOUT)) {
 		if (FORCE_REPLACE)
 			fd_out = open(control.outfile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
@@ -349,6 +337,18 @@ static void decompress_file(void)
 	} else
 		fd_out = open_tmpoutfile();
 	control.fd_out = fd_out;
+
+	/* Check if there's enough free space on the device chosen to fit the
+	 * decompressed file. */
+	if (unlikely(fstatvfs(fd_out, &fbuf)))
+		fatal("Failed to fstatvfs in decompress_file\n");
+	free_space = fbuf.f_bsize * fbuf.f_bavail;
+	if (free_space < expected_size) {
+		if (FORCE_REPLACE)
+			print_err("Warning, inadequate free space detected, but attempting to decompress due to -f option being used.\n");
+		else
+			failure("Inadequate free space to decompress file, use -f to override.\n");
+	}
 
 	fd_hist = open(control.outfile, O_RDONLY);
 	if (unlikely(fd_hist == -1))
