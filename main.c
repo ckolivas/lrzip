@@ -255,7 +255,8 @@ static void decompress_file(void)
 {
 	char *tmp, *tmpoutfile, *infilecopy = NULL;
 	int fd_in, fd_out = -1, fd_hist = -1;
-	i64 expected_size;
+	i64 expected_size, free_space;
+	struct statvfs fbuf;
 
 	if (!STDIN) {
 		if ((tmp = strrchr(control.infile, '.')) && strcmp(tmp,control.suffix)) {
@@ -318,6 +319,18 @@ static void decompress_file(void)
 			      infilecopy,
 			      strerror(errno));
 		}
+	}
+
+	/* Check if there's enough free space on the device chosen to fit the
+	 * decompressed file. */
+	if (unlikely(fstatvfs(fd_in, &fbuf)))
+		fatal("Failed to fstatvfs in decompress_file\n");
+	free_space = fbuf.f_bsize * fbuf.f_bavail;
+	if (free_space < expected_size) {
+		if (FORCE_REPLACE)
+			print_err("Warning, inadequate free space detected, but attempting to decompress due to -f option being used.\n");
+		else
+			failure("Inadequate free space to decompress file, use -f to override.\n");
 	}
 
 	if (!(TEST_ONLY | STDOUT)) {

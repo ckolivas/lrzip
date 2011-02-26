@@ -740,6 +740,8 @@ void rzip_fd(int fd_in, int fd_out)
 		     elapsed_minutes, elapsed_seconds;
 	double finish_time, elapsed_time, chunkmbs;
 	char md5_resblock[MD5_DIGEST_SIZE];
+	struct statvfs fbuf;
+	i64 free_space;
 
 	md5_init_ctx (&control.ctx);
 
@@ -760,6 +762,19 @@ void rzip_fd(int fd_in, int fd_out)
 		print_verbose("File size: %lld\n", len);
 	} else
 		control.st_size = 0;
+
+	/* Check if there's enough free space on the device chosen to fit the
+	 * compressed file, based on the compressed file being as large as the
+	 * uncompressed file. */
+	if (unlikely(fstatvfs(fd_in, &fbuf)))
+		fatal("Failed to fstatvfs in decompress_file\n");
+	free_space = fbuf.f_bsize * fbuf.f_bavail;
+	if (free_space < control.st_size) {
+		if (FORCE_REPLACE)
+			print_err("Warning, possibly inadequate free space detected, but attempting to compress due to -f option being used.\n");
+		else
+			failure("Possibly inadequate free space to compress file, use -f to override.\n");
+	}
 
 	/* Optimal use of ram involves using no more than 2/3 of it, so we
 	 * allocate 1/3 of it to the main buffer and use a sliding mmap

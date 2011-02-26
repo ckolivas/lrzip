@@ -38,6 +38,7 @@
 #include <bzlib.h>
 #include <zlib.h>
 #include <pthread.h>
+#include <sys/statvfs.h>
 #include <sys/resource.h>
 #include <netinet/in.h>
 
