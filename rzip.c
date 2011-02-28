@@ -798,7 +798,7 @@ void rzip_fd(int fd_in, int fd_out)
 	else
 		control.max_chunk = control.ramsize / 3 * 2;
 	control.max_mmap = MIN(control.max_mmap, control.max_chunk);
-	if (control.max_mmap < control.st_size)
+	if (control.max_chunk < control.st_size)
 		round_to_page(&control.max_chunk);
 
 	if (!STDIN)
