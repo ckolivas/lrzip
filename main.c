@@ -1035,7 +1035,7 @@ int main(int argc, char *argv[])
 				usage();
 				exit (1);
 			}
-			if (STDIN && isatty(fileno((FILE *)stdout))) {
+			if (STDOUT && isatty(fileno((FILE *)stdout))) {
 				print_err("Will not write stdout to a terminal. Use -f to override.\n");
 				usage();
 				exit (1);
