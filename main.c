@@ -350,9 +350,6 @@ static void decompress_file(void)
 			failure("Inadequate free space to decompress file, use -f to override.\n");
 	}
 
-	if (unlikely(posix_fallocate(fd_out, 0, expected_size)))
-		failure("Failed to fallocate fd_out in decompress_file\n");
-
 	fd_hist = open(control.outfile, O_RDONLY);
 	if (unlikely(fd_hist == -1))
 		fatal("Failed to open history file %s\n", control.outfile);
