@@ -794,7 +794,7 @@ void rzip_fd(int fd_in, int fd_out)
 	if (UNLIMITED)
 		control.max_chunk = control.st_size;
 	else if (control.window)
-		control.max_chunk = MIN(control.max_chunk, control.window * CHUNK_MULTIPLE);
+		control.max_chunk = control.window * CHUNK_MULTIPLE;
 	else
 		control.max_chunk = control.ramsize / 3 * 2;
 	control.max_mmap = MIN(control.max_mmap, control.max_chunk);
