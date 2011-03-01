@@ -977,11 +977,8 @@ int main(int argc, char *argv[])
 
 	if (UNLIMITED && STDIN) {
 		print_err("Cannot have -U and stdin, unlimited mode disabled.\n");
-		control.flags &= ~ FLAG_UNLIMITED;
+		control.flags &= ~FLAG_UNLIMITED;
 	}
-
-	if (CHECK_FILE && (!DECOMPRESS || !TEST_ONLY))
-		print_err("Can only check file written on decompression or testing.\n");
 
 	/* Work out the compression overhead per compression thread for the
 	 * compression back-ends that need a lot of ram */
@@ -1046,6 +1043,16 @@ int main(int argc, char *argv[])
 				print_err("Will not write stdout to a terminal. Use -f to override.\n");
 				usage();
 				exit (1);
+			}
+		}
+
+		if (CHECK_FILE) {
+			if (!DECOMPRESS) {
+				print_err("Can only check file written on decompression.\n");
+				control.flags &= ~FLAG_CHECK;
+			} else if (STDOUT) {
+				print_err("Can't check file written when writing to stdout. Checking disabled.\n");
+				control.flags &= ~FLAG_CHECK;
 			}
 		}
 
