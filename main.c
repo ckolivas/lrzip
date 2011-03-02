@@ -901,12 +901,9 @@ int main(int argc, char *argv[])
 
 	control.compression_level = 7;
 	control.ramsize = get_ram();
-	control.window = 0;
 	/* for testing single CPU */
 	control.threads = PROCESSORS;	/* get CPUs for LZMA */
 	control.page_size = PAGE_SIZE;
-	control.md5_read = 0;
-
 	control.nice_val = 19;
 
 	/* generate crc table */
