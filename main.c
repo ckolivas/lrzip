@@ -202,7 +202,106 @@ static void dump_tmpoutfile(int fd_out)
 	while ((tmpchar = fgetc(tmpoutfp)) != EOF)
 		putchar(tmpchar);
 
+<<<<<<< HEAD
 	fflush(control.msgout);
+=======
+void flush_shmout(void)
+{
+	/* The test data is simply deleted */
+	if (!TEST_ONLY)
+		dump_tmpoutfile();
+	if (unlikely(lseek(control.fd_out, 0, SEEK_SET)))
+		fatal("Failed to lseek fd_out in flush_smh_stdout\n");
+	if (unlikely(ftruncate(control.fd_out, 0)))
+		fatal("Failed to ftruncate fd_out in flush_shm_stdout\n");
+	control.shmout_len = 0;
+}
+
+static int copy_file(int from, int to)
+{
+	char *buf = malloc(control.page_size);
+	ssize_t read_ret;
+	int ret = 0;
+
+	if (unlikely(buf == NULL)) {
+		print_err("Failed to malloc buf in copy_file\n");
+		ret = -1;
+		goto out;
+	}
+	fsync(from);
+	if (unlikely(lseek(from, 0, SEEK_SET))) {
+		print_err("Failed to lseek from in copy_file\n");
+		ret = -1;
+		goto out_free;
+	}
+	fsync(to);
+	if (unlikely(lseek(to, 0, SEEK_SET))) {
+		print_err("Failed to lseek to in copy_file\n");
+		ret = -1;
+		goto out_free;
+	}
+	while ((read_ret = read(from, buf, control.page_size)) > 0) {
+		if (unlikely((write(to, buf, read_ret) != read_ret))) {
+			print_err("Failed to write in copy_file\n");
+			ret = -1;
+			break;
+		}
+	}
+	fsync(to);
+out_free:
+	free(buf);
+out:
+	return ret;
+}
+
+void open_phys_tmpoutfile(void)
+{
+	FILE *physfile, *shmfile;
+	int fd_out, shm_fd;
+
+	if (unlikely(shm_unlink(control.tmp_outfile)))
+		fatal("Failed to shm_unlink tmp_outfile in open_phys_tmpoutfile\n");
+	print_verbose("STDOUT too large to store in memory, creating physical temporary file.\n");
+	control.tmp_outfile = NULL;
+
+	if (control.tmpdir) {
+		control.outfile = realloc(control.outfile, strlen(control.tmpdir) + 16);
+		if (unlikely(!control.outfile))
+			fatal("Failed to allocate outfile name\n");
+		strcpy(control.outfile, control.tmpdir);
+		strcat(control.outfile, "lrzipout.XXXXXX");
+	} else {
+		control.outfile = realloc(control.outfile, 16);
+		if (unlikely(!control.outfile))
+			fatal("Failed to allocate outfile name\n");
+		strcpy(control.outfile, "lrzipout.XXXXXX");
+	}
+
+	shm_fd = control.fd_out;
+	fd_out = mkstemp(control.outfile);
+	if (unlikely(fd_out == -1))
+		fatal("Failed to mkstemp tmpfile in open_phys_tmpoutfile\n");
+	physfile = fdopen(fd_out, "w+");
+	if (unlikely(physfile == NULL))
+		fatal("Failed to fdopen physfile in open_phystmpoutfile\n");
+
+	shmfile = fdopen(control.fd_out, "r");
+	if (unlikely(shmfile == NULL))
+		fatal("Failed to fdopen shmfile in open_phystmpoutfile\n");
+
+	if (unlikely(copy_file(shm_fd, fd_out)))
+		fatal("Failed to copy_file in open_phys_tmpoutfile\n");
+
+	if (unlikely(close(control.fd_out)))
+		fatal("Failed to close fd_out in open_phys_tmpoutfile\n");
+	control.fd_out = fd_out;
+	if (DECOMPRESS || TEST_ONLY) {
+		if (unlikely(close(control.fd_hist)))
+			fatal("Failed to close fd_hist in open_phys_tmpoutfile\n");
+		control.fd_hist = open(control.outfile, O_RDONLY);
+		if (unlikely(control.fd_hist == -1))
+			fatal("Failed to open history file %s\n", control.outfile);
+	}
 }
 
 /* Open a temporary inputfile to perform stdin decompression */
@@ -211,13 +310,13 @@ static int open_tmpinfile(void)
 	int fd_in;
 
 	if (control.tmpdir) {
-		control.infile = malloc(strlen(control.tmpdir)+15);
+		control.infile = realloc(control.infile, strlen(control.tmpdir) + 15);
 		if (unlikely(!control.infile))
 			fatal("Failed to allocate infile name\n");
 		strcpy(control.infile, control.tmpdir);
 		strcat(control.infile, "lrzipin.XXXXXX");
 	} else {
-		control.infile = malloc(15);
+		control.infile = realloc(control.infile, 15);
 		if (unlikely(!control.infile))
 			fatal("Failed to allocate infile name\n");
 		strcpy(control.infile, "lrzipin.XXXXXX");
