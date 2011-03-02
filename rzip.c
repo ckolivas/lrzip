@@ -570,7 +570,7 @@ static void hash_search(struct rzip_state *st, double pct_base, double pct_multi
 			      st->chunk_size);
 			chunk_pct = p / (end / 100);
 			if (pct != lastpct || chunk_pct != last_chunkpct) {
-				if (!STDIN)
+				if (!STDIN || st->stdin_eof)
 					print_progress("Total: %2d%%  ", pct);
 				print_progress("Chunk: %2d%%\r", chunk_pct);
 				lastpct = pct;
@@ -894,9 +894,14 @@ retry:
 			st->chunk_bytes++;
 		print_maxverbose("Byte width: %d\n", st->chunk_bytes);
 
-		pct_base = (100.0 * (s.st_size - len)) / s.st_size;
-		pct_multiple = ((double)st->chunk_size) / s.st_size;
+		if (STDIN)
+			pct_base = (100.0 * -len) / control.st_size;
+		else
+			pct_base = (100.0 * (control.st_size - len)) / control.st_size;
+		pct_multiple = ((double)st->chunk_size) / control.st_size;
 		pass++;
+		if (st->stdin_eof)
+			passes = pass;
 
 		gettimeofday(&current, NULL);
 		/* this will count only when size > window */
@@ -910,7 +915,7 @@ retry:
 			eta_minutes = (unsigned int)((finish_time - elapsed_time) - eta_hours * 3600) / 60;
 			eta_seconds = (unsigned int)(finish_time - elapsed_time) - eta_hours * 60 - eta_minutes * 60;
 			chunkmbs = (last_chunk / 1024 / 1024) / (double)(current.tv_sec-last.tv_sec);
-			if (!STDIN)
+			if (!STDIN || st->stdin_eof)
 				print_verbose("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
 					pass, passes, elapsed_hours, elapsed_minutes, elapsed_seconds,
 					eta_hours, eta_minutes, eta_seconds, chunkmbs);
