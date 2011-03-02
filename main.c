@@ -1072,10 +1072,10 @@ int main(int argc, char *argv[])
 		total_time = (end_time.tv_sec + (double)end_time.tv_usec / 1000000) -
 			      (start_time.tv_sec + (double)start_time.tv_usec / 1000000);
 		hours = (int)total_time / 3600;
-		minutes = (int)(total_time - hours * 3600) / 60;
-		seconds = total_time - hours * 60 - minutes * 60;
+		minutes = (int)(total_time / 60) % 60;
+		seconds = total_time - hours * 3600 - minutes * 60;
 		if (!INFO)
-			print_progress("Total time: %02d:%02d:%06.3f\n", hours, minutes, seconds);
+			print_progress("Total time: %02d:%02d:%05.2f\n", hours, minutes, seconds);
 	}
 
 	return 0;

@@ -906,14 +906,19 @@ retry:
 		gettimeofday(&current, NULL);
 		/* this will count only when size > window */
 		if (last.tv_sec > 0) {
+			unsigned int eta_hours, eta_minutes, eta_seconds, elapsed_time, finish_time,
+				elapsed_hours, elapsed_minutes, elapsed_seconds, diff_seconds;
+
 			elapsed_time = current.tv_sec - start.tv_sec;
 			finish_time = elapsed_time / (pct_base / 100.0);
-			elapsed_hours = (unsigned int)(elapsed_time) / 3600;
-			elapsed_minutes = (unsigned int)(elapsed_time - elapsed_hours * 3600) / 60;
-			elapsed_seconds = (unsigned int) elapsed_time - elapsed_hours * 60 - elapsed_minutes * 60;
-			eta_hours = (unsigned int)(finish_time - elapsed_time) / 3600;
-			eta_minutes = (unsigned int)((finish_time - elapsed_time) - eta_hours * 3600) / 60;
-			eta_seconds = (unsigned int)(finish_time - elapsed_time) - eta_hours * 60 - eta_minutes * 60;
+			elapsed_hours = elapsed_time / 3600;
+			elapsed_minutes = (elapsed_time / 60) % 60;
+			elapsed_seconds = elapsed_time % 60;
+			diff_seconds = finish_time - elapsed_time;
+			eta_hours = diff_seconds / 3600;
+			eta_minutes = (diff_seconds / 60) % 60;
+			eta_seconds = diff_seconds % 60;
+
 			chunkmbs = (last_chunk / 1024 / 1024) / (double)(current.tv_sec-last.tv_sec);
 			if (!STDIN || st->stdin_eof)
 				print_verbose("\nPass %d / %d -- Elapsed Time: %02d:%02d:%02d. ETA: %02d:%02d:%02d. Compress Speed: %3.3fMB/s.\n",
@@ -925,7 +930,9 @@ retry:
 		}
 		last.tv_sec = current.tv_sec;
 		last.tv_usec = current.tv_usec;
+
 		rzip_chunk(st, fd_in, fd_out, offset, pct_base, pct_multiple);
+
 		/* st->chunk_size may be shrunk in rzip_chunk */
 		last_chunk = st->chunk_size;
 		len -= st->chunk_size;
