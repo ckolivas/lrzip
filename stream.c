@@ -763,18 +763,18 @@ void close_streamout_threads(void)
 
 /* open a set of output streams, compressing with the given
    compression level and algorithm */
-void *open_stream_out(int f, int n, i64 limit, char cbytes)
+void *open_stream_out(int f, int n, i64 chunk_limit, char cbytes)
 {
 	struct stream_info *sinfo;
+	i64 testsize, limit;
 	uchar *testmalloc;
-	i64 testsize;
 	int i, testbufs;
 
 	sinfo = calloc(sizeof(struct stream_info), 1);
 	if (unlikely(!sinfo))
 		return NULL;
 
-	sinfo->bufsize = limit;
+	sinfo->bufsize = limit = chunk_limit;
 
 	sinfo->chunk_bytes = cbytes;
 	sinfo->num_streams = n;
@@ -802,8 +802,19 @@ void *open_stream_out(int f, int n, i64 limit, char cbytes)
 			(control.overhead * control.threads));
 
 	testsize = (limit * testbufs) + (control.overhead * control.threads);
-	if (testsize > control.ramsize / 3)
-		limit = (control.ramsize / 3 - (control.overhead * control.threads)) / testbufs;
+	if (testsize > control.maxram)
+		limit = (control.maxram - (control.overhead * control.threads)) / testbufs;
+
+	/* If we don't have enough ram for the number of threads, decrease the
+	 * number of threads till we do, or only have one thread. */
+	while (limit < STREAM_BUFSIZE && limit < chunk_limit) {
+		if (control.threads > 1)
+			--control.threads;
+		else
+			break;
+		limit = (control.maxram - (control.overhead * control.threads)) / testbufs;
+		limit = MIN(limit, chunk_limit);
+	}
 retest_malloc:
 	testsize = (limit * testbufs) + (control.overhead * control.threads);
 	testmalloc = malloc(testsize);

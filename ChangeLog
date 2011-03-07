@@ -1,4 +1,26 @@
 lrzip ChangeLog
+MARCH 2011, version 0.571 Con Kolivas
+* Only retry mmaping if it's a memory error, otherwise it may give spurious
+errors.
+* Check for free space before compression/decompression and abort if there
+is inadequate free space if the -f option is not passed.
+* Fix the wrong check in rzip.c which was rounding down the page size and
+making for one extra small chunk at the end.
+* Check the correct stdout when refusing to pipe to a terminal.
+* Fix windows EOL on lzma.txt.
+* Ignore what stdout is going to when testing from stdin.
+* More verbose summary after we know whether we have stdin/out to more
+accurately reflect the window that will be used.
+* Updated gitignore
+* Unlink temporary files immediately to avoid files lying around.
+* Check free space AFTER reading magic, and not when decompressing to stdout.
+* Don't dump output to stdout when just testing a file.
+* Dump the temporary file generated on emulating stdout on decompression after
+every chunk is decompressed instead of after the whole file is decompressed.
+
+MARCH 2011, Michael Blumenkrantz
+* Updated autotools/conf build system.
+
 FEBRUARY 2011, version 0.570 Con Kolivas
 * Change the lzo testing to a bool on/off instead of taking a parameter.
 * Clean up the messy help output.

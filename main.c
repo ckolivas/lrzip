@@ -167,7 +167,7 @@ static int open_tmpoutfile(void)
 	if (STDOUT)
 		print_verbose("Outputting to stdout.\n");
 	if (control.tmpdir) {
-		control.outfile = realloc(NULL, strlen(control.tmpdir)+16);
+		control.outfile = realloc(NULL, strlen(control.tmpdir) + 16);
 		if (unlikely(!control.outfile))
 			fatal("Failed to allocate outfile name\n");
 		strcpy(control.outfile, control.tmpdir);
@@ -181,17 +181,17 @@ static int open_tmpoutfile(void)
 
 	fd_out = mkstemp(control.outfile);
 	if (unlikely(fd_out == -1))
-		fatal("Failed to create out tmpfile: %s\n", strerror(errno));
+		fatal("Failed to create out tmpfile: %s\n", control.outfile);
 	return fd_out;
 }
 
 /* Dump temporary outputfile to perform stdout */
-static void dump_tmpoutfile(int fd_out)
+void dump_tmpoutfile(int fd_out)
 {
 	FILE *tmpoutfp;
 	int tmpchar;
 
-	print_progress("Dumping to stdout.\n");
+	print_verbose("Dumping temporary file to stdout.\n");
 	/* flush anything not yet in the temporary file */
 	fsync(fd_out);
 	tmpoutfp = fdopen(fd_out, "r");
@@ -199,10 +199,15 @@ static void dump_tmpoutfile(int fd_out)
 		fatal("Failed to fdopen out tmpfile: %s\n", strerror(errno));
 	rewind(tmpoutfp);
 
-	while ((tmpchar = fgetc(tmpoutfp)) != EOF)
-		putchar(tmpchar);
+	if (!TEST_ONLY) {
+		while ((tmpchar = fgetc(tmpoutfp)) != EOF)
+			putchar(tmpchar);
+	}
+	fflush(stdout);
 
-	fflush(control.msgout);
+	rewind(tmpoutfp);
+	if (unlikely(ftruncate(fd_out, 0)))
+		fatal("Failed to ftruncate fd_out in dump_tmpoutfile\n");
 }
 
 /* Open a temporary inputfile to perform stdin decompression */
@@ -211,7 +216,7 @@ static int open_tmpinfile(void)
 	int fd_in;
 
 	if (control.tmpdir) {
-		control.infile = malloc(strlen(control.tmpdir)+15);
+		control.infile = malloc(strlen(control.tmpdir) + 15);
 		if (unlikely(!control.infile))
 			fatal("Failed to allocate infile name\n");
 		strcpy(control.infile, control.tmpdir);
@@ -225,7 +230,11 @@ static int open_tmpinfile(void)
 
 	fd_in = mkstemp(control.infile);
 	if (unlikely(fd_in == -1))
-		fatal("Failed to create in tmpfile: %s\n", strerror(errno));
+		fatal("Failed to create in tmpfile: %s\n", control.infile);
+	/* Unlink temporary file immediately to minimise chance of files left
+	 * lying around in cases of failure. */
+	if (unlikely(unlink(control.infile)))
+		fatal("Failed to unlink tmpfile: %s\n", control.infile);
 	return fd_in;
 }
 
@@ -338,19 +347,11 @@ static void decompress_file(void)
 		fd_out = open_tmpoutfile();
 	control.fd_out = fd_out;
 
-	if (control.tmp_outfile)
-		fd_hist = shm_open(control.tmp_outfile, O_RDONLY, 0777);
-	else
-		fd_hist = open(control.outfile, O_RDONLY);
-	if (unlikely(fd_hist == -1))
-		fatal("Failed to open history file %s\n", control.outfile);
-	control.fd_hist = fd_hist;
-
 	read_magic(fd_in, &expected_size);
 
-	/* Check if there's enough free space on the device chosen to fit the
-	 * decompressed file. */
 	if (!STDOUT) {
+		/* Check if there's enough free space on the device chosen to fit the
+		* decompressed file. */
 		if (unlikely(fstatvfs(fd_out, &fbuf)))
 			fatal("Failed to fstatvfs in decompress_file\n");
 		free_space = fbuf.f_bsize * fbuf.f_bavail;
@@ -358,10 +359,18 @@ static void decompress_file(void)
 			if (FORCE_REPLACE)
 				print_err("Warning, inadequate free space detected, but attempting to decompress due to -f option being used.\n");
 			else
-				failure("Inadequate free space to decompress file, use -f to override."
-					" Free space %lld, expected size %lld\n", free_space, expected_size);
+				failure("Inadequate free space to decompress file, use -f to override.\n");
 		}
 	}
+
+	fd_hist = open(control.outfile, O_RDONLY);
+	if (unlikely(fd_hist == -1))
+		fatal("Failed to open history file %s\n", control.outfile);
+	control.fd_hist = fd_hist;
+
+	/* Unlink temporary file as soon as possible */
+	if (unlikely((STDOUT || TEST_ONLY) && unlink(control.outfile)))
+		fatal("Failed to unlink tmpfile: %s\n", control.outfile);
 
 	if (NO_MD5)
 		print_verbose("Not performing MD5 hash check\n");
@@ -387,15 +396,9 @@ static void decompress_file(void)
 	if (unlikely(close(fd_hist) || close(fd_out)))
 		fatal("Failed to close files\n");
 
-	if (TEST_ONLY | STDOUT) {
-		/* Delete temporary files generated for testing or faking stdout */
-		if (unlikely(unlink(control.outfile)))
-			fatal("Failed to unlink tmpfile: %s\n", strerror(errno));
-	}
-
 	close(fd_in);
 
-	if (!(KEEP_FILES | TEST_ONLY) || STDIN) {
+	if (!KEEP_FILES) {
 		if (unlikely(unlink(control.infile)))
 			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
 	}
@@ -600,12 +603,8 @@ next_chunk:
 			     ctotal, expected_size);
 	}
 
-	if (STDIN) {
-		if (unlikely(unlink(control.infile)))
-			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
-	} else
-		if (unlikely(close(fd_in)))
-			fatal("Failed to close fd_in in get_fileinfo\n");
+	if (unlikely(close(fd_in)))
+		fatal("Failed to close fd_in in get_fileinfo\n");
 
 	free(control.outfile);
 	free(infilecopy);
@@ -688,6 +687,9 @@ static void compress_file(void)
 		fd_out = open_tmpoutfile();
 	control.fd_out = fd_out;
 
+	if (unlikely(STDOUT && unlink(control.outfile)))
+		fatal("Failed to unlink tmpfile: %s\n", control.outfile);
+
 	preserve_perms(fd_in, fd_out);
 
 	/* write zeroes to 24 bytes at beginning of file */
@@ -704,12 +706,6 @@ static void compress_file(void)
 
 	if (unlikely(close(fd_in) || close(fd_out)))
 		fatal("Failed to close files\n");
-
-	if (STDOUT) {
-		/* Delete temporary files generated for testing or faking stdout */
-		if (unlikely(unlink(control.outfile)))
-			fatal("Failed to unlink tmpfile: %s\n", strerror(errno));
-	}
 
 	if (!KEEP_FILES) {
 		if (unlikely(unlink(control.infile)))
@@ -1002,6 +998,7 @@ int main(int argc, char *argv[])
 	/* Decrease usable ram size on 32 bits due to kernel/userspace split */
 	if (BITS32)
 		control.ramsize = MAX(control.ramsize - 900000000ll, 900000000ll);
+	control.maxram = control.ramsize / 3;
 
 	/* Set the main nice value to half that of the backend threads since
 	 * the rzip stage is usually the rate limiting step */
