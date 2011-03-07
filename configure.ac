@@ -1,54 +1,8 @@
-##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
-##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
-m4_define([v_maj], [0])
-m4_define([v_min], [570])
-##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
-m4_define([v_ver], [v_maj.v_min])
-m4_define([lt_rev], m4_eval(v_maj + v_min))
-m4_define([lt_age], v_min)
-##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
-##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
-
-
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([lrzip],[v_ver],[kernel@kolivas.org])
-AC_PREREQ([2.59])
-AC_CONFIG_SRCDIR([configure.ac])
-AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_HEADERS([config.h])
-
-AM_INIT_AUTOMAKE([1.6 dist-bzip2 foreign])
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
-AC_GNU_SOURCE
-
-AC_PROG_LIBTOOL
-##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
-##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
-m4_ifdef([v_rev], , [m4_define([v_rev], [0])])
-m4_ifdef([v_rel], , [m4_define([v_rel], [])])
-AC_DEFINE_UNQUOTED(VMAJ, [v_maj], [Major version])
-AC_DEFINE_UNQUOTED(VMIN, [v_min], [Minor version])
-AC_DEFINE_UNQUOTED(VREV, [v_rev], [Revison])
-version_info="lt_rev:lt_age"
-release_info="v_rel"
-AC_SUBST(version_info)
-AC_SUBST(release_info)
-##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
-##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
-VMAJ=v_maj
-AC_SUBST(VMAJ)
-
-AC_CANONICAL_BUILD
+AC_INIT([lrzip],[0.570],[kernel@kolivas.org],[lrzip-0.570])
+AC_CONFIG_HEADER(config.h)
+# see what our system is!
 AC_CANONICAL_HOST
-
-dnl Checks for programs.
-AC_PROG_CC
-AC_PROG_CXX
-PKG_PROG_PKG_CONFIG
-AC_PROG_INSTALL
-AC_PROG_LN_S
-AC_SUBST(SHELL)
-AC_SYS_LARGEFILE
 
 AC_ARG_ENABLE(
 		asm,
@@ -63,8 +17,22 @@ if test x"$ASM" = xyes; then
 	fi
 fi
 
-AC_CHECK_HEADERS(fcntl.h sys/time.h sys/unistd.h unistd.h sys/mman.h)
-AC_CHECK_HEADERS(sys/param.h ctype.h sys/wait.h sys/ioctl.h errno.h)
+dnl Checks for programs.
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_INSTALL
+AC_PROG_LN_S
+AC_SUBST(SHELL)
+AC_SYS_LARGEFILE
+
+if test x"$GCC" = xyes; then
+        CFLAGS="-Wall -W -s -O2 $CFLAGS"
+        CXXFLAGS="-Wall -W -s -O2 $CXXFLAGS"
+fi
+
+AC_CHECK_HEADERS(fcntl.h sys/time.h sys/unistd.h unistd.h)
+AC_CHECK_HEADERS(sys/param.h ctype.h sys/wait.h sys/ioctl.h)
+AC_CHECK_HEADERS(string.h stdlib.h sys/types.h)
 
 AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
@@ -82,6 +50,7 @@ if test x"$rzip_cv_HAVE_LARGE_FILES" = x"yes"; then
     AC_DEFINE(HAVE_LARGE_FILES, 1, [ ])
 fi
 
+
 AC_C_INLINE
 
 AC_CHECK_LIB(pthread, pthread_create, ,
@@ -95,56 +64,33 @@ AC_CHECK_LIB(bz2, BZ2_bzBuffToBuffCompress, ,
 AC_CHECK_LIB(lzo2, lzo1x_1_compress, ,
         AC_MSG_ERROR([Could not find lzo2 library - please install liblzo2-dev]))
 
+AC_DEFINE([HAVE_ERRNO_DECL],[0],[Define to 1 if errno.h present])
+
+echo $ECHO_N "checking for errno in errno.h... $ECHO_C"
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <errno.h>]], [[int i = errno]])],[echo yes; AC_DEFINE(HAVE_ERRNO_DECL)],[echo no])
+
 AC_CHECK_FUNCS(mmap strerror)
 AC_CHECK_FUNCS(getopt_long)
 
 # final checks for x86 and/or assembler
 if test x"$ASM" = x"no"; then
 	ASM_OBJ=7zCrc.o
-	ASM=no
+	ASM=
 else
 	case $host in
 		i?86-*)
 			ASM_OBJ="7zCrcT8.o 7zCrcT8U.o"
-			ASM_CMD="$ASM_PROG -f elf" ;;
+			ASM="nasm -f elf" ;;
 # x86_64 code is broken still
 #		x86_64-*)
 #			ASM_OBJ="7zCrcT8.o 7zCrcT8U_64.o"
-#			ASM_CMD="$ASM_PROG -f elf64" ;;
+#			ASM="nasm -f elf64" ;;
 		*) ASM_OBJ=7zCrc.o ;;
 	esac
 fi
-AM_CONDITIONAL([USE_ASM], [test "x$ASM" != "xyes" -a "x$ASM" != "xno"])
+
 AC_SUBST([ASM_OBJ])
-AC_SUBST([ASM_CMD])
+AC_SUBST([ASM])
 
-AC_CONFIG_FILES([
-Makefile
-lzma/Makefile
-lzma/C/Makefile
-doc/Makefile
-man/Makefile
-])
+AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
-
-echo
-echo
-echo
-echo "------------------------------------------------------------------------"
-echo "$PACKAGE $VERSION"
-echo "------------------------------------------------------------------------"
-echo
-echo
-echo "Configuration Options Summary:"
-echo
-echo "  ASM................: $ASM"
-echo
-echo "Compilation............: make (or gmake)"
-echo "  CPPFLAGS.............: $CPPFLAGS"
-echo "  CFLAGS...............: $CFLAGS"
-echo "  CXXFLAGS.............: $CXXFLAGS"
-echo "  LDFLAGS..............: $LDFLAGS"
-echo
-echo "Installation...........: make install (as root if needed, with 'su' or 'sudo')"
-echo "  prefix...............: $prefix"
-echo
