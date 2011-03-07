@@ -12,6 +12,7 @@ when lrzip is invoked with STDIN/STDOUT.
 STDIN will now be able to show estimated time to completion and percentage
 complete once lrzip knows how much file is left.
 Temporary files are much less likely to be left lying around.
+Less temporary file space will be used when decompressing to stdout.
 
 lrzip-0.570
 

@@ -15,6 +15,8 @@ accurately reflect the window that will be used.
 * Unlink temporary files immediately to avoid files lying around.
 * Check free space AFTER reading magic, and not when decompressing to stdout.
 * Don't dump output to stdout when just testing a file.
+* Dump the temporary file generated on emulating stdout on decompression after
+every chunk is decompressed instead of after the whole file is decompressed.
 
 MARCH 2011, Michael Blumenkrantz
 * Updated autotools/conf build system.
