@@ -186,12 +186,12 @@ static int open_tmpoutfile(void)
 }
 
 /* Dump temporary outputfile to perform stdout */
-static void dump_tmpoutfile(int fd_out)
+void dump_tmpoutfile(int fd_out)
 {
 	FILE *tmpoutfp;
 	int tmpchar;
 
-	print_progress("Dumping to stdout.\n");
+	print_verbose("Dumping temporary file to stdout.\n");
 	/* flush anything not yet in the temporary file */
 	fsync(fd_out);
 	tmpoutfp = fdopen(fd_out, "r");
@@ -199,10 +199,15 @@ static void dump_tmpoutfile(int fd_out)
 		fatal("Failed to fdopen out tmpfile: %s\n", strerror(errno));
 	rewind(tmpoutfp);
 
-	while ((tmpchar = fgetc(tmpoutfp)) != EOF)
-		putchar(tmpchar);
+	if (!TEST_ONLY) {
+		while ((tmpchar = fgetc(tmpoutfp)) != EOF)
+			putchar(tmpchar);
+	}
+	fflush(stdout);
 
-	fflush(control.msgout);
+	rewind(tmpoutfp);
+	if (unlikely(ftruncate(fd_out, 0)))
+		fatal("Failed to ftruncate fd_out in dump_tmpoutfile\n");
 }
 
 /* Open a temporary inputfile to perform stdin decompression */
@@ -378,7 +383,7 @@ static void decompress_file(void)
 
 	runzip_fd(fd_in, fd_out, fd_hist, expected_size);
 
-	if (STDOUT && !TEST_ONLY)
+	if (STDOUT)
 		dump_tmpoutfile(fd_out);
 
 	/* if we get here, no fatal errors during decompression */

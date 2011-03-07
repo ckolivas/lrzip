@@ -334,6 +334,7 @@ const i64 two_gig;
 void prepare_streamout_threads(void);
 void close_streamout_threads(void);
 void round_to_page(i64 *size);
+void dump_tmpoutfile(int fd_out);
 
 #define print_err(format, args...)	do {\
 	fprintf(stderr, format, ##args);	\
