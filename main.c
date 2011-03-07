@@ -766,12 +766,9 @@ static void show_summary(void)
 				temp_ramsize = control.ramsize;
 				if (BITS32)
 					temp_ramsize = MAX(temp_ramsize - 900000000ll, 900000000ll);
-				if (STDIN || STDOUT) {
-					if (STDIN && STDOUT)
-						temp_chunk = temp_ramsize * 2 / 9;
-					else
-						temp_chunk = temp_ramsize / 3;
-				} else
+				if (STDIN)
+					temp_chunk = temp_ramsize / 3;
+				else
 					temp_chunk = temp_ramsize / 3 * 2;
 				temp_window = temp_chunk / (100 * 1024 * 1024); 
 				print_verbose("Heuristically Computed Compression Window: %lld = %lldMB\n", temp_window, temp_window * 100ull);
