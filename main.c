@@ -164,7 +164,7 @@ static int open_tmpoutfile(void)
 {
 	int fd_out;
 
-	if (STDOUT)
+	if (STDOUT && !TEST_ONLY)
 		print_verbose("Outputting to stdout.\n");
 	if (control.tmpdir) {
 		control.outfile = realloc(NULL, strlen(control.tmpdir) + 16);
@@ -191,7 +191,6 @@ void dump_tmpoutfile(int fd_out)
 	FILE *tmpoutfp;
 	int tmpchar;
 
-	print_verbose("Dumping temporary file to stdout.\n");
 	/* flush anything not yet in the temporary file */
 	fsync(fd_out);
 	tmpoutfp = fdopen(fd_out, "r");
@@ -200,12 +199,13 @@ void dump_tmpoutfile(int fd_out)
 	rewind(tmpoutfp);
 
 	if (!TEST_ONLY) {
+		print_verbose("Dumping temporary file to stdout.\n");
 		while ((tmpchar = fgetc(tmpoutfp)) != EOF)
 			putchar(tmpchar);
+		fflush(stdout);
+		rewind(tmpoutfp);
 	}
-	fflush(stdout);
 
-	rewind(tmpoutfp);
 	if (unlikely(ftruncate(fd_out, 0)))
 		fatal("Failed to ftruncate fd_out in dump_tmpoutfile\n");
 }
