@@ -270,6 +270,7 @@ struct rzip_control {
 	const char *suffix;
 	int compression_level;
 	i64 overhead; // compressor overhead
+	i64 maxram; // the largest chunk of ram to allocate
 	unsigned char lzma_properties[5]; // lzma properties, encoded
 	i64 window;
 	unsigned long flags;

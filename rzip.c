@@ -780,7 +780,7 @@ void rzip_fd(int fd_in, int fd_out)
 	 * allocate 1/3 of it to the main buffer and use a sliding mmap
 	 * buffer to work on 2/3 ram size, leaving enough ram for the
 	 * compression backends */
-	control.max_mmap = control.ramsize / 3;
+	control.max_mmap = control.maxram;
 
 	/* On 32 bits we can have a big window with sliding mmap, but can
 	 * not enable much per mmap/malloc */
