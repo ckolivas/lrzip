@@ -363,7 +363,7 @@ static void decompress_file(void)
 		fatal("Failed to open history file %s\n", control.outfile);
 
 	/* Unlink temporary file as soon as possible */
-	if (unlikely(STDOUT && unlink(control.outfile)))
+	if (unlikely((STDOUT || TEST_ONLY) && unlink(control.outfile)))
 		fatal("Failed to unlink tmpfile: %s\n", control.outfile);
 
 	if (NO_MD5)
@@ -680,6 +680,9 @@ static void compress_file(void)
 	} else
 		fd_out = open_tmpoutfile();
 	control.fd_out = fd_out;
+
+	if (unlikely(STDOUT && unlink(control.outfile)))
+		fatal("Failed to unlink tmpfile: %s\n", control.outfile);
 
 	preserve_perms(fd_in, fd_out);
 
