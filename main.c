@@ -378,7 +378,7 @@ static void decompress_file(void)
 
 	runzip_fd(fd_in, fd_out, fd_hist, expected_size);
 
-	if (STDOUT)
+	if (STDOUT && !TEST_ONLY)
 		dump_tmpoutfile(fd_out);
 
 	/* if we get here, no fatal errors during decompression */
