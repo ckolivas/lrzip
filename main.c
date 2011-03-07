@@ -167,7 +167,7 @@ static int open_tmpoutfile(void)
 	if (STDOUT)
 		print_verbose("Outputting to stdout.\n");
 	if (control.tmpdir) {
-		control.outfile = realloc(NULL, strlen(control.tmpdir)+16);
+		control.outfile = realloc(NULL, strlen(control.tmpdir) + 16);
 		if (unlikely(!control.outfile))
 			fatal("Failed to allocate outfile name\n");
 		strcpy(control.outfile, control.tmpdir);
@@ -181,7 +181,11 @@ static int open_tmpoutfile(void)
 
 	fd_out = mkstemp(control.outfile);
 	if (unlikely(fd_out == -1))
-		fatal("Failed to create out tmpfile: %s\n", strerror(errno));
+		fatal("Failed to create out tmpfile: %s\n", control.outfile);
+	/* Unlink temporary file immediately to minimise chance of files left
+	 * lying around in cases of failure. */
+	if (unlikely(unlink(control.outfile)))
+		fatal("Failed to unlink tmpfile: %s\n", control.outfile);
 	return fd_out;
 }
 
@@ -211,7 +215,7 @@ static int open_tmpinfile(void)
 	int fd_in;
 
 	if (control.tmpdir) {
-		control.infile = malloc(strlen(control.tmpdir)+15);
+		control.infile = malloc(strlen(control.tmpdir) + 15);
 		if (unlikely(!control.infile))
 			fatal("Failed to allocate infile name\n");
 		strcpy(control.infile, control.tmpdir);
@@ -225,7 +229,9 @@ static int open_tmpinfile(void)
 
 	fd_in = mkstemp(control.infile);
 	if (unlikely(fd_in == -1))
-		fatal("Failed to create in tmpfile: %s\n", strerror(errno));
+		fatal("Failed to create in tmpfile: %s\n", control.infile);
+	if (unlikely(unlink(control.infile)))
+		fatal("Failed to unlink tmpfile: %s\n", control.infile);
 	return fd_in;
 }
 
@@ -379,15 +385,9 @@ static void decompress_file(void)
 	if (unlikely(close(fd_hist) || close(fd_out)))
 		fatal("Failed to close files\n");
 
-	if (TEST_ONLY | STDOUT) {
-		/* Delete temporary files generated for testing or faking stdout */
-		if (unlikely(unlink(control.outfile)))
-			fatal("Failed to unlink tmpfile: %s\n", strerror(errno));
-	}
-
 	close(fd_in);
 
-	if (!(KEEP_FILES | TEST_ONLY) || STDIN) {
+	if (!KEEP_FILES) {
 		if (unlikely(unlink(control.infile)))
 			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
 	}
@@ -592,12 +592,8 @@ next_chunk:
 			     ctotal, expected_size);
 	}
 
-	if (STDIN) {
-		if (unlikely(unlink(control.infile)))
-			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
-	} else
-		if (unlikely(close(fd_in)))
-			fatal("Failed to close fd_in in get_fileinfo\n");
+	if (unlikely(close(fd_in)))
+		fatal("Failed to close fd_in in get_fileinfo\n");
 
 	free(control.outfile);
 	free(infilecopy);
@@ -696,12 +692,6 @@ static void compress_file(void)
 
 	if (unlikely(close(fd_in) || close(fd_out)))
 		fatal("Failed to close files\n");
-
-	if (STDOUT) {
-		/* Delete temporary files generated for testing or faking stdout */
-		if (unlikely(unlink(control.outfile)))
-			fatal("Failed to unlink tmpfile: %s\n", strerror(errno));
-	}
 
 	if (!KEEP_FILES) {
 		if (unlikely(unlink(control.infile)))
