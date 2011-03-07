@@ -17,6 +17,10 @@ accurately reflect the window that will be used.
 * Don't dump output to stdout when just testing a file.
 * Dump the temporary file generated on emulating stdout on decompression after
 every chunk is decompressed instead of after the whole file is decompressed.
+* Don't attempt to file check decompression when it's not meaningful (test
+only or to stdout).
+* Clean up and simplify the times displayed component. It could potentially
+show thousands of seconds.
 
 MARCH 2011, Michael Blumenkrantz
 * Updated autotools/conf build system.
