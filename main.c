@@ -366,7 +366,6 @@ static void decompress_file(void)
 	fd_hist = open(control.outfile, O_RDONLY);
 	if (unlikely(fd_hist == -1))
 		fatal("Failed to open history file %s\n", control.outfile);
-	control.fd_hist = fd_hist;
 
 	/* Unlink temporary file as soon as possible */
 	if (unlikely((STDOUT || TEST_ONLY) && unlink(control.outfile)))
