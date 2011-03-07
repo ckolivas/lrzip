@@ -182,10 +182,6 @@ static int open_tmpoutfile(void)
 	fd_out = mkstemp(control.outfile);
 	if (unlikely(fd_out == -1))
 		fatal("Failed to create out tmpfile: %s\n", control.outfile);
-	/* Unlink temporary file immediately to minimise chance of files left
-	 * lying around in cases of failure. */
-	if (unlikely(unlink(control.outfile)))
-		fatal("Failed to unlink tmpfile: %s\n", control.outfile);
 	return fd_out;
 }
 
@@ -230,6 +226,8 @@ static int open_tmpinfile(void)
 	fd_in = mkstemp(control.infile);
 	if (unlikely(fd_in == -1))
 		fatal("Failed to create in tmpfile: %s\n", control.infile);
+	/* Unlink temporary file immediately to minimise chance of files left
+	 * lying around in cases of failure. */
 	if (unlikely(unlink(control.infile)))
 		fatal("Failed to unlink tmpfile: %s\n", control.infile);
 	return fd_in;
@@ -363,6 +361,10 @@ static void decompress_file(void)
 	fd_hist = open(control.outfile, O_RDONLY);
 	if (unlikely(fd_hist == -1))
 		fatal("Failed to open history file %s\n", control.outfile);
+
+	/* Unlink temporary file as soon as possible */
+	if (unlikely(STDOUT && unlink(control.outfile)))
+		fatal("Failed to unlink tmpfile: %s\n", control.outfile);
 
 	if (NO_MD5)
 		print_verbose("Not performing MD5 hash check\n");
