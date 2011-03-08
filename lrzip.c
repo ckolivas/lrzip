@@ -21,6 +21,21 @@
 # include "config.h"
 #endif
 
+#include <sys/types.h>
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+#include <fcntl.h>
+#include <sys/statvfs.h>
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+#include <arpa/inet.h>
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
+
+#include "md5.h"
 #include "rzip.h"
 #include "runzip.h"
 #include "util.h"
@@ -124,10 +139,10 @@ int open_tmpoutfile(rzip_control *control)
 {
 	int fd_out;
 
-	if (STDOUT)
+	if (STDOUT && !TEST_ONLY)
 		print_verbose("Outputting to stdout.\n");
 	if (control->tmpdir) {
-		control->outfile = realloc(NULL, strlen(control->tmpdir)+16);
+		control->outfile = realloc(NULL, strlen(control->tmpdir) + 16);
 		if (unlikely(!control->outfile))
 			fatal("Failed to allocate outfile name\n");
 		strcpy(control->outfile, control->tmpdir);
@@ -141,7 +156,7 @@ int open_tmpoutfile(rzip_control *control)
 
 	fd_out = mkstemp(control->outfile);
 	if (unlikely(fd_out == -1))
-		fatal("Failed to create out tmpfile: %s\n", strerror(errno));
+		fatal("Failed to create out tmpfile: %s\n", control->outfile);
 	register_outfile(control->outfile, TEST_ONLY || STDOUT || !KEEP_BROKEN);
 	return fd_out;
 }
@@ -152,18 +167,23 @@ void dump_tmpoutfile(rzip_control *control, int fd_out)
 	FILE *tmpoutfp;
 	int tmpchar;
 
-	print_progress("Dumping to stdout.\n");
 	/* flush anything not yet in the temporary file */
 	fsync(fd_out);
 	tmpoutfp = fdopen(fd_out, "r");
 	if (unlikely(tmpoutfp == NULL))
-		fatal("Failed to fdopen out tmpfile: %s\n", strerror(errno));
+		fatal("Failed to fdopen out tmpfile\n");
 	rewind(tmpoutfp);
 
-	while ((tmpchar = fgetc(tmpoutfp)) != EOF)
-		putchar(tmpchar);
+	if (!TEST_ONLY) {
+		print_verbose("Dumping temporary file to stdout.\n");
+		while ((tmpchar = fgetc(tmpoutfp)) != EOF)
+			putchar(tmpchar);
+		fflush(stdout);
+		rewind(tmpoutfp);
+	}
 
-	fflush(control->msgout);
+	if (unlikely(ftruncate(fd_out, 0)))
+		fatal("Failed to ftruncate fd_out in dump_tmpoutfile\n");
 }
 
 /* Open a temporary inputfile to perform stdin decompression */
@@ -172,7 +192,7 @@ int open_tmpinfile(rzip_control *control)
 	int fd_in;
 
 	if (control->tmpdir) {
-		control->infile = malloc(strlen(control->tmpdir)+15);
+		control->infile = malloc(strlen(control->tmpdir) + 15);
 		if (unlikely(!control->infile))
 			fatal("Failed to allocate infile name\n");
 		strcpy(control->infile, control->tmpdir);
@@ -186,8 +206,12 @@ int open_tmpinfile(rzip_control *control)
 
 	fd_in = mkstemp(control->infile);
 	if (unlikely(fd_in == -1))
-		fatal("Failed to create in tmpfile: %s\n", strerror(errno));
+		fatal("Failed to create in tmpfile: %s\n", control->infile);
 	register_infile(control->infile, (DECOMPRESS || TEST_ONLY) && STDIN);
+	/* Unlink temporary file immediately to minimise chance of files left
+	 * lying around in cases of failure. */
+	if (unlikely(unlink(control->infile)))
+		fatal("Failed to unlink tmpfile: %s\n", control->infile);
 	return fd_in;
 }
 
@@ -201,7 +225,7 @@ void read_tmpinfile(rzip_control *control, int fd_in)
 		fprintf(control->msgout, "Copying from stdin.\n");
 	tmpinfp = fdopen(fd_in, "w+");
 	if (unlikely(tmpinfp == NULL))
-		fatal("Failed to fdopen in tmpfile: %s\n", strerror(errno));
+		fatal("Failed to fdopen in tmpfile\n");
 
 	while ((tmpchar = getchar()) != EOF)
 		fputc(tmpchar, tmpinfp);
@@ -277,9 +301,7 @@ void decompress_file(rzip_control *control)
 	} else {
 		fd_in = open(infilecopy, O_RDONLY);
 		if (unlikely(fd_in == -1)) {
-			fatal("Failed to open %s: %s\n",
-			      infilecopy,
-			      strerror(errno));
+			fatal("Failed to open %s\n", infilecopy);
 		}
 	}
 
@@ -292,7 +314,7 @@ void decompress_file(rzip_control *control)
 			/* We must ensure we don't delete a file that already
 			 * exists just because we tried to create a new one */
 			control->flags |= FLAG_KEEP_BROKEN;
-			fatal("Failed to create %s: %s\n", control->outfile, strerror(errno));
+			fatal("Failed to create %s\n", control->outfile);
 		}
 
 		preserve_perms(control, fd_in, fd_out);
@@ -300,23 +322,32 @@ void decompress_file(rzip_control *control)
 		fd_out = open_tmpoutfile(control);
 	control->fd_out = fd_out;
 
-	/* Check if there's enough free space on the device chosen to fit the
-	 * decompressed file. */
-	if (unlikely(fstatvfs(fd_out, &fbuf)))
-		fatal("Failed to fstatvfs in decompress_file\n");
-	free_space = fbuf.f_bsize * fbuf.f_bavail;
-	if (free_space < expected_size) {
-		if (FORCE_REPLACE)
-			print_err("Warning, inadequate free space detected, but attempting to decompress due to -f option being used.\n");
-		else
-			failure("Inadequate free space to decompress file, use -f to override.\n");
-	}
+        read_magic(control, fd_in, &expected_size);
+
+        if (!STDOUT) {
+                /* Check if there's enough free space on the device chosen to fit the
+                * decompressed file. */
+                if (unlikely(fstatvfs(fd_out, &fbuf)))
+                        fatal("Failed to fstatvfs in decompress_file\n");
+                free_space = fbuf.f_bsize * fbuf.f_bavail;
+                if (free_space < expected_size) {
+                        if (FORCE_REPLACE)
+                                print_err("Warning, inadequate free space detected, but attempting to decompress due to -f option being used.\n");
+                        else
+                                failure("Inadequate free space to decompress file, use -f to override.\n");
+                }
+        }
 
 	fd_hist = open(control->outfile, O_RDONLY);
 	if (unlikely(fd_hist == -1))
 		fatal("Failed to open history file %s\n", control->outfile);
 
-	read_magic(control, fd_in, &expected_size);
+	/* Unlink temporary file as soon as possible */
+	if (unlikely((STDOUT || TEST_ONLY) && unlink(control->outfile)))
+		fatal("Failed to unlink tmpfile: %s\n", control->outfile);
+
+
+
 	if (NO_MD5)
 		print_verbose("Not performing MD5 hash check\n");
 	if (HAS_MD5)
@@ -341,17 +372,11 @@ void decompress_file(rzip_control *control)
 	if (unlikely(close(fd_hist) || close(fd_out)))
 		fatal("Failed to close files\n");
 
-	if (TEST_ONLY | STDOUT) {
-		/* Delete temporary files generated for testing or faking stdout */
-		if (unlikely(unlink(control->outfile)))
-			fatal("Failed to unlink tmpfile: %s\n", strerror(errno));
-	}
-
 	close(fd_in);
 
-	if (!(KEEP_FILES | TEST_ONLY) || STDIN) {
+	if (!KEEP_FILES) {
 		if (unlikely(unlink(control->infile)))
-			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
+			fatal("Failed to unlink %s\n", infilecopy);
 	}
 
 	free(control->outfile);
@@ -362,7 +387,7 @@ void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
 {
 	if (unlikely(read(fd_in, ctype, 1) != 1))
 		fatal("Failed to read in get_header_info\n");
-	
+
 	if (control->major_version == 0 && control->minor_version < 4) {
 		u32 c_len32, u_len32, last_head32;
 
@@ -413,7 +438,7 @@ void get_fileinfo(rzip_control *control)
 	else {
 		fd_in = open(infilecopy, O_RDONLY);
 		if (unlikely(fd_in == -1))
-			fatal("Failed to open %s: %s\n", infilecopy, strerror(errno));
+			fatal("Failed to open %s\n", infilecopy);
 	}
 
 	/* Get file size */
@@ -432,7 +457,7 @@ void get_fileinfo(rzip_control *control)
 	else
 		seekspot = 75;
 	if (unlikely(lseek(fd_in, seekspot, SEEK_SET) == -1))
-		fatal("Failed to lseek in get_fileinfo: %s\n", strerror(errno));
+		fatal("Failed to lseek in get_fileinfo\n");
 
 	/* Read the compression type of the first block. It's possible that
 	   not all blocks are compressed so this may not be accurate.
@@ -441,7 +466,7 @@ void get_fileinfo(rzip_control *control)
 		fatal("Failed to read in get_fileinfo\n");
 
 	cratio = (long double)expected_size / (long double)infile_size;
-	
+
 	print_output("%s:\nlrzip version: %d.%d file\n", infilecopy, control->major_version, control->minor_version);
 	print_output("Compression: ");
 	if (ctype == CTYPE_NONE)
@@ -554,12 +579,8 @@ next_chunk:
 			     ctotal, expected_size);
 	}
 
-	if (STDIN) {
-		if (unlikely(unlink(control->infile)))
-			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
-	} else
-		if (unlikely(close(fd_in)))
-			fatal("Failed to close fd_in in get_fileinfo\n");
+	if (unlikely(close(fd_in)))
+		fatal("Failed to close fd_in in get_fileinfo\n");
 
 	free(control->outfile);
 	free(infilecopy);
@@ -587,7 +608,7 @@ void compress_file(rzip_control *control)
 
 		fd_in = open(control->infile, O_RDONLY);
 		if (unlikely(fd_in == -1))
-			fatal("Failed to open %s: %s\n", control->infile, strerror(errno));
+			fatal("Failed to open %s\n", control->infile);
 	} else
 		fd_in = 0;
 
@@ -636,11 +657,14 @@ void compress_file(rzip_control *control)
 			/* We must ensure we don't delete a file that already
 			 * exists just because we tried to create a new one */
 			control->flags |= FLAG_KEEP_BROKEN;
-			fatal("Failed to create %s: %s\n", control->outfile, strerror(errno));
+			fatal("Failed to create %s\n", control->outfile);
 		}
 	} else
 		fd_out = open_tmpoutfile(control);
 	control->fd_out = fd_out;
+
+	if (unlikely(STDOUT && unlink(control->outfile)))
+		fatal("Failed to unlink tmpfile: %s\n", control->outfile);
 
 	preserve_perms(control, fd_in, fd_out);
 
@@ -659,15 +683,9 @@ void compress_file(rzip_control *control)
 	if (unlikely(close(fd_in) || close(fd_out)))
 		fatal("Failed to close files\n");
 
-	if (STDOUT) {
-		/* Delete temporary files generated for testing or faking stdout */
-		if (unlikely(unlink(control->outfile)))
-			fatal("Failed to unlink tmpfile: %s\n", strerror(errno));
-	}
-
 	if (!KEEP_FILES) {
 		if (unlikely(unlink(control->infile)))
-			fatal("Failed to unlink %s: %s\n", control->infile, strerror(errno));
+			fatal("Failed to unlink %s\n", control->infile);
 	}
 
 	free(control->outfile);
