@@ -10,6 +10,8 @@ if test -z "$NOCONFIGURE" ; then
 	echo 'Configuring...'
 	cd "${bs_dir}" &> /dev/null
 	test "$?" = "0" || e=1
-	test "$cwd" != "$bs_dir" && cd "$cwd" &> /dev/null
+	test "$cwd" != "$bs_dir" && cd "$bs_dir" &> /dev/null
+	./configure $@
 	test "$e" = "1" && exit 1
+	cd "$cwd"
 fi
