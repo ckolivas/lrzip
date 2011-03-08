@@ -31,6 +31,8 @@ lrztar_SCRIPTS = lrztar
 bin_PROGRAMS = lrzip
 lrzip_SOURCES = \
   zpipe.cpp \
+  zpipe.h \
+  lrzip_private.h \
   liblrzip.h \
   lrzip.c \
   lrzip.h \
@@ -38,8 +40,11 @@ lrzip_SOURCES = \
   rzip.h \
   rzip.c \
   runzip.c \
+  runzip.h \
   stream.c \
+  stream.h \
   util.c \
+  util.h \
   md5.c \
   md5.h
 lrzip_LDADD = lzma/C/liblzma.la
