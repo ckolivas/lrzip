@@ -557,8 +557,8 @@ next_chunk:
 				if (unlikely(head_off = lseek(fd_in, last_head + ofs, SEEK_SET)) == -1)
 					fatal("Failed to seek to header data in get_fileinfo\n");
 				get_header_info(fd_in, &ctype, &c_len, &u_len, &last_head);
-				if (unlikely(last_head < 0))
-					failure("Last head entry negative, likely corrupted archive.\n");
+				if (unlikely(last_head < 0 || c_len < 0 || u_len < 0))
+					failure("Entry negative, likely corrupted archive.\n");
 				print_output("%d\t", block);
 				if (ctype == CTYPE_NONE)
 					print_output("none");
