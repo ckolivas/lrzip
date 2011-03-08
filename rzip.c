@@ -27,6 +27,7 @@
 #include "rzip.h"
 #include "stream.h"
 #include "util.h"
+#include "liblrzip.h"
 
 #define CHUNK_MULTIPLE (100 * 1024 * 1024)
 #define CKSUM_CHUNK 1024*1024

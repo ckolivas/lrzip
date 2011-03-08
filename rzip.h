@@ -20,7 +20,6 @@
 #ifndef RZIP_H
 #define RZIP_H
 #include "lrzip.h" /* includes config.h */
-#include "liblrzip.h"
 #include "md5.h"
 
 #include <sys/types.h>

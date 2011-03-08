@@ -26,6 +26,7 @@
 #include "rzip.h"
 #include "util.h"
 #include "zpipe.h"
+#include "liblrzip.h"
 
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 

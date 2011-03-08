@@ -26,6 +26,7 @@
 #include "runzip.h"
 #include "stream.h"
 #include "util.h"
+#include "liblrzip.h"
 
 static inline uchar read_u8(rzip_control *control, void *ss, int stream)
 {

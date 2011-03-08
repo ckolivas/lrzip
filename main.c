@@ -17,7 +17,6 @@
    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 /* lrzip compression - main program */
-#define MAIN_C
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
