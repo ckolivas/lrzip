@@ -62,19 +62,6 @@
 extern "C" {
 # endif
 
-/* Structure to save state of computation between the single steps.  */
-struct md5_ctx
-{
-  uint32_t A;
-  uint32_t B;
-  uint32_t C;
-  uint32_t D;
-
-  uint32_t total[2];
-  uint32_t buflen;
-  uint32_t buffer[32];
-};
-
 /*
  * The following three functions are build up the low level used in
  * the functions `md5_stream' and `md5_buffer'.
