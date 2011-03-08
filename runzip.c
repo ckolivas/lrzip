@@ -107,8 +107,8 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 	/* Note the offset is in a different format v0.40+ */
 	offset = read_vchars(ss, 0, chunk_bytes);
 	if (unlikely(lseek(fd_hist, cur_pos - offset, SEEK_SET) == -1))
-		fatal("Seek failed by %d from %d on history file in unzip_match - %s\n",
-		      offset, cur_pos, strerror(errno));
+		fatal("Seek failed by %d from %d on history file in unzip_match\n",
+		      offset, cur_pos);
 
 	buf = (uchar *)malloc(len);
 	if (unlikely(!buf))
