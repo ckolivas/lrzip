@@ -50,7 +50,7 @@ PKG_PROG_PKG_CONFIG
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_SUBST(SHELL)
-AC_SYS_LARGEFILE
+##AC_SYS_LARGEFILE
 
 AC_ARG_ENABLE(
 		asm,
@@ -65,8 +65,8 @@ if test x"$ASM" = xyes; then
 	fi
 fi
 
-AC_CHECK_HEADERS(fcntl.h sys/time.h sys/unistd.h unistd.h sys/mman.h)
-AC_CHECK_HEADERS(sys/param.h ctype.h sys/wait.h sys/ioctl.h errno.h)
+AC_CHECK_HEADERS(fcntl.h sys/time.h unistd.h sys/mman.h)
+AC_CHECK_HEADERS(ctype.h errno.h sys/resource.h)
 
 AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
