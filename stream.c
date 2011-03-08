@@ -88,7 +88,7 @@ void join_pthread(pthread_t th, void **thread_return)
 /* just to keep things clean, declare function here
  * but move body to the end since it's a work function
 */
-static int lzo_compresses(uchar *s_buf, i64 s_len);
+static int lzo_compresses(rzip_control *control, uchar *s_buf, i64 s_len);
 
 static inline FILE *fake_fmemopen(void *buf, size_t buflen, char *mode)
 {
@@ -145,13 +145,13 @@ static inline int fake_open_memstream_update_buffer(FILE *fp, uchar **buf, size_
   length in c_len
 */
 
-static int zpaq_compress_buf(struct compress_thread *cthread, long thread)
+static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthread, long thread)
 {
 	uchar *c_buf = NULL;
 	size_t dlen = 0;
 	FILE *in, *out;
 
-	if (!lzo_compresses(cthread->s_buf, cthread->s_len))
+	if (!lzo_compresses(control, cthread->s_buf, cthread->s_len))
 		return 0;
 
 	in = fmemopen(cthread->s_buf, cthread->s_len, "r");
@@ -166,7 +166,7 @@ static int zpaq_compress_buf(struct compress_thread *cthread, long thread)
 		return -1;
 	}
 
-	zpipe_compress(in, out, control.msgout, cthread->s_len,
+	zpipe_compress(in, out, control->msgout, cthread->s_len,
 		       (int)(SHOW_PROGRESS), thread);
 
 	if (unlikely(memstream_update_buffer(out, &c_buf, &dlen)))
@@ -189,13 +189,13 @@ static int zpaq_compress_buf(struct compress_thread *cthread, long thread)
 	return 0;
 }
 
-static int bzip2_compress_buf(struct compress_thread *cthread)
+static int bzip2_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
 	u32 dlen = cthread->s_len;
 	int bzip2_ret;
 	uchar *c_buf;
 
-	if (!lzo_compresses(cthread->s_buf, cthread->s_len))
+	if (!lzo_compresses(control, cthread->s_buf, cthread->s_len))
 		return 0;
 
 	c_buf = malloc(dlen);
@@ -206,7 +206,7 @@ static int bzip2_compress_buf(struct compress_thread *cthread)
 
 	bzip2_ret = BZ2_bzBuffToBuffCompress((char *)c_buf, &dlen,
 		(char *)cthread->s_buf, cthread->s_len,
-		control.compression_level, 0, control.compression_level * 10);
+		control->compression_level, 0, control->compression_level * 10);
 
 	/* if compressed data is bigger then original data leave as
 	 * CTYPE_NONE */
@@ -238,7 +238,7 @@ static int bzip2_compress_buf(struct compress_thread *cthread)
 	return 0;
 }
 
-static int gzip_compress_buf(struct compress_thread *cthread)
+static int gzip_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
 	unsigned long dlen = cthread->s_len;
 	uchar *c_buf;
@@ -251,7 +251,7 @@ static int gzip_compress_buf(struct compress_thread *cthread)
 	}
 
 	gzip_ret = compress2(c_buf, &dlen, cthread->s_buf, cthread->s_len,
-		control.compression_level);
+		control->compression_level);
 
 	/* if compressed data is bigger then original data leave as
 	 * CTYPE_NONE */
@@ -283,18 +283,18 @@ static int gzip_compress_buf(struct compress_thread *cthread)
 	return 0;
 }
 
-static int lzma_compress_buf(struct compress_thread *cthread)
+static int lzma_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
 	int lzma_level, lzma_ret;
 	size_t prop_size = 5; /* return value for lzma_properties */
 	uchar *c_buf;
 	size_t dlen;
 
-	if (!lzo_compresses(cthread->s_buf, cthread->s_len))
+	if (!lzo_compresses(control, cthread->s_buf, cthread->s_len))
 		return 0;
 
 	/* only 7 levels with lzma, scale them */
-	lzma_level = control.compression_level * 7 / 9 ? : 1;
+	lzma_level = control->compression_level * 7 / 9 ? : 1;
 
 	print_verbose("Starting lzma back end compression thread...\n");
 retry:
@@ -309,11 +309,11 @@ retry:
 	 * and receive properties in control->lzma_properties */
 
 	lzma_ret = LzmaCompress(c_buf, &dlen, cthread->s_buf,
-		(size_t)cthread->s_len, control.lzma_properties, &prop_size,
+		(size_t)cthread->s_len, control->lzma_properties, &prop_size,
 				lzma_level,
 				0, /* dict size. set default, choose by level */
 				-1, -1, -1, -1, /* lc, lp, pb, fb */
-				control.threads);
+				control->threads);
 	if (lzma_ret != SZ_OK) {
 		switch (lzma_ret) {
 			case SZ_ERROR_MEM:
@@ -343,7 +343,7 @@ retry:
 			 * fall back to bzip2 compression so the block doesn't
 			 * remain uncompressed */
 			print_verbose("Unable to allocate enough RAM for any sized compression window, falling back to bzip2 compression.\n");
-			return bzip2_compress_buf(cthread);
+			return bzip2_compress_buf(control, cthread);
 		} else if (lzma_ret == SZ_ERROR_OUTPUT_EOF)
 			return 0;
 		return -1;
@@ -363,7 +363,7 @@ retry:
 	return 0;
 }
 
-static int lzo_compress_buf(struct compress_thread *cthread)
+static int lzo_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
 	lzo_uint in_len = cthread->s_len;
 	lzo_uint dlen = in_len + in_len / 16 + 64 + 3;
@@ -411,7 +411,7 @@ out_free:
   try to decompress a buffer. Return 0 on success and -1 on failure.
 */
 
-static int zpaq_decompress_buf(struct uncomp_thread *ucthread, long thread)
+static int zpaq_decompress_buf(rzip_control *control, struct uncomp_thread *ucthread, long thread)
 {
 	uchar *c_buf = NULL;
 	size_t dlen = 0;
@@ -428,7 +428,7 @@ static int zpaq_decompress_buf(struct uncomp_thread *ucthread, long thread)
 		return -1;
 	}
 
-	zpipe_decompress(in, out, control.msgout, ucthread->u_len, (int)(SHOW_PROGRESS), thread);
+	zpipe_decompress(in, out, control->msgout, ucthread->u_len, (int)(SHOW_PROGRESS), thread);
 
 	if (unlikely(memstream_update_buffer(out, &c_buf, &dlen)))
 	        fatal("Failed to memstream_update_buffer in zpaq_decompress_buf");
@@ -447,7 +447,7 @@ static int zpaq_decompress_buf(struct uncomp_thread *ucthread, long thread)
 	return 0;
 }
 
-static int bzip2_decompress_buf(struct uncomp_thread *ucthread)
+static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread)
 {
 	u32 dlen = ucthread->u_len;
 	int ret = 0, bzerr;
@@ -481,7 +481,7 @@ out:
 	return ret;
 }
 
-static int gzip_decompress_buf(struct uncomp_thread *ucthread)
+static int gzip_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread)
 {
 	unsigned long dlen = ucthread->u_len;
 	int ret = 0, gzerr;
@@ -515,7 +515,7 @@ out:
 	return ret;
 }
 
-static int lzma_decompress_buf(struct uncomp_thread *ucthread)
+static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucthread)
 {
 	size_t dlen = (size_t)ucthread->u_len;
 	int ret = 0, lzmaerr;
@@ -529,9 +529,9 @@ static int lzma_decompress_buf(struct uncomp_thread *ucthread)
 		goto out;
 	}
 
-	/* With LZMA SDK 4.63 we pass control.lzma_properties
+	/* With LZMA SDK 4.63 we pass control->lzma_properties
 	 * which is needed for proper uncompress */
-	lzmaerr = LzmaUncompress(ucthread->s_buf, &dlen, c_buf, (SizeT *)&ucthread->c_len, control.lzma_properties, 5);
+	lzmaerr = LzmaUncompress(ucthread->s_buf, &dlen, c_buf, (SizeT *)&ucthread->c_len, control->lzma_properties, 5);
 	if (unlikely(lzmaerr)) {
 		print_err("Failed to decompress buffer - lzmaerr=%d\n", lzmaerr);
 		ret = -1;
@@ -551,7 +551,7 @@ out:
 	return ret;
 }
 
-static int lzo_decompress_buf(struct uncomp_thread *ucthread)
+static int lzo_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread)
 {
 	lzo_uint dlen = ucthread->u_len;
 	int ret = 0, lzerr;
@@ -718,7 +718,7 @@ static int seekto(struct stream_info *sinfo, i64 pos)
 
 static pthread_t *threads;
 
-void prepare_streamout_threads(void)
+void prepare_streamout_threads(rzip_control *control)
 {
 	int i;
 
@@ -726,19 +726,19 @@ void prepare_streamout_threads(void)
 	 * pre-processing stage, it's faster to have one more thread available
 	 * to keep all CPUs busy. There is no point splitting up the chunks
 	 * into multiple threads if there will be no compression back end. */
-	if (control.threads > 1)
-		++control.threads;
+	if (control->threads > 1)
+		++control->threads;
 	if (NO_COMPRESS)
-		control.threads = 1;
-	threads = calloc(sizeof(pthread_t), control.threads);
+		control->threads = 1;
+	threads = calloc(sizeof(pthread_t), control->threads);
 	if (unlikely(!threads))
 		fatal("Unable to calloc threads in prepare_streamout_threads\n");
 
-	cthread = calloc(sizeof(struct compress_thread), control.threads);
+	cthread = calloc(sizeof(struct compress_thread), control->threads);
 	if (unlikely(!cthread))
 		fatal("Unable to calloc cthread in prepare_streamout_threads\n");
 
-	for (i = 0; i < control.threads; i++) 
+	for (i = 0; i < control->threads; i++) 
 		init_mutex(&cthread[i].mutex);
 }
 
@@ -746,15 +746,15 @@ static long output_thread;
 static pthread_mutex_t output_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t output_cond = PTHREAD_COND_INITIALIZER;
 
-void close_streamout_threads(void)
+void close_streamout_threads(rzip_control *control)
 {
 	int i, close_thread = output_thread;
 
 	/* Wait for the threads in the correct order in case they end up
 	 * serialised */
-	for (i = 0; i < control.threads; i++) {
+	for (i = 0; i < control->threads; i++) {
 		lock_mutex(&cthread[close_thread].mutex);
-		if (++close_thread == control.threads)
+		if (++close_thread == control->threads)
 			close_thread = 0;
 	}
 	free(cthread);
@@ -763,7 +763,7 @@ void close_streamout_threads(void)
 
 /* open a set of output streams, compressing with the given
    compression level and algorithm */
-void *open_stream_out(int f, int n, i64 chunk_limit, char cbytes)
+void *open_stream_out(rzip_control *control, int f, int n, i64 chunk_limit, char cbytes)
 {
 	struct stream_info *sinfo;
 	i64 testsize, limit;
@@ -799,24 +799,24 @@ void *open_stream_out(int f, int n, i64 chunk_limit, char cbytes)
 	/* Serious limits imposed on 32 bit capabilities */
 	if (BITS32)
 		limit = MIN(limit, (two_gig / testbufs) -
-			(control.overhead * control.threads));
+			(control->overhead * control->threads));
 
-	testsize = (limit * testbufs) + (control.overhead * control.threads);
-	if (testsize > control.maxram)
-		limit = (control.maxram - (control.overhead * control.threads)) / testbufs;
+	testsize = (limit * testbufs) + (control->overhead * control->threads);
+	if (testsize > control->maxram)
+		limit = (control->maxram - (control->overhead * control->threads)) / testbufs;
 
 	/* If we don't have enough ram for the number of threads, decrease the
 	 * number of threads till we do, or only have one thread. */
 	while (limit < STREAM_BUFSIZE && limit < chunk_limit) {
-		if (control.threads > 1)
-			--control.threads;
+		if (control->threads > 1)
+			--control->threads;
 		else
 			break;
-		limit = (control.maxram - (control.overhead * control.threads)) / testbufs;
+		limit = (control->maxram - (control->overhead * control->threads)) / testbufs;
 		limit = MIN(limit, chunk_limit);
 	}
 retest_malloc:
-	testsize = (limit * testbufs) + (control.overhead * control.threads);
+	testsize = (limit * testbufs) + (control->overhead * control->threads);
 	testmalloc = malloc(testsize);
 	if (!testmalloc) {
 		limit = limit / 10 * 9;
@@ -827,12 +827,12 @@ retest_malloc:
 
 	/* Make the bufsize no smaller than STREAM_BUFSIZE. Round up the
 	 * bufsize to fit X threads into it */
-	sinfo->bufsize = MIN(limit, MAX((limit + control.threads - 1) / control.threads,
+	sinfo->bufsize = MIN(limit, MAX((limit + control->threads - 1) / control->threads,
 					STREAM_BUFSIZE));
 
-	if (control.threads > 1)
+	if (control->threads > 1)
 		print_maxverbose("Using up to %d threads to compress up to %lld bytes each.\n",
-			control.threads, sinfo->bufsize);
+			control->threads, sinfo->bufsize);
 	else
 		print_maxverbose("Using only 1 thread to compress up to %lld bytes\n",
 			sinfo->bufsize);
@@ -847,7 +847,7 @@ retest_malloc:
 }
 
 /* prepare a set of n streams for reading on file descriptor f */
-void *open_stream_in(int f, int n)
+void *open_stream_in(rzip_control *control, int f, int n)
 {
 	struct stream_info *sinfo;
 	int total_threads, i;
@@ -859,10 +859,10 @@ void *open_stream_in(int f, int n)
 
 	/* We have one thread dedicated to stream 0, and one more thread than
 	 * CPUs to keep them busy, unless we're running single-threaded. */
-	if (control.threads > 1)
-		total_threads = control.threads + 2;
+	if (control->threads > 1)
+		total_threads = control->threads + 2;
 	else
-		total_threads = control.threads + 1;
+		total_threads = control->threads + 1;
 	threads = calloc(sizeof(pthread_t), total_threads);
 	if (unlikely(!threads))
 		return NULL;
@@ -897,7 +897,7 @@ again:
 			goto failed;
 
 		/* Compatibility crap for versions < 0.40 */
-		if (control.major_version == 0 && control.minor_version < 4) {
+		if (control->major_version == 0 && control->minor_version < 4) {
 			u32 v132, v232, last_head32;
 
 			if (unlikely(read_u32(f, &v132)))
@@ -953,14 +953,16 @@ failed:
 
 /* Enter with s_buf allocated,s_buf points to the compressed data after the
  * backend compression and is then freed here */
-static void *compthread(void *t)
+static void *compthread(void *data)
 {
-	long i = (long)t;
+	rzip_control *control = data;
+	long i = (long)control->data;
+	control->data = NULL;
 	struct compress_thread *cti = &cthread[i];
 	struct stream_info *ctis = cti->sinfo;
 	int waited = 0, ret = 0;
 
-	if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val) == -1))
+	if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1))
 		print_err("Warning, unable to set nice value on thread\n");
 
 	cti->c_type = CTYPE_NONE;
@@ -972,15 +974,15 @@ static void *compthread(void *t)
 retry:
 	if (!NO_COMPRESS && cti->c_len) {
 		if (LZMA_COMPRESS)
-			ret = lzma_compress_buf(cti);
+			ret = lzma_compress_buf(control, cti);
 		else if (LZO_COMPRESS)
-			ret = lzo_compress_buf(cti);
+			ret = lzo_compress_buf(control, cti);
 		else if (BZIP2_COMPRESS)
-			ret = bzip2_compress_buf(cti);
+			ret = bzip2_compress_buf(control, cti);
 		else if (ZLIB_COMPRESS)
-			ret = gzip_compress_buf(cti);
+			ret = gzip_compress_buf(control, cti);
 		else if (ZPAQ_COMPRESS)
-			ret = zpaq_compress_buf(cti, i);
+			ret = zpaq_compress_buf(control, cti, i);
 		else failure("Dunno wtf compression to use!\n");
 	}
 
@@ -1047,7 +1049,7 @@ retry:
 	free(cti->s_buf);
 
 	lock_mutex(&output_lock);
-	if (++output_thread == control.threads)
+	if (++output_thread == control->threads)
 		output_thread = 0;
 	cond_broadcast(&output_cond);
 	unlock_mutex(&output_lock);
@@ -1057,7 +1059,7 @@ retry:
 	return 0;
 }
 
-static void clear_buffer(struct stream_info *sinfo, int stream, int newbuf)
+static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int stream, int newbuf)
 {
 	static long i = 0;
 
@@ -1071,7 +1073,8 @@ static void clear_buffer(struct stream_info *sinfo, int stream, int newbuf)
 
 	print_maxverbose("Starting thread %ld to compress %lld bytes from stream %d\n",
 			 i, cthread[i].s_len, stream);
-	create_pthread(&threads[i], NULL, compthread, (void *)i);
+	control->data = (void*)i;
+	create_pthread(&threads[i], NULL, compthread, control);
 
 	if (newbuf) {
 		/* The stream buffer has been given to the thread, allocate a new one */
@@ -1081,42 +1084,44 @@ static void clear_buffer(struct stream_info *sinfo, int stream, int newbuf)
 		sinfo->s[stream].buflen = 0;
 	}
 
-	if (++i == control.threads)
+	if (++i == control->threads)
 		i = 0;
 }
 
 /* flush out any data in a stream buffer */
-void flush_buffer(struct stream_info *sinfo, int stream)
+void flush_buffer(rzip_control *control, struct stream_info *sinfo, int stream)
 {
-	clear_buffer(sinfo, stream, 1);
+	clear_buffer(control, sinfo, stream, 1);
 }
 
-static void *ucompthread(void *t)
+static void *ucompthread(void *data)
 {
-	long i = (long)t;
+	rzip_control *control = data;
+	long i = (long)control->data;
+	control->data = NULL;
 	struct uncomp_thread *uci = &ucthread[i];
 	int waited = 0, ret = 0;
 
-	if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val) == -1))
+	if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1))
 		print_err("Warning, unable to set nice value on thread\n");
 
 retry:
 	if (uci->c_type != CTYPE_NONE) {
 		switch (uci->c_type) {
 			case CTYPE_LZMA:
-				ret = lzma_decompress_buf(uci);
+				ret = lzma_decompress_buf(control, uci);
 				break;
 			case CTYPE_LZO:
-				ret = lzo_decompress_buf(uci);
+				ret = lzo_decompress_buf(control, uci);
 				break;
 			case CTYPE_BZIP2:
-				ret = bzip2_decompress_buf(uci);
+				ret = bzip2_decompress_buf(control, uci);
 				break;
 			case CTYPE_GZIP:
-				ret = gzip_decompress_buf(uci);
+				ret = gzip_decompress_buf(control, uci);
 				break;
 			case CTYPE_ZPAQ:
-				ret = zpaq_decompress_buf(uci, i);
+				ret = zpaq_decompress_buf(control, uci, i);
 				break;
 			default:
 				failure("Dunno wtf decompression type to use!\n");
@@ -1147,7 +1152,7 @@ retry:
 }
 
 /* fill a buffer from a stream - return -1 on failure */
-static int fill_buffer(struct stream_info *sinfo, int stream)
+static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int stream)
 {
 	i64 header_length, u_len, c_len, last_head;
 	struct stream *s = &sinfo->s[stream];
@@ -1168,7 +1173,7 @@ fill_another:
 		return -1;
 
 	/* Compatibility crap for versions < 0.4 */
-	if (control.major_version == 0 && control.minor_version < 4) {
+	if (control->major_version == 0 && control->minor_version < 4) {
 		u32 c_len32, u_len32, last_head32;
 
 		if (unlikely(read_u32(sinfo->fd, &c_len32)))
@@ -1193,7 +1198,7 @@ fill_another:
 
 	sinfo->total_read += header_length;
 
-	fsync(control.fd_out);
+	fsync(control->fd_out);
 
 	s_buf = malloc(u_len);
 	if (unlikely(u_len && !s_buf))
@@ -1216,7 +1221,8 @@ fill_another:
 	ucthread[s->uthread_no].busy = 1;
 	print_maxverbose("Starting thread %ld to decompress %lld bytes from stream %d\n",
 			 s->uthread_no, c_len, stream);
-	create_pthread(&threads[s->uthread_no], NULL, ucompthread, (void *)s->uthread_no);
+	control->data = (void*)s->uthread_no;
+	create_pthread(&threads[s->uthread_no], NULL, ucompthread, control);
 
 	if (++s->uthread_no == s->base_thread + s->total_threads)
 		s->uthread_no = s->base_thread;
@@ -1228,7 +1234,7 @@ fill_another:
 	if (!last_head)
 		s->eos = 1;
 	else if (s->uthread_no != s->unext_thread && !ucthread[s->uthread_no].busy &&
-		 sinfo->ram_alloced < control.ramsize / 3)
+		 sinfo->ram_alloced < control->ramsize / 3)
 			goto fill_another;
 out:
 	lock_mutex(&output_lock);
@@ -1253,7 +1259,7 @@ out:
 }
 
 /* write some data to a stream. Return -1 on failure */
-int write_stream(void *ss, int stream, uchar *p, i64 len)
+int write_stream(rzip_control *control, void *ss, int stream, uchar *p, i64 len)
 {
 	struct stream_info *sinfo = ss;
 
@@ -1269,14 +1275,14 @@ int write_stream(void *ss, int stream, uchar *p, i64 len)
 
 		/* Flush the buffer every sinfo->bufsize into one thread */
 		if (sinfo->s[stream].buflen == sinfo->bufsize)
-			flush_buffer(sinfo, stream);
+			flush_buffer(control, sinfo, stream);
 	}
 	return 0;
 }
 
 /* read some data from a stream. Return number of bytes read, or -1
    on failure */
-i64 read_stream(void *ss, int stream, uchar *p, i64 len)
+i64 read_stream(rzip_control *control, void *ss, int stream, uchar *p, i64 len)
 {
 	struct stream_info *sinfo = ss;
 	i64 ret = 0;
@@ -1295,7 +1301,7 @@ i64 read_stream(void *ss, int stream, uchar *p, i64 len)
 		}
 
 		if (len && sinfo->s[stream].bufp == sinfo->s[stream].buflen) {
-			if (unlikely(fill_buffer(sinfo, stream)))
+			if (unlikely(fill_buffer(control, sinfo, stream)))
 				return -1;
 			if (sinfo->s[stream].bufp == sinfo->s[stream].buflen)
 				break;
@@ -1306,14 +1312,14 @@ i64 read_stream(void *ss, int stream, uchar *p, i64 len)
 }
 
 /* flush and close down a stream. return -1 on failure */
-int close_stream_out(void *ss)
+int close_stream_out(rzip_control *control, void *ss)
 {
 	struct stream_info *sinfo = ss;
 	int i;
 
 	for (i = 0; i < sinfo->num_streams; i++) {
 		if (sinfo->s[i].buflen)
-			clear_buffer(sinfo, i, 0);
+			clear_buffer(control, sinfo, i, 0);
 	}
 
 #if 0
@@ -1351,7 +1357,7 @@ int close_stream_in(void *ss)
    to see if there is any compression at all with lzo first. It is unlikely
    that others will be able to compress if lzo is unable to drop a single byte
    so do not compress any block that is incompressible by lzo. */
-static int lzo_compresses(uchar *s_buf, i64 s_len)
+static int lzo_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 {
 	lzo_bytep wrkmem = NULL;
 	lzo_uint in_len, test_len = s_len, save_len = s_len;

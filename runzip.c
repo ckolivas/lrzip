@@ -19,26 +19,26 @@
 
 #include "rzip.h"
 
-static inline uchar read_u8(void *ss, int stream)
+static inline uchar read_u8(rzip_control *control, void *ss, int stream)
 {
 	uchar b;
 
-	if (unlikely(read_stream(ss, stream, &b, 1) != 1))
+	if (unlikely(read_stream(control, ss, stream, &b, 1) != 1))
 		fatal("Stream read u8 failed\n");
 	return b;
 }
 
-static inline u32 read_u32(void *ss, int stream)
+static inline u32 read_u32(rzip_control *control, void *ss, int stream)
 {
 	u32 ret;
 
-	if (unlikely(read_stream(ss, stream, (uchar *)&ret, 4) != 4))
+	if (unlikely(read_stream(control, ss, stream, (uchar *)&ret, 4) != 4))
 		fatal("Stream read u32 failed\n");
 	return ret;
 }
 
 /* Read a variable length of chars dependant on how big the chunk was */
-static inline i64 read_vchars(void *ss, int stream, int length)
+static inline i64 read_vchars(rzip_control *control, void *ss, int stream, int length)
 {
 	int bytes;
 	i64 s = 0;
@@ -46,24 +46,24 @@ static inline i64 read_vchars(void *ss, int stream, int length)
 	for (bytes = 0; bytes < length; bytes++) {
 		int bits = bytes * 8;
 
-		uchar sb = read_u8(ss, stream);
+		uchar sb = read_u8(control, ss, stream);
 		s |= (i64)sb << bits;
 	}
 	return s;
 }
 
-static i64 read_header(void *ss, uchar *head)
+static i64 read_header(rzip_control *control, void *ss, uchar *head)
 {
 	int chunk_bytes = 2;
 
 	/* All chunks were unnecessarily encoded 8 bytes wide version 0.4x */
-	if (control.major_version == 0 && control.minor_version == 4)
+	if (control->major_version == 0 && control->minor_version == 4)
 		chunk_bytes = 8;
-	*head = read_u8(ss, 0);
-	return read_vchars(ss, 0, chunk_bytes);
+	*head = read_u8(control, ss, 0);
+	return read_vchars(control, ss, 0, chunk_bytes);
 }
 
-static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
+static i64 unzip_literal(rzip_control *control, void *ss, i64 len, int fd_out, uint32 *cksum)
 {
 	i64 stream_read;
 	uchar *buf;
@@ -75,7 +75,7 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 	if (unlikely(!buf))
 		fatal("Failed to malloc literal buffer of size %lld\n", len);
 
-	stream_read = read_stream(ss, 1, buf, len);
+	stream_read = read_stream(control, ss, 1, buf, len);
 	if (unlikely(stream_read == -1 ))
 		fatal("Failed to read_stream in unzip_literal\n");
 
@@ -85,13 +85,13 @@ static i64 unzip_literal(void *ss, i64 len, int fd_out, uint32 *cksum)
 	if (!HAS_MD5)
 		*cksum = CrcUpdate(*cksum, buf, stream_read);
 	if (!NO_MD5)
-		md5_process_bytes(buf, stream_read, &control.ctx);
+		md5_process_bytes(buf, stream_read, &control->ctx);
 
 	free(buf);
 	return stream_read;
 }
 
-static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum, int chunk_bytes)
+static i64 unzip_match(rzip_control *control, void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum, int chunk_bytes)
 {
 	i64 offset, n, total, cur_pos;
 	uchar *buf, *off_buf;
@@ -105,7 +105,7 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 		fatal("Seek failed on out file in unzip_match.\n");
 
 	/* Note the offset is in a different format v0.40+ */
-	offset = read_vchars(ss, 0, chunk_bytes);
+	offset = read_vchars(control, ss, 0, chunk_bytes);
 	if (unlikely(lseek(fd_hist, cur_pos - offset, SEEK_SET) == -1))
 		fatal("Seek failed by %d from %d on history file in unzip_match\n",
 		      offset, cur_pos);
@@ -127,7 +127,7 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 		if (!HAS_MD5)
 			*cksum = CrcUpdate(*cksum, off_buf, n);
 		if (!NO_MD5)
-			md5_process_bytes(off_buf, n, &control.ctx);
+			md5_process_bytes(off_buf, n, &control->ctx);
 
 		len -= n;
 		off_buf += n;
@@ -142,7 +142,7 @@ static i64 unzip_match(void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum
 /* decompress a section of an open file. Call fatal() on error
    return the number of bytes that have been retrieved
  */
-static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i64 tally)
+static i64 runzip_chunk(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 expected_size, i64 tally)
 {
 	uint32 good_cksum, cksum = 0;
 	i64 len, ofs, total = 0;
@@ -172,9 +172,9 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 	/* Determine the chunk_byte width size. Versions < 0.4 used 4
 	 * bytes for all offsets, version 0.4 used 8 bytes. Versions 0.5+ use
 	 * a variable number of bytes depending on chunk size.*/
-	if (control.major_version == 0 && control.minor_version < 4)
+	if (control->major_version == 0 && control->minor_version < 4)
 		chunk_bytes = 4;
-	else if (control.major_version == 0 && control.minor_version == 4)
+	else if (control->major_version == 0 && control->minor_version == 4)
 		chunk_bytes = 8;
 	else {
 		/* Read in the stored chunk byte width from the file */
@@ -192,18 +192,18 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 	if (fstat(fd_in, &st) || st.st_size - ofs == 0)
 		return 0;
 
-	ss = open_stream_in(fd_in, NUM_STREAMS);
+	ss = open_stream_in(control, fd_in, NUM_STREAMS);
 	if (unlikely(!ss))
 		fatal("Failed to open_stream_in in runzip_chunk\n");
 
-	while ((len = read_header(ss, &head)) || head) {
+	while ((len = read_header(control, ss, &head)) || head) {
 		switch (head) {
 			case 0:
-				total += unzip_literal(ss, len, fd_out, &cksum);
+				total += unzip_literal(control, ss, len, fd_out, &cksum);
 				break;
 
 			default:
-				total += unzip_match(ss, len, fd_out, fd_hist, &cksum, chunk_bytes);
+				total += unzip_match(control, ss, len, fd_out, fd_hist, &cksum, chunk_bytes);
 				break;
 		}
 		p = 100 * ((double)(tally + total) / (double)expected_size);
@@ -216,7 +216,7 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 	}
 
 	if (!HAS_MD5) {
-		good_cksum = read_u32(ss, 0);
+		good_cksum = read_u32(control, ss, 0);
 		if (unlikely(good_cksum != cksum))
 			failure("Bad checksum: 0x%08x - expected: 0x%08x\n", cksum, good_cksum);
 		print_maxverbose("Checksum for block: 0x%08x\n", cksum);
@@ -231,7 +231,7 @@ static i64 runzip_chunk(int fd_in, int fd_out, int fd_hist, i64 expected_size, i
 /* Decompress an open file. Call fatal() on error
    return the number of bytes that have been retrieved
  */
-i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
+i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 expected_size)
 {
 	char md5_resblock[MD5_DIGEST_SIZE];
 	char md5_stored[MD5_DIGEST_SIZE];
@@ -239,13 +239,13 @@ i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 	i64 total = 0;
 
 	if (!NO_MD5)
-		md5_init_ctx (&control.ctx);
+		md5_init_ctx (&control->ctx);
 	gettimeofday(&start,NULL);
 
 	while (total < expected_size) {
-		total += runzip_chunk(fd_in, fd_out, fd_hist, expected_size, total);
+		total += runzip_chunk(control, fd_in, fd_out, fd_hist, expected_size, total);
 		if (STDOUT)
-			dump_tmpoutfile(fd_out);
+			dump_tmpoutfile(control, fd_out);
 	}
 
 	gettimeofday(&end,NULL);
@@ -255,7 +255,7 @@ i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size)
 	if (!NO_MD5) {
 		int i,j;
 
-		md5_finish_ctx (&control.ctx, md5_resblock);
+		md5_finish_ctx (&control->ctx, md5_resblock);
 		if (HAS_MD5) {
 			if (unlikely(lseek(fd_in, -MD5_DIGEST_SIZE, SEEK_END)) == -1)
 				fatal("Failed to seek to md5 data in runzip_fd\n");

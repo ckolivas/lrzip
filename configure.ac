@@ -70,7 +70,7 @@ AC_CHECK_HEADERS(sys/param.h ctype.h sys/wait.h sys/ioctl.h errno.h)
 
 AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
-
+AC_C___ATTRIBUTE__
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
 AC_CHECK_SIZEOF(short)

@@ -17,14 +17,10 @@
    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define LRZIP_MAJOR_VERSION 0
-#define LRZIP_MINOR_VERSION 5
-#define LRZIP_MINOR_SUBVERSION 71
-
-#define NUM_STREAMS 2
-#define STREAM_BUFSIZE (1024 * 1024 * 10)
-
-#include "config.h"
+#ifndef RZIP_H
+#define RZIP_H
+#include "lrzip.h" /* includes config.h */
+#include "liblrzip.h"
 #include "md5.h"
 
 #include <sys/types.h>
@@ -74,76 +70,6 @@
 
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
-
-#ifndef uchar
-#define uchar unsigned char
-#endif
-
-#ifndef int32
-#if (SIZEOF_INT == 4)
-#define int32 int
-#elif (SIZEOF_LONG == 4)
-#define int32 long
-#elif (SIZEOF_SHORT == 4)
-#define int32 short
-#endif
-#endif
-
-#ifndef int16
-#if (SIZEOF_INT == 2)
-#define int16 int
-#elif (SIZEOF_SHORT == 2)
-#define int16 short
-#endif
-#endif
-
-#ifndef uint32
-#define uint32 unsigned int32
-#endif
-
-#ifndef uint16
-#define uint16 unsigned int16
-#endif
-
-#ifndef MIN
-#define MIN(a, b) ((a) < (b)? (a): (b))
-#endif
-
-#ifndef MAX
-#define MAX(a, b) ((a) > (b)? (a): (b))
-#endif
-
-#if !HAVE_STRERROR
-extern char *sys_errlist[];
-#define strerror(i) sys_errlist[i]
-#endif
-
-#ifndef HAVE_ERRNO_H
-extern int errno;
-#endif
-
-#define likely(x)	__builtin_expect(!!(x), 1)
-#define unlikely(x)	__builtin_expect(!!(x), 0)
-
-typedef long long int i64;
-typedef uint16_t u16;
-typedef uint32_t u32;
-
-#ifndef MAP_ANONYMOUS
- #define MAP_ANONYMOUS MAP_ANON
-#endif
-
-#if defined(NOTHREAD) || !defined(_SC_NPROCESSORS_ONLN)
- #define PROCESSORS (1)
-#else
- #define PROCESSORS (sysconf(_SC_NPROCESSORS_ONLN))
-#endif
-
-#ifdef _SC_PAGE_SIZE
- #define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
-#else
- #define PAGE_SIZE (4096)
-#endif
 
 void fatal(const char *format, ...);
 void failure(const char *format, ...);
@@ -222,33 +148,6 @@ static inline i64 get_ram(void)
 #define FLAG_KEEP_BROKEN	(1 << 19)
 #define FLAG_THRESHOLD		(1 << 20)
 
-#define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
-#define FLAG_NOT_LZMA (FLAG_NO_COMPRESS | FLAG_LZO_COMPRESS | FLAG_BZIP2_COMPRESS | FLAG_ZLIB_COMPRESS | FLAG_ZPAQ_COMPRESS)
-#define LZMA_COMPRESS	(!(control.flags & FLAG_NOT_LZMA))
-
-#define SHOW_PROGRESS	(control.flags & FLAG_SHOW_PROGRESS)
-#define KEEP_FILES	(control.flags & FLAG_KEEP_FILES)
-#define TEST_ONLY	(control.flags & FLAG_TEST_ONLY)
-#define FORCE_REPLACE	(control.flags & FLAG_FORCE_REPLACE)
-#define DECOMPRESS	(control.flags & FLAG_DECOMPRESS)
-#define NO_COMPRESS	(control.flags & FLAG_NO_COMPRESS)
-#define LZO_COMPRESS	(control.flags & FLAG_LZO_COMPRESS)
-#define BZIP2_COMPRESS	(control.flags & FLAG_BZIP2_COMPRESS)
-#define ZLIB_COMPRESS	(control.flags & FLAG_ZLIB_COMPRESS)
-#define ZPAQ_COMPRESS	(control.flags & FLAG_ZPAQ_COMPRESS)
-#define VERBOSE		(control.flags & FLAG_VERBOSE)
-#define VERBOSITY	(control.flags & FLAG_VERBOSITY)
-#define MAX_VERBOSE	(control.flags & FLAG_VERBOSITY_MAX)
-#define STDIN		(control.flags & FLAG_STDIN)
-#define STDOUT		(control.flags & FLAG_STDOUT)
-#define INFO		(control.flags & FLAG_INFO)
-#define UNLIMITED	(control.flags & FLAG_UNLIMITED)
-#define HASH_CHECK	(control.flags & FLAG_HASH)
-#define HAS_MD5		(control.flags & FLAG_MD5)
-#define CHECK_FILE	(control.flags & FLAG_CHECK)
-#define KEEP_BROKEN	(control.flags & FLAG_KEEP_BROKEN)
-#define LZO_TEST	(control.flags & FLAG_THRESHOLD)
-
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
 #define BITS32		(sizeof(long) == 4)
@@ -285,8 +184,9 @@ struct rzip_control {
 	long page_size;
 	int fd_out;
 	struct md5_ctx ctx;
+	void *data; // random data pointer associated for use in callbacks
 	i64 md5_read; // How far into the file the md5 has done so far 
-} control;
+};
 
 struct stream {
 	i64 last_head;
@@ -316,48 +216,31 @@ struct stream_info {
 };
 
 void sighandler();
-i64 runzip_fd(int fd_in, int fd_out, int fd_hist, i64 expected_size);
-void rzip_fd(int fd_in, int fd_out);
-void *open_stream_out(int f, int n, i64 limit, char cbytes);
-void *open_stream_in(int f, int n);
-int write_stream(void *ss, int stream, uchar *p, i64 len);
-i64 read_stream(void *ss, int stream, uchar *p, i64 len);
-int close_stream_out(void *ss);
+i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 expected_size);
+void rzip_fd(rzip_control *control, int fd_in, int fd_out);
+void *open_stream_out(rzip_control *control, int f, int n, i64 limit, char cbytes);
+void *open_stream_in(rzip_control *control, int f, int n);
+int write_stream(rzip_control *control, void *ss, int stream, uchar *p, i64 len);
+i64 read_stream(rzip_control *control, void *ss, int stream, uchar *p, i64 len);
+int close_stream_out(rzip_control *control, void *ss);
 int close_stream_in(void *ss);
-void flush_buffer(struct stream_info *sinfo, int stream);
+void flush_buffer(rzip_control *control, struct stream_info *sinfo, int stream);
 void read_config(struct rzip_control *s);
 ssize_t write_1g(int fd, void *buf, i64 len);
 ssize_t read_1g(int fd, void *buf, i64 len);
 void zpipe_compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress, long thread);
 void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress, long thread);
 const i64 two_gig;
-void prepare_streamout_threads(void);
-void close_streamout_threads(void);
+void prepare_streamout_threads(rzip_control *control);
+void close_streamout_threads(rzip_control *control);
 void round_to_page(i64 *size);
-void dump_tmpoutfile(int fd_out);
+
+void register_infile(const char *name, char delete);
+void register_outfile(const char *name, char delete);
+void register_outputfile(FILE *f);
 
 #define print_err(format, args...)	do {\
 	fprintf(stderr, format, ##args);	\
-} while (0)
-
-#define print_output(format, args...)	do {\
-	fprintf(control.msgout, format, ##args);	\
-	fflush(control.msgout);	\
-} while (0)
-
-#define print_progress(format, args...)	do {\
-	if (SHOW_PROGRESS)	\
-		print_output(format, ##args);	\
-} while (0)
-
-#define print_verbose(format, args...)	do {\
-	if (VERBOSE)	\
-		print_output(format, ##args);	\
-} while (0)
-
-#define print_maxverbose(format, args...)	do {\
-	if (MAX_VERBOSE)	\
-		print_output(format, ##args);	\
 } while (0)
 
 /* Macros for testing parameters */
@@ -365,3 +248,4 @@ void dump_tmpoutfile(int fd_out);
 #define isparameter( parmstring, value )	(!strcasecmp( parmstring, value ))
 #define iscaseparameter( parmvalue, value )	(!strcmp( parmvalue, value ))
 
+#endif

@@ -32,20 +32,44 @@
 
 #include "rzip.h"
 
+static const char *infile = NULL;
+static char delete_infile = 0;
+static const char *outfile = NULL;
+static char delete_outfile = 0;
+static FILE *outputfile = NULL;
+
+void register_infile(const char *name, char delete)
+{
+	infile = name;
+	delete_infile = delete;
+}
+
+void register_outfile(const char *name, char delete)
+{
+	outfile = name;
+	delete_outfile = delete;
+}
+
+void register_outputfile(FILE *f)
+{
+	outputfile = f;
+}
+
 static void unlink_files(void)
 {
 	/* Delete temporary files generated for testing or faking stdio */
-	if (TEST_ONLY || STDOUT || !KEEP_BROKEN)
-		unlink(control.outfile);
+	if (outfile && delete_outfile)
+		unlink(outfile);
 
-	if ((DECOMPRESS || TEST_ONLY) && STDIN)
-		unlink(control.infile);
+	if (infile && delete_infile)
+		unlink(infile);
 }
 
 static void fatal_exit(void)
 {
 	unlink_files();
-	print_output("Fatal error - exiting\n");
+	fprintf(outputfile, "Fatal error - exiting\n");
+	fflush(outputfile);
 	exit(1);
 }
 
@@ -85,9 +109,9 @@ void sighandler()
 
 void round_to_page(i64 *size)
 {
-	*size -= *size % control.page_size;
+	*size -= *size % PAGE_SIZE;
 	if (unlikely(!*size))
-		*size = control.page_size;
+		*size = PAGE_SIZE;
 }
 
 void read_config( struct rzip_control *control )

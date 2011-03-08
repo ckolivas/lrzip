@@ -31,6 +31,9 @@ lrztar_SCRIPTS = lrztar
 bin_PROGRAMS = lrzip
 lrzip_SOURCES = \
   zpipe.cpp \
+  liblrzip.h \
+  lrzip.c \
+  lrzip.h \
   main.c \
   rzip.h \
   rzip.c \
