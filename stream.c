@@ -23,10 +23,38 @@
 # include "config.h"
 #endif
 
-#include "rzip.h"
+#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
+#ifdef HAVE_SYS_RESOURCE_H
+# include <sys/resource.h>
+#endif
+#include <sys/statvfs.h>
+#include <pthread.h>
+#include <bzlib.h>
+#include <zlib.h>
+#include <lzo/lzoconf.h>
+#include <lzo/lzo1x.h>
+#ifdef HAVE_ERRNO_H
+# include <errno.h>
+#endif
+
+/* LZMA C Wrapper */
+#include "lzma/C/LzmaLib.h"
+
 #include "util.h"
 #include "zpipe.h"
 #include "liblrzip.h"
+
+
+#ifdef __APPLE__
+# define fmemopen fake_fmemopen
+# define open_memstream fake_open_memstream
+# define memstream_update_buffer fake_open_memstream_update_buffer
+# define mremap fake_mremap
+#else
+# define memstream_update_buffer(A, B, C) (0)
+#endif
 
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 

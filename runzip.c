@@ -21,13 +21,25 @@
 # include "config.h"
 #endif
 
+#include <sys/types.h>
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
 
-#include "rzip.h"
+#include "md5.h"
 #include "runzip.h"
 #include "stream.h"
 #include "util.h"
+#include "lrzip.h"
 #include "liblrzip.h"
-
+/* needed for CRC routines */
+#include "lzma/C/7zCrc.h"
 static inline uchar read_u8(rzip_control *control, void *ss, int stream)
 {
 	uchar b;

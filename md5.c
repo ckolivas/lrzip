@@ -28,8 +28,9 @@
 # include "config.h"
 #endif
 
+#include <stddef.h>
 
-#include "rzip.h"
+#include "md5.h"
 
 #if USE_UNLOCKED_IO
 # include "unlocked-io.h"

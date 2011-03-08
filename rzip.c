@@ -24,10 +24,35 @@
 # include "config.h"
 #endif
 
-#include "rzip.h"
+#ifdef HAVE_SYS_MMAN_H
+# include <sys/mman.h>
+#endif
+#include <sys/statvfs.h>
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+#include <lzo/lzoconf.h>
+#include <lzo/lzo1x.h>
+#ifdef HAVE_ERRNO_H
+# include <errno.h>
+#endif
+
+#include "md5.h"
 #include "stream.h"
 #include "util.h"
 #include "liblrzip.h"
+/* needed for CRC routines */
+#include "lzma/C/7zCrc.h"
+
+#ifndef MAP_ANONYMOUS
+# define MAP_ANONYMOUS MAP_ANON
+#endif
 
 #define CHUNK_MULTIPLE (100 * 1024 * 1024)
 #define CKSUM_CHUNK 1024*1024

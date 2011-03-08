@@ -34,7 +34,18 @@
 # include "config.h"
 #endif
 
-#include "rzip.h"
+#include <stdarg.h>
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+
+#ifdef _SC_PAGE_SIZE
+# define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
+#else
+# define PAGE_SIZE (4096)
+#endif
+
+#include "lrzip_private.h"
 
 static const char *infile = NULL;
 static char delete_infile = 0;

@@ -19,62 +19,8 @@
 
 #ifndef RZIP_H
 #define RZIP_H
-#include "lrzip.h" /* includes config.h */
-#include "md5.h"
-
-#include <sys/types.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stddef.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#include <bzlib.h>
-#include <zlib.h>
-#include <pthread.h>
-#include <sys/statvfs.h>
-#include <sys/resource.h>
-#include <netinet/in.h>
-
-#include <sys/time.h>
-
-#include <sys/mman.h>
-#include <sys/syscall.h>
-
-#include <lzo/lzoconf.h>
-#include <lzo/lzo1x.h>
-
-/* LZMA C Wrapper */
-#include "lzma/C/LzmaLib.h"
-
-#ifdef HAVE_STRING_H
-#include <string.h>
-#endif
-
-#ifdef HAVE_MALLOC_H
-#include <malloc.h>
-#endif
-
-#include <fcntl.h>
-#include <sys/stat.h>
-
-#ifdef HAVE_CTYPE_H
-#include <ctype.h>
-#endif
-#ifdef HAVE_ERRNO_H
-#include <errno.h>
-#endif
-#include <sys/mman.h>
-
-/* needed for CRC routines */
-#include "lzma/C/7zCrc.h"
+#include "lrzip_private.h"
 
 void rzip_fd(rzip_control *control, int fd_in, int fd_out);
-
-/* Macros for testing parameters */
-
-#define isparameter( parmstring, value )	(!strcasecmp( parmstring, value ))
-#define iscaseparameter( parmvalue, value )	(!strcmp( parmvalue, value ))
 
 #endif

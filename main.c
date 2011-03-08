@@ -22,8 +22,31 @@
 # include "config.h"
 #endif
 
+#include <signal.h>
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+#ifdef HAVE_CTYPE_H
+# include <ctype.h>
+#endif
+#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
+#ifdef HAVE_SYS_RESOURCE_H
+# include <sys/resource.h>
+#endif
+
+
 #include "rzip.h"
+#include "lrzip.h"
 #include "util.h"
+
+/* needed for CRC routines */
+#include "lzma/C/7zCrc.h"
+
+/* Macros for testing parameters */
+#define isparameter( parmstring, value )	(!strcasecmp( parmstring, value ))
+#define iscaseparameter( parmvalue, value )	(!strcmp( parmvalue, value ))
 
 /* main() defines, different from liblrzip defines */
 #define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
@@ -73,7 +96,18 @@
 		print_output(format, ##args);	\
 } while (0)
 
-rzip_control control;
+
+#if defined(NOTHREAD) || !defined(_SC_NPROCESSORS_ONLN)
+# define PROCESSORS (1)
+#else
+# define PROCESSORS (sysconf(_SC_NPROCESSORS_ONLN))
+#endif
+
+#ifdef _SC_PAGE_SIZE
+# define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
+#else
+# define PAGE_SIZE (4096)
+#endif
 
 #ifdef __APPLE__
 # include <sys/sysctl.h>
@@ -117,6 +151,8 @@ static inline i64 get_ram(void)
 	return ramsize;
 }
 #endif
+
+static rzip_control control;
 
 static void usage(void)
 {

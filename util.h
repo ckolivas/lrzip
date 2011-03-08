@@ -19,7 +19,6 @@
 #ifndef LRZIP_UTIL_H
 #define LRZIP_UTIL_H
 
-#include <stdio.h>
 #include "lrzip_private.h"
 
 void register_infile(const char *name, char delete);

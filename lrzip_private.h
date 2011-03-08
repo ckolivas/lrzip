@@ -30,14 +30,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#ifdef HAVE_STRING_H
+# include <string.h>
+#endif
 
-#ifdef __APPLE__
-# define fmemopen fake_fmemopen
-# define open_memstream fake_open_memstream
-# define memstream_update_buffer fake_open_memstream_update_buffer
-# define mremap fake_mremap
-#else
-# define memstream_update_buffer(A, B, C) (0)
+#ifdef HAVE_MALLOC_H
+# include <malloc.h>
 #endif
 
 #ifndef uchar
@@ -93,22 +91,6 @@ extern int errno;
 typedef long long int i64;
 typedef uint16_t u16;
 typedef uint32_t u32;
-
-#ifndef MAP_ANONYMOUS
-# define MAP_ANONYMOUS MAP_ANON
-#endif
-
-#if defined(NOTHREAD) || !defined(_SC_NPROCESSORS_ONLN)
-# define PROCESSORS (1)
-#else
-# define PROCESSORS (sysconf(_SC_NPROCESSORS_ONLN))
-#endif
-
-#ifdef _SC_PAGE_SIZE
-# define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
-#else
-# define PAGE_SIZE (4096)
-#endif
 
 typedef struct rzip_control rzip_control;
 typedef struct md5_ctx md5_ctx;

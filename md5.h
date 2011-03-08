@@ -25,8 +25,9 @@
 #ifndef _MD5_H
 #define _MD5_H 1
 
-#include <stdio.h>
 #include <stdint.h>
+
+#include "lrzip_private.h"
 
 #define MD5_DIGEST_SIZE 16
 #define MD5_BLOCK_SIZE 64
