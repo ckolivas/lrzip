@@ -21,6 +21,7 @@ every chunk is decompressed instead of after the whole file is decompressed.
 only or to stdout).
 * Clean up and simplify the times displayed component. It could potentially
 show thousands of seconds.
+* Remove open coded strerror messages when they're to be printed by fatal().
 
 MARCH 2011, Michael Blumenkrantz
 * Updated autotools/conf build system.

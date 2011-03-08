@@ -195,7 +195,7 @@ void dump_tmpoutfile(int fd_out)
 	fsync(fd_out);
 	tmpoutfp = fdopen(fd_out, "r");
 	if (unlikely(tmpoutfp == NULL))
-		fatal("Failed to fdopen out tmpfile: %s\n", strerror(errno));
+		fatal("Failed to fdopen out tmpfile\n");
 	rewind(tmpoutfp);
 
 	if (!TEST_ONLY) {
@@ -248,7 +248,7 @@ static void read_tmpinfile(int fd_in)
 		fprintf(control.msgout, "Copying from stdin.\n");
 	tmpinfp = fdopen(fd_in, "w+");
 	if (unlikely(tmpinfp == NULL))
-		fatal("Failed to fdopen in tmpfile: %s\n", strerror(errno));
+		fatal("Failed to fdopen in tmpfile\n");
 
 	while ((tmpchar = getchar()) != EOF)
 		fputc(tmpchar, tmpinfp);
@@ -324,9 +324,7 @@ static void decompress_file(void)
 	} else {
 		fd_in = open(infilecopy, O_RDONLY);
 		if (unlikely(fd_in == -1)) {
-			fatal("Failed to open %s: %s\n",
-			      infilecopy,
-			      strerror(errno));
+			fatal("Failed to open %s\n",infilecopy);
 		}
 	}
 
@@ -339,7 +337,7 @@ static void decompress_file(void)
 			/* We must ensure we don't delete a file that already
 			 * exists just because we tried to create a new one */
 			control.flags |= FLAG_KEEP_BROKEN;
-			fatal("Failed to create %s: %s\n", control.outfile, strerror(errno));
+			fatal("Failed to create %s\n", control.outfile);
 		}
 
 		preserve_perms(fd_in, fd_out);
@@ -399,7 +397,7 @@ static void decompress_file(void)
 
 	if (!KEEP_FILES) {
 		if (unlikely(unlink(control.infile)))
-			fatal("Failed to unlink %s: %s\n", infilecopy, strerror(errno));
+			fatal("Failed to unlink %s\n", infilecopy);
 	}
 
 	free(control.outfile);
@@ -461,7 +459,7 @@ static void get_fileinfo(void)
 	else {
 		fd_in = open(infilecopy, O_RDONLY);
 		if (unlikely(fd_in == -1))
-			fatal("Failed to open %s: %s\n", infilecopy, strerror(errno));
+			fatal("Failed to open %s\n", infilecopy);
 	}
 
 	/* Get file size */
@@ -480,7 +478,7 @@ static void get_fileinfo(void)
 	else
 		seekspot = 75;
 	if (unlikely(lseek(fd_in, seekspot, SEEK_SET) == -1))
-		fatal("Failed to lseek in get_fileinfo: %s\n", strerror(errno));
+		fatal("Failed to lseek in get_fileinfo\n");
 
 	/* Read the compression type of the first block. It's possible that
 	   not all blocks are compressed so this may not be accurate.
@@ -631,7 +629,7 @@ static void compress_file(void)
 
 		fd_in = open(control.infile, O_RDONLY);
 		if (unlikely(fd_in == -1))
-			fatal("Failed to open %s: %s\n", control.infile, strerror(errno));
+			fatal("Failed to open %s\n", control.infile);
 	} else
 		fd_in = 0;
 
@@ -680,7 +678,7 @@ static void compress_file(void)
 			/* We must ensure we don't delete a file that already
 			 * exists just because we tried to create a new one */
 			control.flags |= FLAG_KEEP_BROKEN;
-			fatal("Failed to create %s: %s\n", control.outfile, strerror(errno));
+			fatal("Failed to create %s\n", control.outfile);
 		}
 	} else
 		fd_out = open_tmpoutfile();
@@ -708,7 +706,7 @@ static void compress_file(void)
 
 	if (!KEEP_FILES) {
 		if (unlikely(unlink(control.infile)))
-			fatal("Failed to unlink %s: %s\n", control.infile, strerror(errno));
+			fatal("Failed to unlink %s\n", control.infile);
 	}
 
 	free(control.outfile);

@@ -753,7 +753,7 @@ void rzip_fd(int fd_in, int fd_out)
 	}
 
 	if (unlikely(fstat(fd_in, &s)))
-		fatal("Failed to stat fd_in in rzip_fd - %s\n", strerror(errno));
+		fatal("Failed to stat fd_in in rzip_fd\n");
 
 	if (!STDIN) {
 		len = control.st_size = s.st_size;
