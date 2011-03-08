@@ -21,7 +21,7 @@ m4/ltoptions.m4 \
 m4/ltsugar.m4 \
 m4/ltversion.m4
 
-SUBDIRS = lzma man
+SUBDIRS = lzma man doc
 
 AM_CFLAGS = -I lzma/C -DNDEBUG
 
@@ -32,13 +32,14 @@ bin_PROGRAMS = lrzip
 lrzip_SOURCES = \
   zpipe.cpp \
   main.c \
+  rzip.h \
   rzip.c \
   runzip.c \
   stream.c \
   util.c \
-  md5.c
+  md5.c \
+  md5.h
 lrzip_LDADD = lzma/C/liblzma.la
-
 
 dist_doc_DATA = \
   AUTHORS \
@@ -50,3 +51,10 @@ dist_doc_DATA = \
   TODO \
   WHATS-NEW
 
+EXTRA_DIST = \
+		lrztar \
+		regression_test.sh \
+		description-pak \
+		autogen.sh \
+		INSTALL \
+		$(dist_doc_DATA)

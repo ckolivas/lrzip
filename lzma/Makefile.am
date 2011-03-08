@@ -10,3 +10,5 @@ lzmadoc_DATA = \
   lzma.txt \
   README \
   README-Alloc
+
+EXTRA_DIST = $(lzmadoc_DATA)

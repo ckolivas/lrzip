@@ -5,12 +5,25 @@ ASM_S =
 if USE_ASM
   ASM_LIBS += @ASM_OBJ@
 else
-  ASM_S += 7zCrc.c
+  ASM_S += 7zCrc.c 7zCrc.h
 endif
 
 noinst_LTLIBRARIES = liblzma.la
 liblzma_la_SOURCES = \
   $(ASM_S) \
+		Alloc.h \
+		basetyps.h \
+		LzFind.h \
+		LzFindMt.h \
+		LzHash.h \
+		LzmaDec.h \
+		LzmaEnc.h \
+		LzmaLib.h \
+		MyGuidDef.h \
+		MyWindows.h \
+		Threads.h \
+		Types.h \
+		windows.h \
   Threads.c \
   LzFind.c \
   LzFindMt.c \
