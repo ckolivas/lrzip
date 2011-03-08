@@ -732,15 +732,13 @@ void rzip_fd(int fd_in, int fd_out)
 	 * If file size < compression window, can't do
 	 */
 	struct timeval current, start, last;
-	struct stat s, s2;
-	struct rzip_state *st;
+	char md5_resblock[MD5_DIGEST_SIZE];
 	i64 len = 0, last_chunk = 0;
 	int pass = 0, passes, j;
-	unsigned int eta_hours, eta_minutes, eta_seconds, elapsed_hours,
-		     elapsed_minutes, elapsed_seconds;
-	double finish_time, elapsed_time, chunkmbs;
-	char md5_resblock[MD5_DIGEST_SIZE];
+	struct rzip_state *st;
 	struct statvfs fbuf;
+	struct stat s, s2;
+	double chunkmbs;
 	i64 free_space;
 
 	md5_init_ctx (&control.ctx);
