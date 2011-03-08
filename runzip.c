@@ -17,7 +17,15 @@
 */
 /* rzip decompression algorithm */
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
+
 #include "rzip.h"
+#include "runzip.h"
+#include "stream.h"
+#include "util.h"
 
 static inline uchar read_u8(rzip_control *control, void *ss, int stream)
 {

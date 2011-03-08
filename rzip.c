@@ -19,7 +19,14 @@
    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 /* rzip compression algorithm */
+
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include "rzip.h"
+#include "stream.h"
+#include "util.h"
 
 #define CHUNK_MULTIPLE (100 * 1024 * 1024)
 #define CKSUM_CHUNK 1024*1024
@@ -206,7 +213,7 @@ static void put_match(rzip_control *control, struct rzip_state *st, i64 p, i64 o
 }
 
 /* write some data to a stream mmap encoded. Return -1 on failure */
-int write_sbstream(rzip_control *control, void *ss, int stream, i64 p, i64 len)
+static int write_sbstream(rzip_control *control, void *ss, int stream, i64 p, i64 len)
 {
 	struct stream_info *sinfo = ss;
 
@@ -719,9 +726,6 @@ static void rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, 
 		fatal("Failed to flush/close streams in rzip_chunk\n");
 }
 
-/* Needs to be less than 31 bits and page aligned on 32 bits */
-const i64 two_gig = (1ull << 31) - 4096;
-
 /* compress a whole file chunks at a time */
 void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 {
@@ -783,7 +787,7 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	/* On 32 bits we can have a big window with sliding mmap, but can
 	 * not enable much per mmap/malloc */
 	if (BITS32)
-		control->max_mmap = MIN(control->max_mmap, two_gig);
+		control->max_mmap = MIN((unsigned long long)control->max_mmap, two_gig);
 	round_to_page(&control->max_mmap);
 
 	/* Set maximum chunk size to 2/3 of ram if not unlimited or specified

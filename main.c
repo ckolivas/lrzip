@@ -18,7 +18,13 @@
 */
 /* lrzip compression - main program */
 #define MAIN_C
+
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include "rzip.h"
+#include "util.h"
 
 /* main() defines, different from liblrzip defines */
 #define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
@@ -158,6 +164,12 @@ static void usage(void)
 
 }
 
+
+static void sighandler(int sig __UNUSED__)
+{
+	unlink_files();
+	exit(0);
+}
 
 static void show_summary(void)
 {

@@ -1,7 +1,7 @@
 /*
    Copyright (C) 2006-2011 Con Kolivas
    Copyright (C) 2011 Peter Hyman
-   Copyright (C) 1998-2003 Andrew Tridgell
+   Copyright (C) 1998 Andrew Tridgell
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -16,20 +16,18 @@
    You should have received a copy of the GNU General Public License
    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef LRZIP_H
-#define LRZIP_H
+#ifndef LRZIP_UTIL_H
+#define LRZIP_UTIL_H
 
+#include <stdio.h>
 #include "lrzip_private.h"
 
-void write_magic(rzip_control *control, int fd_in, int fd_out);
-void read_magic(rzip_control *control, int fd_in, i64 *expected_size);
-void preserve_perms(rzip_control *control, int fd_in, int fd_out);
-int open_tmpoutfile(rzip_control *control);
-void dump_tmpoutfile(rzip_control *control, int fd_out);
-int open_tmpinfile(rzip_control *control);
-void read_tmpinfile(rzip_control *control, int fd_in);
-void decompress_file(rzip_control *control);
-void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len, i64 *u_len, i64 *last_head);
-void get_fileinfo(rzip_control *control);
-void compress_file(rzip_control *control);
+void register_infile(const char *name, char delete);
+void register_outfile(const char *name, char delete);
+void unlink_files(void);
+void register_outputfile(FILE *f);
+void fatal(const char *format, ...);
+void failure(const char *format, ...);
+void round_to_page(i64 *size);
+
 #endif

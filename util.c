@@ -30,6 +30,10 @@
  * Peter Hyman, December 2008
  */
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include "rzip.h"
 
 static const char *infile = NULL;
@@ -55,7 +59,7 @@ void register_outputfile(FILE *f)
 	outputfile = f;
 }
 
-static void unlink_files(void)
+void unlink_files(void)
 {
 	/* Delete temporary files generated for testing or faking stdio */
 	if (outfile && delete_outfile)
@@ -99,12 +103,6 @@ void failure(const char *format, ...)
 	}
 
 	fatal_exit();
-}
-
-void sighandler()
-{
-	unlink_files();
-	exit(0);
 }
 
 void round_to_page(i64 *size)

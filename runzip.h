@@ -16,20 +16,12 @@
    You should have received a copy of the GNU General Public License
    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef LRZIP_H
-#define LRZIP_H
+
+#ifndef RUNZIP_H
+#define RUNZIP_H
 
 #include "lrzip_private.h"
 
-void write_magic(rzip_control *control, int fd_in, int fd_out);
-void read_magic(rzip_control *control, int fd_in, i64 *expected_size);
-void preserve_perms(rzip_control *control, int fd_in, int fd_out);
-int open_tmpoutfile(rzip_control *control);
-void dump_tmpoutfile(rzip_control *control, int fd_out);
-int open_tmpinfile(rzip_control *control);
-void read_tmpinfile(rzip_control *control, int fd_in);
-void decompress_file(rzip_control *control);
-void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len, i64 *u_len, i64 *last_head);
-void get_fileinfo(rzip_control *control);
-void compress_file(rzip_control *control);
+i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 expected_size);
+
 #endif

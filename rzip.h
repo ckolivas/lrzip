@@ -71,35 +71,7 @@
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
 
-void fatal(const char *format, ...);
-void failure(const char *format, ...);
-
-void sighandler();
-i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 expected_size);
 void rzip_fd(rzip_control *control, int fd_in, int fd_out);
-void *open_stream_out(rzip_control *control, int f, int n, i64 limit, char cbytes);
-void *open_stream_in(rzip_control *control, int f, int n);
-int write_stream(rzip_control *control, void *ss, int stream, uchar *p, i64 len);
-i64 read_stream(rzip_control *control, void *ss, int stream, uchar *p, i64 len);
-int close_stream_out(rzip_control *control, void *ss);
-int close_stream_in(void *ss);
-void flush_buffer(rzip_control *control, struct stream_info *sinfo, int stream);
-ssize_t write_1g(int fd, void *buf, i64 len);
-ssize_t read_1g(int fd, void *buf, i64 len);
-void zpipe_compress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress, long thread);
-void zpipe_decompress(FILE *in, FILE *out, FILE *msgout, long long int buf_len, int progress, long thread);
-const i64 two_gig;
-void prepare_streamout_threads(rzip_control *control);
-void close_streamout_threads(rzip_control *control);
-void round_to_page(i64 *size);
-
-void register_infile(const char *name, char delete);
-void register_outfile(const char *name, char delete);
-void register_outputfile(FILE *f);
-
-#define print_err(format, args...)	do {\
-	fprintf(stderr, format, ##args);	\
-} while (0)
 
 /* Macros for testing parameters */
 

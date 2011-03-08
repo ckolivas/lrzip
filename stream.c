@@ -19,7 +19,13 @@
 /* multiplex N streams into a file - the streams are passed
    through different compressors */
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include "rzip.h"
+#include "util.h"
+#include "zpipe.h"
 
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
@@ -763,12 +769,12 @@ void close_streamout_threads(rzip_control *control)
 
 /* open a set of output streams, compressing with the given
    compression level and algorithm */
-void *open_stream_out(rzip_control *control, int f, int n, i64 chunk_limit, char cbytes)
+void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_limit, char cbytes)
 {
 	struct stream_info *sinfo;
 	i64 testsize, limit;
 	uchar *testmalloc;
-	int i, testbufs;
+	unsigned int i, testbufs;
 
 	sinfo = calloc(sizeof(struct stream_info), 1);
 	if (unlikely(!sinfo))
@@ -798,7 +804,7 @@ void *open_stream_out(rzip_control *control, int f, int n, i64 chunk_limit, char
 
 	/* Serious limits imposed on 32 bit capabilities */
 	if (BITS32)
-		limit = MIN(limit, (two_gig / testbufs) -
+		limit = MIN((unsigned long long)limit, (two_gig / testbufs) -
 			(control->overhead * control->threads));
 
 	testsize = (limit * testbufs) + (control->overhead * control->threads);

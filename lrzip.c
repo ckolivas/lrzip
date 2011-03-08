@@ -17,7 +17,13 @@
    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include "rzip.h"
+#include "runzip.h"
+#include "util.h"
 #include "liblrzip.h" /* flag defines */
 
 void write_magic(rzip_control *control, int fd_in, int fd_out)
