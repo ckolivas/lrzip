@@ -179,7 +179,7 @@ struct rzip_control {
 	int fd_out;
 	md5_ctx ctx;
 	void *data; // random data pointer associated for use in callbacks
-	i64 md5_read; // How far into the file the md5 has done so far 
+	i64 md5_read; // How far into the file the md5 has done so far
 };
 
 struct stream {

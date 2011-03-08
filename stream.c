@@ -773,7 +773,7 @@ void prepare_streamout_threads(rzip_control *control)
 	if (unlikely(!cthread))
 		fatal("Unable to calloc cthread in prepare_streamout_threads\n");
 
-	for (i = 0; i < control->threads; i++) 
+	for (i = 0; i < control->threads; i++)
 		init_mutex(&cthread[i].mutex);
 }
 

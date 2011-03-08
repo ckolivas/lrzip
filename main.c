@@ -251,7 +251,7 @@ static void show_summary(void)
 				print_verbose("ZPAQ. LZO Compressibility testing %s\n", (LZO_TEST? "enabled" : "disabled"));
 			else if (NO_COMPRESS)
 				print_verbose("RZIP pre-processing only\n");
-			if (control.window) 
+			if (control.window)
 				print_verbose("Compression Window: %lld = %lldMB\n", control.window, control.window * 100ull);
 			/* show heuristically computed window size */
 			if (!control.window && !UNLIMITED) {
@@ -262,7 +262,7 @@ static void show_summary(void)
 					temp_chunk = temp_ramsize / 3;
 				else
 					temp_chunk = temp_ramsize / 3 * 2;
-				temp_window = temp_chunk / (100 * 1024 * 1024); 
+				temp_window = temp_chunk / (100 * 1024 * 1024);
 				print_verbose("Heuristically Computed Compression Window: %lld = %lldMB\n", temp_window, temp_window * 100ull);
 			}
 			if (UNLIMITED)

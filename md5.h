@@ -1,4 +1,4 @@
-/* 
+/*
    Copyright (C) 2011 Con Kolivas
    Copyright (C) 1995-2011 Ulrich Drepper.
 
