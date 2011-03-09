@@ -33,7 +33,7 @@
 #define TRUE 1
 #endif
 
-#define WINAPI 
+#define WINAPI
 
 #undef BOOL
 typedef int BOOL;
@@ -86,7 +86,7 @@ typedef TCHAR *LPTSTR;
  * The corresponding macros  _TEXT() and _T() for mapping _UNICODE strings
  * passed to C runtime functions are defined in mingw/tchar.h
  */
-#define TEXT(q) P7ZIP_TEXT(q)    
+#define TEXT(q) P7ZIP_TEXT(q)
 
 typedef BYTE BOOLEAN;
 

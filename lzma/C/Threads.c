@@ -11,16 +11,16 @@
 
 #include <errno.h>
 
-#if defined(__linux__) 
+#if defined(__linux__)
 #define PTHREAD_MUTEX_ERRORCHECK PTHREAD_MUTEX_ERRORCHECK_NP
 #endif
 
 #ifdef ENV_BEOS
 
-/* TODO : optimize the code and verify the returned values */ 
+/* TODO : optimize the code and verify the returned values */
 
 WRes Thread_Create(CThread *thread, THREAD_FUNC_RET_TYPE (THREAD_FUNC_CALL_TYPE *startAddress)(void *), LPVOID parameter)
-{ 
+{
 	thread->_tid = spawn_thread((int32 (*)(void *))startAddress, "CThread", B_LOW_PRIORITY, parameter);
 	if (thread->_tid >= B_OK) {
 		resume_thread(thread->_tid);
@@ -38,7 +38,7 @@ WRes Thread_Wait(CThread *thread)
   if (thread->_created == 0)
     return EINVAL;
 
-  if (thread->_tid >= B_OK) 
+  if (thread->_tid >= B_OK)
   {
     status_t exit_value;
     wait_for_thread(thread->_tid, &exit_value);
@@ -46,16 +46,16 @@ WRes Thread_Wait(CThread *thread)
   } else {
     return EINVAL;
   }
-  
+
   thread->_created = 0;
-  
+
   return 0;
 }
 
 WRes Thread_Close(CThread *thread)
 {
     if (!thread->_created) return SZ_OK;
-    
+
     thread->_tid = B_BAD_THREAD_ID;
     thread->_created = 0;
     return SZ_OK;
@@ -91,12 +91,12 @@ WRes Event_Reset(CEvent *p) {
   release_sem(p->_sem);
   return 0;
 }
- 
+
 WRes Event_Wait(CEvent *p) {
   acquire_sem(p->_sem);
   while (p->_state == FALSE)
   {
-    thread_id sender; 
+    thread_id sender;
     p->_waiting[p->_index_waiting++] = find_thread(NULL);
     release_sem(p->_sem);
     /* int msg = */ receive_data(&sender, NULL, 0);
@@ -110,7 +110,7 @@ WRes Event_Wait(CEvent *p) {
   return 0;
 }
 
-WRes Event_Close(CEvent *p) { 
+WRes Event_Close(CEvent *p) {
   if (p->_created)
   {
     p->_created = 0;
@@ -133,7 +133,7 @@ WRes Semaphore_ReleaseN(CSemaphore *p, UInt32 releaseCount)
 {
   UInt32 newCount;
   int index;
-  
+
   if (releaseCount < 1) return EINVAL;
 
   acquire_sem(p->_sem);
@@ -157,14 +157,14 @@ WRes Semaphore_Wait(CSemaphore *p) {
   acquire_sem(p->_sem);
   while (p->_count < 1)
   {
-    thread_id sender;  
+    thread_id sender;
     p->_waiting[p->_index_waiting++] = find_thread(NULL);
     release_sem(p->_sem);
     /* int msg = */ receive_data(&sender, NULL, 0);
     acquire_sem(p->_sem);
   }
   p->_count--;
-  release_sem(p->_sem); 
+  release_sem(p->_sem);
   return 0;
 }
 
@@ -186,7 +186,7 @@ WRes CriticalSection_Init(CCriticalSection * lpCriticalSection)
 #else /* !ENV_BEOS */
 
 WRes Thread_Create(CThread *thread, THREAD_FUNC_RET_TYPE (THREAD_FUNC_CALL_TYPE *startAddress)(void *), LPVOID parameter)
-{ 
+{
 	pthread_attr_t attr;
 	int ret;
 
@@ -203,7 +203,7 @@ WRes Thread_Create(CThread *thread, THREAD_FUNC_RET_TYPE (THREAD_FUNC_CALL_TYPE 
 	/* ret2 = */ pthread_attr_destroy(&attr);
 
 	if (ret) return ret;
-	
+
 	thread->_created = 1;
 
 	return 0; // SZ_OK;
@@ -219,14 +219,14 @@ WRes Thread_Wait(CThread *thread)
 
   ret = pthread_join(thread->_tid,&thread_return);
   thread->_created = 0;
-  
+
   return ret;
 }
 
 WRes Thread_Close(CThread *thread)
 {
     if (!thread->_created) return SZ_OK;
-    
+
     pthread_detach(thread->_tid);
     thread->_tid = 0;
     thread->_created = 0;
@@ -293,7 +293,7 @@ WRes Event_Reset(CEvent *p) {
   }
   return ret;
 }
- 
+
 WRes Event_Wait(CEvent *p) {
   int ret = pthread_mutex_lock(&p->_mutex);
   if (ret != 0) dump_error(__LINE__,ret,"EW::pthread_mutex_lock",&p->_mutex);
@@ -317,7 +317,7 @@ WRes Event_Wait(CEvent *p) {
   return ret;
 }
 
-WRes Event_Close(CEvent *p) { 
+WRes Event_Close(CEvent *p) {
   if (p->_created)
   {
     int ret;
@@ -484,7 +484,7 @@ WRes Event_Reset(CEvent *p) {
   pthread_mutex_unlock(&p->_mutex);
   return 0;
 }
- 
+
 WRes Event_Wait(CEvent *p) {
   pthread_mutex_lock(&p->_mutex);
   while (p->_state == FALSE)
@@ -499,7 +499,7 @@ WRes Event_Wait(CEvent *p) {
   return 0;
 }
 
-WRes Event_Close(CEvent *p) { 
+WRes Event_Close(CEvent *p) {
   if (p->_created)
   {
     p->_created = 0;
@@ -572,11 +572,11 @@ WRes CriticalSection_Init(CCriticalSection * lpCriticalSection)
 WRes ManualResetEvent_Create(CManualResetEvent *p, int initialSignaled)
   { return Event_Create(p, TRUE, initialSignaled); }
 
-WRes ManualResetEvent_CreateNotSignaled(CManualResetEvent *p) 
+WRes ManualResetEvent_CreateNotSignaled(CManualResetEvent *p)
   { return ManualResetEvent_Create(p, 0); }
 
 WRes AutoResetEvent_Create(CAutoResetEvent *p, int initialSignaled)
   { return Event_Create(p, FALSE, initialSignaled); }
-WRes AutoResetEvent_CreateNotSignaled(CAutoResetEvent *p) 
+WRes AutoResetEvent_CreateNotSignaled(CAutoResetEvent *p)
   { return AutoResetEvent_Create(p, 0); }
 
