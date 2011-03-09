@@ -660,9 +660,8 @@ static void init_hash_indexes(struct rzip_state *st)
 
 extern const i64 one_g;
 
-static inline void *fake_mremap(void *old_address, size_t old_size, size_t new_size, int flags)
+static inline void *fake_mremap(void *old_address, size_t old_size, size_t new_size, int flags __UNUSED__)
 {
-	flags = 0;
 	munmap(old_address, old_size);
 	return mmap(old_address, new_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 }
