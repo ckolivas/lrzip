@@ -631,10 +631,10 @@ const i64 one_g = 1000 * 1024 * 1024;
 ssize_t write_1g(int fd, void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
-	i64 total, offset;
 	ssize_t ret;
+	i64 total;
 
-	total = offset = 0;
+	total = 0;
 	while (len > 0) {
 		if (len > one_g)
 			ret = one_g;
