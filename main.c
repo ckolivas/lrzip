@@ -274,12 +274,11 @@ static void show_summary(void)
 static void read_config( struct rzip_control *control )
 {
 	/* check for lrzip.conf in ., $HOME/.lrzip and /etc/lrzip */
-
-	FILE *fp;
-	char *parameter;
-	char *parametervalue;
-	char *line, *s;
 	char *HOME, *homeconf;
+	char *parametervalue;
+	char *parameter;
+	char *line;
+	FILE *fp;
 
 	line = malloc(255);
 	homeconf = malloc(255);
@@ -309,7 +308,7 @@ static void read_config( struct rzip_control *control )
 
 	/* if we get here, we have a file. read until no more. */
 
-	while ((s = fgets(line, 255, fp)) != NULL) {
+	while ((fgets(line, 255, fp)) != NULL) {
 		if (strlen(line))
 			line[strlen(line) - 1] = '\0';
 		parameter = strtok(line, " =");
