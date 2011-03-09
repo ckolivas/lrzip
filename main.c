@@ -415,6 +415,9 @@ static void read_config( struct rzip_control *control )
 	free(line);
 	free(homeconf);
 
+	if (unlikely(fclose(fp)))
+		fatal("Failed to fclose fp in read_config\n");
+
 /*	fprintf(stderr, "\nWindow = %d \
 		\nCompression Level = %d \
 		\nThreshold = %1.2f \
