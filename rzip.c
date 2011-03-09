@@ -454,8 +454,8 @@ static i64 find_best_match(rzip_control *control, struct rzip_state *st, tag t, 
 			   i64 *offset, i64 *reverse)
 {
 	i64 length = 0;
-	i64 h, best_h;
 	i64 rev;
+	i64 h;
 
 	rev = 0;
 	*reverse = 0;
@@ -479,7 +479,6 @@ static i64 find_best_match(rzip_control *control, struct rzip_state *st, tag t, 
 				length = mlen;
 				(*offset) = st->hash_table[h].offset - rev;
 				(*reverse) = rev;
-				best_h = h;
 			}
 		}
 
