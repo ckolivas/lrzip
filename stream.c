@@ -402,7 +402,6 @@ static int lzo_compress_buf(rzip_control *control, struct compress_thread *cthre
 {
 	lzo_uint in_len = cthread->s_len;
 	lzo_uint dlen = in_len + in_len / 16 + 64 + 3;
-	lzo_int return_var;	/* lzo1x_1_compress does not return anything but LZO_OK */
 	lzo_bytep wrkmem;
 	uchar *c_buf;
 	int ret = -1;
@@ -419,7 +418,9 @@ static int lzo_compress_buf(rzip_control *control, struct compress_thread *cthre
 		goto out_free;
 	}
 
-	return_var = lzo1x_1_compress(cthread->s_buf, in_len, c_buf, &dlen, wrkmem);
+	/* lzo1x_1_compress does not return anything but LZO_OK so we ignore
+	 * the return value */
+	lzo1x_1_compress(cthread->s_buf, in_len, c_buf, &dlen, wrkmem);
 	ret = 0;
 
 	if (dlen >= in_len){
@@ -1397,7 +1398,6 @@ static int lzo_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 	lzo_bytep wrkmem = NULL;
 	lzo_uint in_len, test_len = s_len, save_len = s_len;
 	lzo_uint dlen;
-	lzo_int return_var;	/* lzo1x_1_compress does not return anything but LZO_OK */
 	uchar *c_buf = NULL, *test_buf = s_buf;
 	/* set minimum buffer test size based on the length of the test stream */
 	unsigned long buftest_size = (test_len > 5 * STREAM_BUFSIZE ? STREAM_BUFSIZE : STREAM_BUFSIZE / 4096);
@@ -1422,7 +1422,7 @@ static int lzo_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 	   compressible is found, jump out as a success */
 	while (test_len > 0) {
 		workcounter++;
-		return_var = lzo1x_1_compress(test_buf, in_len, (uchar *)c_buf, &dlen, wrkmem);
+		lzo1x_1_compress(test_buf, in_len, (uchar *)c_buf, &dlen, wrkmem);
 
 		if (dlen < best_dlen)
 			best_dlen = dlen;	/* save best value */
