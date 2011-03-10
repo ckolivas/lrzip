@@ -129,6 +129,24 @@ if [ $? -ne 0 ];then
 	exit 1
 fi
 
+echo testing rzip only compression
+./lrzip -vvnfo lrztest.lrz $infile
+
+if [ $? -ne 0 ];then
+	echo FAILED testing rzip only compression
+        end
+	exit 1
+fi
+
+echo testing rzip only testing
+./lrzip -vvt lrztest.lrz
+
+if [ $? -ne 0 ];then
+	echo FAILED testing rzip only testing
+        end
+	exit 1
+fi
+
 echo testing lzma compression
 ./lrzip -vvfo lrztest.lrz $infile
 
