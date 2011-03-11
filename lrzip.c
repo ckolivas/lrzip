@@ -414,6 +414,7 @@ void get_fileinfo(rzip_control *control)
 {
 	i64 expected_size, infile_size;
 	int seekspot, fd_in;
+	char chunk_byte = 0;
 	long double cratio;
 	uchar ctype = 0;
 	struct stat st;
@@ -449,12 +450,17 @@ void get_fileinfo(rzip_control *control)
 	/* Get decompressed size */
 	read_magic(control, fd_in, &expected_size);
 
+	if (control->major_version == 0 && control->minor_version > 4) {
+		if (unlikely(read(fd_in, &chunk_byte, 1) != 1))
+			fatal("Failed to read chunk_byte in get_fileinfo\n");
+	}
+
 	/* Version < 0.4 had different file format */
 	if (control->major_version == 0 && control->minor_version < 4)
 		seekspot = 50;
 	else if (control->major_version == 0 && control->minor_version == 4)
 		seekspot = 74;
-	else
+	else if (control->major_version == 0 && control->minor_version == 5)
 		seekspot = 75;
 	if (unlikely(lseek(fd_in, seekspot, SEEK_SET) == -1))
 		fatal("Failed to lseek in get_fileinfo\n");
@@ -516,6 +522,8 @@ next_chunk:
 		stream_head[1] = stream_head[0] + header_length;
 
 		print_output("Rzip chunk %d:\n", ++chunk);
+		if (chunk_byte)
+			print_verbose("Chunk byte width: %d\n", chunk_byte);
 		while (stream < NUM_STREAMS) {
 			int block = 1;
 
@@ -560,11 +568,15 @@ next_chunk:
 			} while (last_head);
 			++stream;
 		}
-		ofs = lseek(fd_in, 0, SEEK_CUR) + c_len;
+		if (unlikely((ofs = lseek(fd_in, c_len, SEEK_CUR)) == -1))
+			fatal("Failed to lseek c_len in get_fileinfo\n");
 		/* Chunk byte entry */
-		if (control->major_version == 0 && control->minor_version > 4)
+		if (control->major_version == 0 && control->minor_version > 4) {
+			if (unlikely(read(fd_in, &chunk_byte, 1) != 1))
+				fatal("Failed to read chunk_byte in get_fileinfo\n");
 			ofs++;
-		if (ofs < infile_size - MD5_DIGEST_SIZE)
+		}
+		if (ofs < infile_size - (HAS_MD5 ? MD5_DIGEST_SIZE : 0))
 			goto next_chunk;
 		if (unlikely(ofs > infile_size))
 			failure("Offset greater than archive size, likely corrupted/truncated archive.\n");
