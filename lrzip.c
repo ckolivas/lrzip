@@ -514,8 +514,12 @@ void get_fileinfo(rzip_control *control)
 		    stream_head[2];
 		int header_length = 25, stream = 0, chunk = 0;
 
-		if (control->major_version == 0 && control->minor_version < 4)
+		if (control->major_version == 0 && control->minor_version < 4) {
+			ofs = 24;
 			header_length = 13;
+		}
+		if (control->major_version == 0 && control->minor_version == 4)
+			ofs = 24;
 next_chunk:
 		stream = 0;
 		stream_head[0] = 0;
