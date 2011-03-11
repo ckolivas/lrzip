@@ -57,7 +57,10 @@ void write_magic(rzip_control *control, int fd_in, int fd_out)
 	if (unlikely(fstat(fd_in, &st)))
 		fatal("bad magic file descriptor!?\n");
 
-	memcpy(&magic[6], &control->st_size, 8);
+	/* File size is stored as zero for streaming STDOUT blocks when the
+	 * file size is unknown. */
+	if (!STDIN || !STDOUT || control->eof)
+		memcpy(&magic[6], &control->st_size, 8);
 
 	/* save LZMA compression flags */
 	if (LZMA_COMPRESS) {

@@ -694,7 +694,7 @@ static void mmap_stdin(rzip_control *control, uchar *buf, struct rzip_state *st)
 			if (unlikely(buf == MAP_FAILED))
 				fatal("Failed to remap to smaller buf in mmap_stdin\n");
 			st->mmap_size = st->chunk_size = total;
-			st->stdin_eof = 1;
+			control->eof = st->stdin_eof = 1;
 			break;
 		}
 		offset_buf += ret;
