@@ -177,6 +177,9 @@ struct rzip_control {
 	i64 st_size;
 	long page_size;
 	int fd_out;
+	int encrypt;
+	i64 secs;
+	i64 usecs;
 	md5_ctx ctx;
 	i64 md5_read; // How far into the file the md5 has done so far
 };

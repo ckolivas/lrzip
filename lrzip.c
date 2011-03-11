@@ -34,6 +34,7 @@
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
+#include <sys/time.h>
 
 #include "md5.h"
 #include "rzip.h"
@@ -43,8 +44,9 @@
 
 void write_magic(rzip_control *control, int fd_in, int fd_out)
 {
+	struct timeval tv;
 	struct stat st;
-	char magic[24];
+	char magic[40];
 	int i;
 
 	memset(magic, 0, sizeof(magic));
@@ -68,6 +70,15 @@ void write_magic(rzip_control *control, int fd_in, int fd_out)
 	 * crc is still stored for compatibility with 0.5 versions.
 	 */
 	magic[21] = 1;
+	if (control->encrypt)
+		magic[22] = 1;
+
+	if (unlikely(gettimeofday(&tv, NULL)))
+		fatal("Failed to gettimeofday in write_magic\n");
+	control->secs = tv.tv_sec;
+	control->usecs = tv.tv_usec;
+	memcpy(&magic[23], &control->secs, 8);
+	memcpy(&magic[31], &control->usecs, 8);
 
 	if (unlikely(lseek(fd_out, 0, SEEK_SET)))
 		fatal("Failed to seek to BOF to write Magic Header\n");
@@ -78,10 +89,11 @@ void write_magic(rzip_control *control, int fd_in, int fd_out)
 
 void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 {
-	char magic[24];
+	char magic[40];
 	uint32_t v;
 	int md5, i;
 
+	memset(magic, 0, 40);
 	if (unlikely(read(fd_in, magic, sizeof(magic)) != sizeof(magic)))
 		fatal("Failed to read magic header\n");
 
@@ -99,8 +111,17 @@ void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 		*expected_size = ntohl(v);
 		memcpy(&v, &magic[10], 4);
 		*expected_size |= ((i64)ntohl(v)) << 32;
-	} else
+	} else {
 		memcpy(expected_size, &magic[6], 8);
+		if (control->major_version == 0 && control->minor_version > 5) {
+			if (magic[22] == 1)
+				control->encrypt = 1;
+			memcpy(&control->secs, &magic[23], 8);
+			memcpy(&control->usecs, &magic[31], 8);
+			print_maxverbose("Seconds %lld\n", control->secs);
+			print_maxverbose("Microseconds %lld\n", control->usecs);
+		}
+	}
 
 	/* restore LZMA compression flags only if stored */
 	if ((int) magic[16]) {
