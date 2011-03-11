@@ -1,4 +1,46 @@
-lrzip-0.50+ file format
+lrzip-0.6x file format
+March 2011
+Con Kolivas
+
+Byte	Content
+0-38	Magic
+---
+39->107	Rzip chunk data
+108+	Data blocks
+--- repeat
+(end-MD5_DIGEST_SIZE)->(end) md5 hash
+
+Magic data:
+0->3	LRZI
+4	LRZIP Major Version Number
+5	LRZIP Minor Version Number
+6->14	Source File Size or 0 if unknown
+16->20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
+21	Flag that md5sum hash is stored at the end of the archive
+22	Flag that the data is encrypted
+23->30	Time in seconds (first 8 bits of salt)
+31->38	Time in useconds (last 8 bits of salt)
+
+Rzip chunk data:
+0	Data offsets byte width
+1	Flag that there is another chunk beyond this
+2->9	Chunk decompressed size
+10->34	Stream 0 header data
+35->59	Stream 1 header data
+
+Stream Header Data:
+Byte:
+0	Compressed data type
+1->8	Compressed data length
+9->16	Uncompressed data length
+17->24	Next block head
+
+Data blocks:
+0->(end-2) data
+(end-1)->end crc data
+
+
+lrzip-0.5x file format
 March 2011
 Con Kolivas
 
@@ -32,8 +74,8 @@ Byte:
 17-24	Next block head
 
 Data blocks:
-0-(end-2) data
-end-1-end crc data
+0->(end-2) data
+(end-1)->end crc data
 
 
 lrzip-0.40+ file header format
