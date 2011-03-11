@@ -1007,7 +1007,6 @@ static void *compthread(void *data)
 	int waited = 0, ret = 0;
 
 	/* Make sure this thread doesn't already exist */
-	lock_mutex(&cthread[i].mutex);
 	
 	free(data);
 	cti = &cthread[i];
@@ -1117,7 +1116,6 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 
 	/* Make sure this thread doesn't already exist */
 	lock_mutex(&cthread[i].mutex);
-	unlock_mutex(&cthread[i].mutex);
 
 	cthread[i].sinfo = sinfo;
 	cthread[i].streamno = streamno;
