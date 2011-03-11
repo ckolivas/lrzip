@@ -1,29 +1,40 @@
-lrzip-0.50+ file header format
-November 2010
+lrzip-0.50+ file format
+March 2011
 Con Kolivas
 
 Byte	Content
-0-3	LRZI
+0->22	Magic
+--
+23->74	Rzip chunk data
+75+	Data blocks
+-- repeat
+(end-MD5_DIGEST_SIZE)->(end) md5 hash
+
+Magic data:
+0->3	LRZI
 4	LRZIP Major Version Number
 5	LRZIP Minor Version Number
-6-14	Source File Size
-16-20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
+6->14	Source File Size
+16->20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
 21	Flag that md5sum hash is stored at the end of the archive
 22	not used
-23-48	Stream 1 header data
-49-74	Stream 2 header data
 
-Block Data:
+Rzip chunk data:
+0	Data offsets byte width
+1-25	Stream 0 header data
+26-50	Stream 1 header data
+
+Stream Header Data:
 Byte:
 0	Compressed data type
 1-8	Compressed data length
 9-16	Uncompressed data length
 17-24	Next block head
-25	Data offsets byte width
-26+	Data
 
-End:
-0-1	crc data
+Data blocks:
+0-(end-2) data
+end-1-end crc data
+
 
 lrzip-0.40+ file header format
 November 2009
