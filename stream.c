@@ -818,7 +818,7 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	if (unlikely(!sinfo))
 		return NULL;
 
-	sinfo->bufsize = limit = chunk_limit;
+	sinfo->bufsize = sinfo->size = limit = chunk_limit;
 
 	sinfo->chunk_bytes = cbytes;
 	sinfo->num_streams = n;
@@ -917,7 +917,6 @@ void *open_stream_in(rzip_control *control, int f, int n)
 
 	sinfo->num_streams = n;
 	sinfo->fd = f;
-	sinfo->initial_pos = lseek(f, 0, SEEK_CUR);
 
 	sinfo->s = calloc(sizeof(struct stream), n);
 	if (unlikely(!sinfo->s)) {
@@ -927,6 +926,21 @@ void *open_stream_in(rzip_control *control, int f, int n)
 
 	sinfo->s[0].total_threads = 1;
 	sinfo->s[1].total_threads = total_threads - 1;
+
+	if (control->major_version == 0 && control->minor_version > 5) {
+		/* Read in flag that tells us if there are more chunks after
+		 * this */
+		if (unlikely(read_u8(f, &control->eof))) {
+			print_err("Failed to read eof flag in open_stream_in\n");
+			goto failed;
+		}
+		/* Read in the expected chunk size */
+		if (unlikely(read_i64(f, &sinfo->size))) {
+			print_err("Failed to read in chunk size in open_stream_in\n");
+			goto failed;
+		}
+	}
+	sinfo->initial_pos = lseek(f, 0, SEEK_CUR);
 
 	for (i = 0; i < n; i++) {
 		uchar c;
@@ -1059,6 +1073,11 @@ retry:
 
 		/* Write chunk bytes of this block */
 		write_u8(ctis->fd, ctis->chunk_bytes);
+
+		/* Write whether this is the last chunk, followed by the size
+		 * of this chunk */
+		write_u8(ctis->fd, control->eof);
+		write_i64(ctis->fd, ctis->size);
 
 		/* First chunk of this stream, write headers */
 		ctis->initial_pos = lseek(ctis->fd, 0, SEEK_CUR);

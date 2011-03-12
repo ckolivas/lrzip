@@ -180,7 +180,7 @@ struct rzip_control {
 	int encrypt;
 	i64 secs;
 	i64 usecs;
-	int eof;
+	unsigned char eof;
 	md5_ctx ctx;
 	i64 md5_read; // How far into the file the md5 has done so far
 };
@@ -206,6 +206,7 @@ struct stream_info {
 	i64 initial_pos;
 	i64 total_read;
 	i64 ram_alloced;
+	i64 size;
 	long thread_no;
 	long next_thread;
 	int chunks;

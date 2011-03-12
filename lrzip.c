@@ -46,7 +46,7 @@ void write_magic(rzip_control *control, int fd_in, int fd_out)
 {
 	struct timeval tv;
 	struct stat st;
-	char magic[40];
+	char magic[39];
 	int i;
 
 	memset(magic, 0, sizeof(magic));
@@ -92,12 +92,13 @@ void write_magic(rzip_control *control, int fd_in, int fd_out)
 
 void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 {
-	char magic[40];
+	char magic[39];
 	uint32_t v;
 	int md5, i;
 
-	memset(magic, 0, 40);
-	if (unlikely(read(fd_in, magic, sizeof(magic)) != sizeof(magic)))
+	memset(magic, 0, sizeof(magic));
+	/* Initially read only <v0.6x header */
+	if (unlikely(read(fd_in, magic, 24) != 24))
 		fatal("Failed to read magic header\n");
 
 	*expected_size = 0;
@@ -117,6 +118,8 @@ void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 	} else {
 		memcpy(expected_size, &magic[6], 8);
 		if (control->major_version == 0 && control->minor_version > 5) {
+			if (unlikely(read(fd_in, magic + 24, 15) != 15))
+				fatal("Failed to read magic header\n");
 			if (magic[22] == 1)
 				control->encrypt = 1;
 			memcpy(&control->secs, &magic[23], 8);
@@ -635,7 +638,7 @@ void compress_file(rzip_control *control)
 					 * Spares a compiler warning
 					 */
 	int fd_in, fd_out;
-	char header[24];
+	char header[39];
 
 	memset(header, 0, sizeof(header));
 
@@ -708,13 +711,13 @@ void compress_file(rzip_control *control)
 
 	preserve_perms(control, fd_in, fd_out);
 
-	/* write zeroes to 24 bytes at beginning of file */
+	/* Write zeroes to header at beginning of file */
 	if (unlikely(write(fd_out, header, sizeof(header)) != sizeof(header)))
 		fatal("Cannot write file header\n");
 
 	rzip_fd(control, fd_in, fd_out);
 
-	/* write magic at end b/c lzma does not tell us properties until it is done */
+	/* Wwrite magic at end b/c lzma does not tell us properties until it is done */
 	write_magic(control, fd_in, fd_out);
 
 	if (STDOUT)
