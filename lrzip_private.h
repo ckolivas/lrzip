@@ -120,6 +120,7 @@ typedef struct md5_ctx md5_ctx;
 #define FLAG_CHECK		(1 << 18)
 #define FLAG_KEEP_BROKEN	(1 << 19)
 #define FLAG_THRESHOLD		(1 << 20)
+#define FLAG_TMP_OUTBUF		(1 << 21)
 
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 

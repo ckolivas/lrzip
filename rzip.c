@@ -980,7 +980,7 @@ retry:
 	if (unlikely(write_1g(control, control->fd_out, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 		fatal("Failed to write md5 in rzip_fd\n");
 
-	if (STDOUT)
+	if (TMP_OUTBUF)
 		flush_stdout(control);
 
 	gettimeofday(&current, NULL);

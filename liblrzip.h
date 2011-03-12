@@ -46,6 +46,7 @@
 #define CHECK_FILE	(control->flags & FLAG_CHECK)
 #define KEEP_BROKEN	(control->flags & FLAG_KEEP_BROKEN)
 #define LZO_TEST	(control->flags & FLAG_THRESHOLD)
+#define TMP_OUTBUF	(control->flags & FLAG_TMP_OUTBUF)
 
 #define print_output(format, args...)	do {\
 	fprintf(control->msgout, format, ##args);	\

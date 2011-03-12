@@ -738,8 +738,8 @@ next_chunk:
  * a pseudo-temporary file */
 static void open_tmpoutbuf(rzip_control *control)
 {
+	control->flags |= FLAG_TMP_OUTBUF;
 	control->out_maxlen = control->maxram + control->page_size;
-
 	control->tmp_outbuf = malloc(control->out_maxlen);
 	if (unlikely(!control->tmp_outbuf))
 		fatal("Failed to malloc tmp_outbuf in open_tmpoutbuf\n");
@@ -838,6 +838,8 @@ void compress_file(rzip_control *control)
 		fatal("Failed to close fd_in\n");
 	if (unlikely(!STDOUT && close(fd_out)))
 		fatal("Failed to close fd_out\n");
+	if (TMP_OUTBUF)
+		free(control->tmp_outbuf);
 
 	if (!KEEP_FILES) {
 		if (unlikely(unlink(control->infile)))
