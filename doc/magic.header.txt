@@ -5,8 +5,8 @@ Con Kolivas
 Byte	Content
 0-38	Magic
 ---
-39->107	Rzip chunk data
-108+	Data blocks
+39->98	Rzip chunk data
+99+	Data blocks
 --- repeat
 (end-MD5_DIGEST_SIZE)->(end) md5 hash
 

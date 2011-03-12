@@ -439,7 +439,7 @@ void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
 
 void get_fileinfo(rzip_control *control)
 {
-	i64 expected_size, infile_size;
+	i64 expected_size, infile_size, chunk_size;
 	int seekspot, fd_in;
 	char chunk_byte = 0;
 	long double cratio;
@@ -480,6 +480,12 @@ void get_fileinfo(rzip_control *control)
 	if (control->major_version == 0 && control->minor_version > 4) {
 		if (unlikely(read(fd_in, &chunk_byte, 1) != 1))
 			fatal("Failed to read chunk_byte in get_fileinfo\n");
+		if (control->major_version == 0 && control->minor_version > 5) {
+			if (unlikely(read(fd_in, &control->eof, 1) != 1))
+				fatal("Failed to read eof in get_fileinfo\n");
+			if (unlikely(read(fd_in, &chunk_size, 8) != 8))
+				fatal("Failed to read chunk_size in get_fileinfo\n");
+		}
 	}
 
 	/* Version < 0.4 had different file format */
@@ -489,6 +495,8 @@ void get_fileinfo(rzip_control *control)
 		seekspot = 74;
 	else if (control->major_version == 0 && control->minor_version == 5)
 		seekspot = 75;
+	else
+		seekspot = 99;
 	if (unlikely(lseek(fd_in, seekspot, SEEK_SET) == -1))
 		fatal("Failed to lseek in get_fileinfo\n");
 
@@ -537,7 +545,7 @@ void get_fileinfo(rzip_control *control)
 		print_output("CRC32 used for integrity testing\n");
 
 	if (VERBOSE || MAX_VERBOSE) {
-		i64 u_len, c_len, last_head, utotal = 0, ctotal = 0, ofs = 25,
+		i64 u_len, c_len, last_head, utotal = 0, ctotal = 0, ofs = 49,
 		    stream_head[2];
 		int header_length = 25, stream = 0, chunk = 0;
 
@@ -547,6 +555,8 @@ void get_fileinfo(rzip_control *control)
 		}
 		if (control->major_version == 0 && control->minor_version == 4)
 			ofs = 24;
+		if (control->major_version == 0 && control->minor_version == 5)
+			ofs = 25;
 next_chunk:
 		stream = 0;
 		stream_head[0] = 0;
@@ -555,6 +565,8 @@ next_chunk:
 		print_output("Rzip chunk %d:\n", ++chunk);
 		if (chunk_byte)
 			print_verbose("Chunk byte width: %d\n", chunk_byte);
+		if (chunk_size)
+			print_verbose("Chunk size: %lld\n", chunk_size);
 		while (stream < NUM_STREAMS) {
 			int block = 1;
 
@@ -606,6 +618,13 @@ next_chunk:
 			if (unlikely(read(fd_in, &chunk_byte, 1) != 1))
 				fatal("Failed to read chunk_byte in get_fileinfo\n");
 			ofs++;
+			if (control->major_version == 0 && control->minor_version > 5) {
+				if (unlikely(read(fd_in, &control->eof, 1) != 1))
+					fatal("Failed to read eof in get_fileinfo\n");
+				if (unlikely(read(fd_in, &chunk_size, 8) != 8))
+					fatal("Failed to read chunk_size in get_fileinfo\n");
+				ofs += 9;
+			}
 		}
 		if (ofs < infile_size - (HAS_MD5 ? MD5_DIGEST_SIZE : 0))
 			goto next_chunk;
