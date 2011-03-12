@@ -710,6 +710,7 @@ int main(int argc, char *argv[])
 			control.maxram = control.usable_ram / 3;
 		if (BITS32)
 			control.maxram = MIN(control.maxram, two_gig);
+		round_to_page(&control.maxram);
 
 		show_summary();
 
