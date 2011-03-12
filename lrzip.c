@@ -42,19 +42,20 @@
 #include "util.h"
 #include "liblrzip.h" /* flag defines */
 
-void write_magic(rzip_control *control, int fd_in, int fd_out)
+char *make_magic(rzip_control *control, int fd_in)
 {
 	struct timeval tv;
 	struct stat st;
-	char magic[39];
-	int i;
+	char *magic;
 
-	memset(magic, 0, sizeof(magic));
+	magic = calloc(39, 1);
+	if (unlikely(!magic))
+		fatal("Failed to calloc magic in make_magic\n");
 	strcpy(magic, "LRZI");
 	magic[4] = LRZIP_MAJOR_VERSION;
 	magic[5] = LRZIP_MINOR_VERSION;
 
-	if (unlikely(fstat(fd_in, &st)))
+	if (unlikely(!STDIN && fstat(fd_in, &st)))
 		fatal("bad magic file descriptor!?\n");
 
 	/* File size is stored as zero for streaming STDOUT blocks when the
@@ -64,6 +65,8 @@ void write_magic(rzip_control *control, int fd_in, int fd_out)
 
 	/* save LZMA compression flags */
 	if (LZMA_COMPRESS) {
+		int i;
+
 		for (i = 0; i < 5; i++)
 			magic[i + 16] = (char)control->lzma_properties[i];
 	}
@@ -83,10 +86,17 @@ void write_magic(rzip_control *control, int fd_in, int fd_out)
 	memcpy(&magic[23], &control->secs, 8);
 	memcpy(&magic[31], &control->usecs, 8);
 
+	return magic;
+}
+
+static void write_magic(rzip_control *control, int fd_in, int fd_out)
+{
+	char *magic = make_magic(control, fd_in);
+
 	if (unlikely(lseek(fd_out, 0, SEEK_SET)))
 		fatal("Failed to seek to BOF to write Magic Header\n");
 
-	if (unlikely(write(fd_out, magic, sizeof(magic)) != sizeof(magic)))
+	if (unlikely(write(fd_out, magic, 39) != 39))
 		fatal("Failed to write magic header\n");
 }
 
@@ -651,6 +661,14 @@ next_chunk:
 	free(infilecopy);
 }
 
+static void open_tmpoutbuf(rzip_control *control)
+{
+	control->tmp_outbuf = malloc(control->maxram);
+	if (unlikely(!control->tmp_outbuf))
+		fatal("Failed to malloc tmp_outbuf in open_tmpoutbuf\n");
+	control->out_ofs = 39;
+}
+
 /*
   compress one file from the command line
 */
@@ -734,19 +752,19 @@ void compress_file(rzip_control *control)
 	preserve_perms(control, fd_in, fd_out);
 
 	/* Write zeroes to header at beginning of file */
-	if (unlikely(write(fd_out, header, sizeof(header)) != sizeof(header)))
+	if (unlikely(!STDOUT && write(fd_out, header, sizeof(header)) != sizeof(header)))
 		fatal("Cannot write file header\n");
 
 	rzip_fd(control, fd_in, fd_out);
 
 	/* Wwrite magic at end b/c lzma does not tell us properties until it is done */
-	write_magic(control, fd_in, fd_out);
+	if (!STDOUT)
+		write_magic(control, fd_in, fd_out);
 
-	if (STDOUT)
-		dump_tmpoutfile(control, fd_out);
-
-	if (unlikely(close(fd_in) || close(fd_out)))
-		fatal("Failed to close files\n");
+	if (unlikely(close(fd_in)))
+		fatal("Failed to close fd_in\n");
+	if (unlikely(!STDOUT && close(fd_out)))
+		fatal("Failed to close fd_out\n");
 
 	if (!KEEP_FILES) {
 		if (unlikely(unlink(control->infile)))

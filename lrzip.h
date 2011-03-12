@@ -32,4 +32,5 @@ void decompress_file(rzip_control *control);
 void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len, i64 *u_len, i64 *last_head);
 void get_fileinfo(rzip_control *control);
 void compress_file(rzip_control *control);
+char *make_magic(rzip_control *control, int fd_in);
 #endif

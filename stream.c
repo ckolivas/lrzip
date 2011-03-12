@@ -635,10 +635,19 @@ out:
 
 const i64 one_g = 1000 * 1024 * 1024;
 
+ssize_t put_fdout(rzip_control *control, int fd, void *offset_buf, ssize_t ret)
+{
+	if (!STDOUT)
+		return write(fd, offset_buf, (size_t)ret);
+	memcpy(control->tmp_outbuf, offset_buf, ret);
+	control->out_ofs += ret;
+	return ret;
+}
+
 /* This is a custom version of write() which writes in 1GB chunks to avoid
    the overflows at the >= 2GB mark thanks to 32bit fuckage. This should help
    even on the rare occasion write() fails to write 1GB as well. */
-ssize_t write_1g(int fd, void *buf, i64 len)
+ssize_t write_1g(rzip_control *control, int fd, void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
 	ssize_t ret;
@@ -650,7 +659,7 @@ ssize_t write_1g(int fd, void *buf, i64 len)
 			ret = one_g;
 		else
 			ret = len;
-		ret = write(fd, offset_buf, (size_t)ret);
+		ret = put_fdout(control, fd, offset_buf, (size_t)ret);
 		if (unlikely(ret <= 0))
 			return ret;
 		len -= ret;
@@ -684,11 +693,11 @@ ssize_t read_1g(int fd, void *buf, i64 len)
 }
 
 /* write to a file, return 0 on success and -1 on failure */
-static int write_buf(int f, uchar *p, i64 len)
+static int write_buf(rzip_control *control, int f, uchar *p, i64 len)
 {
 	ssize_t ret;
 
-	ret = write_1g(f, p, (size_t)len);
+	ret = write_1g(control, f, p, (size_t)len);
 	if (unlikely(ret == -1)) {
 		print_err("Write of length %lld failed - %s\n", len, strerror(errno));
 		return -1;
@@ -701,15 +710,15 @@ static int write_buf(int f, uchar *p, i64 len)
 }
 
 /* write a byte */
-static int write_u8(int f, uchar v)
+static int write_u8(rzip_control *control, int f, uchar v)
 {
-	return write_buf(f, &v, 1);
+	return write_buf(control, f, &v, 1);
 }
 
 /* write a i64 */
-static int write_i64(int f, i64 v)
+static int write_i64(rzip_control *control, int f, i64 v)
 {
-	if (unlikely(write_buf(f, (uchar *)&v, 8)))
+	if (unlikely(write_buf(control, f, (uchar *)&v, 8)))
 		return -1;
 
 	return 0;
@@ -1072,22 +1081,22 @@ retry:
 		int j;
 
 		/* Write chunk bytes of this block */
-		write_u8(ctis->fd, ctis->chunk_bytes);
+		write_u8(control, ctis->fd, ctis->chunk_bytes);
 
 		/* Write whether this is the last chunk, followed by the size
 		 * of this chunk */
-		write_u8(ctis->fd, control->eof);
-		write_i64(ctis->fd, ctis->size);
+		write_u8(control, ctis->fd, control->eof);
+		write_i64(control, ctis->fd, ctis->size);
 
 		/* First chunk of this stream, write headers */
 		ctis->initial_pos = lseek(ctis->fd, 0, SEEK_CUR);
 
 		for (j = 0; j < ctis->num_streams; j++) {
 			ctis->s[j].last_head = ctis->cur_pos + 17;
-			write_u8(ctis->fd, CTYPE_NONE);
-			write_i64(ctis->fd, 0);
-			write_i64(ctis->fd, 0);
-			write_i64(ctis->fd, 0);
+			write_u8(control, ctis->fd, CTYPE_NONE);
+			write_i64(control, ctis->fd, 0);
+			write_i64(control, ctis->fd, 0);
+			write_i64(control, ctis->fd, 0);
 			ctis->cur_pos += 25;
 		}
 	}
@@ -1095,7 +1104,7 @@ retry:
 	if (unlikely(seekto(ctis, ctis->s[cti->streamno].last_head)))
 		fatal("Failed to seekto in compthread %d\n", i);
 
-	if (unlikely(write_i64(ctis->fd, ctis->cur_pos)))
+	if (unlikely(write_i64(control, ctis->fd, ctis->cur_pos)))
 		fatal("Failed to write_i64 in compthread %d\n", i);
 
 	ctis->s[cti->streamno].last_head = ctis->cur_pos + 17;
@@ -1103,15 +1112,15 @@ retry:
 		fatal("Failed to seekto cur_pos in compthread %d\n", i);
 
 	print_maxverbose("Thread %ld writing %lld compressed bytes from stream %d\n", i, cti->c_len, cti->streamno);
-	if (unlikely(write_u8(ctis->fd, cti->c_type) ||
-		write_i64(ctis->fd, cti->c_len) ||
-		write_i64(ctis->fd, cti->s_len) ||
-		write_i64(ctis->fd, 0))) {
+	if (unlikely(write_u8(control, ctis->fd, cti->c_type) ||
+		write_i64(control, ctis->fd, cti->c_len) ||
+		write_i64(control, ctis->fd, cti->s_len) ||
+		write_i64(control, ctis->fd, 0))) {
 			fatal("Failed write in compthread %d\n", i);
 	}
 	ctis->cur_pos += 25;
 
-	if (unlikely(write_buf(ctis->fd, cti->s_buf, cti->c_len)))
+	if (unlikely(write_buf(control, ctis->fd, cti->s_buf, cti->c_len)))
 		fatal("Failed to write_buf in compthread %d\n", i);
 
 	ctis->cur_pos += cti->c_len;
