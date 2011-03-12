@@ -162,7 +162,8 @@ struct rzip_control {
 	char *tmp_outbuf; // Temporary file storage for stdout
 	i64 out_ofs; // Output offset when tmp_outbuf in use
 	i64 out_len; // Total length of tmp_outbuf
-	i64 rel_ofs; // Relative offset when stdou has been flushed
+	i64 out_maxlen; // The largest the tmp_outbuf can be used
+	i64 rel_ofs; // Relative tmp_outbuf offset when stdout has been flushed
 	FILE *msgout; //stream for output messages
 	const char *suffix;
 	int compression_level;

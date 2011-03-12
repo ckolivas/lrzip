@@ -734,9 +734,13 @@ next_chunk:
 	free(infilecopy);
 }
 
+/* To perform STDOUT, we allocate a proportion of ram that is then used as
+ * a pseudo-temporary file */
 static void open_tmpoutbuf(rzip_control *control)
 {
-	control->tmp_outbuf = malloc(control->maxram);
+	control->out_maxlen = control->maxram + control->page_size;
+
+	control->tmp_outbuf = malloc(control->out_maxlen);
 	if (unlikely(!control->tmp_outbuf))
 		fatal("Failed to malloc tmp_outbuf in open_tmpoutbuf\n");
 	control->out_ofs = control->out_len = MAGIC_LEN;

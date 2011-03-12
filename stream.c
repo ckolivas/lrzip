@@ -639,6 +639,9 @@ ssize_t put_fdout(rzip_control *control, int fd, void *offset_buf, ssize_t ret)
 {
 	if (!STDOUT || DECOMPRESS || TEST_ONLY)
 		return write(fd, offset_buf, (size_t)ret);
+
+	if (unlikely(control->out_ofs + ret > control->out_maxlen))
+		failure("Tried to write beyond temporary output buffer. Need a larger out_maxlen\n");
 	memcpy(control->tmp_outbuf + control->out_ofs, offset_buf, ret);
 	control->out_ofs += ret;
 	if (likely(control->out_ofs > control->out_len))
