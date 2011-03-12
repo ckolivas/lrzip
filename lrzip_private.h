@@ -168,6 +168,7 @@ struct rzip_control {
 	i64 window;
 	unsigned long flags;
 	i64 ramsize;
+	i64 usable_ram;
 	i64 max_chunk;
 	i64 max_mmap;
 	int threads;

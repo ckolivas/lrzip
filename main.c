@@ -210,8 +210,6 @@ static void show_summary(void)
 {
 	/* OK, if verbosity set, print summary of options selected */
 	if (!INFO) {
-		i64 temp_chunk, temp_window, temp_ramsize; /* to show heurisitic computed values */
-
 		if (!TEST_ONLY)
 			print_verbose("The following options are in effect for this %s.\n",
 				      DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
@@ -255,13 +253,12 @@ static void show_summary(void)
 				print_verbose("Compression Window: %lld = %lldMB\n", control.window, control.window * 100ull);
 			/* show heuristically computed window size */
 			if (!control.window && !UNLIMITED) {
-				temp_ramsize = control.ramsize;
-				if (BITS32)
-					temp_ramsize = MAX(temp_ramsize - 900000000ll, 900000000ll);
-				if (STDIN)
-					temp_chunk = temp_ramsize / 3;
+				i64 temp_chunk, temp_window;
+
+				if (STDOUT || STDIN)
+					temp_chunk = control.maxram;
 				else
-					temp_chunk = temp_ramsize / 3 * 2;
+					temp_chunk = control.maxram * 2;
 				temp_window = temp_chunk / (100 * 1024 * 1024);
 				print_verbose("Heuristically Computed Compression Window: %lld = %lldMB\n", temp_window, temp_window * 100ull);
 			}
@@ -638,8 +635,9 @@ int main(int argc, char *argv[])
 
 	/* Decrease usable ram size on 32 bits due to kernel/userspace split */
 	if (BITS32)
-		control.ramsize = MAX(control.ramsize - 900000000ll, 900000000ll);
-	control.maxram = control.ramsize / 3;
+		control.usable_ram = MAX(control.ramsize - 900000000ll, 900000000ll);
+	else
+		control.usable_ram = control.ramsize;
 
 	/* Set the main nice value to half that of the backend threads since
 	 * the rzip stage is usually the rate limiting step */
@@ -704,6 +702,14 @@ int main(int argc, char *argv[])
 				control.flags &= ~FLAG_CHECK;
 			}
 		}
+
+		/* Use less ram when using STDOUT to store the temporary output file */
+		if (STDOUT)
+			control.maxram = control.usable_ram * 2 / 9;
+		else
+			control.maxram = control.usable_ram / 3;
+		if (BITS32)
+			control.maxram = MIN(control.maxram, two_gig);
 
 		show_summary();
 

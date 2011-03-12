@@ -1318,7 +1318,7 @@ fill_another:
 	if (!last_head)
 		s->eos = 1;
 	else if (s->uthread_no != s->unext_thread && !ucthread[s->uthread_no].busy &&
-		 sinfo->ram_alloced < control->ramsize / 3)
+		 sinfo->ram_alloced < control->maxram)
 			goto fill_another;
 out:
 	lock_mutex(&output_lock);
