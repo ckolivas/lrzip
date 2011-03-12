@@ -37,5 +37,6 @@ int write_stream(rzip_control *control, void *ss, int streamno, uchar *p, i64 le
 i64 read_stream(rzip_control *control, void *ss, int streamno, uchar *p, i64 len);
 int close_stream_out(rzip_control *control, void *ss);
 int close_stream_in(void *ss);
+const i64 one_g;
 
 #endif

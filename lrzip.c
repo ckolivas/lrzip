@@ -41,6 +41,7 @@
 #include "rzip.h"
 #include "runzip.h"
 #include "util.h"
+#include "stream.h"
 #include "liblrzip.h" /* flag defines */
 
 #define MAGIC_LEN (39)
@@ -239,8 +240,6 @@ int open_tmpoutfile(rzip_control *control)
 	register_outfile(control->outfile, TEST_ONLY || STDOUT || !KEEP_BROKEN);
 	return fd_out;
 }
-
-extern const one_g;
 
 static void fwrite_stdout(void *buf, i64 len)
 {
