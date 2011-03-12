@@ -789,17 +789,19 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	} else
 		control->st_size = 0;
 
-	/* Check if there's enough free space on the device chosen to fit the
-	 * compressed file, based on the compressed file being as large as the
-	 * uncompressed file. */
-	if (unlikely(fstatvfs(fd_out, &fbuf)))
-		fatal("Failed to fstatvfs in compress_file\n");
-	free_space = fbuf.f_bsize * fbuf.f_bavail;
-	if (free_space < control->st_size) {
-		if (FORCE_REPLACE)
-			print_err("Warning, possibly inadequate free space detected, but attempting to compress due to -f option being used.\n");
-		else
-			failure("Possibly inadequate free space to compress file, use -f to override.\n");
+	if (!STDOUT) {
+		/* Check if there's enough free space on the device chosen to fit the
+		* compressed file, based on the compressed file being as large as the
+		* uncompressed file. */
+		if (unlikely(fstatvfs(fd_out, &fbuf)))
+			fatal("Failed to fstatvfs in compress_file\n");
+		free_space = fbuf.f_bsize * fbuf.f_bavail;
+		if (free_space < control->st_size) {
+			if (FORCE_REPLACE)
+				print_err("Warning, possibly inadequate free space detected, but attempting to compress due to -f option being used.\n");
+			else
+				failure("Possibly inadequate free space to compress file, use -f to override.\n");
+		}
 	}
 
 	/* Optimal use of ram involves using no more than 2/3 of it, so we
@@ -958,28 +960,28 @@ retry:
 		last.tv_usec = current.tv_usec;
 
 		rzip_chunk(control, st, fd_in, fd_out, offset, pct_base, pct_multiple);
-		if (STDOUT) {
-			if (len == 0) // No header written yet
-				write_stdout_header(control, fd_in);
-			flush_stdout(control);
-		}
 
 		/* st->chunk_size may be shrunk in rzip_chunk */
 		last_chunk = st->chunk_size;
 		len -= st->chunk_size;
+		if (!len)
+			control->eof = 1;
 	}
 
 	close_streamout_threads(control);
 
-	md5_finish_ctx (&control->ctx, md5_resblock);
+	md5_finish_ctx(&control->ctx, md5_resblock);
 	if (HASH_CHECK || MAX_VERBOSE) {
 		print_output("MD5: ");
 		for (j = 0; j < MD5_DIGEST_SIZE; j++)
 			print_output("%02x", md5_resblock[j] & 0xFF);
 		print_output("\n");
 	}
-	if (unlikely(write(control->fd_out, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
+	if (unlikely(write_1g(control, control->fd_out, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 		fatal("Failed to write md5 in rzip_fd\n");
+
+	if (STDOUT)
+		flush_stdout(control);
 
 	gettimeofday(&current, NULL);
 	if (STDIN)

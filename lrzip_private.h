@@ -162,6 +162,7 @@ struct rzip_control {
 	char *tmp_outbuf; // Temporary file storage for stdout
 	i64 out_ofs; // Output offset when tmp_outbuf in use
 	i64 out_len; // Total length of tmp_outbuf
+	i64 rel_ofs; // Relative offset when stdou has been flushed
 	FILE *msgout; //stream for output messages
 	const char *suffix;
 	int compression_level;
@@ -188,6 +189,7 @@ struct rzip_control {
 	i64 secs;
 	i64 usecs;
 	unsigned char eof;
+	unsigned char magic_written;
 	md5_ctx ctx;
 	i64 md5_read; // How far into the file the md5 has done so far
 };

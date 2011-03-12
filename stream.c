@@ -639,7 +639,7 @@ ssize_t put_fdout(rzip_control *control, int fd, void *offset_buf, ssize_t ret)
 {
 	if (!STDOUT || DECOMPRESS)
 		return write(fd, offset_buf, (size_t)ret);
-	memcpy(control->tmp_outbuf, offset_buf, ret);
+	memcpy(control->tmp_outbuf + control->out_ofs, offset_buf, ret);
 	control->out_ofs += ret;
 	if (likely(control->out_ofs > control->out_len))
 		control->out_len = control->out_ofs;
@@ -762,15 +762,37 @@ static int read_i64(int f, i64 *v)
 }
 
 /* seek to a position within a set of streams - return -1 on failure */
-static int seekto(struct stream_info *sinfo, i64 pos)
+static int seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
 {
 	i64 spos = pos + sinfo->initial_pos;
+
+	if (!DECOMPRESS && STDOUT) {
+		spos -= control->rel_ofs;
+		control->out_ofs = spos;
+		if (unlikely(spos > control->out_len || spos < 0)) {
+			print_err("Trying to seek to %lld outside tmp outbuf in seekto\n", spos);
+			return -1;
+		}
+		return 0;
+	}
 
 	if (unlikely(lseek(sinfo->fd, spos, SEEK_SET) != spos)) {
 		print_err("Failed to seek to %lld in stream\n", pos);
 		return -1;
 	}
 	return 0;
+}
+
+static i64 get_seek(rzip_control *control, int fd)
+{
+	i64 ret;
+
+	if (!DECOMPRESS && STDOUT)
+		return control->rel_ofs + control->out_ofs;
+	ret = lseek(fd, 0, SEEK_CUR);
+	if (unlikely(ret == -1))
+		fatal("Failed to lseek in get_seek\n");
+	return ret;
 }
 
 void prepare_streamout_threads(rzip_control *control)
@@ -1082,6 +1104,12 @@ retry:
 	if (!ctis->chunks++) {
 		int j;
 
+		if (STDOUT) {
+			if (!control->magic_written)
+				write_stdout_header(control);
+			flush_stdout(control);
+		}
+
 		/* Write chunk bytes of this block */
 		write_u8(control, ctis->fd, ctis->chunk_bytes);
 
@@ -1091,7 +1119,7 @@ retry:
 		write_i64(control, ctis->fd, ctis->size);
 
 		/* First chunk of this stream, write headers */
-		ctis->initial_pos = lseek(ctis->fd, 0, SEEK_CUR);
+		ctis->initial_pos = get_seek(control, ctis->fd);
 
 		for (j = 0; j < ctis->num_streams; j++) {
 			ctis->s[j].last_head = ctis->cur_pos + 17;
@@ -1103,14 +1131,14 @@ retry:
 		}
 	}
 
-	if (unlikely(seekto(ctis, ctis->s[cti->streamno].last_head)))
+	if (unlikely(seekto(control, ctis, ctis->s[cti->streamno].last_head)))
 		fatal("Failed to seekto in compthread %d\n", i);
 
 	if (unlikely(write_i64(control, ctis->fd, ctis->cur_pos)))
 		fatal("Failed to write_i64 in compthread %d\n", i);
 
 	ctis->s[cti->streamno].last_head = ctis->cur_pos + 17;
-	if (unlikely(seekto(ctis, ctis->cur_pos)))
+	if (unlikely(seekto(control, ctis, ctis->cur_pos)))
 		fatal("Failed to seekto cur_pos in compthread %d\n", i);
 
 	print_maxverbose("Thread %ld writing %lld compressed bytes from stream %d\n", i, cti->c_len, cti->streamno);
@@ -1256,7 +1284,7 @@ fill_another:
 	if (unlikely(ucthread[s->uthread_no].busy))
 		failure("Trying to start a busy thread, this shouldn't happen!\n");
 
-	if (unlikely(seekto(sinfo, s->last_head)))
+	if (unlikely(seekto(control, sinfo, s->last_head)))
 		return -1;
 
 	if (unlikely(read_u8(sinfo->fd, &c_type)))

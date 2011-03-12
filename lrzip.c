@@ -75,10 +75,9 @@ static i64 enc_loops(uchar b1, uchar b2)
 	return (i64)b2 << (i64)b1;
 }
 
-static char *make_magic(rzip_control *control, int fd_in)
+static char *make_magic(rzip_control *control)
 {
 	struct timeval tv;
-	struct stat st;
 	char *magic;
 
 	magic = calloc(MAGIC_LEN, 1);
@@ -87,9 +86,6 @@ static char *make_magic(rzip_control *control, int fd_in)
 	strcpy(magic, "LRZI");
 	magic[4] = LRZIP_MAJOR_VERSION;
 	magic[5] = LRZIP_MINOR_VERSION;
-
-	if (unlikely(!STDIN && fstat(fd_in, &st)))
-		fatal("bad magic file descriptor!?\n");
 
 	/* File size is stored as zero for streaming STDOUT blocks when the
 	 * file size is unknown. */
@@ -122,24 +118,26 @@ static char *make_magic(rzip_control *control, int fd_in)
 	return magic;
 }
 
-void write_stdout_header(rzip_control *control, int fd_in)
+void write_stdout_header(rzip_control *control)
 {
-	char *magic = make_magic(control, fd_in);
+	char *magic = make_magic(control);
 
 	memcpy(control->tmp_outbuf, magic, MAGIC_LEN);
+	control->magic_written = 1;
 
 	free(magic);
 }
 
 static void write_magic(rzip_control *control, int fd_in, int fd_out)
 {
-	char *magic = make_magic(control, fd_in);
+	char *magic = make_magic(control);
 
 	if (unlikely(lseek(fd_out, 0, SEEK_SET)))
 		fatal("Failed to seek to BOF to write Magic Header\n");
 
 	if (unlikely(write(fd_out, magic, MAGIC_LEN) != MAGIC_LEN))
 		fatal("Failed to write magic header\n");
+	control->magic_written = 1;
 
 	free(magic);
 }
@@ -242,8 +240,36 @@ int open_tmpoutfile(rzip_control *control)
 	return fd_out;
 }
 
+extern const one_g;
+
+static void fwrite_stdout(void *buf, i64 len)
+{
+	uchar *offset_buf = buf;
+	ssize_t ret;
+	i64 total;
+
+	total = 0;
+	while (len > 0) {
+		if (len > one_g)
+			ret = one_g;
+		else
+			ret = len;
+		ret = fwrite(offset_buf, 1, ret, stdout);
+		if (unlikely(ret <= 0))
+			fatal("Failed to fwrite in fwrite_stdout\n");
+		len -= ret;
+		offset_buf += ret;
+		total += ret;
+	}
+	fflush(stdout);
+}
+
 void flush_stdout(rzip_control *control)
 {
+	print_verbose("Dumping buffer to stdout.\n");
+	fwrite_stdout(control->tmp_outbuf, control->out_len);
+	control->rel_ofs += control->out_len;
+	control->out_ofs = control->out_len = 0;
 }
 
 /* Dump temporary outputfile to perform stdout */
@@ -714,7 +740,7 @@ static void open_tmpoutbuf(rzip_control *control)
 	control->tmp_outbuf = malloc(control->maxram);
 	if (unlikely(!control->tmp_outbuf))
 		fatal("Failed to malloc tmp_outbuf in open_tmpoutbuf\n");
-	control->out_ofs = MAGIC_LEN;
+	control->out_ofs = control->out_len = MAGIC_LEN;
 }
 
 /*
@@ -790,14 +816,10 @@ void compress_file(rzip_control *control)
 			control->flags |= FLAG_KEEP_BROKEN;
 			fatal("Failed to create %s\n", control->outfile);
 		}
-	} else
-		fd_out = open_tmpoutfile(control);
-	control->fd_out = fd_out;
-
-	if (unlikely(STDOUT && unlink(control->outfile)))
-		fatal("Failed to unlink tmpfile: %s\n", control->outfile);
-
-	preserve_perms(control, fd_in, fd_out);
+		control->fd_out = fd_out;
+		preserve_perms(control, fd_in, fd_out);
+	} else 
+		open_tmpoutbuf(control);
 
 	/* Write zeroes to header at beginning of file */
 	if (unlikely(!STDOUT && write(fd_out, header, sizeof(header)) != sizeof(header)))
