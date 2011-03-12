@@ -181,7 +181,10 @@ struct rzip_control {
 	i64 st_size;
 	long page_size;
 	int fd_out;
-	int encrypt;
+	char encrypt;
+	i64 encloops;
+	uchar loop_byte1;
+	uchar loop_byte2;
 	i64 secs;
 	i64 usecs;
 	unsigned char eof;

@@ -35,6 +35,7 @@
 #include <errno.h>
 #endif
 #include <sys/time.h>
+#include <math.h>
 
 #include "md5.h"
 #include "rzip.h"
@@ -43,6 +44,36 @@
 #include "liblrzip.h" /* flag defines */
 
 #define MAGIC_LEN (39)
+
+/* Determine how many times to hash the password when encrypting, based on
+ * the date such that we increase the number of loops according to Moore's
+ * law relative to when the data is encrypted. It is then stored as a two
+ * byte value in the header */
+#define MOORE 1.835          // world constant  [TIMES per YEAR]
+#define ARBITRARY  1000000   // number of sha2 calls per one second in 2011
+#define T_ZERO 1293840000    // seconds since epoch in 2011
+
+#define SECONDS_IN_A_YEAR (365*86400)
+#define MOORE_TIMES_PER_SECOND pow (MOORE, 1.0 / SECONDS_IN_A_YEAR)
+#define ARBITRARY_AT_EPOCH (ARBITRARY * pow (MOORE_TIMES_PER_SECOND, -T_ZERO))
+
+static i64 nloops(i64 seconds, uchar *b1, uchar *b2)
+{
+	i64 nloops_encoded, nloops;
+	int nbits;
+
+	nloops = ARBITRARY_AT_EPOCH * pow(MOORE_TIMES_PER_SECOND, seconds);
+	nbits = log (nloops) / M_LN2;
+	*b1 = nbits - 7;
+	*b2 = nloops >> *b1;
+	nloops_encoded = (i64)*b2 << (i64)*b1;
+	return nloops_encoded;
+}
+
+static i64 enc_loops(uchar b1, uchar b2)
+{
+	return (i64)b2 << (i64)b1;
+}
 
 static char *make_magic(rzip_control *control, int fd_in)
 {
