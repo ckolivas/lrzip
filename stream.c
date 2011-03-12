@@ -637,7 +637,7 @@ const i64 one_g = 1000 * 1024 * 1024;
 
 ssize_t put_fdout(rzip_control *control, int fd, void *offset_buf, ssize_t ret)
 {
-	if (!STDOUT || DECOMPRESS)
+	if (!STDOUT || DECOMPRESS || TEST_ONLY)
 		return write(fd, offset_buf, (size_t)ret);
 	memcpy(control->tmp_outbuf + control->out_ofs, offset_buf, ret);
 	control->out_ofs += ret;
@@ -766,7 +766,7 @@ static int seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
 {
 	i64 spos = pos + sinfo->initial_pos;
 
-	if (!DECOMPRESS && STDOUT) {
+	if (!(DECOMPRESS || TEST_ONLY) && STDOUT) {
 		spos -= control->rel_ofs;
 		control->out_ofs = spos;
 		if (unlikely(spos > control->out_len || spos < 0)) {
@@ -787,7 +787,7 @@ static i64 get_seek(rzip_control *control, int fd)
 {
 	i64 ret;
 
-	if (!DECOMPRESS && STDOUT)
+	if (!(DECOMPRESS || TEST_ONLY) && STDOUT)
 		return control->rel_ofs + control->out_ofs;
 	ret = lseek(fd, 0, SEEK_CUR);
 	if (unlikely(ret == -1))
