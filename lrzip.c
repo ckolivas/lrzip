@@ -509,6 +509,9 @@ void get_fileinfo(rzip_control *control)
 	cratio = (long double)expected_size / (long double)infile_size;
 
 	print_output("%s:\nlrzip version: %d.%d file\n", infilecopy, control->major_version, control->minor_version);
+	if (control->secs)
+		print_maxverbose("Storage time seconds: %lld  microseconds: %lld\n", control->secs, control->usecs);
+
 	print_output("Compression: ");
 	if (ctype == CTYPE_NONE)
 		print_output("rzip alone\n");
