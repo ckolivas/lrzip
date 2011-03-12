@@ -958,6 +958,11 @@ retry:
 		last.tv_usec = current.tv_usec;
 
 		rzip_chunk(control, st, fd_in, fd_out, offset, pct_base, pct_multiple);
+		if (STDOUT) {
+			if (len == 0) // No header written yet
+				write_stdout_header(control, fd_in);
+			flush_stdout(control);
+		}
 
 		/* st->chunk_size may be shrunk in rzip_chunk */
 		last_chunk = st->chunk_size;

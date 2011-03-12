@@ -637,10 +637,12 @@ const i64 one_g = 1000 * 1024 * 1024;
 
 ssize_t put_fdout(rzip_control *control, int fd, void *offset_buf, ssize_t ret)
 {
-	if (!STDOUT)
+	if (!STDOUT || DECOMPRESS)
 		return write(fd, offset_buf, (size_t)ret);
 	memcpy(control->tmp_outbuf, offset_buf, ret);
 	control->out_ofs += ret;
+	if (likely(control->out_ofs > control->out_len))
+		control->out_len = control->out_ofs;
 	return ret;
 }
 

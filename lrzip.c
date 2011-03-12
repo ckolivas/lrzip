@@ -42,13 +42,15 @@
 #include "util.h"
 #include "liblrzip.h" /* flag defines */
 
-char *make_magic(rzip_control *control, int fd_in)
+#define MAGIC_LEN (39)
+
+static char *make_magic(rzip_control *control, int fd_in)
 {
 	struct timeval tv;
 	struct stat st;
 	char *magic;
 
-	magic = calloc(39, 1);
+	magic = calloc(MAGIC_LEN, 1);
 	if (unlikely(!magic))
 		fatal("Failed to calloc magic in make_magic\n");
 	strcpy(magic, "LRZI");
@@ -89,6 +91,15 @@ char *make_magic(rzip_control *control, int fd_in)
 	return magic;
 }
 
+void write_stdout_header(rzip_control *control, int fd_in)
+{
+	char *magic = make_magic(control, fd_in);
+
+	memcpy(control->tmp_outbuf, magic, MAGIC_LEN);
+
+	free(magic);
+}
+
 static void write_magic(rzip_control *control, int fd_in, int fd_out)
 {
 	char *magic = make_magic(control, fd_in);
@@ -96,13 +107,15 @@ static void write_magic(rzip_control *control, int fd_in, int fd_out)
 	if (unlikely(lseek(fd_out, 0, SEEK_SET)))
 		fatal("Failed to seek to BOF to write Magic Header\n");
 
-	if (unlikely(write(fd_out, magic, 39) != 39))
+	if (unlikely(write(fd_out, magic, MAGIC_LEN) != MAGIC_LEN))
 		fatal("Failed to write magic header\n");
+
+	free(magic);
 }
 
 void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 {
-	char magic[39];
+	char magic[MAGIC_LEN];
 	uint32_t v;
 	int md5, i;
 
@@ -196,6 +209,10 @@ int open_tmpoutfile(rzip_control *control)
 		fatal("Failed to create out tmpfile: %s\n", control->outfile);
 	register_outfile(control->outfile, TEST_ONLY || STDOUT || !KEEP_BROKEN);
 	return fd_out;
+}
+
+void flush_stdout(rzip_control *control)
+{
 }
 
 /* Dump temporary outputfile to perform stdout */
@@ -666,7 +683,7 @@ static void open_tmpoutbuf(rzip_control *control)
 	control->tmp_outbuf = malloc(control->maxram);
 	if (unlikely(!control->tmp_outbuf))
 		fatal("Failed to malloc tmp_outbuf in open_tmpoutbuf\n");
-	control->out_ofs = 39;
+	control->out_ofs = MAGIC_LEN;
 }
 
 /*
@@ -678,7 +695,7 @@ void compress_file(rzip_control *control)
 					 * Spares a compiler warning
 					 */
 	int fd_in, fd_out;
-	char header[39];
+	char header[MAGIC_LEN];
 
 	memset(header, 0, sizeof(header));
 
