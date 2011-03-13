@@ -401,7 +401,7 @@ void decompress_file(rzip_control *control)
 		}
 
 		if (!STDOUT)
-			print_progress("Output filename is: %s...Decompressing...\n", control->outfile);
+			print_progress("Output filename is: %s\n", control->outfile);
 	}
 
 	if (STDIN) {
@@ -465,7 +465,7 @@ void decompress_file(rzip_control *control)
 		print_verbose("CRC32 ");
 	print_verbose("being used for integrity testing.\n");
 
-	print_progress("Decompressing...");
+	print_progress("Decompressing...\n");
 
 	runzip_fd(control, fd_in, fd_out, fd_hist, expected_size);
 

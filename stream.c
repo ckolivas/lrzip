@@ -972,6 +972,7 @@ void *open_stream_in(rzip_control *control, int f, int n)
 			print_err("Failed to read in chunk size in open_stream_in\n");
 			goto failed;
 		}
+		print_maxverbose("Chunk size: %lld\n", sinfo->size);
 	}
 	sinfo->initial_pos = lseek(f, 0, SEEK_CUR);
 

@@ -202,9 +202,9 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, int fd_out, int fd_his
 		if (unlikely(read(fd_in, &chunk_bytes, 1) != 1))
 			fatal("Failed to read chunk_bytes size in runzip_chunk\n");
 	}
-	if (!tally)
-		print_maxverbose("\nExpected size: %lld", expected_size);
-	print_maxverbose("\nChunk byte width: %d\n", chunk_bytes);
+	if (!tally && expected_size)
+		print_maxverbose("Expected size: %lld\n", expected_size);
+	print_maxverbose("Chunk byte width: %d\n", chunk_bytes);
 
 	ofs = lseek(fd_in, 0, SEEK_CUR);
 	if (unlikely(ofs == -1))
@@ -227,12 +227,14 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, int fd_out, int fd_his
 				total += unzip_match(control, ss, len, fd_out, fd_hist, &cksum, chunk_bytes);
 				break;
 		}
-		p = 100 * ((double)(tally + total) / (double)expected_size);
-		if (p / 10 != l / 10)  {
-			prog_done = (double)(tally + total) / (double)divisor[divisor_index];
-			print_progress("%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
-					p, prog_done, prog_tsize, suffix[divisor_index] );
-			l = p;
+		if (expected_size) {
+			p = 100 * ((double)(tally + total) / (double)expected_size);
+			if (p / 10 != l / 10)  {
+				prog_done = (double)(tally + total) / (double)divisor[divisor_index];
+				print_progress("%3d%%  %9.2f / %9.2f %s\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b",
+						p, prog_done, prog_tsize, suffix[divisor_index] );
+				l = p;
+			}
 		}
 	}
 
@@ -263,7 +265,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 		md5_init_ctx (&control->ctx);
 	gettimeofday(&start,NULL);
 
-	while (total < expected_size) {
+	while (total < expected_size || !control->eof) {
 		total += runzip_chunk(control, fd_in, fd_out, fd_hist, expected_size, total);
 		if (STDOUT)
 			dump_tmpoutfile(control, fd_out);
