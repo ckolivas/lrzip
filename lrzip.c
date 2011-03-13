@@ -178,7 +178,6 @@ void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 			memcpy(&control->secs, &magic[23], 8);
 			memcpy(&control->usecs, &magic[31], 8);
 			print_maxverbose("Seconds %lld\n", control->secs);
-			print_maxverbose("Microseconds %lld\n", control->usecs);
 		}
 	}
 
@@ -522,14 +521,15 @@ void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
 
 void get_fileinfo(rzip_control *control)
 {
-	i64 expected_size, infile_size, chunk_size;
+	i64 u_len, c_len, last_head, utotal = 0, ctotal = 0, ofs = 49, stream_head[2];
+	i64 expected_size, infile_size, chunk_size, chunk_total = 0;
+	int header_length = 25, stream = 0, chunk = 0;
+	char *tmp, *infilecopy = NULL;
 	int seekspot, fd_in;
 	char chunk_byte = 0;
 	long double cratio;
 	uchar ctype = 0;
 	struct stat st;
-
-	char *tmp, *infilecopy = NULL;
 
 	if (!STDIN) {
 		if ((tmp = strrchr(control->infile, '.')) && strcmp(tmp,control->suffix)) {
@@ -589,11 +589,106 @@ void get_fileinfo(rzip_control *control)
 	if (unlikely(read(fd_in, &ctype, 1) != 1))
 		fatal("Failed to read in get_fileinfo\n");
 
+	if (control->major_version == 0 && control->minor_version < 4) {
+		ofs = 24;
+		header_length = 13;
+	}
+	if (control->major_version == 0 && control->minor_version == 4)
+		ofs = 24;
+	if (control->major_version == 0 && control->minor_version == 5)
+		ofs = 25;
+next_chunk:
+	stream = 0;
+	stream_head[0] = 0;
+	stream_head[1] = stream_head[0] + header_length;
+
+	print_verbose("Rzip chunk %d:\n", ++chunk);
+	if (chunk_byte)
+		print_verbose("Chunk byte width: %d\n", chunk_byte);
+	if (chunk_size) {
+		chunk_total += chunk_size;
+		print_verbose("Chunk size: %lld\n", chunk_size);
+	}
+	while (stream < NUM_STREAMS) {
+		int block = 1;
+
+		if (unlikely(lseek(fd_in, stream_head[stream] + ofs, SEEK_SET)) == -1)
+			fatal("Failed to seek to header data in get_fileinfo\n");
+		get_header_info(control, fd_in, &ctype, &c_len, &u_len, &last_head);
+
+		print_verbose("Stream: %d\n", stream);
+		print_maxverbose("Offset: %lld\n", ofs);
+		print_verbose("Block\tComp\tPercent\tSize\n");
+		do {
+			i64 head_off;
+
+			if (unlikely(last_head + ofs > infile_size))
+				failure("Offset greater than archive size, likely corrupted/truncated archive.\n");
+			if (unlikely(head_off = lseek(fd_in, last_head + ofs, SEEK_SET)) == -1)
+				fatal("Failed to seek to header data in get_fileinfo\n");
+			get_header_info(control, fd_in, &ctype, &c_len, &u_len, &last_head);
+			if (unlikely(last_head < 0 || c_len < 0 || u_len < 0))
+				failure("Entry negative, likely corrupted archive.\n");
+			print_verbose("%d\t", block);
+			if (ctype == CTYPE_NONE)
+				print_verbose("none");
+			else if (ctype == CTYPE_BZIP2)
+				print_verbose("bzip2");
+			else if (ctype == CTYPE_LZO)
+				print_verbose("lzo");
+			else if (ctype == CTYPE_LZMA)
+				print_verbose("lzma");
+			else if (ctype == CTYPE_GZIP)
+				print_verbose("gzip");
+			else if (ctype == CTYPE_ZPAQ)
+				print_verbose("zpaq");
+			else
+				print_verbose("Dunno wtf");
+			utotal += u_len;
+			ctotal += c_len;
+			print_verbose("\t%.1f%%\t%lld / %lld", (double)c_len / (double)(u_len / 100), c_len, u_len);
+			print_maxverbose("\tOffset: %lld\tHead: %lld", head_off, last_head);
+			print_verbose("\n");
+			block++;
+		} while (last_head);
+		++stream;
+	}
+	if (unlikely((ofs = lseek(fd_in, c_len, SEEK_CUR)) == -1))
+		fatal("Failed to lseek c_len in get_fileinfo\n");
+	/* Chunk byte entry */
+	if (control->major_version == 0 && control->minor_version > 4) {
+		if (unlikely(read(fd_in, &chunk_byte, 1) != 1))
+			fatal("Failed to read chunk_byte in get_fileinfo\n");
+		ofs++;
+		if (control->major_version == 0 && control->minor_version > 5) {
+			if (unlikely(read(fd_in, &control->eof, 1) != 1))
+				fatal("Failed to read eof in get_fileinfo\n");
+			if (unlikely(read(fd_in, &chunk_size, 8) != 8))
+				fatal("Failed to read chunk_size in get_fileinfo\n");
+			ofs += 9;
+		}
+	}
+	if (ofs < infile_size - (HAS_MD5 ? MD5_DIGEST_SIZE : 0))
+		goto next_chunk;
+	if (unlikely(ofs > infile_size))
+		failure("Offset greater than archive size, likely corrupted/truncated archive.\n");
+	if (chunk_total > expected_size)
+		expected_size = chunk_total;
+	print_verbose("Rzip compression: %.1f%% %lld / %lld\n",
+			(double)utotal / (double)(expected_size / 100),
+			utotal, expected_size);
+	print_verbose("Back end compression: %.1f%% %lld / %lld\n",
+			(double)ctotal / (double)(utotal / 100),
+			ctotal, utotal);
+	print_verbose("Overall compression: %.1f%% %lld / %lld\n",
+			(double)ctotal / (double)(expected_size / 100),
+			ctotal, expected_size);
+
 	cratio = (long double)expected_size / (long double)infile_size;
 
 	print_output("%s:\nlrzip version: %d.%d file\n", infilecopy, control->major_version, control->minor_version);
 	if (control->secs)
-		print_maxverbose("Storage time seconds: %lld  microseconds: %lld\n", control->secs, control->usecs);
+		print_maxverbose("Storage time seconds: %lld\n", control->secs);
 
 	print_output("Compression: ");
 	if (ctype == CTYPE_NONE)
@@ -629,104 +724,6 @@ void get_fileinfo(rzip_control *control)
 		print_output("\n");
 	} else
 		print_output("CRC32 used for integrity testing\n");
-
-	if (VERBOSE || MAX_VERBOSE) {
-		i64 u_len, c_len, last_head, utotal = 0, ctotal = 0, ofs = 49,
-		    stream_head[2];
-		int header_length = 25, stream = 0, chunk = 0;
-
-		if (control->major_version == 0 && control->minor_version < 4) {
-			ofs = 24;
-			header_length = 13;
-		}
-		if (control->major_version == 0 && control->minor_version == 4)
-			ofs = 24;
-		if (control->major_version == 0 && control->minor_version == 5)
-			ofs = 25;
-next_chunk:
-		stream = 0;
-		stream_head[0] = 0;
-		stream_head[1] = stream_head[0] + header_length;
-
-		print_output("Rzip chunk %d:\n", ++chunk);
-		if (chunk_byte)
-			print_verbose("Chunk byte width: %d\n", chunk_byte);
-		if (chunk_size)
-			print_verbose("Chunk size: %lld\n", chunk_size);
-		while (stream < NUM_STREAMS) {
-			int block = 1;
-
-			if (unlikely(lseek(fd_in, stream_head[stream] + ofs, SEEK_SET)) == -1)
-				fatal("Failed to seek to header data in get_fileinfo\n");
-			get_header_info(control, fd_in, &ctype, &c_len, &u_len, &last_head);
-
-			print_output("Stream: %d\n", stream);
-			print_maxverbose("Offset: %lld\n", ofs);
-			print_output("Block\tComp\tPercent\tSize\n");
-			do {
-				i64 head_off;
-
-				if (unlikely(last_head + ofs > infile_size))
-					failure("Offset greater than archive size, likely corrupted/truncated archive.\n");
-				if (unlikely(head_off = lseek(fd_in, last_head + ofs, SEEK_SET)) == -1)
-					fatal("Failed to seek to header data in get_fileinfo\n");
-				get_header_info(control, fd_in, &ctype, &c_len, &u_len, &last_head);
-				if (unlikely(last_head < 0 || c_len < 0 || u_len < 0))
-					failure("Entry negative, likely corrupted archive.\n");
-				print_output("%d\t", block);
-				if (ctype == CTYPE_NONE)
-					print_output("none");
-				else if (ctype == CTYPE_BZIP2)
-					print_output("bzip2");
-				else if (ctype == CTYPE_LZO)
-					print_output("lzo");
-				else if (ctype == CTYPE_LZMA)
-					print_output("lzma");
-				else if (ctype == CTYPE_GZIP)
-					print_output("gzip");
-				else if (ctype == CTYPE_ZPAQ)
-					print_output("zpaq");
-				else
-					print_output("Dunno wtf");
-				utotal += u_len;
-				ctotal += c_len;
-				print_output("\t%.1f%%\t%lld / %lld", (double)c_len / (double)(u_len / 100), c_len, u_len);
-				print_maxverbose("\tOffset: %lld\tHead: %lld", head_off, last_head);
-				print_output("\n");
-				block++;
-			} while (last_head);
-			++stream;
-		}
-		if (unlikely((ofs = lseek(fd_in, c_len, SEEK_CUR)) == -1))
-			fatal("Failed to lseek c_len in get_fileinfo\n");
-		/* Chunk byte entry */
-		if (control->major_version == 0 && control->minor_version > 4) {
-			if (unlikely(read(fd_in, &chunk_byte, 1) != 1))
-				fatal("Failed to read chunk_byte in get_fileinfo\n");
-			ofs++;
-			if (control->major_version == 0 && control->minor_version > 5) {
-				if (unlikely(read(fd_in, &control->eof, 1) != 1))
-					fatal("Failed to read eof in get_fileinfo\n");
-				if (unlikely(read(fd_in, &chunk_size, 8) != 8))
-					fatal("Failed to read chunk_size in get_fileinfo\n");
-				ofs += 9;
-			}
-		}
-		if (ofs < infile_size - (HAS_MD5 ? MD5_DIGEST_SIZE : 0))
-			goto next_chunk;
-		if (unlikely(ofs > infile_size))
-			failure("Offset greater than archive size, likely corrupted/truncated archive.\n");
-		print_output("Rzip compression: %.1f%% %lld / %lld\n",
-			     (double)utotal / (double)(expected_size / 100),
-			     utotal, expected_size);
-		print_output("Back end compression: %.1f%% %lld / %lld\n",
-			     (double)ctotal / (double)(utotal / 100),
-			     ctotal, utotal);
-		print_output("Overall compression: %.1f%% %lld / %lld\n",
-			     (double)ctotal / (double)(expected_size / 100),
-			     ctotal, expected_size);
-	}
-
 	if (unlikely(close(fd_in)))
 		fatal("Failed to close fd_in in get_fileinfo\n");
 
