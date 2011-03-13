@@ -962,7 +962,7 @@ void *open_stream_in(rzip_control *control, int f, int n)
 
 	if (control->major_version == 0 && control->minor_version > 5) {
 		/* Read in flag that tells us if there are more chunks after
-		 * this */
+		 * this. Ignored if we know the final file size */
 		if (unlikely(read_u8(f, &control->eof))) {
 			print_err("Failed to read eof flag in open_stream_in\n");
 			goto failed;

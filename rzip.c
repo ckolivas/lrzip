@@ -964,8 +964,6 @@ retry:
 		/* st->chunk_size may be shrunk in rzip_chunk */
 		last_chunk = st->chunk_size;
 		len -= st->chunk_size;
-		if (!len)
-			control->eof = 1;
 	}
 
 	close_streamout_threads(control);

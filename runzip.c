@@ -265,11 +265,11 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 		md5_init_ctx (&control->ctx);
 	gettimeofday(&start,NULL);
 
-	while (total < expected_size || !total || !control->eof) {
+	do {
 		total += runzip_chunk(control, fd_in, fd_out, fd_hist, expected_size, total);
 		if (STDOUT)
 			dump_tmpoutfile(control, fd_out);
-	}
+	} while (total < expected_size || (!expected_size && !control->eof));
 
 	gettimeofday(&end,NULL);
 	print_progress("\nAverage DeCompression Speed: %6.3fMB/s\n",
