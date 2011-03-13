@@ -144,14 +144,14 @@ typedef struct md5_ctx md5_ctx;
 /* Structure to save state of computation between the single steps.  */
 struct md5_ctx
 {
-  uint32_t A;
-  uint32_t B;
-  uint32_t C;
-  uint32_t D;
+	uint32_t A;
+	uint32_t B;
+	uint32_t C;
+	uint32_t D;
 
-  uint32_t total[2];
-  uint32_t buflen;
-  uint32_t buffer[32];
+	uint32_t total[2];
+	uint32_t buflen;
+	uint32_t buffer[32];
 };
 
 struct rzip_control {
