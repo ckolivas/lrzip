@@ -706,11 +706,13 @@ int main(int argc, char *argv[])
 
 		/* Use less ram when using STDOUT to store the temporary output file */
 		if (STDOUT)
-			control.maxram = control.usable_ram * 2 / 9;
+			control.maxram = control.ramsize * 2 / 9;
 		else
-			control.maxram = control.usable_ram / 3;
-		if (BITS32)
+			control.maxram = control.ramsize / 3;
+		if (BITS32) {
+			control.maxram = MIN(control.maxram, control.usable_ram);
 			control.maxram = MIN(control.maxram, two_gig);
+		}
 		round_to_page(&control.maxram);
 
 		show_summary();
