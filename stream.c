@@ -825,10 +825,7 @@ void prepare_streamout_threads(rzip_control *control)
 
 void close_streamout_threads(rzip_control *control)
 {
-	int i, close_thread;
-	lock_mutex(&output_lock);
-	close_thread = output_thread;
-	unlock_mutex(&output_lock);
+	int i, close_thread = output_thread;
 
 	/* Wait for the threads in the correct order in case they end up
 	 * serialised */
