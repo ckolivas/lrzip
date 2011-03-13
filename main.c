@@ -634,12 +634,6 @@ int main(int argc, char *argv[])
 	} else if (ZPAQ_COMPRESS)
 		control.overhead = 112 * 1024 * 1024;
 
-	/* Decrease usable ram size on 32 bits due to kernel/userspace split */
-	if (BITS32)
-		control.usable_ram = MAX(control.ramsize - 900000000ll, 900000000ll);
-	else
-		control.usable_ram = control.ramsize;
-
 	/* Set the main nice value to half that of the backend threads since
 	 * the rzip stage is usually the rate limiting step */
 	if (control.nice_val > 0 && !NO_COMPRESS) {
@@ -710,7 +704,14 @@ int main(int argc, char *argv[])
 		else
 			control.maxram = control.ramsize / 3;
 		if (BITS32) {
-			control.maxram = MIN(control.maxram, control.usable_ram);
+			i64 usable_ram;
+
+			/* Decrease usable ram size on 32 bits due to kernel /
+			 * userspace split. Cannot allocate larger than a 2
+			 * gigabyte chunk due to 32 bit signed long being
+			 * used in alloc */
+			usable_ram = MAX(control.ramsize - 900000000ll, 900000000ll);
+			control.maxram = MIN(control.maxram, usable_ram);
 			control.maxram = MIN(control.maxram, two_gig);
 		}
 		round_to_page(&control.maxram);
