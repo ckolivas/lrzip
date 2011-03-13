@@ -719,7 +719,7 @@ int main(int argc, char *argv[])
 
 		gettimeofday(&start_time, NULL);
 
-		if (control.flags & (FLAG_DECOMPRESS | FLAG_TEST_ONLY))
+		if (DECOMPRESS || TEST_ONLY)
 			decompress_file(&control);
 		else if (INFO)
 			get_fileinfo(&control);
