@@ -455,8 +455,6 @@ void decompress_file(rzip_control *control)
 	if (unlikely((STDOUT || TEST_ONLY) && unlink(control->outfile)))
 		fatal("Failed to unlink tmpfile: %s\n", control->outfile);
 
-
-
 	if (NO_MD5)
 		print_verbose("Not performing MD5 hash check\n");
 	if (HAS_MD5)
