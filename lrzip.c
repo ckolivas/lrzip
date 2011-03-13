@@ -438,13 +438,17 @@ void decompress_file(rzip_control *control)
 			control->flags |= FLAG_KEEP_BROKEN;
 			fatal("Failed to create %s\n", control->outfile);
 		}
+		fd_hist = open(control->outfile, O_RDONLY);
+		if (unlikely(fd_hist == -1))
+			fatal("Failed to open history file %s\n", control->outfile);
 
 		preserve_perms(control, fd_in, fd_out);
 	} else {
 		/* When using a temporary output buffer we still generate
 		 * temporary output files in case we use them should we run
 		 * out of space. */
-		open_tmpoutbuf(control);
+		if (!TEST_ONLY)
+			open_tmpoutbuf(control);
 		fd_out = open_tmpoutfile(control);
 		if (unlikely(fd_out == -1))
 			fatal("Failed to create %s\n", control->outfile);
@@ -470,9 +474,6 @@ void decompress_file(rzip_control *control)
 			else
 				failure("Inadequate free space to decompress file, use -f to override.\n");
 		}
-		fd_hist = open(control->outfile, O_RDONLY);
-		if (unlikely(fd_hist == -1))
-			fatal("Failed to open history file %s\n", control->outfile);
 	}
 	control->fd_out = fd_out;
 	control->fd_hist = fd_hist;
