@@ -343,6 +343,19 @@ void read_tmpinfile(rzip_control *control, int fd_in)
 	rewind(tmpinfp);
 }
 
+/* To perform STDOUT, we allocate a proportion of ram that is then used as
+ * a pseudo-temporary file */
+static void open_tmpoutbuf(rzip_control *control)
+{
+	control->flags |= FLAG_TMP_OUTBUF;
+	control->out_maxlen = control->maxram + control->page_size;
+	control->tmp_outbuf = malloc(control->out_maxlen);
+	if (unlikely(!control->tmp_outbuf))
+		fatal("Failed to malloc tmp_outbuf in open_tmpoutbuf\n");
+	if (!DECOMPRESS && !TEST_ONLY)
+		control->out_ofs = control->out_len = MAGIC_LEN;
+}
+
 /*
   decompress one file from the command line
 */
@@ -427,9 +440,21 @@ void decompress_file(rzip_control *control)
 		}
 
 		preserve_perms(control, fd_in, fd_out);
-	} else
+	} else {
+		/* When using a temporary output buffer we still generate
+		 * temporary output files in case we use them should we run
+		 * out of space. */
+		open_tmpoutbuf(control);
 		fd_out = open_tmpoutfile(control);
-	control->fd_out = fd_out;
+		if (unlikely(fd_out == -1))
+			fatal("Failed to create %s\n", control->outfile);
+		fd_hist = open(control->outfile, O_RDONLY);
+		if (unlikely(fd_hist == -1))
+			fatal("Failed to open history file %s\n", control->outfile);
+		/* Unlink temporary file as soon as possible */
+		if (unlikely(unlink(control->outfile)))
+			fatal("Failed to unlink tmpfile: %s\n", control->outfile);
+	}
 
 	read_magic(control, fd_in, &expected_size);
 
@@ -445,15 +470,12 @@ void decompress_file(rzip_control *control)
 			else
 				failure("Inadequate free space to decompress file, use -f to override.\n");
 		}
+		fd_hist = open(control->outfile, O_RDONLY);
+		if (unlikely(fd_hist == -1))
+			fatal("Failed to open history file %s\n", control->outfile);
 	}
-
-	fd_hist = open(control->outfile, O_RDONLY);
-	if (unlikely(fd_hist == -1))
-		fatal("Failed to open history file %s\n", control->outfile);
-
-	/* Unlink temporary file as soon as possible */
-	if (unlikely((STDOUT || TEST_ONLY) && unlink(control->outfile)))
-		fatal("Failed to unlink tmpfile: %s\n", control->outfile);
+	control->fd_out = fd_out;
+	control->fd_hist = fd_hist;
 
 	if (NO_MD5)
 		print_verbose("Not performing MD5 hash check\n");
@@ -467,7 +489,7 @@ void decompress_file(rzip_control *control)
 
 	runzip_fd(control, fd_in, fd_out, fd_hist, expected_size);
 
-	if (STDOUT)
+	if (STDOUT && !TMP_OUTBUF)
 		dump_tmpoutfile(control, fd_out);
 
 	/* if we get here, no fatal errors during decompression */
@@ -727,18 +749,6 @@ next_chunk:
 
 	free(control->outfile);
 	free(infilecopy);
-}
-
-/* To perform STDOUT, we allocate a proportion of ram that is then used as
- * a pseudo-temporary file */
-static void open_tmpoutbuf(rzip_control *control)
-{
-	control->flags |= FLAG_TMP_OUTBUF;
-	control->out_maxlen = control->maxram + control->page_size;
-	control->tmp_outbuf = malloc(control->out_maxlen);
-	if (unlikely(!control->tmp_outbuf))
-		fatal("Failed to malloc tmp_outbuf in open_tmpoutbuf\n");
-	control->out_ofs = control->out_len = MAGIC_LEN;
 }
 
 /*

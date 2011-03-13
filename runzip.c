@@ -73,6 +73,37 @@ static inline i64 read_vchars(rzip_control *control, void *ss, int stream, int l
 	return s;
 }
 
+static i64 seekcur_fdout(rzip_control *control)
+{
+	if (!TMP_OUTBUF)
+		return lseek(control->fd_out, 0, SEEK_CUR);
+	return (control->rel_ofs + control->out_ofs);
+}
+
+static i64 seekto_fdout(rzip_control *control, i64 pos)
+{
+	if (!TMP_OUTBUF)
+		return lseek(control->fd_out, pos, SEEK_SET);
+	control->out_ofs = pos - control->rel_ofs;
+	if (unlikely(control->out_ofs < 0 || control->out_ofs > control->out_maxlen)) {
+		print_err("Trying to seek outside tmpoutbuf in seekto_fdout\n");
+		return -1;
+	}
+	return pos;
+}
+
+static i64 seekto_fdhist(rzip_control *control, i64 pos)
+{
+	if (!TMP_OUTBUF)
+		return lseek(control->fd_hist, pos, SEEK_SET);
+	control->hist_ofs = pos - control->rel_ofs;
+	if (unlikely(control->hist_ofs < 0 || control->hist_ofs > control->out_maxlen)) {
+		print_err("Trying to seek outside tmpoutbuf in seekto_fdhist\n");
+		return -1;
+	}
+	return pos;
+}
+
 static i64 read_header(rzip_control *control, void *ss, uchar *head)
 {
 	int chunk_bytes = 2;
@@ -112,6 +143,18 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, int fd_out, u
 	return stream_read;
 }
 
+static i64 read_fdhist(struct rzip_control *control, void *buf, i64 len)
+{
+	if (!TMP_OUTBUF)
+		return read_1g(control->fd_hist, buf, len);
+	if (unlikely(len + control->hist_ofs > control->out_maxlen)) {
+		print_err("Trying to read beyond end of tmpoutbuf in read_fdhist\n");
+		return -1;
+	}
+	memcpy(buf, control->tmp_outbuf + control->hist_ofs, len);
+	return len;
+}
+
 static i64 unzip_match(rzip_control *control, void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum, int chunk_bytes)
 {
 	i64 offset, n, total, cur_pos;
@@ -121,13 +164,13 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, int fd_out, int
 		failure("len %lld is negative in unzip_match!\n",len);
 
 	total = 0;
-	cur_pos = lseek(fd_out, 0, SEEK_CUR);
+	cur_pos = seekcur_fdout(control);
 	if (unlikely(cur_pos == -1))
 		fatal("Seek failed on out file in unzip_match.\n");
 
 	/* Note the offset is in a different format v0.40+ */
 	offset = read_vchars(control, ss, 0, chunk_bytes);
-	if (unlikely(lseek(fd_hist, cur_pos - offset, SEEK_SET) == -1))
+	if (unlikely(seekto_fdhist(control, cur_pos - offset) == -1))
 		fatal("Seek failed by %d from %d on history file in unzip_match\n",
 		      offset, cur_pos);
 
@@ -139,7 +182,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, int fd_out, int
 	while (len) {
 		n = MIN(len, offset);
 
-		if (unlikely(read_1g(fd_hist, off_buf, (size_t)n) != (ssize_t)n))
+		if (unlikely(read_fdhist(control, off_buf, (size_t)n) != (ssize_t)n))
 			fatal("Failed to read %d bytes in unzip_match\n", n);
 
 		if (unlikely(write_1g(control, fd_out, off_buf, (size_t)n) != (ssize_t)n))
@@ -267,8 +310,12 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 
 	do {
 		total += runzip_chunk(control, fd_in, fd_out, fd_hist, expected_size, total);
-		if (STDOUT)
-			dump_tmpoutfile(control, fd_out);
+		if (STDOUT) {
+			if (TMP_OUTBUF)
+				flush_stdout(control);
+			else
+				dump_tmpoutfile(control, fd_out);
+		}
 	} while (total < expected_size || (!expected_size && !control->eof));
 
 	gettimeofday(&end,NULL);
@@ -308,8 +355,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 			int i, j;
 
 			memcpy(md5_stored, md5_resblock, MD5_DIGEST_SIZE);
-			if (unlikely(lseek(fd_hist, 0, SEEK_SET) == -1))
-				fatal("Failed to lseek fd_hist in runzip_fd\n");
+			if (unlikely(seekto_fdhist(control, 0) == -1))
+				fatal("Failed to seekto_fdhist in runzip_fd\n");
 			if (unlikely((md5_fstream = fdopen(fd_hist, "r")) == NULL))
 				fatal("Failed to fdopen fd_hist in runzip_fd\n");
 			if (unlikely(md5_stream(md5_fstream, md5_resblock)))

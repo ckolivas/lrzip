@@ -772,9 +772,10 @@ static int seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
 	if (TMP_OUTBUF) {
 		spos -= control->rel_ofs;
 		control->out_ofs = spos;
-		if (unlikely(spos > control->out_len || spos < 0)) {
-			print_err("Trying to seek to %lld outside tmp outbuf in seekto\n", spos);
-			return -1;
+		if (unlikely((!(DECOMPRESS || TEST_ONLY) && (spos > control->out_len)) ||
+			spos > control->out_maxlen || spos < 0)) {
+				print_err("Trying to seek to %lld outside tmp outbuf in seekto\n", spos);
+				return -1;
 		}
 		return 0;
 	}
