@@ -467,7 +467,7 @@ void decompress_file(rzip_control *control)
 		* decompressed file. */
 		if (unlikely(fstatvfs(fd_out, &fbuf)))
 			fatal("Failed to fstatvfs in decompress_file\n");
-		free_space = fbuf.f_bsize * fbuf.f_bavail;
+		free_space = (i64)fbuf.f_bsize * (i64)fbuf.f_bavail;
 		if (free_space < expected_size) {
 			if (FORCE_REPLACE)
 				print_err("Warning, inadequate free space detected, but attempting to decompress due to -f option being used.\n");

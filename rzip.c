@@ -795,7 +795,7 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 		* uncompressed file. */
 		if (unlikely(fstatvfs(fd_out, &fbuf)))
 			fatal("Failed to fstatvfs in compress_file\n");
-		free_space = fbuf.f_bsize * fbuf.f_bavail;
+		free_space = (i64)fbuf.f_bsize * (i64)fbuf.f_bavail;
 		if (free_space < control->st_size) {
 			if (FORCE_REPLACE)
 				print_err("Warning, possibly inadequate free space detected, but attempting to compress due to -f option being used.\n");
