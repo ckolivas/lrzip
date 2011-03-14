@@ -387,6 +387,8 @@ static void read_tmpinmagic(rzip_control *control)
 		magic[i] = (char)tmpchar;
 	}
 	get_magicver05(control, magic);
+	control->in_relofs = 24;
+
 	if (control->major_version == 0 && control->minor_version > 5) {
 		for (i = 24; i < MAGIC_LEN; i++) {
 			tmpchar = getchar();
@@ -394,6 +396,7 @@ static void read_tmpinmagic(rzip_control *control)
 				failure("Reached end of file on STDIN prematurely on v06 magic read\n");
 			magic[i] = (char)tmpchar;
 		}
+		control->in_relofs = MAGIC_LEN;
 	}
 }
 
@@ -517,13 +520,7 @@ void decompress_file(rzip_control *control)
 		fd_in = open_tmpinfile(control);
 		read_tmpinmagic(control);
 		expected_size = control->st_size;
-		/* Version 0.6+ files we can tell how much to read for each
-		 * chunk in advance and decide if we can do it using a
-		 * temporary buffer instead of a temporary file */
-		if (control->major_version == 0 && control->minor_version > 5)
-			open_tmpinbuf(control);
-		else
-			read_tmpinfile(control, fd_in);
+		open_tmpinbuf(control);
 	} else {
 		fd_in = open(infilecopy, O_RDONLY);
 		if (unlikely(fd_in == -1)) {

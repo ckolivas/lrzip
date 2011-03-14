@@ -688,11 +688,11 @@ static void read_fdin(struct rzip_control *control, i64 len)
 	for (i = 0; i < len; i++) {
 		tmpchar = getchar();
 		if (unlikely(tmpchar == EOF))
-			failure("Reached end of file on STDIN prematurely on read_fdin\n");
+			failure("Reached end of file on STDIN prematurely on read_fdin, asked for %lld got %lld\n",
+				len, i);
 		control->tmp_inbuf[control->in_ofs + i] = (char)tmpchar;
 	}
-	control->in_ofs += len;
-	control->in_len = control->in_ofs;
+	control->in_len = control->in_ofs + len;
 }
 
 static i64 seekto_fdin(rzip_control *control, i64 pos)
@@ -842,6 +842,18 @@ static int read_seekto(rzip_control *control, struct stream_info *sinfo, i64 pos
 {
 	i64 spos = pos + sinfo->initial_pos;
 
+	if (TMP_INBUF) {
+		spos -= control->in_relofs;
+		if (spos > control->in_len)
+			read_fdin(control, spos - control->in_len);
+		control->in_ofs = spos;
+		if (unlikely(spos < 0)) {
+			print_err("Trying to seek to %lld outside tmp inbuf in read_seekto\n", spos);
+			return -1;
+		}
+		return 0;
+	}
+
 	return fd_seekto(control, sinfo, spos, pos);
 }
 
@@ -851,6 +863,18 @@ static i64 get_seek(rzip_control *control, int fd)
 
 	if (TMP_OUTBUF)
 		return control->out_relofs + control->out_ofs;
+	ret = lseek(fd, 0, SEEK_CUR);
+	if (unlikely(ret == -1))
+		fatal("Failed to lseek in get_seek\n");
+	return ret;
+}
+
+static i64 get_readseek(rzip_control *control, int fd)
+{
+	i64 ret;
+
+	if (TMP_INBUF)
+		return control->in_relofs + control->in_ofs;
 	ret = lseek(fd, 0, SEEK_CUR);
 	if (unlikely(ret == -1))
 		fatal("Failed to lseek in get_seek\n");
@@ -1034,7 +1058,7 @@ void *open_stream_in(rzip_control *control, int f, int n)
 		print_maxverbose("Chunk size: %lld\n", sinfo->size);
 		control->st_size += sinfo->size;
 	}
-	sinfo->initial_pos = lseek(f, 0, SEEK_CUR);
+	sinfo->initial_pos = get_readseek(control, f);
 
 	for (i = 0; i < n; i++) {
 		uchar c;
@@ -1056,7 +1080,7 @@ again:
 				goto failed;
 			if (unlikely(read_u32(control, f, &v232)))
 				goto failed;
-			if ((read_u32(control, f, &last_head32)))
+			if (unlikely(read_u32(control, f, &last_head32)))
 				goto failed;
 
 			v1 = v132;
@@ -1072,7 +1096,6 @@ again:
 				goto failed;
 			header_length = 25;
 		}
-
 		if (unlikely(c == CTYPE_NONE && v1 == 0 && v2 == 0 && sinfo->s[i].last_head == 0 && i == 0)) {
 			print_err("Enabling stream close workaround\n");
 			sinfo->initial_pos += header_length;
@@ -1080,7 +1103,6 @@ again:
 		}
 
 		sinfo->total_read += header_length;
-
 		if (unlikely(c != CTYPE_NONE)) {
 			print_err("Unexpected initial tag %d in streams\n", c);
 			goto failed;
@@ -1517,14 +1539,14 @@ int close_stream_out(rzip_control *control, void *ss)
 }
 
 /* close down an input stream */
-int close_stream_in(void *ss)
+int close_stream_in(rzip_control *control, void *ss)
 {
 	struct stream_info *sinfo = ss;
 	int i;
 
-	if (unlikely(lseek(sinfo->fd, sinfo->initial_pos + sinfo->total_read,
-		  SEEK_SET) != sinfo->initial_pos + sinfo->total_read))
-			return -1;
+	if (unlikely(read_seekto(control, sinfo, sinfo->initial_pos + sinfo->total_read)))
+		return -1;
+
 	for (i = 0; i < sinfo->num_streams; i++)
 		free(sinfo->s[i].buf);
 
