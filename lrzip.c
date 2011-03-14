@@ -279,7 +279,7 @@ void write_fdout(rzip_control *control, void *buf, i64 len)
 
 void flush_tmpoutbuf(rzip_control *control)
 {
-	print_verbose("Dumping buffer to stdout.\n");
+	print_maxverbose("Dumping buffer to physical file.\n");
 	if (STDOUT && !TEST_ONLY)
 		fwrite_stdout(control->tmp_outbuf, control->out_len);
 	else if (!STDOUT && !TEST_ONLY)
