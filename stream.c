@@ -680,13 +680,57 @@ ssize_t write_1g(rzip_control *control, void *buf, i64 len)
 	return total;
 }
 
+static void read_fdin(struct rzip_control *control, i64 len)
+{
+	int tmpchar;
+	i64 i;
+
+	for (i = 0; i < len; i++) {
+		tmpchar = getchar();
+		if (unlikely(tmpchar == EOF))
+			failure("Reached end of file on STDIN prematurely on read_fdin\n");
+		control->tmp_inbuf[control->in_ofs + i] = (char)tmpchar;
+	}
+	control->in_ofs += len;
+	control->in_len = control->in_ofs;
+}
+
+static i64 seekto_fdin(rzip_control *control, i64 pos)
+{
+	if (!TMP_INBUF)
+		return lseek(control->fd_in, pos, SEEK_SET);
+	control->in_ofs = pos - control->in_relofs;
+	if (unlikely(control->in_ofs > control->in_len || control->in_ofs < 0)) {
+		print_err("Tried to seek outside of in_ofs range in seekto_fdin\n");
+		return -1;
+	}
+	return pos;
+}
+
 /* Ditto for read */
-ssize_t read_1g(int fd, void *buf, i64 len)
+ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
 	ssize_t ret;
 	i64 total;
 
+	if (TMP_INBUF && fd == control->fd_in) {
+		/* We're decompressing from STDIN */
+		if (unlikely(control->in_ofs + len > control->in_maxlen)) {
+			/* We're unable to fit it all into the temp buffer */
+			write_fdin(control);
+			read_tmpinfile(control, control->fd_in);
+			close_tmpinbuf(control);
+			goto read_fd;
+		}
+		if (control->in_ofs + len > control->in_len)
+			read_fdin(control, control->in_ofs + len - control->in_len);
+		memcpy(buf, control->tmp_inbuf + control->in_ofs, len);
+		control->in_ofs += len;
+		return len;
+	}
+
+read_fd:
 	total = 0;
 	while (len > 0) {
 		ret = MIN(len, one_g);
@@ -732,11 +776,11 @@ static int write_i64(rzip_control *control, int f, i64 v)
 	return 0;
 }
 
-static int read_buf(int f, uchar *p, i64 len)
+static int read_buf(rzip_control *control, int f, uchar *p, i64 len)
 {
 	ssize_t ret;
 
-	ret = read_1g(f, p, (size_t)len);
+	ret = read_1g(control, f, p, (size_t)len);
 	if (unlikely(ret == -1)) {
 		print_err("Read of length %lld failed - %s\n", len, strerror(errno));
 		return -1;
@@ -748,21 +792,21 @@ static int read_buf(int f, uchar *p, i64 len)
 	return 0;
 }
 
-static int read_u8(int f, uchar *v)
+static int read_u8(rzip_control *control, int f, uchar *v)
 {
-	return read_buf(f, v, 1);
+	return read_buf(control, f, v, 1);
 }
 
-static int read_u32(int f, u32 *v)
+static int read_u32(rzip_control *control, int f, u32 *v)
 {
-	if (unlikely(read_buf(f, (uchar *)v, 4)))
+	if (unlikely(read_buf(control, f, (uchar *)v, 4)))
 		return -1;
 	return 0;
 }
 
-static int read_i64(int f, i64 *v)
+static int read_i64(rzip_control *control, int f, i64 *v)
 {
-	if (unlikely(read_buf(f, (uchar *)v, 8)))
+	if (unlikely(read_buf(control, f, (uchar *)v, 8)))
 		return -1;
 	return 0;
 }
@@ -978,12 +1022,12 @@ void *open_stream_in(rzip_control *control, int f, int n)
 	if (control->major_version == 0 && control->minor_version > 5) {
 		/* Read in flag that tells us if there are more chunks after
 		 * this. Ignored if we know the final file size */
-		if (unlikely(read_u8(f, &control->eof))) {
+		if (unlikely(read_u8(control, f, &control->eof))) {
 			print_err("Failed to read eof flag in open_stream_in\n");
 			goto failed;
 		}
 		/* Read in the expected chunk size */
-		if (unlikely(read_i64(f, &sinfo->size))) {
+		if (unlikely(read_i64(control, f, &sinfo->size))) {
 			print_err("Failed to read in chunk size in open_stream_in\n");
 			goto failed;
 		}
@@ -1001,18 +1045,18 @@ void *open_stream_in(rzip_control *control, int f, int n)
 		sinfo->s[i].unext_thread = sinfo->s[i].base_thread;
 
 again:
-		if (unlikely(read_u8(f, &c)))
+		if (unlikely(read_u8(control, f, &c)))
 			goto failed;
 
 		/* Compatibility crap for versions < 0.40 */
 		if (control->major_version == 0 && control->minor_version < 4) {
 			u32 v132, v232, last_head32;
 
-			if (unlikely(read_u32(f, &v132)))
+			if (unlikely(read_u32(control, f, &v132)))
 				goto failed;
-			if (unlikely(read_u32(f, &v232)))
+			if (unlikely(read_u32(control, f, &v232)))
 				goto failed;
-			if ((read_u32(f, &last_head32)))
+			if ((read_u32(control, f, &last_head32)))
 				goto failed;
 
 			v1 = v132;
@@ -1020,11 +1064,11 @@ again:
 			sinfo->s[i].last_head = last_head32;
 			header_length = 13;
 		} else {
-			if (unlikely(read_i64(f, &v1)))
+			if (unlikely(read_i64(control, f, &v1)))
 				goto failed;
-			if (unlikely(read_i64(f, &v2)))
+			if (unlikely(read_i64(control, f, &v2)))
 				goto failed;
-			if (unlikely(read_i64(f, &sinfo->s[i].last_head)))
+			if (unlikely(read_i64(control, f, &sinfo->s[i].last_head)))
 				goto failed;
 			header_length = 25;
 		}
@@ -1304,29 +1348,29 @@ fill_another:
 	if (unlikely(read_seekto(control, sinfo, s->last_head)))
 		return -1;
 
-	if (unlikely(read_u8(sinfo->fd, &c_type)))
+	if (unlikely(read_u8(control, sinfo->fd, &c_type)))
 		return -1;
 
 	/* Compatibility crap for versions < 0.4 */
 	if (control->major_version == 0 && control->minor_version < 4) {
 		u32 c_len32, u_len32, last_head32;
 
-		if (unlikely(read_u32(sinfo->fd, &c_len32)))
+		if (unlikely(read_u32(control, sinfo->fd, &c_len32)))
 			return -1;
-		if (unlikely(read_u32(sinfo->fd, &u_len32)))
+		if (unlikely(read_u32(control, sinfo->fd, &u_len32)))
 			return -1;
-		if (unlikely(read_u32(sinfo->fd, &last_head32)))
+		if (unlikely(read_u32(control, sinfo->fd, &last_head32)))
 			return -1;
 		c_len = c_len32;
 		u_len = u_len32;
 		last_head = last_head32;
 		header_length = 13;
 	} else {
-		if (unlikely(read_i64(sinfo->fd, &c_len)))
+		if (unlikely(read_i64(control, sinfo->fd, &c_len)))
 			return -1;
-		if (unlikely(read_i64(sinfo->fd, &u_len)))
+		if (unlikely(read_i64(control, sinfo->fd, &u_len)))
 			return -1;
-		if (unlikely(read_i64(sinfo->fd, &last_head)))
+		if (unlikely(read_i64(control, sinfo->fd, &last_head)))
 			return -1;
 		header_length = 25;
 	}
@@ -1340,7 +1384,7 @@ fill_another:
 		fatal("Unable to malloc buffer of size %lld in fill_buffer\n", u_len);
 	sinfo->ram_alloced += u_len;
 
-	if (unlikely(read_buf(sinfo->fd, s_buf, c_len)))
+	if (unlikely(read_buf(control, sinfo->fd, s_buf, c_len)))
 		return -1;
 
 	sinfo->total_read += c_len;

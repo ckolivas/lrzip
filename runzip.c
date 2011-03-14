@@ -88,8 +88,6 @@ static i64 seekto_fdout(rzip_control *control, i64 pos)
 	if (control->out_ofs > control->out_len)
 		control->out_len = control->out_ofs;
 	if (unlikely(control->out_ofs < 0 || control->out_ofs > control->out_maxlen)) {
-		print_err("out_ofs %lld out_len %lld hist_ofs %lld out_relofs %lld\n",
-			  control->out_ofs, control->out_len, control->hist_ofs, control->out_relofs);
 		print_err("Trying to seek outside tmpoutbuf to %lld in seekto_fdout\n", control->out_ofs);
 		return -1;
 	}
@@ -104,12 +102,17 @@ static i64 seekto_fdhist(rzip_control *control, i64 pos)
 	if (control->hist_ofs > control->out_len)
 		control->out_len = control->hist_ofs;
 	if (unlikely(control->hist_ofs < 0 || control->hist_ofs > control->out_maxlen)) {
-		print_err("out_ofs %lld out_len %lld hist_ofs %lld out_relofs %lld\n",
-			  control->out_ofs, control->out_len, control->hist_ofs, control->out_relofs);
 		print_err("Trying to seek outside tmpoutbuf to %lld in seekto_fdhist\n", control->hist_ofs);
 		return -1;
 	}
 	return pos;
+}
+
+static i64 seekcur_fdin(struct rzip_control *control)
+{
+	if (!TMP_INBUF)
+		return lseek(control->fd_in, 0, SEEK_CUR);
+	return (control->in_relofs + control->in_ofs);
 }
 
 static i64 read_header(rzip_control *control, void *ss, uchar *head)
@@ -154,7 +157,7 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, int fd_out, u
 static i64 read_fdhist(struct rzip_control *control, void *buf, i64 len)
 {
 	if (!TMP_OUTBUF)
-		return read_1g(control->fd_hist, buf, len);
+		return read_1g(control, control->fd_hist, buf, len);
 	if (unlikely(len + control->hist_ofs > control->out_maxlen)) {
 		print_err("Trying to read beyond end of tmpoutbuf in read_fdhist\n");
 		return -1;
@@ -257,7 +260,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, int fd_out, int fd_his
 		print_maxverbose("Expected size: %lld\n", expected_size);
 	print_maxverbose("Chunk byte width: %d\n", chunk_bytes);
 
-	ofs = lseek(fd_in, 0, SEEK_CUR);
+	ofs = seekcur_fdin(control);
 	if (unlikely(ofs == -1))
 		fatal("Failed to seek input file in runzip_fd\n");
 

@@ -327,6 +327,24 @@ void dump_tmpoutfile(rzip_control *control, int fd_out)
 		fatal("Failed to ftruncate fd_out in dump_tmpoutfile\n");
 }
 
+/* Used if we're unable to read STDIN into the temporary buffer, shunts data
+ * to temporary file */
+void write_fdin(struct rzip_control *control)
+{
+	uchar *offset_buf = control->tmp_inbuf;
+	i64 len = control->in_len;
+	ssize_t ret;
+
+	while (len > 0) {
+		ret = MIN(len, one_g);
+		ret = write(control->fd_in, offset_buf, (size_t)ret);
+		if (unlikely(ret <= 0))
+			fatal("Failed to write to fd_in in write_fdin\n");
+		len -= ret;
+		offset_buf += ret;
+	}
+}
+
 /* Open a temporary inputfile to perform stdin decompression */
 int open_tmpinfile(rzip_control *control)
 {
@@ -497,10 +515,15 @@ void decompress_file(rzip_control *control)
 
 	if (STDIN) {
 		fd_in = open_tmpinfile(control);
-		open_tmpinbuf(control);
 		read_tmpinmagic(control);
 		expected_size = control->st_size;
-		read_tmpinfile(control, fd_in);
+		/* Version 0.6+ files we can tell how much to read for each
+		 * chunk in advance and decide if we can do it using a
+		 * temporary buffer instead of a temporary file */
+		if (control->major_version == 0 && control->minor_version > 5)
+			open_tmpinbuf(control);
+		else
+			read_tmpinfile(control, fd_in);
 	} else {
 		fd_in = open(infilecopy, O_RDONLY);
 		if (unlikely(fd_in == -1)) {
