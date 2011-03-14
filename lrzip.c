@@ -467,6 +467,7 @@ void decompress_file(rzip_control *control)
 			fatal("Failed to open %s\n", infilecopy);
 		}
 	}
+	control->fd_in = fd_in;
 
 	if (!(TEST_ONLY | STDOUT)) {
 		if (FORCE_REPLACE)

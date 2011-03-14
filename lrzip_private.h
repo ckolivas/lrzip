@@ -189,6 +189,7 @@ struct rzip_control {
 	int minor_version;
 	i64 st_size;
 	long page_size;
+	int fd_in;
 	int fd_out;
 	int fd_hist;
 	char encrypt;
