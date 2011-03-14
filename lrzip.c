@@ -348,8 +348,10 @@ void read_tmpinfile(rzip_control *control, int fd_in)
 static void open_tmpoutbuf(rzip_control *control)
 {
 	control->flags |= FLAG_TMP_OUTBUF;
-	control->out_maxlen = control->maxram + control->page_size;
-	control->tmp_outbuf = malloc(control->out_maxlen);
+	control->out_maxlen = control->maxram;
+	/* Allocate slightly more so we can cope when the buffer overflows and
+	 * fall back to a real temporary file */
+	control->tmp_outbuf = malloc(control->out_maxlen + control->page_size);
 	if (unlikely(!control->tmp_outbuf))
 		fatal("Failed to malloc tmp_outbuf in open_tmpoutbuf\n");
 	if (!DECOMPRESS && !TEST_ONLY)
