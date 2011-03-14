@@ -299,7 +299,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, int fd_out, int fd_his
 		print_maxverbose("Checksum for block: 0x%08x\n", cksum);
 	}
 
-	if (unlikely(close_stream_in(control, ss)))
+	if (unlikely(close_stream_in(ss)))
 		fatal("Failed to close stream!\n");
 
 	return total;
@@ -336,9 +336,12 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 
 		md5_finish_ctx (&control->ctx, md5_resblock);
 		if (HAS_MD5) {
+#if 0
+			/* Unnecessary, we should already be there */
 			if (unlikely(lseek(fd_in, -MD5_DIGEST_SIZE, SEEK_END)) == -1)
 				fatal("Failed to seek to md5 data in runzip_fd\n");
-			if (unlikely(read(fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
+#endif
+			if (unlikely(read_1g(control, fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 				fatal("Failed to read md5 data in runzip_fd\n");
 			for (i = 0; i < MD5_DIGEST_SIZE; i++)
 				if (md5_stored[i] != md5_resblock[i]) {

@@ -1539,14 +1539,17 @@ int close_stream_out(rzip_control *control, void *ss)
 }
 
 /* close down an input stream */
-int close_stream_in(rzip_control *control, void *ss)
+int close_stream_in(void *ss)
 {
 	struct stream_info *sinfo = ss;
 	int i;
 
-	if (unlikely(read_seekto(control, sinfo, sinfo->initial_pos + sinfo->total_read)))
-		return -1;
-
+#if 0
+	/* Unnecessary, we should already be here */
+	if (unlikely(lseek(sinfo->fd, sinfo->initial_pos + sinfo->total_read,
+		SEEK_SET) != sinfo->initial_pos + sinfo->total_read))
+			return -1;
+#endif
 	for (i = 0; i < sinfo->num_streams; i++)
 		free(sinfo->s[i].buf);
 
