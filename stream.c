@@ -705,10 +705,7 @@ ssize_t read_1g(int fd, void *buf, i64 len)
 
 	total = 0;
 	while (len > 0) {
-		if (len > one_g)
-			ret = one_g;
-		else
-			ret = len;
+		ret = MIN(len, one_g);
 		ret = read(fd, offset_buf, (size_t)ret);
 		if (unlikely(ret <= 0))
 			return ret;
