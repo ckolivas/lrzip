@@ -700,7 +700,7 @@ int main(int argc, char *argv[])
 
 		/* Use less ram when using STDOUT to store the temporary output
 		 * file. */
-		if (STDOUT && !(DECOMPRESS || TEST_ONLY))
+		if (STDOUT && ((STDIN && DECOMPRESS) || !(DECOMPRESS || TEST_ONLY)))
 			control.maxram = control.ramsize * 2 / 9;
 		else
 			control.maxram = control.ramsize / 3;

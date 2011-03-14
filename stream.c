@@ -782,7 +782,7 @@ static int seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
 	i64 spos = pos + sinfo->initial_pos;
 
 	if (TMP_OUTBUF) {
-		spos -= control->rel_ofs;
+		spos -= control->out_relofs;
 		control->out_ofs = spos;
 		if (unlikely(spos > control->out_len || spos < 0)) {
 			print_err("Trying to seek to %lld outside tmp outbuf in seekto\n", spos);
@@ -806,7 +806,7 @@ static i64 get_seek(rzip_control *control, int fd)
 	i64 ret;
 
 	if (TMP_OUTBUF)
-		return control->rel_ofs + control->out_ofs;
+		return control->out_relofs + control->out_ofs;
 	ret = lseek(fd, 0, SEEK_CUR);
 	if (unlikely(ret == -1))
 		fatal("Failed to lseek in get_seek\n");

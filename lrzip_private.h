@@ -121,6 +121,7 @@ typedef struct md5_ctx md5_ctx;
 #define FLAG_KEEP_BROKEN	(1 << 19)
 #define FLAG_THRESHOLD		(1 << 20)
 #define FLAG_TMP_OUTBUF		(1 << 21)
+#define FLAG_TMP_INBUF		(1 << 22)
 
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
@@ -165,7 +166,12 @@ struct rzip_control {
 	i64 hist_ofs; // History offset
 	i64 out_len; // Total length of tmp_outbuf
 	i64 out_maxlen; // The largest the tmp_outbuf can be used
-	i64 rel_ofs; // Relative tmp_outbuf offset when stdout has been flushed
+	i64 out_relofs; // Relative tmp_outbuf offset when stdout has been flushed
+	char *tmp_inbuf;
+	i64 in_ofs;
+	i64 in_len;
+	i64 in_maxlen;
+	i64 in_relofs;
 	FILE *msgout; //stream for output messages
 	const char *suffix;
 	int compression_level;

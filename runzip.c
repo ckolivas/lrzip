@@ -77,19 +77,19 @@ static i64 seekcur_fdout(rzip_control *control)
 {
 	if (!TMP_OUTBUF)
 		return lseek(control->fd_out, 0, SEEK_CUR);
-	return (control->rel_ofs + control->out_ofs);
+	return (control->out_relofs + control->out_ofs);
 }
 
 static i64 seekto_fdout(rzip_control *control, i64 pos)
 {
 	if (!TMP_OUTBUF)
 		return lseek(control->fd_out, pos, SEEK_SET);
-	control->out_ofs = pos - control->rel_ofs;
+	control->out_ofs = pos - control->out_relofs;
 	if (control->out_ofs > control->out_len)
 		control->out_len = control->out_ofs;
 	if (unlikely(control->out_ofs < 0 || control->out_ofs > control->out_maxlen)) {
-		print_err("out_ofs %lld out_len %lld hist_ofs %lld rel_ofs %lld\n",
-			  control->out_ofs, control->out_len, control->hist_ofs, control->rel_ofs);
+		print_err("out_ofs %lld out_len %lld hist_ofs %lld out_relofs %lld\n",
+			  control->out_ofs, control->out_len, control->hist_ofs, control->out_relofs);
 		print_err("Trying to seek outside tmpoutbuf to %lld in seekto_fdout\n", control->out_ofs);
 		return -1;
 	}
@@ -100,12 +100,12 @@ static i64 seekto_fdhist(rzip_control *control, i64 pos)
 {
 	if (!TMP_OUTBUF)
 		return lseek(control->fd_hist, pos, SEEK_SET);
-	control->hist_ofs = pos - control->rel_ofs;
+	control->hist_ofs = pos - control->out_relofs;
 	if (control->hist_ofs > control->out_len)
 		control->out_len = control->hist_ofs;
 	if (unlikely(control->hist_ofs < 0 || control->hist_ofs > control->out_maxlen)) {
-		print_err("out_ofs %lld out_len %lld hist_ofs %lld rel_ofs %lld\n",
-			  control->out_ofs, control->out_len, control->hist_ofs, control->rel_ofs);
+		print_err("out_ofs %lld out_len %lld hist_ofs %lld out_relofs %lld\n",
+			  control->out_ofs, control->out_len, control->hist_ofs, control->out_relofs);
 		print_err("Trying to seek outside tmpoutbuf to %lld in seekto_fdhist\n", control->hist_ofs);
 		return -1;
 	}

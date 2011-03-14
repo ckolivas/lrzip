@@ -284,7 +284,7 @@ void flush_tmpoutbuf(rzip_control *control)
 		fwrite_stdout(control->tmp_outbuf, control->out_len);
 	else if (!STDOUT && !TEST_ONLY)
 		write_fdout(control, control->tmp_outbuf, control->out_len);
-	control->rel_ofs += control->out_len;
+	control->out_relofs += control->out_len;
 	control->out_ofs = control->out_len = 0;
 }
 
@@ -369,7 +369,7 @@ static void open_tmpoutbuf(rzip_control *control)
 	control->out_maxlen = control->maxram;
 	/* Allocate slightly more so we can cope when the buffer overflows and
 	 * fall back to a real temporary file */
-	control->tmp_outbuf = malloc(control->out_maxlen + control->page_size);
+	control->tmp_outbuf = malloc(control->maxram + control->page_size);
 	if (unlikely(!control->tmp_outbuf))
 		fatal("Failed to malloc tmp_outbuf in open_tmpoutbuf\n");
 	if (!DECOMPRESS && !TEST_ONLY)
@@ -380,6 +380,21 @@ void close_tmpoutbuf(rzip_control *control)
 {
 	control->flags &= ~FLAG_TMP_OUTBUF;
 	free(control->tmp_outbuf);
+}
+
+static void open_tmpinbuf(rzip_control *control)
+{
+	control->flags |= FLAG_TMP_INBUF;
+	control->in_maxlen = control->maxram;
+	control->tmp_inbuf = malloc(control->maxram + control->page_size);
+	if (unlikely(!control->tmp_inbuf))
+		fatal("Failed to malloc tmp_inbuf in open_tmpinbuf\n");
+}
+
+void close_tmpinbuf(rzip_control *control)
+{
+	control->flags &= ~FLAG_TMP_INBUF;
+	free(control->tmp_inbuf);
 }
 
 /*
