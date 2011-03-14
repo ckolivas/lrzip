@@ -679,10 +679,7 @@ static void mmap_stdin(rzip_control *control, uchar *buf, struct rzip_state *st)
 
 	total = 0;
 	while (len > 0) {
-		if (len > one_g)
-			ret = one_g;
-		else
-			ret = len;
+		ret = MIN(len, one_g);
 		ret = read(0, offset_buf, (size_t)ret);
 		if (unlikely(ret < 0))
 			fatal("Failed to read in mmap_stdin\n");
