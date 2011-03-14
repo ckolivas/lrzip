@@ -700,7 +700,7 @@ void get_fileinfo(rzip_control *control)
 		}
 	}
 
-	/* Version < 0.4 had different file format */
+	/* Versions 0.3-0.6 had different file formats */
 	if (control->major_version == 0 && control->minor_version < 4)
 		seekspot = 50;
 	else if (control->major_version == 0 && control->minor_version == 4)
@@ -713,8 +713,7 @@ void get_fileinfo(rzip_control *control)
 		fatal("Failed to lseek in get_fileinfo\n");
 
 	/* Read the compression type of the first block. It's possible that
-	   not all blocks are compressed so this may not be accurate.
-	 */
+	   not all blocks are compressed so this may not be accurate. */
 	if (unlikely(read(fd_in, &ctype, 1) != 1))
 		fatal("Failed to read in get_fileinfo\n");
 

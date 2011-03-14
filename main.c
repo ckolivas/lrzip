@@ -654,6 +654,9 @@ int main(int argc, char *argv[])
 		if (control.infile && (strcmp(control.infile, "-") == 0))
 			control.flags |= FLAG_STDIN;
 
+		if (INFO && STDIN)
+			failure("Will not get file info from STDIN\n");
+
 		if (control.outname && (strcmp(control.outname, "-") == 0)) {
 			control.flags |= FLAG_STDOUT;
 			control.msgout = stderr;
