@@ -975,7 +975,7 @@ retry:
 			print_output("%02x", md5_resblock[j] & 0xFF);
 		print_output("\n");
 	}
-	if (unlikely(write_1g(control, control->fd_out, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
+	if (unlikely(write_1g(control, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 		fatal("Failed to write md5 in rzip_fd\n");
 
 	if (TMP_OUTBUF)

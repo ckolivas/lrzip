@@ -135,7 +135,7 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, int fd_out, u
 	if (unlikely(stream_read == -1 ))
 		fatal("Failed to read_stream in unzip_literal\n");
 
-	if (unlikely(write_1g(control, fd_out, buf, (size_t)stream_read) != (ssize_t)stream_read))
+	if (unlikely(write_1g(control, buf, (size_t)stream_read) != (ssize_t)stream_read))
 		fatal("Failed to write literal buffer of size %lld\n", stream_read);
 
 	if (!HAS_MD5)
@@ -189,7 +189,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, int fd_out, int
 		if (unlikely(read_fdhist(control, off_buf, (size_t)n) != (ssize_t)n))
 			fatal("Failed to read %d bytes in unzip_match\n", n);
 
-		if (unlikely(write_1g(control, fd_out, off_buf, (size_t)n) != (ssize_t)n))
+		if (unlikely(write_1g(control, off_buf, (size_t)n) != (ssize_t)n))
 			fatal("Failed to write %d bytes in unzip_match\n", n);
 
 		if (!HAS_MD5)

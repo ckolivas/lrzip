@@ -26,7 +26,7 @@
 void create_pthread(pthread_t  *thread, pthread_attr_t *attr,
 	void * (*start_routine)(void *), void *arg);
 void join_pthread(pthread_t th, void **thread_return);
-ssize_t write_1g(rzip_control *control, int fd, void *buf, i64 len);
+ssize_t write_1g(rzip_control *control, void *buf, i64 len);
 ssize_t read_1g(int fd, void *buf, i64 len);
 void prepare_streamout_threads(rzip_control *control);
 void close_streamout_threads(rzip_control *control);

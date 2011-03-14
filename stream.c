@@ -635,10 +635,10 @@ out:
 
 const i64 one_g = 1000 * 1024 * 1024;
 
-ssize_t put_fdout(rzip_control *control, int fd, void *offset_buf, ssize_t ret)
+ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
 {
 	if (!TMP_OUTBUF)
-		return write(fd, offset_buf, (size_t)ret);
+		return write(control->fd_out, offset_buf, (size_t)ret);
 
 	if (unlikely(control->out_ofs + ret > control->out_maxlen))
 		failure("Tried to write beyond temporary output buffer. Need a larger out_maxlen\n");
@@ -652,7 +652,7 @@ ssize_t put_fdout(rzip_control *control, int fd, void *offset_buf, ssize_t ret)
 /* This is a custom version of write() which writes in 1GB chunks to avoid
    the overflows at the >= 2GB mark thanks to 32bit fuckage. This should help
    even on the rare occasion write() fails to write 1GB as well. */
-ssize_t write_1g(rzip_control *control, int fd, void *buf, i64 len)
+ssize_t write_1g(rzip_control *control,void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
 	ssize_t ret;
@@ -664,7 +664,7 @@ ssize_t write_1g(rzip_control *control, int fd, void *buf, i64 len)
 			ret = one_g;
 		else
 			ret = len;
-		ret = put_fdout(control, fd, offset_buf, (size_t)ret);
+		ret = put_fdout(control, offset_buf, (size_t)ret);
 		if (unlikely(ret <= 0))
 			return ret;
 		len -= ret;
@@ -702,7 +702,7 @@ static int write_buf(rzip_control *control, int f, uchar *p, i64 len)
 {
 	ssize_t ret;
 
-	ret = write_1g(control, f, p, (size_t)len);
+	ret = write_1g(control, p, (size_t)len);
 	if (unlikely(ret == -1)) {
 		print_err("Write of length %lld failed - %s\n", len, strerror(errno));
 		return -1;
