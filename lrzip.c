@@ -449,6 +449,12 @@ static void open_tmpinbuf(rzip_control *control)
 		fatal("Failed to malloc tmp_inbuf in open_tmpinbuf\n");
 }
 
+void clear_tmpinbuf(rzip_control *control)
+{
+	control->in_relofs += control->in_len;
+	control->in_len = control->in_ofs = 0;
+}
+
 void close_tmpinbuf(rzip_control *control)
 {
 	control->flags &= ~FLAG_TMP_INBUF;
