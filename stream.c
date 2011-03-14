@@ -764,6 +764,15 @@ static int read_i64(int f, i64 *v)
 	return 0;
 }
 
+static int fd_seekto(rzip_control *control, struct stream_info *sinfo, i64 spos, i64 pos)
+{
+	if (unlikely(lseek(sinfo->fd, spos, SEEK_SET) != spos)) {
+		print_err("Failed to seek to %lld in stream\n", pos);
+		return -1;
+	}
+	return 0;
+}
+
 /* seek to a position within a set of streams - return -1 on failure */
 static int seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
 {
@@ -772,19 +781,21 @@ static int seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
 	if (TMP_OUTBUF) {
 		spos -= control->rel_ofs;
 		control->out_ofs = spos;
-		if (unlikely((!(DECOMPRESS || TEST_ONLY) && (spos > control->out_len)) ||
-			spos > control->out_maxlen || spos < 0)) {
-				print_err("Trying to seek to %lld outside tmp outbuf in seekto\n", spos);
-				return -1;
+		if (unlikely(spos > control->out_len || spos < 0)) {
+			print_err("Trying to seek to %lld outside tmp outbuf in seekto\n", spos);
+			return -1;
 		}
 		return 0;
 	}
 
-	if (unlikely(lseek(sinfo->fd, spos, SEEK_SET) != spos)) {
-		print_err("Failed to seek to %lld in stream\n", pos);
-		return -1;
-	}
-	return 0;
+	return fd_seekto(control, sinfo, spos, pos);
+}
+
+static int read_seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
+{
+	i64 spos = pos + sinfo->initial_pos;
+
+	return fd_seekto(control, sinfo, spos, pos);
 }
 
 static i64 get_seek(rzip_control *control, int fd)
@@ -1286,7 +1297,7 @@ fill_another:
 	if (unlikely(ucthread[s->uthread_no].busy))
 		failure("Trying to start a busy thread, this shouldn't happen!\n");
 
-	if (unlikely(seekto(control, sinfo, s->last_head)))
+	if (unlikely(read_seekto(control, sinfo, s->last_head)))
 		return -1;
 
 	if (unlikely(read_u8(sinfo->fd, &c_type)))
