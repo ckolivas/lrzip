@@ -520,7 +520,9 @@ void decompress_file(rzip_control *control)
 	print_progress("\r");
 	if (!(STDOUT | TEST_ONLY))
 		print_output("Output filename is: %s: ", control->outfile);
-        print_progress("[OK] - %lld bytes                                \n", expected_size);
+	if (!expected_size)
+		expected_size = control->st_size;
+	print_progress("[OK] - %lld bytes                                \n", expected_size);
 
 	if (unlikely(close(fd_hist) || close(fd_out)))
 		fatal("Failed to close files\n");

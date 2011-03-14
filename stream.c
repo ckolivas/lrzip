@@ -988,6 +988,7 @@ void *open_stream_in(rzip_control *control, int f, int n)
 			goto failed;
 		}
 		print_maxverbose("Chunk size: %lld\n", sinfo->size);
+		control->st_size += sinfo->size;
 	}
 	sinfo->initial_pos = lseek(f, 0, SEEK_CUR);
 
