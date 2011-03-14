@@ -33,5 +33,7 @@ void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
 void get_fileinfo(rzip_control *control);
 void compress_file(rzip_control *control);
 void write_stdout_header(rzip_control *control);
-void flush_stdout(rzip_control *control);
+void write_fdout(rzip_control *control, void *buf, i64 len);
+void flush_tmpoutbuf(rzip_control *control);
+void close_tmpoutbuf(rzip_control *control);
 #endif

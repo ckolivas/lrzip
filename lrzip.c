@@ -262,10 +262,28 @@ static void fwrite_stdout(void *buf, i64 len)
 	fflush(stdout);
 }
 
-void flush_stdout(rzip_control *control)
+void write_fdout(rzip_control *control, void *buf, i64 len)
+{
+	uchar *offset_buf = buf;
+	ssize_t ret;
+
+	while (len > 0) {
+		ret = MIN(len, one_g);
+		ret = write(control->fd_out, offset_buf, (size_t)ret);
+		if (unlikely(ret <= 0))
+			fatal("Failed to write to fd_out in write_fdout\n");
+		len -= ret;
+		offset_buf += ret;
+	}
+}
+
+void flush_tmpoutbuf(rzip_control *control)
 {
 	print_verbose("Dumping buffer to stdout.\n");
-	fwrite_stdout(control->tmp_outbuf, control->out_len);
+	if (STDOUT && !TEST_ONLY)
+		fwrite_stdout(control->tmp_outbuf, control->out_len);
+	else if (!STDOUT && !TEST_ONLY)
+		write_fdout(control, control->tmp_outbuf, control->out_len);
 	control->rel_ofs += control->out_len;
 	control->out_ofs = control->out_len = 0;
 }
@@ -358,6 +376,12 @@ static void open_tmpoutbuf(rzip_control *control)
 		control->out_ofs = control->out_len = MAGIC_LEN;
 }
 
+void close_tmpoutbuf(rzip_control *control)
+{
+	control->flags &= ~FLAG_TMP_OUTBUF;
+	free(control->tmp_outbuf);
+}
+
 /*
   decompress one file from the command line
 */
@@ -446,11 +470,6 @@ void decompress_file(rzip_control *control)
 
 		preserve_perms(control, fd_in, fd_out);
 	} else {
-		/* When using a temporary output buffer we still generate
-		 * temporary output files in case we use them should we run
-		 * out of space. */
-		if (!TEST_ONLY)
-			open_tmpoutbuf(control);
 		fd_out = open_tmpoutfile(control);
 		if (unlikely(fd_out == -1))
 			fatal("Failed to create %s\n", control->outfile);
@@ -461,6 +480,8 @@ void decompress_file(rzip_control *control)
 		if (unlikely(unlink(control->outfile)))
 			fatal("Failed to unlink tmpfile: %s\n", control->outfile);
 	}
+
+	open_tmpoutbuf(control);
 
 	read_magic(control, fd_in, &expected_size);
 
@@ -847,7 +868,7 @@ void compress_file(rzip_control *control)
 	if (unlikely(!STDOUT && close(fd_out)))
 		fatal("Failed to close fd_out\n");
 	if (TMP_OUTBUF)
-		free(control->tmp_outbuf);
+		close_tmpoutbuf(control);
 
 	if (!KEEP_FILES) {
 		if (unlikely(unlink(control->infile)))

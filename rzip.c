@@ -979,7 +979,7 @@ retry:
 		fatal("Failed to write md5 in rzip_fd\n");
 
 	if (TMP_OUTBUF)
-		flush_stdout(control);
+		flush_tmpoutbuf(control);
 
 	gettimeofday(&current, NULL);
 	if (STDIN)

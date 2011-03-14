@@ -88,7 +88,9 @@ static i64 seekto_fdout(rzip_control *control, i64 pos)
 	if (control->out_ofs > control->out_len)
 		control->out_len = control->out_ofs;
 	if (unlikely(control->out_ofs < 0 || control->out_ofs > control->out_maxlen)) {
-		print_err("Trying to seek outside tmpoutbuf in seekto_fdout\n");
+		print_err("out_ofs %lld out_len %lld hist_ofs %lld rel_ofs %lld\n",
+			  control->out_ofs, control->out_len, control->hist_ofs, control->rel_ofs);
+		print_err("Trying to seek outside tmpoutbuf to %lld in seekto_fdout\n", control->out_ofs);
 		return -1;
 	}
 	return pos;
@@ -102,7 +104,9 @@ static i64 seekto_fdhist(rzip_control *control, i64 pos)
 	if (control->hist_ofs > control->out_len)
 		control->out_len = control->hist_ofs;
 	if (unlikely(control->hist_ofs < 0 || control->hist_ofs > control->out_maxlen)) {
-		print_err("Trying to seek outside tmpoutbuf in seekto_fdhist\n");
+		print_err("out_ofs %lld out_len %lld hist_ofs %lld rel_ofs %lld\n",
+			  control->out_ofs, control->out_len, control->hist_ofs, control->rel_ofs);
+		print_err("Trying to seek outside tmpoutbuf to %lld in seekto_fdhist\n", control->hist_ofs);
 		return -1;
 	}
 	return pos;
@@ -314,12 +318,10 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 
 	do {
 		total += runzip_chunk(control, fd_in, fd_out, fd_hist, expected_size, total);
-		if (STDOUT) {
-			if (TMP_OUTBUF)
-				flush_stdout(control);
-			else
-				dump_tmpoutfile(control, fd_out);
-		}
+		if (TMP_OUTBUF)
+			flush_tmpoutbuf(control);
+		else if (STDOUT)
+			dump_tmpoutfile(control, fd_out);
 	} while (total < expected_size || (!expected_size && !control->eof));
 
 	gettimeofday(&end,NULL);
@@ -358,6 +360,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 			FILE *md5_fstream;
 			int i, j;
 
+			if (TMP_OUTBUF)
+				close_tmpoutbuf(control);
 			memcpy(md5_stored, md5_resblock, MD5_DIGEST_SIZE);
 			if (unlikely(seekto_fdhist(control, 0) == -1))
 				fatal("Failed to seekto_fdhist in runzip_fd\n");

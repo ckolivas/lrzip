@@ -635,21 +635,6 @@ out:
 
 const i64 one_g = 1000 * 1024 * 1024;
 
-static void write_fdout(rzip_control *control, void *buf, i64 len)
-{
-	uchar *offset_buf = buf;
-	ssize_t ret;
-
-	while (len > 0) {
-		ret = MIN(len, one_g);
-		ret = write(control->fd_out, offset_buf, (size_t)ret);
-		if (unlikely(ret <= 0))
-			fatal("Failed to write to fd_out in write_fdout\n");
-		len -= ret;
-		offset_buf += ret;
-	}
-}
-
 /* Look at whether we're writing to a ram location or physical files and write
  * the data accordingly. */
 ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
@@ -661,9 +646,8 @@ ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
 		/* The data won't fit in a temporary output buffer so we have
 		 * to fall back to temporary files. */
 		print_verbose("Unable to decompress entirely in ram, will use physical files\n");
-		control->flags &= ~FLAG_TMP_OUTBUF;
 		write_fdout(control, control->tmp_outbuf, control->out_len);
-		free(control->tmp_outbuf);
+		close_tmpoutbuf(control);
 		write_fdout(control, offset_buf, ret);
 		return ret;
 	}
@@ -1139,7 +1123,7 @@ retry:
 		if (TMP_OUTBUF) {
 			if (!control->magic_written)
 				write_stdout_header(control);
-			flush_stdout(control);
+			flush_tmpoutbuf(control);
 		}
 
 		/* Write chunk bytes of this block */
