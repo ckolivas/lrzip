@@ -85,6 +85,8 @@ static i64 seekto_fdout(rzip_control *control, i64 pos)
 	if (!TMP_OUTBUF)
 		return lseek(control->fd_out, pos, SEEK_SET);
 	control->out_ofs = pos - control->rel_ofs;
+	if (control->out_ofs > control->out_len)
+		control->out_len = control->out_ofs;
 	if (unlikely(control->out_ofs < 0 || control->out_ofs > control->out_maxlen)) {
 		print_err("Trying to seek outside tmpoutbuf in seekto_fdout\n");
 		return -1;
@@ -97,6 +99,8 @@ static i64 seekto_fdhist(rzip_control *control, i64 pos)
 	if (!TMP_OUTBUF)
 		return lseek(control->fd_hist, pos, SEEK_SET);
 	control->hist_ofs = pos - control->rel_ofs;
+	if (control->hist_ofs > control->out_len)
+		control->out_len = control->hist_ofs;
 	if (unlikely(control->hist_ofs < 0 || control->hist_ofs > control->out_maxlen)) {
 		print_err("Trying to seek outside tmpoutbuf in seekto_fdhist\n");
 		return -1;
