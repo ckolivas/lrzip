@@ -143,18 +143,11 @@ static void write_magic(rzip_control *control, int fd_in, int fd_out)
 	free(magic);
 }
 
-void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
+static void get_magicver05(rzip_control *control, char *magic)
 {
-	char magic[MAGIC_LEN];
+	i64 expected_size;
 	uint32_t v;
 	int md5, i;
-
-	memset(magic, 0, sizeof(magic));
-	/* Initially read only <v0.6x header */
-	if (unlikely(read(fd_in, magic, 24) != 24))
-		fatal("Failed to read magic header\n");
-
-	*expected_size = 0;
 
 	if (unlikely(strncmp(magic, "LRZI", 4)))
 		failure("Not an lrzip file\n");
@@ -162,24 +155,20 @@ void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 	memcpy(&control->major_version, &magic[4], 1);
 	memcpy(&control->minor_version, &magic[5], 1);
 
+	print_verbose("Detected lrzip version %d.%d file.\n", control->major_version, control->minor_version);
+	if (control->major_version > LRZIP_MAJOR_VERSION ||
+	    (control->major_version == LRZIP_MAJOR_VERSION && control->minor_version > LRZIP_MINOR_VERSION))
+		print_output("Attempting to work with file produced by newer lrzip version %d.%d file.\n", control->major_version, control->minor_version);
+
 	/* Support the convoluted way we described size in versions < 0.40 */
 	if (control->major_version == 0 && control->minor_version < 4) {
 		memcpy(&v, &magic[6], 4);
-		*expected_size = ntohl(v);
+		expected_size = ntohl(v);
 		memcpy(&v, &magic[10], 4);
-		*expected_size |= ((i64)ntohl(v)) << 32;
-	} else {
-		memcpy(expected_size, &magic[6], 8);
-		if (control->major_version == 0 && control->minor_version > 5) {
-			if (unlikely(read(fd_in, magic + 24, 15) != 15))
-				fatal("Failed to read magic header\n");
-			if (magic[22] == 1)
-				control->encrypt = 1;
-			memcpy(&control->secs, &magic[23], 8);
-			memcpy(&control->usecs, &magic[31], 8);
-			print_maxverbose("Seconds %lld\n", control->secs);
-		}
-	}
+		expected_size |= ((i64)ntohl(v)) << 32;
+	} else
+		memcpy(&expected_size, &magic[6], 8);
+	control->st_size = expected_size;
 
 	/* restore LZMA compression flags only if stored */
 	if ((int) magic[16]) {
@@ -191,11 +180,34 @@ void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 	md5 = magic[21];
 	if (md5 == 1)
 		control->flags |= FLAG_MD5;
+}
 
-	print_verbose("Detected lrzip version %d.%d file.\n", control->major_version, control->minor_version);
-	if (control->major_version > LRZIP_MAJOR_VERSION ||
-	    (control->major_version == LRZIP_MAJOR_VERSION && control->minor_version > LRZIP_MINOR_VERSION))
-		print_output("Attempting to work with file produced by newer lrzip version %d.%d file.\n", control->major_version, control->minor_version);
+static void get_magicver06(rzip_control *control, char *magic)
+{
+	if (magic[22] == 1)
+		control->encrypt = 1;
+	memcpy(&control->secs, &magic[23], 8);
+	memcpy(&control->usecs, &magic[31], 8);
+	print_maxverbose("Seconds %lld\n", control->secs);
+}
+
+void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
+{
+	char magic[MAGIC_LEN];
+
+	memset(magic, 0, sizeof(magic));
+	/* Initially read only <v0.6x header */
+	if (unlikely(read(fd_in, magic, 24) != 24))
+		fatal("Failed to read magic header\n");
+
+	get_magicver05(control, magic);
+	*expected_size = control->st_size;
+
+	if (control->major_version == 0 && control->minor_version > 5) {
+		if (unlikely(read(fd_in, magic + 24, 15) != 15))
+			fatal("Failed to read v06 magic header\n");
+		get_magicver06(control, magic);
+	}
 }
 
 /* preserve ownership and permissions where possible */
@@ -279,11 +291,13 @@ void write_fdout(rzip_control *control, void *buf, i64 len)
 
 void flush_tmpoutbuf(rzip_control *control)
 {
-	print_maxverbose("Dumping buffer to physical file.\n");
-	if (STDOUT && !TEST_ONLY)
-		fwrite_stdout(control->tmp_outbuf, control->out_len);
-	else if (!STDOUT && !TEST_ONLY)
-		write_fdout(control, control->tmp_outbuf, control->out_len);
+	if (!TEST_ONLY) {
+		print_maxverbose("Dumping buffer to physical file.\n");
+		if (STDOUT)
+			fwrite_stdout(control->tmp_outbuf, control->out_len);
+		else
+			write_fdout(control, control->tmp_outbuf, control->out_len);
+	}
 	control->out_relofs += control->out_len;
 	control->out_ofs = control->out_len = 0;
 }
@@ -340,6 +354,29 @@ int open_tmpinfile(rzip_control *control)
 	if (unlikely(unlink(control->infile)))
 		fatal("Failed to unlink tmpfile: %s\n", control->infile);
 	return fd_in;
+}
+
+static void read_tmpinmagic(rzip_control *control)
+{
+	char magic[MAGIC_LEN];
+	int md5, i, tmpchar;
+
+	memset(magic, 0, sizeof(magic));
+	for (i = 0; i < 24; i++) {
+		tmpchar = getchar();
+		if (unlikely(tmpchar == EOF))
+			failure("Reached end of file on STDIN prematurely on v05 magic read\n");
+		magic[i] = (char)tmpchar;
+	}
+	get_magicver05(control, magic);
+	if (control->major_version == 0 && control->minor_version > 5) {
+		for (i = 24; i < MAGIC_LEN; i++) {
+			tmpchar = getchar();
+			if (unlikely(tmpchar == EOF))
+				failure("Reached end of file on STDIN prematurely on v06 magic read\n");
+			magic[i] = (char)tmpchar;
+		}
+	}
 }
 
 /* Read data from stdin into temporary inputfile */
@@ -460,6 +497,9 @@ void decompress_file(rzip_control *control)
 
 	if (STDIN) {
 		fd_in = open_tmpinfile(control);
+		open_tmpinbuf(control);
+		read_tmpinmagic(control);
+		expected_size = control->st_size;
 		read_tmpinfile(control, fd_in);
 	} else {
 		fd_in = open(infilecopy, O_RDONLY);
@@ -499,7 +539,8 @@ void decompress_file(rzip_control *control)
 
 	open_tmpoutbuf(control);
 
-	read_magic(control, fd_in, &expected_size);
+	if (!STDIN)
+		read_magic(control, fd_in, &expected_size);
 
 	if (!STDOUT) {
 		/* Check if there's enough free space on the device chosen to fit the
