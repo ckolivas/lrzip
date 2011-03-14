@@ -689,6 +689,8 @@ static void mmap_stdin(rzip_control *control, uchar *buf, struct rzip_state *st)
 		total += ret;
 		if (ret == 0) {
 			/* Should be EOF */
+			if (total < 128)
+				failure("Will not compress a tiny file\n");
 			print_maxverbose("Shrinking chunk to %lld\n", total);
 			buf = (uchar *)mremap(buf, st->chunk_size, total, 0);
 			if (unlikely(buf == MAP_FAILED))
@@ -785,6 +787,8 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 
 	if (!STDIN) {
 		len = control->st_size = s.st_size;
+		if (len < 128)
+			failure("Will not compress a tiny file\n");
 		print_verbose("File size: %lld\n", len);
 	} else
 		control->st_size = 0;
