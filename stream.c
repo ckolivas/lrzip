@@ -635,13 +635,38 @@ out:
 
 const i64 one_g = 1000 * 1024 * 1024;
 
+static void write_fdout(rzip_control *control, void *buf, i64 len)
+{
+	uchar *offset_buf = buf;
+	ssize_t ret;
+
+	while (len > 0) {
+		ret = MIN(len, one_g);
+		ret = write(control->fd_out, offset_buf, (size_t)ret);
+		if (unlikely(ret <= 0))
+			fatal("Failed to write to fd_out in write_fdout\n");
+		len -= ret;
+		offset_buf += ret;
+	}
+}
+
+/* Look at whether we're writing to a ram location or physical files and write
+ * the data accordingly. */
 ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
 {
 	if (!TMP_OUTBUF)
 		return write(control->fd_out, offset_buf, (size_t)ret);
 
-	if (unlikely(control->out_ofs + ret > control->out_maxlen))
-		failure("Tried to write beyond temporary output buffer. Need a larger out_maxlen\n");
+	if (unlikely(control->out_ofs + ret > control->out_maxlen)) {
+		/* The data won't fit in a temporary output buffer so we have
+		 * to fall back to temporary files. */
+		print_verbose("Unable to decompress entirely in ram, will use physical files\n");
+		control->flags &= ~FLAG_TMP_OUTBUF;
+		write_fdout(control, control->tmp_outbuf, control->out_len);
+		free(control->tmp_outbuf);
+		write_fdout(control, offset_buf, ret);
+		return ret;
+	}
 	memcpy(control->tmp_outbuf + control->out_ofs, offset_buf, ret);
 	control->out_ofs += ret;
 	if (likely(control->out_ofs > control->out_len))
@@ -652,7 +677,7 @@ ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
 /* This is a custom version of write() which writes in 1GB chunks to avoid
    the overflows at the >= 2GB mark thanks to 32bit fuckage. This should help
    even on the rare occasion write() fails to write 1GB as well. */
-ssize_t write_1g(rzip_control *control,void *buf, i64 len)
+ssize_t write_1g(rzip_control *control, void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
 	ssize_t ret;
@@ -660,10 +685,7 @@ ssize_t write_1g(rzip_control *control,void *buf, i64 len)
 
 	total = 0;
 	while (len > 0) {
-		if (len > one_g)
-			ret = one_g;
-		else
-			ret = len;
+		ret = MIN(len, one_g);
 		ret = put_fdout(control, offset_buf, (size_t)ret);
 		if (unlikely(ret <= 0))
 			return ret;
