@@ -45,7 +45,11 @@
 # define PAGE_SIZE (4096)
 #endif
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "lrzip_private.h"
+#include "liblrzip.h"
 
 static const char *infile = NULL;
 static char delete_infile = 0;
@@ -121,4 +125,20 @@ void round_to_page(i64 *size)
 	*size -= *size % PAGE_SIZE;
 	if (unlikely(!*size))
 		*size = PAGE_SIZE;
+}
+
+void get_rand(uchar *buf, int len)
+{
+	int fd, i;
+
+	fd = open("/dev/urandom", O_RDONLY);
+	if (fd == -1) {
+		for (i = 0; i < len; i++)
+			buf[i] = (uchar)random();
+	} else {
+		if (unlikely(read(fd, buf, len) != len))
+			fatal("Failed to read fd in get_rand\n");
+		if (unlikely(close(fd)))
+			fatal("Failed to close fd in get_rand\n");
+	}
 }

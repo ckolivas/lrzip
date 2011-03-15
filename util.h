@@ -28,5 +28,6 @@ void register_outputfile(FILE *f);
 void fatal(const char *format, ...);
 void failure(const char *format, ...);
 void round_to_page(i64 *size);
+void get_rand(uchar *buf, int len);
 
 #endif
