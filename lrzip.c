@@ -74,7 +74,7 @@ static char *make_magic(rzip_control *control)
 	 * crc is still stored for compatibility with 0.5 versions.
 	 */
 	magic[21] = 1;
-	if (control->encrypt)
+	if (ENCRYPT)
 		magic[22] = 1;
 
 	memcpy(&magic[23], &control->salt, 16);
@@ -153,12 +153,13 @@ static i64 enc_loops(uchar b1, uchar b2)
 static void get_magicver06(rzip_control *control, char *magic)
 {
 	if (magic[22] == 1)
-		control->encrypt = 1;
+		control->flags |= FLAG_ENCRYPT;
 	memcpy(control->salt, &magic[23], 16);
 	memcpy(&control->secs, control->salt, 5);
 	print_maxverbose("Storage time in seconds %lld\n", control->secs);
 	control->encloops = enc_loops(control->salt[5], control->salt[6]);
-	print_maxverbose("Encryption hash loops %lld\n", control->encloops);
+	if (ENCRYPT)
+		print_maxverbose("Encryption hash loops %lld\n", control->encloops);
 }
 
 void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
@@ -791,6 +792,8 @@ next_chunk:
 
 	print_output("%s:\nlrzip version: %d.%d file\n", infilecopy, control->major_version, control->minor_version);
 
+	if (ENCRYPT)
+		print_output("Encrypted\n");
 	print_output("Compression: ");
 	if (ctype == CTYPE_NONE)
 		print_output("rzip alone\n");

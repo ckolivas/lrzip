@@ -77,6 +77,7 @@
 #define LZO_TEST	(control.flags & FLAG_THRESHOLD)
 #define TMP_OUTBUF	(control.flags & FLAG_TMP_OUTBUF)
 #define TMP_INBUF	(control.flags & FLAG_TMP_INBUF)
+#define ENCRYPT		(control.flags & FLAG_ENCRYPT)
 
 #define print_output(format, args...)	do {\
 	fprintf(control.msgout, format, ##args);	\
@@ -166,6 +167,7 @@ static void usage(void)
 	print_output("General options:\n");
 	print_output("     -c            check integrity of file written on decompression\n");
 	print_output("     -d            decompress\n");
+	print_output("     -e            password protected encryption on compression\n");
 	print_output("     -h|-?         show help\n");
 	print_output("     -H            display md5 hash integrity information\n");
 	print_output("     -i            show compressed file information\n");
@@ -268,7 +270,8 @@ static void show_summary(void)
 				print_verbose("Using Unlimited Window size\n");
 		}
 		print_maxverbose("Storage time in seconds %lld\n", control.secs);
-		print_maxverbose("Encryption hash loops %lld\n", control.encloops);
+		if (ENCRYPT)
+			print_maxverbose("Encryption hash loops %lld\n", control.encloops);
 	}
 }
 
@@ -515,7 +518,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(&control);
 
-	while ((c = getopt(argc, argv, "L:h?dS:tVvDfqo:w:nlbUO:TN:p:gziHck")) != -1) {
+	while ((c = getopt(argc, argv, "bcdDefghHiklL:nN:o:O:p:qS:tTUvVw:z?")) != -1) {
 		switch (c) {
 		case 'b':
 			if (control.flags & FLAG_NOT_LZMA)
@@ -531,6 +534,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'D':
 			control.flags &= ~FLAG_KEEP_FILES;
+			break;
+		case 'e':
+			control.flags |= FLAG_ENCRYPT;
 			break;
 		case 'f':
 			control.flags |= FLAG_FORCE_REPLACE;

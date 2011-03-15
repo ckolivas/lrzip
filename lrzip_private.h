@@ -122,6 +122,7 @@ typedef struct md5_ctx md5_ctx;
 #define FLAG_THRESHOLD		(1 << 20)
 #define FLAG_TMP_OUTBUF		(1 << 21)
 #define FLAG_TMP_INBUF		(1 << 22)
+#define FLAG_ENCRYPT		(1 << 23)
 
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
@@ -191,7 +192,6 @@ struct rzip_control {
 	int fd_in;
 	int fd_out;
 	int fd_hist;
-	char encrypt;
 	i64 encloops;
 	uchar loop_byte1;
 	uchar loop_byte2;

@@ -48,6 +48,7 @@
 #define LZO_TEST	(control->flags & FLAG_THRESHOLD)
 #define TMP_OUTBUF	(control->flags & FLAG_TMP_OUTBUF)
 #define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
+#define ENCRYPT		(control->flags & FLAG_ENCRYPT)
 
 #define print_output(format, args...)	do {\
 	fprintf(control->msgout, format, ##args);	\
