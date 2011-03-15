@@ -46,7 +46,12 @@ lrzip_SOURCES = \
   util.c \
   util.h \
   md5.c \
-  md5.h
+  md5.h \
+  aes.c \
+  aes.h \
+  sha4.c \
+  sha4.h
+
 lrzip_LDADD = lzma/C/liblzma.la
 
 dist_doc_DATA = \
