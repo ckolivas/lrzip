@@ -112,9 +112,13 @@ static char *make_magic(rzip_control *control)
 	if (unlikely(gettimeofday(&tv, NULL)))
 		fatal("Failed to gettimeofday in write_magic\n");
 	control->secs = tv.tv_sec;
-	control->usecs = tv.tv_usec;
+	/* The first 6 bytes of the salt is random data. The last 2 bytes
+	 * encode how many times to hash the password */
+	get_rand(control->salt, 6);
+	control->encloops = nloops(control->secs, control->salt + 6, control->salt + 7);
+
 	memcpy(&magic[23], &control->secs, 8);
-	memcpy(&magic[31], &control->usecs, 8);
+	memcpy(&magic[31], &control->salt, 8);
 
 	return magic;
 }
@@ -187,7 +191,7 @@ static void get_magicver06(rzip_control *control, char *magic)
 	if (magic[22] == 1)
 		control->encrypt = 1;
 	memcpy(&control->secs, &magic[23], 8);
-	memcpy(&control->usecs, &magic[31], 8);
+	memcpy(&control->salt, &magic[31], 8);
 	print_maxverbose("Seconds %lld\n", control->secs);
 }
 

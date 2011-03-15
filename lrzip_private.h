@@ -196,7 +196,7 @@ struct rzip_control {
 	uchar loop_byte1;
 	uchar loop_byte2;
 	i64 secs;
-	i64 usecs;
+	uchar salt[8];
 	unsigned char eof;
 	unsigned char magic_written;
 	md5_ctx ctx;
