@@ -37,5 +37,6 @@ void write_fdout(rzip_control *control, void *buf, i64 len);
 void flush_tmpoutbuf(rzip_control *control);
 void close_tmpoutbuf(rzip_control *control);
 void clear_tmpinbuf(rzip_control *control);
+void clear_tmpinfile(rzip_control *control);
 void close_tmpinbuf(rzip_control *control);
 #endif

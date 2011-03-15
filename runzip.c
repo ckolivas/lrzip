@@ -327,6 +327,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 			dump_tmpoutfile(control, fd_out);
 		if (TMP_INBUF)
 			clear_tmpinbuf(control);
+		else if (STDIN)
+			clear_tmpinfile(control);
 	} while (total < expected_size || (!expected_size && !control->eof));
 
 	gettimeofday(&end,NULL);
