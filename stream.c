@@ -464,8 +464,10 @@ static int bzip2_decompress_buf(struct uncomp_thread *ucthread)
 	bzerr = BZ2_bzBuffToBuffDecompress((char*)ucthread->s_buf, &dlen, (char*)c_buf, ucthread->c_len, 0, 0);
 	if (unlikely(bzerr != BZ_OK)) {
 		print_err("Failed to decompress buffer - bzerr=%d\n", bzerr);
+		free(ucthread->s_buf);
+		ucthread->s_buf = c_buf;
 		ret = -1;
-		goto out_free;
+		goto out;
 	}
 
 	if (unlikely(dlen != ucthread->u_len)) {
@@ -473,7 +475,6 @@ static int bzip2_decompress_buf(struct uncomp_thread *ucthread)
 		ret = -1;
 	}
 
-out_free:
 	free(c_buf);
 out:
 	if (ret == -1)
@@ -497,9 +498,11 @@ static int gzip_decompress_buf(struct uncomp_thread *ucthread)
 
 	gzerr = uncompress(ucthread->s_buf, &dlen, c_buf, ucthread->c_len);
 	if (unlikely(gzerr != Z_OK)) {
-		print_err("Failed to decompress buffer - bzerr=%d\n", gzerr);
+		print_err("Failed to decompress buffer - gzerr=%d\n", gzerr);
+		free(ucthread->s_buf);
+		ucthread->s_buf = c_buf;
 		ret = -1;
-		goto out_free;
+		goto out;
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
@@ -507,7 +510,6 @@ static int gzip_decompress_buf(struct uncomp_thread *ucthread)
 		ret = -1;
 	}
 
-out_free:
 	free(c_buf);
 out:
 	if (ret == -1)
@@ -534,8 +536,10 @@ static int lzma_decompress_buf(struct uncomp_thread *ucthread)
 	lzmaerr = LzmaUncompress(ucthread->s_buf, &dlen, c_buf, (SizeT *)&ucthread->c_len, control.lzma_properties, 5);
 	if (unlikely(lzmaerr)) {
 		print_err("Failed to decompress buffer - lzmaerr=%d\n", lzmaerr);
+		free(ucthread->s_buf);
+		ucthread->s_buf = c_buf;
 		ret = -1;
-		goto out_free;
+		goto out;
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
@@ -543,7 +547,6 @@ static int lzma_decompress_buf(struct uncomp_thread *ucthread)
 		ret = -1;
 	}
 
-out_free:
 	free(c_buf);
 out:
 	if (ret == -1)
@@ -565,11 +568,13 @@ static int lzo_decompress_buf(struct uncomp_thread *ucthread)
 		goto out;
 	}
 
-	lzerr = lzo1x_decompress((uchar*)c_buf, ucthread->c_len, (uchar*)ucthread->s_buf, &dlen,NULL);
+	lzerr = lzo1x_decompress((uchar*)c_buf, ucthread->c_len, (uchar*)ucthread->s_buf, &dlen, NULL);
 	if (unlikely(lzerr != LZO_E_OK)) {
 		print_err("Failed to decompress buffer - lzerr=%d\n", lzerr);
+		free(ucthread->s_buf);
+		ucthread->s_buf = c_buf;
 		ret = -1;
-		goto out_free;
+		goto out;
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
@@ -577,7 +582,6 @@ static int lzo_decompress_buf(struct uncomp_thread *ucthread)
 		ret = -1;
 	}
 
-out_free:
 	free(c_buf);
 out:
 	if (ret == -1)
