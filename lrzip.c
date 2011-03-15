@@ -837,6 +837,8 @@ next_chunk:
 		} while (last_head);
 		++stream;
 	}
+	if (ENCRYPT && c_len % CBC_LEN)
+		c_len += CBC_LEN - (c_len % CBC_LEN);
 	if (unlikely((ofs = lseek(fd_in, c_len, SEEK_CUR)) == -1))
 		fatal("Failed to lseek c_len in get_fileinfo\n");
 	/* Chunk byte entry */
