@@ -44,6 +44,7 @@
 #include "stream.h"
 #include "liblrzip.h" /* flag defines */
 #include "sha4.h"
+#include "aes.h"
 
 #define MAGIC_LEN (39)
 
@@ -479,6 +480,7 @@ retry_pass:
 			goto retry_pass;
 		}
 	}
+	print_output("\n");
 	termios_p.c_lflag |= ECHO;
 	tcsetattr(fileno(stdin), 0, &termios_p);
 	free(testphrase);
@@ -486,10 +488,10 @@ retry_pass:
 
 	memcpy(passphrase + PASS_LEN - SALT_LEN, control->salt, SALT_LEN);
 	sha4(passphrase, PASS_LEN, control->hash, 0);
-	/* Copy the first hashed passphrase and use it to xor every
-		* cycle */
+	/* Copy the first hashed passphrase and use it to xor every cycle */
 	memcpy(passphrase, control->hash, HASH_LEN);
 
+	print_maxverbose("Hashing passphrase %lld times\n", control->encloops);
 	for (i = 0; i < control->encloops; i++) {
 		for (j = 0; j < HASH_LEN; j++)
 			control->hash[j] ^= passphrase[j];
@@ -634,8 +636,11 @@ void decompress_file(rzip_control *control)
 		print_verbose("CRC32 ");
 	print_verbose("being used for integrity testing.\n");
 
-	if (ENCRYPT)
+	if (ENCRYPT) {
 		get_hash(control, 0);
+		if (unlikely(aes_setkey_dec(&control->aes_ctx, control->hash, 128)))
+			failure("Failed to aes_setkey_dec in decompress_file\n");
+	}
 
 	print_progress("Decompressing...\n");
 
@@ -921,9 +926,11 @@ void compress_file(rzip_control *control)
 	int fd_in, fd_out;
 	char header[MAGIC_LEN];
 
-	if (ENCRYPT)
+	if (ENCRYPT) {
 		get_hash(control, 1);
-
+		if (unlikely(aes_setkey_enc(&control->aes_ctx, control->hash, 128)))
+			failure("Failed to aes_setkey_enc in compress_file\n");
+	}
 	memset(header, 0, sizeof(header));
 
 	if (!STDIN) {
