@@ -35,7 +35,7 @@
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
 #endif
-
+#include <math.h>
 
 #include "rzip.h"
 #include "lrzip.h"
@@ -267,6 +267,8 @@ static void show_summary(void)
 			if (UNLIMITED)
 				print_verbose("Using Unlimited Window size\n");
 		}
+		print_maxverbose("Storage time in seconds %lld\n", control.secs);
+		print_maxverbose("Encryption hash loops %lld\n", control.encloops);
 	}
 }
 
@@ -425,9 +427,34 @@ static void read_config( struct rzip_control *control )
 */
 }
 
+/* Determine how many times to hash the password when encrypting, based on
+ * the date such that we increase the number of loops according to Moore's
+ * law relative to when the data is encrypted. It is then stored as a two
+ * byte value in the header */
+#define MOORE 1.835          // world constant  [TIMES per YEAR]
+#define ARBITRARY  1000000   // number of sha2 calls per one second in 2011
+#define T_ZERO 1293840000    // seconds since epoch in 2011
+
+#define SECONDS_IN_A_YEAR (365*86400)
+#define MOORE_TIMES_PER_SECOND pow (MOORE, 1.0 / SECONDS_IN_A_YEAR)
+#define ARBITRARY_AT_EPOCH (ARBITRARY * pow (MOORE_TIMES_PER_SECOND, -T_ZERO))
+
+static i64 nloops(i64 seconds, uchar *b1, uchar *b2)
+{
+	i64 nloops_encoded, nloops;
+	int nbits;
+
+	nloops = ARBITRARY_AT_EPOCH * pow(MOORE_TIMES_PER_SECOND, seconds);
+	nbits = log (nloops) / M_LN2;
+	*b1 = nbits - 7;
+	*b2 = nloops >> *b1;
+	nloops_encoded = (i64)*b2 << (i64)*b1;
+	return nloops_encoded;
+}
+
 int main(int argc, char *argv[])
 {
-	struct timeval start_time, end_time;
+	struct timeval start_time, end_time, tv;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
 	int c, i;
@@ -453,6 +480,16 @@ int main(int argc, char *argv[])
 	control.threads = PROCESSORS;	/* get CPUs for LZMA */
 	control.page_size = PAGE_SIZE;
 	control.nice_val = 19;
+
+	/* The first 5 bytes of the salt is the time in seconds.
+	 * The next 2 bytes encode how many times to hash the password.
+	 * The last 9 bytes are random data, making 16 bytes of salt */
+	if (unlikely(gettimeofday(&tv, NULL)))
+		fatal("Failed to gettimeofday in main\n");
+	control.secs = tv.tv_sec;
+	memcpy(control.salt, &control.secs, 5);
+	control.encloops = nloops(control.secs, control.salt + 5, control.salt + 6);
+	get_rand(control.salt + 7, 9);
 
 	/* generate crc table */
 	CrcGenerateTable();

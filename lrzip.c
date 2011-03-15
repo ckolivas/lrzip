@@ -35,7 +35,6 @@
 #include <errno.h>
 #endif
 #include <sys/time.h>
-#include <math.h>
 
 #include "md5.h"
 #include "rzip.h"
@@ -46,39 +45,8 @@
 
 #define MAGIC_LEN (39)
 
-/* Determine how many times to hash the password when encrypting, based on
- * the date such that we increase the number of loops according to Moore's
- * law relative to when the data is encrypted. It is then stored as a two
- * byte value in the header */
-#define MOORE 1.835          // world constant  [TIMES per YEAR]
-#define ARBITRARY  1000000   // number of sha2 calls per one second in 2011
-#define T_ZERO 1293840000    // seconds since epoch in 2011
-
-#define SECONDS_IN_A_YEAR (365*86400)
-#define MOORE_TIMES_PER_SECOND pow (MOORE, 1.0 / SECONDS_IN_A_YEAR)
-#define ARBITRARY_AT_EPOCH (ARBITRARY * pow (MOORE_TIMES_PER_SECOND, -T_ZERO))
-
-static i64 nloops(i64 seconds, uchar *b1, uchar *b2)
-{
-	i64 nloops_encoded, nloops;
-	int nbits;
-
-	nloops = ARBITRARY_AT_EPOCH * pow(MOORE_TIMES_PER_SECOND, seconds);
-	nbits = log (nloops) / M_LN2;
-	*b1 = nbits - 7;
-	*b2 = nloops >> *b1;
-	nloops_encoded = (i64)*b2 << (i64)*b1;
-	return nloops_encoded;
-}
-
-static i64 enc_loops(uchar b1, uchar b2)
-{
-	return (i64)b2 << (i64)b1;
-}
-
 static char *make_magic(rzip_control *control)
 {
-	struct timeval tv;
 	char *magic;
 
 	magic = calloc(MAGIC_LEN, 1);
@@ -109,16 +77,7 @@ static char *make_magic(rzip_control *control)
 	if (control->encrypt)
 		magic[22] = 1;
 
-	if (unlikely(gettimeofday(&tv, NULL)))
-		fatal("Failed to gettimeofday in write_magic\n");
-	control->secs = tv.tv_sec;
-	/* The first 6 bytes of the salt is random data. The last 2 bytes
-	 * encode how many times to hash the password */
-	get_rand(control->salt, 6);
-	control->encloops = nloops(control->secs, control->salt + 6, control->salt + 7);
-
-	memcpy(&magic[23], &control->secs, 8);
-	memcpy(&magic[31], &control->salt, 8);
+	memcpy(&magic[23], &control->salt, 16);
 
 	return magic;
 }
@@ -186,13 +145,20 @@ static void get_magicver05(rzip_control *control, char *magic)
 		control->flags |= FLAG_MD5;
 }
 
+static i64 enc_loops(uchar b1, uchar b2)
+{
+	return (i64)b2 << (i64)b1;
+}
+
 static void get_magicver06(rzip_control *control, char *magic)
 {
 	if (magic[22] == 1)
 		control->encrypt = 1;
-	memcpy(&control->secs, &magic[23], 8);
-	memcpy(&control->salt, &magic[31], 8);
-	print_maxverbose("Seconds %lld\n", control->secs);
+	memcpy(control->salt, &magic[23], 16);
+	memcpy(&control->secs, control->salt, 5);
+	print_maxverbose("Storage time in seconds %lld\n", control->secs);
+	control->encloops = enc_loops(control->salt[5], control->salt[6]);
+	print_maxverbose("Encryption hash loops %lld\n", control->encloops);
 }
 
 void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
@@ -824,8 +790,6 @@ next_chunk:
 	cratio = (long double)expected_size / (long double)infile_size;
 
 	print_output("%s:\nlrzip version: %d.%d file\n", infilecopy, control->major_version, control->minor_version);
-	if (control->secs)
-		print_maxverbose("Storage time seconds: %lld\n", control->secs);
 
 	print_output("Compression: ");
 	if (ctype == CTYPE_NONE)

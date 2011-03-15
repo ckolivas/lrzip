@@ -18,8 +18,9 @@ Magic data:
 16->20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
 21	Flag that md5sum hash is stored at the end of the archive
 22	Flag that the data is encrypted
-23->30	Time in seconds (first 8 bits of salt)
-31->38	Time in useconds (last 8 bits of salt)
+23->27	Time in seconds (first 5 bytes of salt)
+28->29	Encoded number of hash loops (bytes 6-7 of salt)
+30->38	Random data (last 9 bytes of salt)
 
 Rzip chunk data:
 0	Data offsets byte width
