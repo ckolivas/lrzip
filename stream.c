@@ -1101,7 +1101,6 @@ again:
 			goto again;
 		}
 
-		sinfo->total_read += header_length;
 		if (unlikely(c != CTYPE_NONE)) {
 			print_err("Unexpected initial tag %d in streams\n", c);
 			goto failed;
@@ -1418,8 +1417,6 @@ fill_another:
 		header_length = 25;
 	}
 
-	sinfo->total_read += header_length;
-
 	fsync(control->fd_out);
 
 	s_buf = malloc(c_len + CBC_LEN);
@@ -1436,8 +1433,6 @@ fill_another:
 
 	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len)))
 		return -1;
-
-	sinfo->total_read += padded_len;
 
 	if (ENCRYPT) {
 		print_maxverbose("Decrypting block        \n");
@@ -1579,12 +1574,6 @@ int close_stream_in(void *ss)
 	struct stream_info *sinfo = ss;
 	int i;
 
-#if 0
-	/* Unnecessary, we should already be here */
-	if (unlikely(lseek(sinfo->fd, sinfo->initial_pos + sinfo->total_read,
-		SEEK_SET) != sinfo->initial_pos + sinfo->total_read))
-			return -1;
-#endif
 	for (i = 0; i < sinfo->num_streams; i++)
 		free(sinfo->s[i].buf);
 

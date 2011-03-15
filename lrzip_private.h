@@ -229,7 +229,6 @@ struct stream_info {
 	i64 bufsize;
 	i64 cur_pos;
 	i64 initial_pos;
-	i64 total_read;
 	i64 ram_alloced;
 	i64 size;
 	long thread_no;
