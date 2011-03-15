@@ -976,7 +976,19 @@ retry:
 			print_output("%02x", md5_resblock[j] & 0xFF);
 		print_output("\n");
 	}
-	if (unlikely(write_1g(control, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
+	if (ENCRYPT) {
+		/* When encrypting data, we encrypt the MD5 value as well */
+		uchar *enc_buf = malloc(MD5_DIGEST_SIZE);
+
+		if (unlikely(!enc_buf))
+			fatal("Failed to malloc enc_buf in rzip_fd\n");
+		if (unlikely(aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT,
+			MD5_DIGEST_SIZE, control->hash_iv, md5_resblock, enc_buf)))
+				failure("Failed to aes_crypt_cbc in rzip_fd\n");
+		if (unlikely(write_1g(control, enc_buf, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
+			fatal("Failed to write encrypted md5 in rzip_fd\n");
+		free(enc_buf);
+	} else if (unlikely(write_1g(control, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 		fatal("Failed to write md5 in rzip_fd\n");
 
 	if (TMP_OUTBUF)

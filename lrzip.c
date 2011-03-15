@@ -905,8 +905,12 @@ next_chunk:
 		if (unlikely(read(fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 			fatal("Failed to read md5 data in runzip_fd\n");
 		print_output("MD5: ");
-		for (i = 0; i < MD5_DIGEST_SIZE; i++)
-			print_output("%02x", md5_stored[i] & 0xFF);
+		if (ENCRYPT)
+			print_output("Unknown, encrypted\n");
+		else {
+			for (i = 0; i < MD5_DIGEST_SIZE; i++)
+				print_output("%02x", md5_stored[i] & 0xFF);
+		}
 		print_output("\n");
 	} else
 		print_output("CRC32 used for integrity testing\n");
