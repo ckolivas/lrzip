@@ -1180,8 +1180,9 @@ retry:
 		if (encrypt_pad)
 			get_rand(cti->s_buf + cti->c_len, encrypt_pad);
 		print_maxverbose("Encrypting block        \n");
-		aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, padded_len,
-			      control->hash_iv, cti->s_buf, cti->s_buf);
+		if (unlikely(aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT,
+			padded_len, control->hash_iv, cti->s_buf, cti->s_buf)))
+				failure("Failed to aes_crypt_cbc in compthread\n");
 	} else
 		padded_len = cti->c_len;
 
@@ -1439,8 +1440,9 @@ fill_another:
 
 	if (ENCRYPT) {
 		print_maxverbose("Decrypting block        \n");
-		aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, padded_len,
-			      control->hash_iv, s_buf, s_buf);
+		if (unlikely(aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT,
+			padded_len, control->hash_iv, s_buf, s_buf)))
+				failure("Failed to aes_crypt_cbc in fill_buffer\n");
 	}
 
 	ucthread[s->uthread_no].s_buf = s_buf;
