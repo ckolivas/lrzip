@@ -43,6 +43,7 @@
 #include "util.h"
 #include "stream.h"
 #include "liblrzip.h" /* flag defines */
+#include "sha4.h"
 
 #define MAGIC_LEN (39)
 
@@ -155,6 +156,10 @@ static void get_magicver06(rzip_control *control, char *magic)
 {
 	if (magic[22] == 1)
 		control->flags |= FLAG_ENCRYPT;
+	else if (ENCRYPT) {
+		print_output("Trying to decrypt a non-encrypted archive. Bypassing decryption.\n");
+		control->flags &= ~FLAG_ENCRYPT;
+	}
 	memcpy(control->salt, &magic[23], 16);
 	memcpy(&control->secs, control->salt, 5);
 	print_maxverbose("Storage time in seconds %lld\n", control->secs);
@@ -438,6 +443,66 @@ void close_tmpinbuf(rzip_control *control)
 	free(control->tmp_inbuf);
 }
 
+static void get_hash(rzip_control *control, int make_hash)
+{
+	char *passphrase, *testphrase;
+	struct termios termios_p;
+	i64 i;
+	int j;
+
+	passphrase = calloc(PASS_LEN, 1);
+	testphrase = calloc(PASS_LEN, 1);
+	control->hash = calloc(HASH_LEN, 1);
+	control->hash_iv = calloc(SALT_LEN, 1);
+	if (unlikely(!passphrase || !testphrase || !control->hash || !control->hash_iv))
+		fatal("Failed to calloc encrypt buffers in compress_file\n");
+	mlock(passphrase, PASS_LEN);
+	mlock(testphrase, PASS_LEN);
+	mlock(control->hash, HASH_LEN);
+	mlock(control->hash_iv, SALT_LEN);
+
+	/* Disable stdin echo to screen */
+	tcgetattr(fileno(stdin), &termios_p);
+	termios_p.c_lflag &= ~ECHO;
+	tcsetattr(fileno(stdin), 0, &termios_p);
+retry_pass:
+	print_output("Enter passphrase: ");
+	if (unlikely(fgets(passphrase, PASS_LEN - SALT_LEN, stdin) == NULL))
+		failure("Empty passphrase\n");
+	if (make_hash) {
+		print_output("\nRe-enter passphrase: ");
+		if (unlikely(fgets(testphrase, PASS_LEN - SALT_LEN, stdin) == NULL))
+			failure("Empty passphrase\n");
+		print_output("\n");
+		if (strcmp(passphrase, testphrase)) {
+			print_output("Passwords do not match. Try again.\n");
+			goto retry_pass;
+		}
+	}
+	termios_p.c_lflag |= ECHO;
+	tcsetattr(fileno(stdin), 0, &termios_p);
+	free(testphrase);
+	munlock(testphrase, PASS_LEN);
+
+	memcpy(passphrase + PASS_LEN - SALT_LEN, control->salt, SALT_LEN);
+	sha4(passphrase, PASS_LEN, control->hash, 0);
+	/* Copy the first hashed passphrase and use it to xor every
+		* cycle */
+	memcpy(passphrase, control->hash, HASH_LEN);
+
+	for (i = 0; i < control->encloops; i++) {
+		for (j = 0; j < HASH_LEN; j++)
+			control->hash[j] ^= passphrase[j];
+		sha4(control->hash, HASH_LEN, control->hash, 0);
+		if (unlikely(i == control->encloops - 1024)) {
+			for (j = 0; j < SALT_LEN; j++)
+				control->hash_iv[j] = control->hash[j];
+		}
+	}
+	free(passphrase);
+	munlock(passphrase, PASS_LEN);
+}
+
 /*
   decompress one file from the command line
 */
@@ -569,6 +634,9 @@ void decompress_file(rzip_control *control)
 		print_verbose("CRC32 ");
 	print_verbose("being used for integrity testing.\n");
 
+	if (ENCRYPT)
+		get_hash(control, 0);
+
 	print_progress("Decompressing...\n");
 
 	runzip_fd(control, fd_in, fd_out, fd_hist, expected_size);
@@ -592,6 +660,12 @@ void decompress_file(rzip_control *control)
 	if (!KEEP_FILES) {
 		if (unlikely(unlink(control->infile)))
 			fatal("Failed to unlink %s\n", infilecopy);
+	}
+
+	if (ENCRYPT) {
+		free(control->hash);
+		free(control->hash_iv);
+		munlockall();
 	}
 
 	free(control->outfile);
@@ -844,44 +918,11 @@ void compress_file(rzip_control *control)
 	const char *tmp, *tmpinfile; 	/* we're just using this as a proxy for control->infile.
 					 * Spares a compiler warning
 					 */
-	int fd_in, fd_out, i = 0;
+	int fd_in, fd_out;
 	char header[MAGIC_LEN];
-	char *passphrase, *testphrase;
 
-	if (ENCRYPT) {
-		struct termios termios_p;
-
-		passphrase = calloc(PASS_LEN, 1);
-		testphrase = calloc(PASS_LEN, 1);
-		if (unlikely(!passphrase || !testphrase))
-			fatal("Failed to calloc passphrase ram\n");
-		mlock(passphrase, PASS_LEN);
-		mlock(testphrase, PASS_LEN);
-
-		/* Disable stdin echo to screen */
-		tcgetattr(fileno(stdin), &termios_p);
-retry_pass:
-		print_output("Enter passphrase: ");
-		termios_p.c_lflag &= ~ECHO;
-		tcsetattr(fileno(stdin), 0, &termios_p);
-		if (unlikely(fgets(passphrase, PASS_LEN, stdin) == NULL))
-			failure("Empty passphrase\n");
-		print_output("\nRe-enter passphrase: ");
-		if (unlikely(fgets(testphrase, PASS_LEN, stdin) == NULL))
-			failure("Empty passphrase\n");
-		termios_p.c_lflag |= ECHO;
-		tcsetattr(fileno(stdin), 0, &termios_p);
-		print_output("\n");
-		if (strcmp(passphrase, testphrase)) {
-			print_output("Passwords do not match. Try again.\n");
-			goto retry_pass;
-		}
-
-		/* Do stuff here with password */
-		free(passphrase);
-		free(testphrase);
-		munlockall();
-	}
+	if (ENCRYPT)
+		get_hash(control, 1);
 
 	memset(header, 0, sizeof(header));
 
@@ -959,6 +1000,12 @@ retry_pass:
 	/* Wwrite magic at end b/c lzma does not tell us properties until it is done */
 	if (!STDOUT)
 		write_magic(control, fd_in, fd_out);
+
+	if (ENCRYPT) {
+		free(control->hash);
+		free(control->hash_iv);
+		munlockall();
+	}
 
 	if (unlikely(close(fd_in)))
 		fatal("Failed to close fd_in\n");

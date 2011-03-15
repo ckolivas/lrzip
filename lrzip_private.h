@@ -136,6 +136,8 @@ typedef struct md5_ctx md5_ctx;
 #define CTYPE_ZPAQ 8
 
 #define PASS_LEN 512
+#define HASH_LEN 64
+#define SALT_LEN 16
 
 /* Needs to be less than 31 bits and page aligned on 32 bits */
 #define two_gig ((1ull << 31) - 4096)
@@ -199,6 +201,8 @@ struct rzip_control {
 	uchar loop_byte2;
 	i64 secs;
 	uchar salt[16];
+	uchar *hash;
+	uchar *hash_iv;
 	unsigned char eof;
 	unsigned char magic_written;
 	md5_ctx ctx;
