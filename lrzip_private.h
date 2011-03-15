@@ -171,7 +171,6 @@ struct rzip_control {
 	i64 in_ofs;
 	i64 in_len;
 	i64 in_maxlen;
-	i64 in_relofs;
 	FILE *msgout; //stream for output messages
 	const char *suffix;
 	int compression_level;

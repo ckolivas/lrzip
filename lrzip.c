@@ -387,7 +387,6 @@ static void read_tmpinmagic(rzip_control *control)
 		magic[i] = (char)tmpchar;
 	}
 	get_magicver05(control, magic);
-	control->in_relofs = 24;
 
 	if (control->major_version == 0 && control->minor_version > 5) {
 		for (i = 24; i < MAGIC_LEN; i++) {
@@ -396,7 +395,6 @@ static void read_tmpinmagic(rzip_control *control)
 				failure("Reached end of file on STDIN prematurely on v06 magic read\n");
 			magic[i] = (char)tmpchar;
 		}
-		control->in_relofs = MAGIC_LEN;
 	}
 }
 
@@ -451,7 +449,6 @@ static void open_tmpinbuf(rzip_control *control)
 
 void clear_tmpinbuf(rzip_control *control)
 {
-	control->in_relofs += control->in_len;
 	control->in_len = control->in_ofs = 0;
 }
 

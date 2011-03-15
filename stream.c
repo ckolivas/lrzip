@@ -699,7 +699,7 @@ static i64 seekto_fdin(rzip_control *control, i64 pos)
 {
 	if (!TMP_INBUF)
 		return lseek(control->fd_in, pos, SEEK_SET);
-	control->in_ofs = pos - control->in_relofs;
+	control->in_ofs = pos;
 	if (unlikely(control->in_ofs > control->in_len || control->in_ofs < 0)) {
 		print_err("Tried to seek outside of in_ofs range in seekto_fdin\n");
 		return -1;
@@ -843,7 +843,6 @@ static int read_seekto(rzip_control *control, struct stream_info *sinfo, i64 pos
 	i64 spos = pos + sinfo->initial_pos;
 
 	if (TMP_INBUF) {
-		spos -= control->in_relofs;
 		if (spos > control->in_len)
 			read_fdin(control, spos - control->in_len);
 		control->in_ofs = spos;
@@ -874,7 +873,7 @@ static i64 get_readseek(rzip_control *control, int fd)
 	i64 ret;
 
 	if (TMP_INBUF)
-		return control->in_relofs + control->in_ofs;
+		return control->in_ofs;
 	ret = lseek(fd, 0, SEEK_CUR);
 	if (unlikely(ret == -1))
 		fatal("Failed to lseek in get_seek\n");

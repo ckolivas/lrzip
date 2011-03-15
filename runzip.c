@@ -112,7 +112,7 @@ static i64 seekcur_fdin(struct rzip_control *control)
 {
 	if (!TMP_INBUF)
 		return lseek(control->fd_in, 0, SEEK_CUR);
-	return (control->in_relofs + control->in_ofs);
+	return control->in_ofs;
 }
 
 static i64 read_header(rzip_control *control, void *ss, uchar *head)
