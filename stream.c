@@ -58,8 +58,6 @@
 
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
-#define CBC_PAD(LEN)	((LEN % CBC_LEN) ? (CBC_LEN - (LEN % CBC_LEN)) : 0)
-
 static struct compress_thread{
 	uchar *s_buf;	/* Uncompressed buffer -> Compressed buffer */
 	uchar c_type;	/* Compression type */
@@ -1299,7 +1297,7 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 		/* The stream buffer has been given to the thread, allocate a
 		 * new one. Allocate slightly more in case we need padding for
 		 * encryption */
-		sinfo->s[streamno].buf = malloc(sinfo->bufsize + CBC_PAD(sinfo->bufsize));
+		sinfo->s[streamno].buf = malloc(CBC_PADDED(sinfo->bufsize));
 		if (unlikely(!sinfo->s[streamno].buf))
 			fatal("Unable to malloc buffer of size %lld in flush_buffer\n", sinfo->bufsize);
 		sinfo->s[streamno].buflen = 0;
@@ -1424,17 +1422,14 @@ fill_another:
 
 	fsync(control->fd_out);
 
-	s_buf = malloc(c_len + CBC_PAD(c_len));
+	s_buf = malloc(CBC_PADDED(c_len));
 	if (unlikely(c_len && !s_buf))
 		fatal("Unable to malloc buffer of size %lld in fill_buffer\n", c_len);
 	sinfo->ram_alloced += c_len;
 
 	/* If the data was encrypted, we need to read the padded data
-	* at the end and then discard it once it's decrypted */
-	if (ENCRYPT)
-		padded_len = c_len +  CBC_PAD(c_len);
-	else
-		padded_len = c_len;
+	 * at the end and then discard it once it's decrypted */
+	padded_len = CBC_PADDED(c_len);
 
 	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len)))
 		return -1;
