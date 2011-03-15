@@ -1168,28 +1168,18 @@ retry:
 
 	if (!ret && ENCRYPT) {
 		int encrypt_pad = 0;
-		uchar *enc_buf;
 
 		/* We must pad the block length to a mutliple of CBC_LEN to be
 		 * able to encrypt. We pad it with random data */
 		if (cti->c_len % CBC_LEN)
 			encrypt_pad = CBC_LEN - (cti->c_len % CBC_LEN);
 		padded_len = cti->c_len + encrypt_pad;
-		enc_buf = malloc(padded_len);
-		if (unlikely(!enc_buf))
-			fatal("Failed to malloc enc_buf in compthread\n");
-		if (encrypt_pad) {
-			cti->s_buf = realloc(cti->s_buf, padded_len);
-			if (unlikely(!cti->s_buf))
-				fatal("Failed to realloc s_buf in compthread with encrypt_pad\n");
+		if (encrypt_pad)
 			get_rand(cti->s_buf + cti->c_len, encrypt_pad);
-		}
 		print_maxverbose("Encrypting block        \n");
 		if (unlikely(aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT,
-			padded_len, control->hash_iv, cti->s_buf, enc_buf)))
+			padded_len, control->hash_iv, cti->s_buf, cti->s_buf)))
 				failure("Failed to aes_crypt_cbc in compthread\n");
-		free(cti->s_buf);
-		cti->s_buf = enc_buf;
 	} else
 		padded_len = cti->c_len;
 
@@ -1302,8 +1292,10 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 	create_pthread(&threads[i], NULL, compthread, s);
 
 	if (newbuf) {
-		/* The stream buffer has been given to the thread, allocate a new one */
-		sinfo->s[streamno].buf = malloc(sinfo->bufsize);
+		/* The stream buffer has been given to the thread, allocate a
+		 * new one. Allocate slightly more in case we need padding for
+		 * encryption */
+		sinfo->s[streamno].buf = malloc(sinfo->bufsize + CBC_LEN);
 		if (unlikely(!sinfo->s[streamno].buf))
 			fatal("Unable to malloc buffer of size %lld in flush_buffer\n", sinfo->bufsize);
 		sinfo->s[streamno].buflen = 0;
@@ -1430,25 +1422,16 @@ fill_another:
 
 	fsync(control->fd_out);
 
-	s_buf = malloc(c_len);
+	s_buf = malloc(c_len + CBC_LEN);
 	if (unlikely(c_len && !s_buf))
 		fatal("Unable to malloc buffer of size %lld in fill_buffer\n", c_len);
 	sinfo->ram_alloced += c_len;
 
-	if (ENCRYPT) {
-		/* If the data was encrypted, we need to read the padded data
-		 * at the end and then discard it once it's decrypted */
-		int decrypt_pad = 0;
-
-		if (c_len % CBC_LEN)
-			decrypt_pad = CBC_LEN - (c_len % CBC_LEN);
-		padded_len = c_len + decrypt_pad;
-		if (decrypt_pad) {
-			s_buf = realloc(s_buf, padded_len);
-			if (unlikely(!s_buf))
-				fatal("Failed to 1st realloc s_buf in fill_buffer\n");
-		}
-	} else
+	/* If the data was encrypted, we need to read the padded data
+	* at the end and then discard it once it's decrypted */
+	if (ENCRYPT && c_len % CBC_LEN)
+		padded_len = c_len +  CBC_LEN - (c_len % CBC_LEN);
+	else
 		padded_len = c_len;
 
 	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len)))
@@ -1457,19 +1440,10 @@ fill_another:
 	sinfo->total_read += padded_len;
 
 	if (ENCRYPT) {
-		uchar *dec_buf;
-
-		dec_buf = malloc(padded_len);
-		if (unlikely(!dec_buf))
-			fatal("Failed to malloc dec_buf in fill_buffer\n");
 		print_maxverbose("Decrypting block        \n");
 		if (unlikely(aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT,
-			padded_len, control->hash_iv, s_buf, dec_buf)))
+			padded_len, control->hash_iv, s_buf, s_buf)))
 				failure("Failed to aes_crypt_cbc in fill_buffer\n");
-		free(s_buf);
-		s_buf = realloc(dec_buf, c_len);
-		if (unlikely(!s_buf))
-			fatal("Failed to 2nd realloc s_buf in fill_buffer\n");
 	}
 
 	ucthread[s->uthread_no].s_buf = s_buf;
