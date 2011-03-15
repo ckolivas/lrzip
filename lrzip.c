@@ -35,6 +35,7 @@
 #include <errno.h>
 #endif
 #include <sys/time.h>
+#include <termios.h>
 
 #include "md5.h"
 #include "rzip.h"
@@ -843,8 +844,44 @@ void compress_file(rzip_control *control)
 	const char *tmp, *tmpinfile; 	/* we're just using this as a proxy for control->infile.
 					 * Spares a compiler warning
 					 */
-	int fd_in, fd_out;
+	int fd_in, fd_out, i = 0;
 	char header[MAGIC_LEN];
+	char *passphrase, *testphrase;
+
+	if (ENCRYPT) {
+		struct termios termios_p;
+
+		passphrase = calloc(PASS_LEN, 1);
+		testphrase = calloc(PASS_LEN, 1);
+		if (unlikely(!passphrase || !testphrase))
+			fatal("Failed to calloc passphrase ram\n");
+		mlock(passphrase, PASS_LEN);
+		mlock(testphrase, PASS_LEN);
+
+		/* Disable stdin echo to screen */
+		tcgetattr(fileno(stdin), &termios_p);
+retry_pass:
+		print_output("Enter passphrase: ");
+		termios_p.c_lflag &= ~ECHO;
+		tcsetattr(fileno(stdin), 0, &termios_p);
+		if (unlikely(fgets(passphrase, PASS_LEN, stdin) == NULL))
+			failure("Empty passphrase\n");
+		print_output("\nRe-enter passphrase: ");
+		if (unlikely(fgets(testphrase, PASS_LEN, stdin) == NULL))
+			failure("Empty passphrase\n");
+		termios_p.c_lflag |= ECHO;
+		tcsetattr(fileno(stdin), 0, &termios_p);
+		print_output("\n");
+		if (strcmp(passphrase, testphrase)) {
+			print_output("Passwords do not match. Try again.\n");
+			goto retry_pass;
+		}
+
+		/* Do stuff here with password */
+		free(passphrase);
+		free(testphrase);
+		munlockall();
+	}
 
 	memset(header, 0, sizeof(header));
 

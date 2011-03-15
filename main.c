@@ -36,6 +36,7 @@
 # include <sys/resource.h>
 #endif
 #include <math.h>
+#include <termios.h>
 
 #include "rzip.h"
 #include "lrzip.h"
@@ -203,9 +204,15 @@ static void usage(void)
 
 }
 
-
 static void sighandler(int sig __UNUSED__)
 {
+	struct termios termios_p;
+
+	/* Make sure we haven't died after disabling stdin echo */
+	tcgetattr(fileno(stdin), &termios_p);
+	termios_p.c_lflag |= ECHO;
+	tcsetattr(fileno(stdin), 0, &termios_p);
+
 	unlink_files();
 	exit(0);
 }
@@ -767,6 +774,9 @@ int main(int argc, char *argv[])
 		show_summary();
 
 		gettimeofday(&start_time, NULL);
+
+		if (unlikely(STDIN && ENCRYPT))
+			failure("Unable to work from STDIN while reading password\n");
 
 		if (DECOMPRESS || TEST_ONLY)
 			decompress_file(&control);

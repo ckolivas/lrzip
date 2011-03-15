@@ -38,6 +38,7 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
+#include <termios.h>
 
 #ifdef _SC_PAGE_SIZE
 # define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
@@ -86,6 +87,13 @@ void unlink_files(void)
 
 static void fatal_exit(void)
 {
+	struct termios termios_p;
+
+	/* Make sure we haven't died after disabling stdin echo */
+	tcgetattr(fileno(stdin), &termios_p);
+	termios_p.c_lflag |= ECHO;
+	tcsetattr(fileno(stdin), 0, &termios_p);
+
 	unlink_files();
 	fprintf(outputfile, "Fatal error - exiting\n");
 	fflush(outputfile);

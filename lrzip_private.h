@@ -135,6 +135,8 @@ typedef struct md5_ctx md5_ctx;
 #define CTYPE_GZIP 7
 #define CTYPE_ZPAQ 8
 
+#define PASS_LEN 512
+
 /* Needs to be less than 31 bits and page aligned on 32 bits */
 #define two_gig ((1ull << 31) - 4096)
 
