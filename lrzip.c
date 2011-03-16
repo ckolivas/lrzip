@@ -470,8 +470,9 @@ retry_pass:
 	print_output("Enter passphrase: ");
 	if (unlikely(fgets(passphrase, PASS_LEN - SALT_LEN, stdin) == NULL))
 		failure("Empty passphrase\n");
+	print_output("\n");
 	if (make_hash) {
-		print_output("\nRe-enter passphrase: ");
+		print_output("Re-enter passphrase: ");
 		if (unlikely(fgets(testphrase, PASS_LEN - SALT_LEN, stdin) == NULL))
 			failure("Empty passphrase\n");
 		print_output("\n");
@@ -480,7 +481,6 @@ retry_pass:
 			goto retry_pass;
 		}
 	}
-	print_output("\n");
 	termios_p.c_lflag |= ECHO;
 	tcsetattr(fileno(stdin), 0, &termios_p);
 	free(testphrase);
