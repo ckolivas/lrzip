@@ -483,8 +483,9 @@ retry_pass:
 	}
 	termios_p.c_lflag |= ECHO;
 	tcsetattr(fileno(stdin), 0, &termios_p);
-	free(testphrase);
+	memset(testphrase, 0, PASS_LEN);
 	munlock(testphrase, PASS_LEN);
+	free(testphrase);
 
 	memcpy(passphrase + PASS_LEN - SALT_LEN, control->salt, SALT_LEN);
 	sha4(passphrase, PASS_LEN, control->hash, 0);
@@ -501,8 +502,15 @@ retry_pass:
 				control->hash_iv[j] = control->hash[j];
 		}
 	}
-	free(passphrase);
+
+	memset(control->hash + SALT_LEN, 0, HASH_LEN - SALT_LEN);
+	munlock(control->hash + SALT_LEN, HASH_LEN - SALT_LEN);
+	control->hash = realloc(control->hash, SALT_LEN);
+	if (unlikely(!control->hash))
+		fatal("Failed to realloc control->hash in get_hash\n");
+	memset(passphrase, 0, PASS_LEN);
 	munlock(passphrase, PASS_LEN);
+	free(passphrase);
 }
 
 /*
@@ -668,9 +676,11 @@ void decompress_file(rzip_control *control)
 	}
 
 	if (ENCRYPT) {
+		memset(control->hash, 0, SALT_LEN);
+		memset(control->hash_iv, 0, SALT_LEN);
+		munlockall();
 		free(control->hash);
 		free(control->hash_iv);
-		munlockall();
 	}
 
 	free(control->outfile);
@@ -1014,9 +1024,11 @@ void compress_file(rzip_control *control)
 		write_magic(control, fd_in, fd_out);
 
 	if (ENCRYPT) {
+		memset(control->hash, 0, SALT_LEN);
+		memset(control->hash_iv, 0, SALT_LEN);
+		munlockall();
 		free(control->hash);
 		free(control->hash_iv);
-		munlockall();
 	}
 
 	if (unlikely(close(fd_in)))
