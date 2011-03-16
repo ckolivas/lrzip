@@ -315,7 +315,7 @@ static void read_config( struct rzip_control *control )
 		}
 	}
 	if (fp == NULL)
-		return;
+		goto out;
 
 	/* if we get here, we have a file. read until no more. */
 
@@ -422,12 +422,12 @@ static void read_config( struct rzip_control *control )
 				       parameter, parametervalue);
 	}
 
+	if (unlikely(fclose(fp)))
+		fatal("Failed to fclose fp in read_config\n");
+out:
 	/* clean up */
 	free(line);
 	free(homeconf);
-
-	if (unlikely(fclose(fp)))
-		fatal("Failed to fclose fp in read_config\n");
 
 /*	fprintf(stderr, "\nWindow = %d \
 		\nCompression Level = %d \
