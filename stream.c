@@ -1169,22 +1169,29 @@ retry:
 	}
 
 	if (!ret && ENCRYPT) {
+		/* Encryption requires CBC_LEN blocks so we can use ciphertext
+		 * stealing to not have to pad the block */
 		unsigned char ivec[CBC_LEN], tmp0[CBC_LEN], tmp1[CBC_LEN];
 		i64 N, M;
 
-		memcpy (ivec, control->hash_iv, sizeof(ivec));
+		if (unlikely(cti->c_len < CBC_LEN))
+			failure("Unable to encrypt when compressed blocks end up being less than %d bytes, this one being %lld\n",
+				CBC_LEN, cti->c_len);
+		memcpy(ivec, control->hash_iv, sizeof(ivec));
 		M = cti->c_len % CBC_LEN;
 		N = cti->c_len - M;
 
 		print_maxverbose("Encrypting block        \n");
-		aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, N, ivec, cti->s_buf, cti->s_buf);
+		aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, N, ivec,
+			      cti->s_buf, cti->s_buf);
 		
 		if (M) {
 			memset(tmp0, 0, sizeof(tmp0));
 			memcpy(tmp0, cti->s_buf + N, M);
-			aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, CBC_LEN, ivec, tmp0, tmp1);
-			memcpy (cti->s_buf + N, cti->s_buf + N - CBC_LEN, M);
-			memcpy (cti->s_buf + N - CBC_LEN, tmp1, CBC_LEN);
+			aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, CBC_LEN,
+				      ivec, tmp0, tmp1);
+			memcpy(cti->s_buf + N, cti->s_buf + N - CBC_LEN, M);
+			memcpy(cti->s_buf + N - CBC_LEN, tmp1, CBC_LEN);
 		}
 	}
 
@@ -1443,7 +1450,7 @@ fill_another:
 		unsigned char ivec[CBC_LEN], tmp0[CBC_LEN], tmp1[CBC_LEN];
 		i64 N, M;
 
-		memcpy (ivec, control->hash_iv, sizeof(ivec));
+		memcpy(ivec, control->hash_iv, sizeof(ivec));
 		M = c_len % CBC_LEN;
 		N = c_len - M;
 
@@ -1451,14 +1458,16 @@ fill_another:
 		if (M) {
 			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, N - CBC_LEN,
 				      ivec, s_buf, s_buf);
-			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT, s_buf + N - CBC_LEN, tmp0);
-			memset (tmp1, 0, CBC_LEN);
-			memcpy (tmp1, s_buf + N, M);
-			xor128 (tmp0, tmp1);
-			memcpy (s_buf + N, tmp0, M);
-			memcpy (tmp1 + M, tmp0 + M, CBC_LEN - M);
-			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT, tmp1, s_buf + N - CBC_LEN);
-			xor128 (s_buf + N - CBC_LEN, ivec);
+			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT,
+				      s_buf + N - CBC_LEN, tmp0);
+			memset(tmp1, 0, CBC_LEN);
+			memcpy(tmp1, s_buf + N, M);
+			xor128(tmp0, tmp1);
+			memcpy(s_buf + N, tmp0, M);
+			memcpy(tmp1 + M, tmp0 + M, CBC_LEN - M);
+			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT, tmp1,
+				      s_buf + N - CBC_LEN);
+			xor128(s_buf + N - CBC_LEN, ivec);
 		} else
 			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, c_len,
 				      ivec, s_buf, s_buf);
