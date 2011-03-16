@@ -1177,7 +1177,8 @@ retry:
 		if (unlikely(cti->c_len < CBC_LEN))
 			failure("Unable to encrypt when compressed blocks end up being less than %d bytes, this one being %lld\n",
 				CBC_LEN, cti->c_len);
-		memcpy(ivec, control->hash_iv, sizeof(ivec));
+		mlock(ivec, CBC_LEN);
+		memcpy(ivec, control->hash_iv, CBC_LEN);
 		M = cti->c_len % CBC_LEN;
 		N = cti->c_len - M;
 
@@ -1193,6 +1194,8 @@ retry:
 			memcpy(cti->s_buf + N, cti->s_buf + N - CBC_LEN, M);
 			memcpy(cti->s_buf + N - CBC_LEN, tmp1, CBC_LEN);
 		}
+		memset(ivec, 0, CBC_LEN);
+		munlock(ivec, CBC_LEN);
 	}
 
 	/* If compression fails for whatever reason multithreaded, then wait
@@ -1450,7 +1453,8 @@ fill_another:
 		unsigned char ivec[CBC_LEN], tmp0[CBC_LEN], tmp1[CBC_LEN];
 		i64 N, M;
 
-		memcpy(ivec, control->hash_iv, sizeof(ivec));
+		mlock(ivec, CBC_LEN);
+		memcpy(ivec, control->hash_iv, CBC_LEN);
 		M = c_len % CBC_LEN;
 		N = c_len - M;
 
@@ -1471,6 +1475,8 @@ fill_another:
 		} else
 			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, c_len,
 				      ivec, s_buf, s_buf);
+		memset(ivec, 0, CBC_LEN);
+		munlock(ivec, CBC_LEN);
 	}
 
 	ucthread[s->uthread_no].s_buf = s_buf;
