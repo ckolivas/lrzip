@@ -1431,10 +1431,10 @@ fill_another:
 
 	fsync(control->fd_out);
 
-	s_buf = malloc(c_len);
-	if (unlikely(c_len && !s_buf))
-		fatal("Unable to malloc buffer of size %lld in fill_buffer\n", c_len);
-	sinfo->ram_alloced += c_len;
+	s_buf = malloc(u_len);
+	if (unlikely(u_len && !s_buf))
+		fatal("Unable to malloc buffer of size %lld in fill_buffer\n", u_len);
+	sinfo->ram_alloced += u_len;
 
 	if (unlikely(read_buf(control, sinfo->fd, s_buf, c_len)))
 		return -1;
