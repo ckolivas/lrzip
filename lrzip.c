@@ -444,6 +444,22 @@ void close_tmpinbuf(rzip_control *control)
 	free(control->tmp_inbuf);
 }
 
+static void get_pass(char *s)
+{
+	int len;
+
+	memset(s, 0, PASS_LEN - SALT_LEN);
+	fgets(s, PASS_LEN - SALT_LEN, stdin);
+	len = strlen(s);
+	if (len > 0 && ('\r' ==  s[len - 1] || '\n' == s[len - 1]))
+		s[len - 1] = '\0';
+	if (len > 1 && ('\r' ==  s[len - 2] || '\n' == s[len - 2]))
+		s[len - 2] = '\0';
+	len = strlen(s);
+	if (unlikely(0 == len))
+		failure("Empty passphrase\n");
+}
+
 static void get_hash(rzip_control *control, int make_hash)
 {
 	char *passphrase, *testphrase;
@@ -468,13 +484,11 @@ static void get_hash(rzip_control *control, int make_hash)
 	tcsetattr(fileno(stdin), 0, &termios_p);
 retry_pass:
 	print_output("Enter passphrase: ");
-	if (unlikely(fgets(passphrase, PASS_LEN - SALT_LEN, stdin) == NULL))
-		failure("Empty passphrase\n");
+	get_pass(passphrase);
 	print_output("\n");
 	if (make_hash) {
 		print_output("Re-enter passphrase: ");
-		if (unlikely(fgets(testphrase, PASS_LEN - SALT_LEN, stdin) == NULL))
-			failure("Empty passphrase\n");
+		get_pass(testphrase);
 		print_output("\n");
 		if (strcmp(passphrase, testphrase)) {
 			print_output("Passwords do not match. Try again.\n");
@@ -488,9 +502,7 @@ retry_pass:
 	free(testphrase);
 
 	memcpy(passphrase + PASS_LEN - SALT_LEN, control->salt, SALT_LEN);
-	sha4(passphrase, PASS_LEN, control->hash, 0);
-	/* Copy the first hashed passphrase and use it to xor every cycle */
-	memcpy(passphrase, control->hash, HASH_LEN);
+	sha4(passphrase, PASS_LEN, passphrase, 0);
 
 	print_maxverbose("Hashing passphrase %lld times\n", control->encloops);
 	for (i = 0; i < control->encloops; i++) {
