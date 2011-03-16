@@ -449,7 +449,8 @@ static void get_pass(char *s)
 	int len;
 
 	memset(s, 0, PASS_LEN - SALT_LEN);
-	fgets(s, PASS_LEN - SALT_LEN, stdin);
+	if (unlikely(fgets(s, PASS_LEN - SALT_LEN, stdin) == NULL))
+		failure("Failed to retrieve passphrase\n");
 	len = strlen(s);
 	if (len > 0 && ('\r' ==  s[len - 1] || '\n' == s[len - 1]))
 		s[len - 1] = '\0';
