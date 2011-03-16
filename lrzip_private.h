@@ -141,9 +141,6 @@ typedef struct md5_ctx md5_ctx;
 #define SALT_LEN 16
 #define CBC_LEN 16
 
-#define CBC_PAD(LEN)	((LEN % CBC_LEN) ? (CBC_LEN - (LEN % CBC_LEN)) : 0)
-#define CBC_PADDED(LEN)	(ENCRYPT ? (LEN) + CBC_PAD(LEN) : (LEN))
-
 /* Needs to be less than 31 bits and page aligned on 32 bits */
 #define two_gig ((1ull << 31) - 4096)
 

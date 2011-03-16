@@ -1137,7 +1137,6 @@ static void *compthread(void *data)
 	struct compress_thread *cti;
 	struct stream_info *ctis;
 	int waited = 0, ret = 0;
-	i64 padded_len;
 
 	/* Make sure this thread doesn't already exist */
 	
@@ -1170,20 +1169,24 @@ retry:
 	}
 
 	if (!ret && ENCRYPT) {
-		int encrypt_pad = 0;
+		unsigned char ivec[CBC_LEN], tmp0[CBC_LEN], tmp1[CBC_LEN];
+		i64 N, M;
 
-		/* We must pad the block length to a mutliple of CBC_LEN to be
-		 * able to encrypt. We pad it with random data */
-		encrypt_pad = CBC_PAD(cti->c_len);
-		padded_len = cti->c_len + encrypt_pad;
-		if (encrypt_pad)
-			get_rand(cti->s_buf + cti->c_len, encrypt_pad);
+		memcpy (ivec, control->hash_iv, sizeof(ivec));
+		M = cti->c_len % CBC_LEN;
+		N = cti->c_len - M;
+
 		print_maxverbose("Encrypting block        \n");
-		if (unlikely(aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT,
-			padded_len, control->hash_iv, cti->s_buf, cti->s_buf)))
-				failure("Failed to aes_crypt_cbc in compthread\n");
-	} else
-		padded_len = cti->c_len;
+		aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, N, ivec, cti->s_buf, cti->s_buf);
+		
+		if (M) {
+			memset(tmp0, 0, sizeof(tmp0));
+			memcpy(tmp0, cti->s_buf + N, M);
+			aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, CBC_LEN, ivec, tmp0, tmp1);
+			memcpy (cti->s_buf + N, cti->s_buf + N - CBC_LEN, M);
+			memcpy (cti->s_buf + N - CBC_LEN, tmp1, CBC_LEN);
+		}
+	}
 
 	/* If compression fails for whatever reason multithreaded, then wait
 	 * for the previous thread to finish, serialising the work to decrease
@@ -1244,7 +1247,6 @@ retry:
 		fatal("Failed to seekto cur_pos in compthread %d\n", i);
 
 	print_maxverbose("Thread %ld writing %lld compressed bytes from stream %d\n", i, cti->c_len, cti->streamno);
-	/* We store the real length even if it's padded longer */
 	if (unlikely(write_u8(control, ctis->fd, cti->c_type) ||
 		write_i64(control, ctis->fd, cti->c_len) ||
 		write_i64(control, ctis->fd, cti->s_len) ||
@@ -1253,10 +1255,10 @@ retry:
 	}
 	ctis->cur_pos += 25;
 
-	if (unlikely(write_buf(control, ctis->fd, cti->s_buf, padded_len)))
+	if (unlikely(write_buf(control, ctis->fd, cti->s_buf, cti->c_len)))
 		fatal("Failed to write_buf in compthread %d\n", i);
 
-	ctis->cur_pos += padded_len;
+	ctis->cur_pos += cti->c_len;
 	free(cti->s_buf);
 
 	lock_mutex(&output_lock);
@@ -1295,9 +1297,8 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 
 	if (newbuf) {
 		/* The stream buffer has been given to the thread, allocate a
-		 * new one. Allocate slightly more in case we need padding for
-		 * encryption */
-		sinfo->s[streamno].buf = malloc(CBC_PADDED(sinfo->bufsize));
+		 * new one. */
+		sinfo->s[streamno].buf = malloc(sinfo->bufsize);
 		if (unlikely(!sinfo->s[streamno].buf))
 			fatal("Unable to malloc buffer of size %lld in flush_buffer\n", sinfo->bufsize);
 		sinfo->s[streamno].buflen = 0;
@@ -1373,6 +1374,15 @@ retry:
 	return 0;
 }
 
+static void xor128 (void *pa, const void *pb)
+{
+	i64 *a = pa;
+	const i64 *b = pb;
+
+	a [0] ^= b [0];
+	a [1] ^= b [1];
+}
+
 /* fill a buffer from a stream - return -1 on failure */
 static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int streamno)
 {
@@ -1380,7 +1390,6 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int str
 	struct stream *s = &sinfo->s[streamno];
 	uchar c_type, *s_buf;
 	stream_thread_struct *st;
-	i64 padded_len;
 
 	if (s->buf)
 		free(s->buf);
@@ -1422,23 +1431,37 @@ fill_another:
 
 	fsync(control->fd_out);
 
-	s_buf = malloc(CBC_PADDED(c_len));
+	s_buf = malloc(c_len);
 	if (unlikely(c_len && !s_buf))
 		fatal("Unable to malloc buffer of size %lld in fill_buffer\n", c_len);
 	sinfo->ram_alloced += c_len;
 
-	/* If the data was encrypted, we need to read the padded data
-	 * at the end and then discard it once it's decrypted */
-	padded_len = CBC_PADDED(c_len);
-
-	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len)))
+	if (unlikely(read_buf(control, sinfo->fd, s_buf, c_len)))
 		return -1;
 
 	if (ENCRYPT) {
+		unsigned char ivec[CBC_LEN], tmp0[CBC_LEN], tmp1[CBC_LEN];
+		i64 N, M;
+
+		memcpy (ivec, control->hash_iv, sizeof(ivec));
+		M = c_len % CBC_LEN;
+		N = c_len - M;
+
 		print_maxverbose("Decrypting block        \n");
-		if (unlikely(aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT,
-			padded_len, control->hash_iv, s_buf, s_buf)))
-				failure("Failed to aes_crypt_cbc in fill_buffer\n");
+		if (M) {
+			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, N - CBC_LEN,
+				      ivec, s_buf, s_buf);
+			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT, s_buf + N - CBC_LEN, tmp0);
+			memset (tmp1, 0, CBC_LEN);
+			memcpy (tmp1, s_buf + N, M);
+			xor128 (tmp0, tmp1);
+			memcpy (s_buf + N, tmp0, M);
+			memcpy (tmp1 + M, tmp0 + M, CBC_LEN - M);
+			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT, tmp1, s_buf + N - CBC_LEN);
+			xor128 (s_buf + N - CBC_LEN, ivec);
+		} else
+			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, c_len,
+				      ivec, s_buf, s_buf);
 	}
 
 	ucthread[s->uthread_no].s_buf = s_buf;
