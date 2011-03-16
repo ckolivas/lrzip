@@ -754,7 +754,7 @@ int aes_crypt_ecb( aes_context *ctx,
  */
 int aes_crypt_cbc( aes_context *ctx,
                     int mode,
-                    int length,
+                    long long int length,
                     unsigned char iv[16],
                     const unsigned char *input,
                     unsigned char *output )
