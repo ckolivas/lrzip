@@ -1183,32 +1183,8 @@ retry:
 		get_rand(cti->s_buf + cti->c_len, MIN_SIZE - cti->c_len);
 	}
 
-	if (!ret && ENCRYPT) {
-		/* Encryption requires CBC_LEN blocks so we can use ciphertext
-		 * stealing to not have to pad the block */
-		unsigned char ivec[CBC_LEN], tmp0[CBC_LEN], tmp1[CBC_LEN];
-		i64 N, M;
-
-		mlock(ivec, CBC_LEN);
-		memcpy(ivec, control->hash_iv, CBC_LEN);
-		M = padded_len % CBC_LEN;
-		N = padded_len - M;
-
-		print_maxverbose("Encrypting block        \n");
-		aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, N, ivec,
-			      cti->s_buf, cti->s_buf);
-		
-		if (M) {
-			memset(tmp0, 0, sizeof(tmp0));
-			memcpy(tmp0, cti->s_buf + N, M);
-			aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, CBC_LEN,
-				      ivec, tmp0, tmp1);
-			memcpy(cti->s_buf + N, cti->s_buf + N - CBC_LEN, M);
-			memcpy(cti->s_buf + N - CBC_LEN, tmp1, CBC_LEN);
-		}
-		memset(ivec, 0, CBC_LEN);
-		munlock(ivec, CBC_LEN);
-	}
+	if (!ret && ENCRYPT)
+		lrz_crypt(control, cti->s_buf, padded_len, 1, 0);
 
 	/* If compression fails for whatever reason multithreaded, then wait
 	 * for the previous thread to finish, serialising the work to decrease
@@ -1397,15 +1373,6 @@ retry:
 	return 0;
 }
 
-static void xor128 (void *pa, const void *pb)
-{
-	i64 *a = pa;
-	const i64 *b = pb;
-
-	a [0] ^= b [0];
-	a [1] ^= b [1];
-}
-
 /* fill a buffer from a stream - return -1 on failure */
 static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int streamno)
 {
@@ -1463,35 +1430,8 @@ fill_another:
 	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len)))
 		return -1;
 
-	if (ENCRYPT) {
-		unsigned char ivec[CBC_LEN], tmp0[CBC_LEN], tmp1[CBC_LEN];
-		i64 N, M;
-
-		mlock(ivec, CBC_LEN);
-		memcpy(ivec, control->hash_iv, CBC_LEN);
-		M = padded_len % CBC_LEN;
-		N = padded_len - M;
-
-		print_maxverbose("Decrypting block        \n");
-		if (M) {
-			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, N - CBC_LEN,
-				      ivec, s_buf, s_buf);
-			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT,
-				      s_buf + N - CBC_LEN, tmp0);
-			memset(tmp1, 0, CBC_LEN);
-			memcpy(tmp1, s_buf + N, M);
-			xor128(tmp0, tmp1);
-			memcpy(s_buf + N, tmp0, M);
-			memcpy(tmp1 + M, tmp0 + M, CBC_LEN - M);
-			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT, tmp1,
-				      s_buf + N - CBC_LEN);
-			xor128(s_buf + N - CBC_LEN, ivec);
-		} else
-			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, padded_len,
-				      ivec, s_buf, s_buf);
-		memset(ivec, 0, CBC_LEN);
-		munlock(ivec, CBC_LEN);
-	}
+	if (ENCRYPT)
+		lrz_crypt(control, s_buf, padded_len, 0, 0);
 
 	ucthread[s->uthread_no].s_buf = s_buf;
 	ucthread[s->uthread_no].c_len = c_len;

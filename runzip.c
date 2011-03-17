@@ -376,17 +376,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 
 			if (unlikely(read_1g(control, fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 				fatal("Failed to read md5 data in runzip_fd\n");
-			if (ENCRYPT) {
-				/* Even the MD5 value is stored encrypted */
-				uchar *dec_buf = malloc(MD5_DIGEST_SIZE);
-
-				if (unlikely(aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT,
-					MD5_DIGEST_SIZE, control->hash_iv, md5_stored, dec_buf)))
-						failure("Failed to aes_crypt_cbc in runzip_fd\n");
-				for (i = 0; i < MD5_DIGEST_SIZE; i++)
-					md5_stored[i] = dec_buf[i];
-				free(dec_buf);
-			}
+			if (ENCRYPT)
+				lrz_crypt(control, md5_stored, MD5_DIGEST_SIZE, 0, 1);
 			for (i = 0; i < MD5_DIGEST_SIZE; i++)
 				if (md5_stored[i] != md5_resblock[i]) {
 					print_output("MD5 CHECK FAILED.\nStored:");

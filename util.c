@@ -150,3 +150,63 @@ void get_rand(uchar *buf, int len)
 			fatal("Failed to close fd in get_rand\n");
 	}
 }
+
+static void xor128 (void *pa, const void *pb)
+{
+	i64 *a = pa;
+	const i64 *b = pb;
+
+	a [0] ^= b [0];
+	a [1] ^= b [1];
+}
+
+void lrz_crypt(rzip_control *control, uchar *buf, i64 len, int encrypt, int carry_iv)
+{
+	/* Encryption requires CBC_LEN blocks so we can use ciphertext
+	* stealing to not have to pad the block */
+	unsigned char ivec[CBC_LEN], tmp0[CBC_LEN], tmp1[CBC_LEN];
+	i64 N, M;
+
+	mlock(ivec, CBC_LEN);
+	memcpy(ivec, control->hash_iv, CBC_LEN);
+	M = len % CBC_LEN;
+	N = len - M;
+
+	if (encrypt) {
+		print_maxverbose("Encrypting data        \n");
+		aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, N, ivec, buf, buf);
+		
+		if (M) {
+			memset(tmp0, 0, sizeof(tmp0));
+			memcpy(tmp0, buf + N, M);
+			aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, CBC_LEN,
+				ivec, tmp0, tmp1);
+			memcpy(buf + N, buf + N - CBC_LEN, M);
+			memcpy(buf + N - CBC_LEN, tmp1, CBC_LEN);
+		}
+	} else {
+		print_maxverbose("Decrypting data        \n");
+		if (M) {
+			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, N - CBC_LEN,
+				      ivec, buf, buf);
+			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT,
+				      buf + N - CBC_LEN, tmp0);
+			memset(tmp1, 0, CBC_LEN);
+			memcpy(tmp1, buf + N, M);
+			xor128(tmp0, tmp1);
+			memcpy(buf + N, tmp0, M);
+			memcpy(tmp1 + M, tmp0 + M, CBC_LEN - M);
+			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT, tmp1,
+				      buf + N - CBC_LEN);
+			xor128(buf + N - CBC_LEN, ivec);
+		} else
+			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, len,
+				      ivec, buf, buf);
+	}
+	/* The carry_iv flag tells us if we want to update the value in
+	 * control->hash_iv for later encryption */
+	if (carry_iv)
+		memcpy(control->hash_iv, ivec, CBC_LEN);
+	memset(ivec, 0, CBC_LEN);
+	munlock(ivec, CBC_LEN);
+}
