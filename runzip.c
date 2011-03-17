@@ -108,10 +108,37 @@ static i64 seekto_fdhist(rzip_control *control, i64 pos)
 	return pos;
 }
 
-static i64 seekcur_fdin(struct rzip_control *control)
+static i64 seekcur_fdin(rzip_control *control)
 {
 	if (!TMP_INBUF)
 		return lseek(control->fd_in, 0, SEEK_CUR);
+	return control->in_ofs;
+}
+
+static i64 seekto_fdin(rzip_control *control, i64 pos)
+{
+	if (!TMP_INBUF)
+		return lseek(control->fd_in, pos, SEEK_SET);
+	if (unlikely(pos > control->in_len || pos < 0)) {
+		print_err("Trying to seek outside tmpinbuf to %lld in seekto_fdin\n", pos);
+		return -1;
+	}
+	control->in_ofs = pos;
+	return 0;
+}
+
+static i64 seekto_fdinend(rzip_control *control)
+{
+	int tmpchar;
+
+	if (!TMP_INBUF)
+		return lseek(control->fd_in, 0, SEEK_END);
+	while ((tmpchar = getchar()) != EOF) {
+		control->tmp_inbuf[control->in_len++] = (char)tmpchar;
+		if (unlikely(control->in_len > control->in_maxlen))
+			failure("Trying to read greater than max_len\n");
+	}
+	control->in_ofs = control->in_len;
 	return control->in_ofs;
 }
 
@@ -340,11 +367,13 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 
 		md5_finish_ctx (&control->ctx, md5_resblock);
 		if (HAS_MD5) {
-#if 0
-			/* Unnecessary, we should already be there */
-			if (unlikely(lseek(fd_in, -MD5_DIGEST_SIZE, SEEK_END)) == -1)
-				fatal("Failed to seek to md5 data in runzip_fd\n");
-#endif
+			i64 fdinend = seekto_fdinend(control);
+
+			if (unlikely(fdinend == -1))
+				failure("Failed to seekto_fdinend in rzip_fd\n");
+			if (unlikely(seekto_fdin(control, fdinend - MD5_DIGEST_SIZE) == -1))
+				failure("Failed to seekto_fdin in rzip_fd\n");
+
 			if (unlikely(read_1g(control, fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 				fatal("Failed to read md5 data in runzip_fd\n");
 			if (ENCRYPT) {
