@@ -160,23 +160,34 @@ static void xor128 (void *pa, const void *pb)
 	a [1] ^= b [1];
 }
 
-void lrz_crypt(rzip_control *control, uchar *buf, i64 len, int encrypt, int carry_iv)
+void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, int encrypt)
 {
 	/* Encryption requires CBC_LEN blocks so we can use ciphertext
 	* stealing to not have to pad the block */
-	unsigned char ivec[CBC_LEN], tmp0[CBC_LEN], tmp1[CBC_LEN];
+	uchar ivec[80], tmp0[CBC_LEN], tmp1[CBC_LEN];
+	uchar key[80], iv[80];
 	i64 N, M;
+	int i;
 
-	mlock(ivec, CBC_LEN);
-	if (carry_iv)
-		memcpy(ivec, control->rehash_iv, CBC_LEN);
-	else
-		memcpy(ivec, control->hash_iv, CBC_LEN);
+	/* Generate unique key and IV for each block of data based on salt */
+	mlock(key, 80);
+	mlock(iv, 80);
+	for (i = 0; i < 64; i++)
+		key[i] = control->pass_hash[i] ^ control->hash[i];
+	memcpy(key + 64, salt, 16);
+	sha4(key, 80, key, 0);
+	for (i = 0; i < 64; i++)
+		ivec[i] = key[i] ^ control->pass_hash[i];
+	memcpy(ivec + 64, salt, 16);
+	sha4(ivec, 80, ivec, 0);
+
 	M = len % CBC_LEN;
 	N = len - M;
 
 	if (encrypt) {
 		print_maxverbose("Encrypting data        \n");
+		if (unlikely(aes_setkey_enc(&control->aes_ctx, key, 128)))
+			failure("Failed to aes_setkey_enc in lrz_crypt\n");
 		aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, N, ivec, buf, buf);
 		
 		if (M) {
@@ -188,6 +199,8 @@ void lrz_crypt(rzip_control *control, uchar *buf, i64 len, int encrypt, int carr
 			memcpy(buf + N - CBC_LEN, tmp1, CBC_LEN);
 		}
 	} else {
+		if (unlikely(aes_setkey_dec(&control->aes_ctx, key, 128)))
+			failure("Failed to aes_setkey_dec in lrz_crypt\n");
 		print_maxverbose("Decrypting data        \n");
 		if (M) {
 			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, N - CBC_LEN,
@@ -206,10 +219,9 @@ void lrz_crypt(rzip_control *control, uchar *buf, i64 len, int encrypt, int carr
 			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, len,
 				      ivec, buf, buf);
 	}
-	/* The carry_iv flag tells us if we want to update the value in
-	 * control->rehash_iv for later encryption */
-	if (carry_iv)
-		memcpy(control->rehash_iv, ivec, CBC_LEN);
-	memset(ivec, 0, CBC_LEN);
-	munlock(ivec, CBC_LEN);
+
+	memset(ivec, 0, 80);
+	memset(key, 0, 80);
+	munlock(ivec, 80);
+	munlock(key, 80);
 }

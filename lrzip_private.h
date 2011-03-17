@@ -201,9 +201,9 @@ struct rzip_control {
 	i64 encloops;
 	i64 secs;
 	uchar salt[16];
+	uchar *pass_hash;
 	uchar *hash;
 	uchar *hash_iv;
-	uchar *rehash_iv;
 	aes_context aes_ctx;
 	unsigned char eof;
 	unsigned char magic_written;

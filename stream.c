@@ -66,6 +66,7 @@ static struct compress_thread{
 	pthread_mutex_t mutex; /* This thread's mutex */
 	struct stream_info *sinfo;
 	int streamno;
+	uchar salt[16];
 } *cthread;
 
 static struct uncomp_thread{
@@ -1183,8 +1184,11 @@ retry:
 		get_rand(cti->s_buf + cti->c_len, MIN_SIZE - cti->c_len);
 	}
 
-	if (!ret && ENCRYPT)
-		lrz_crypt(control, cti->s_buf, padded_len, 1, 0);
+	if (!ret && ENCRYPT) {
+		get_rand(cti->salt, 8);
+		memcpy(cti->salt + 8, control->salt + 8, 8);
+		lrz_crypt(control, cti->s_buf, padded_len, cti->salt, 1);
+	}
 
 	/* If compression fails for whatever reason multithreaded, then wait
 	 * for the previous thread to finish, serialising the work to decrease
@@ -1254,8 +1258,14 @@ retry:
 	}
 	ctis->cur_pos += 25;
 
+	if (ENCRYPT) {
+		ctis->cur_pos += 8;
+		if (unlikely(write_buf(control, ctis->fd, cti->salt, 8)))
+			fatal("Failed to write_buf salt in compthread %d\n", i);
+	}
+
 	if (unlikely(write_buf(control, ctis->fd, cti->s_buf, padded_len)))
-		fatal("Failed to write_buf in compthread %d\n", i);
+		fatal("Failed to write_buf s_buf in compthread %d\n", i);
 
 	ctis->cur_pos += padded_len;
 	free(cti->s_buf);
@@ -1380,6 +1390,7 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int str
 	struct stream *s = &sinfo->s[streamno];
 	stream_thread_struct *st;
 	uchar c_type, *s_buf;
+	uchar salt[16];
 
 	if (s->buf)
 		free(s->buf);
@@ -1419,6 +1430,14 @@ fill_another:
 		header_length = 25;
 	}
 
+	if (ENCRYPT) {
+		if (unlikely(read_buf(control, sinfo->fd, salt, 8))) {
+			print_err("Failed to read_buf salt in fill_buffer\n");
+			return -1;
+		}
+		memcpy(salt + 8, control->salt + 8, 8);
+	}
+
 	padded_len = MAX(c_len, MIN_SIZE);
 	fsync(control->fd_out);
 
@@ -1431,7 +1450,7 @@ fill_another:
 		return -1;
 
 	if (ENCRYPT)
-		lrz_crypt(control, s_buf, padded_len, 0, 0);
+		lrz_crypt(control, s_buf, padded_len, salt, 0);
 
 	ucthread[s->uthread_no].s_buf = s_buf;
 	ucthread[s->uthread_no].c_len = c_len;

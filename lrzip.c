@@ -475,16 +475,16 @@ static void get_hash(rzip_control *control, int make_hash)
 
 	passphrase = calloc(PASS_LEN, 1);
 	testphrase = calloc(PASS_LEN, 1);
+	control->pass_hash = calloc(HASH_LEN, 1);
 	control->hash = calloc(HASH_LEN, 1);
 	control->hash_iv = calloc(SALT_LEN, 1);
-	control->rehash_iv = calloc(SALT_LEN, 1);
-	if (unlikely(!passphrase || !testphrase || !control->hash || !control->hash_iv || !control->rehash_iv))
+	if (unlikely(!passphrase || !testphrase || !control->pass_hash || !control->hash || !control->hash_iv))
 		fatal("Failed to calloc encrypt buffers in compress_file\n");
 	mlock(passphrase, PASS_LEN);
 	mlock(testphrase, PASS_LEN);
+	mlock(control->pass_hash, HASH_LEN);
 	mlock(control->hash, HASH_LEN);
 	mlock(control->hash_iv, SALT_LEN);
-	mlock(control->rehash_iv, SALT_LEN);
 
 	/* Disable stdin echo to screen */
 	tcgetattr(fileno(stdin), &termios_p);
@@ -510,25 +510,18 @@ retry_pass:
 	free(testphrase);
 
 	memcpy(passphrase + PASS_LEN - SALT_LEN, control->salt, SALT_LEN);
-	sha4(passphrase, PASS_LEN, passphrase, 0);
+	sha4(passphrase, PASS_LEN, control->pass_hash, 0);
 
 	print_maxverbose("Hashing passphrase %lld times\n", control->encloops);
 	for (i = 0; i < control->encloops; i++) {
 		for (j = 0; j < HASH_LEN; j++)
-			control->hash[j] ^= passphrase[j];
+			control->hash[j] ^= control->pass_hash[j];
 		sha4(control->hash, HASH_LEN, control->hash, 0);
 		if (unlikely(i == control->encloops - 1024)) {
 			for (j = 0; j < SALT_LEN; j++)
 				control->hash_iv[j] = control->hash[j];
 		}
 	}
-	memcpy(control->rehash_iv, control->hash_iv, SALT_LEN);
-
-	memset(control->hash + SALT_LEN, 0, HASH_LEN - SALT_LEN);
-	munlock(control->hash + SALT_LEN, HASH_LEN - SALT_LEN);
-	control->hash = realloc(control->hash, SALT_LEN);
-	if (unlikely(!control->hash))
-		fatal("Failed to realloc control->hash in get_hash\n");
 	memset(passphrase, 0, PASS_LEN);
 	munlock(passphrase, PASS_LEN);
 	free(passphrase);
@@ -536,13 +529,13 @@ retry_pass:
 
 static void release_hashes(rzip_control *control)
 {
+	memset(control->pass_hash, 0, HASH_LEN);
 	memset(control->hash, 0, SALT_LEN);
 	memset(control->hash_iv, 0, SALT_LEN);
-	memset(control->rehash_iv, 0, SALT_LEN);
 	munlockall();
+	free(control->pass_hash);
 	free(control->hash);
 	free(control->hash_iv);
-	free(control->rehash_iv);
 }
 
 /*
@@ -678,11 +671,8 @@ void decompress_file(rzip_control *control)
 		print_verbose("CRC32 ");
 	print_verbose("being used for integrity testing.\n");
 
-	if (ENCRYPT) {
+	if (ENCRYPT)
 		get_hash(control, 0);
-		if (unlikely(aes_setkey_dec(&control->aes_ctx, control->hash, 128)))
-			failure("Failed to aes_setkey_dec in decompress_file\n");
-	}
 
 	print_progress("Decompressing...\n");
 
@@ -876,8 +866,15 @@ next_chunk:
 		} while (last_head);
 		++stream;
 	}
-	if (unlikely((ofs = lseek(fd_in, c_len, SEEK_CUR)) == -1))
+
+	if (ENCRYPT) {
+		if (unlikely((ofs = lseek(fd_in, c_len + 8, SEEK_CUR)) == -1))
+			fatal("Failed to lseek c_len in get_fileinfo\n");
+	} else {
+		if (unlikely((ofs = lseek(fd_in, c_len, SEEK_CUR)) == -1))
 		fatal("Failed to lseek c_len in get_fileinfo\n");
+	}
+
 	/* Chunk byte entry */
 	if (control->major_version == 0 && control->minor_version > 4) {
 		if (unlikely(read(fd_in, &chunk_byte, 1) != 1))
@@ -969,11 +966,8 @@ void compress_file(rzip_control *control)
 	int fd_in, fd_out;
 	char header[MAGIC_LEN];
 
-	if (ENCRYPT) {
+	if (ENCRYPT)
 		get_hash(control, 1);
-		if (unlikely(aes_setkey_enc(&control->aes_ctx, control->hash, 128)))
-			failure("Failed to aes_setkey_enc in compress_file\n");
-	}
 	memset(header, 0, sizeof(header));
 
 	if (!STDIN) {
