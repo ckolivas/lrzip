@@ -47,6 +47,7 @@
 #include "stream.h"
 #include "util.h"
 #include "liblrzip.h"
+#include "lrzip.h"
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
 

@@ -34,6 +34,7 @@
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
+#include <sys/mman.h>
 #include <sys/time.h>
 #include <termios.h>
 
@@ -357,7 +358,7 @@ int open_tmpinfile(rzip_control *control)
 static void read_tmpinmagic(rzip_control *control)
 {
 	char magic[MAGIC_LEN];
-	int md5, i, tmpchar;
+	int i, tmpchar;
 
 	memset(magic, 0, sizeof(magic));
 	for (i = 0; i < 24; i++) {
@@ -946,7 +947,7 @@ void compress_file(rzip_control *control)
 	const char *tmp, *tmpinfile; 	/* we're just using this as a proxy for control->infile.
 					 * Spares a compiler warning
 					 */
-	int fd_in, fd_out;
+	int fd_in, fd_out = -1;
 	char header[MAGIC_LEN];
 
 	if (ENCRYPT)

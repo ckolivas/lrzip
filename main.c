@@ -136,7 +136,6 @@ static inline i64 get_ram(void)
 	i64 ramsize;
 	FILE *meminfo;
 	char aux[256];
-	char *ignore;
 
 	ramsize = (i64)sysconf(_SC_PHYS_PAGES) * PAGE_SIZE;
 	if (ramsize > 0)
@@ -146,8 +145,10 @@ static inline i64 get_ram(void)
 	if(!(meminfo = fopen("/proc/meminfo", "r")))
 		fatal("fopen\n");
 
-	while(!feof(meminfo) && !fscanf(meminfo, "MemTotal: %Lu kB", &ramsize))
-		ignore = fgets(aux, sizeof(aux), meminfo);
+	while(!feof(meminfo) && !fscanf(meminfo, "MemTotal: %Lu kB", &ramsize)) {
+		if (unlikely(fgets(aux, sizeof(aux), meminfo) == NULL))
+			fatal("Failed to fgets in get_ram\n");
+	}
 	if (fclose(meminfo) == -1)
 		fatal("fclose");
 	ramsize *= 1000;
@@ -767,7 +768,7 @@ int main(int argc, char *argv[])
 			 * used in alloc */
 			usable_ram = MAX(control.ramsize - 900000000ll, 900000000ll);
 			control.maxram = MIN(control.maxram, usable_ram);
-			control.maxram = MIN(control.maxram, two_gig);
+			control.maxram = MIN((unsigned long long)control.maxram, two_gig);
 		}
 		round_to_page(&control.maxram);
 

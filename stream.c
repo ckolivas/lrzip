@@ -45,6 +45,7 @@
 #include "util.h"
 #include "zpipe.h"
 #include "liblrzip.h"
+#include "lrzip.h"
 
 
 #ifdef __APPLE__
@@ -1391,7 +1392,7 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int str
 	struct stream *s = &sinfo->s[streamno];
 	stream_thread_struct *st;
 	uchar c_type, *s_buf;
-	uchar salt[16];
+	uchar salt[BLOCKSALT_LEN];
 
 	if (s->buf)
 		free(s->buf);
