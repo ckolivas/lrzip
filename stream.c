@@ -1127,6 +1127,8 @@ failed:
 	return NULL;
 }
 
+#define MIN_SIZE (ENCRYPT ? CBC_LEN : 0)
+
 /* Enter with s_buf allocated,s_buf points to the compressed data after the
  * backend compression and is then freed here */
 static void *compthread(void *data)
@@ -1137,6 +1139,7 @@ static void *compthread(void *data)
 	struct compress_thread *cti;
 	struct stream_info *ctis;
 	int waited = 0, ret = 0;
+	i64 padded_len;
 
 	/* Make sure this thread doesn't already exist */
 	
@@ -1168,19 +1171,28 @@ retry:
 		else failure("Dunno wtf compression to use!\n");
 	}
 
+	padded_len = cti->c_len;
+	if (!ret && padded_len < MIN_SIZE) {
+		/* We need to pad out each block to at least be CBC_LEN bytes
+		 * long or encryption cannot work. We pad it with random
+		 * data */
+		padded_len = MIN_SIZE;
+		cti->s_buf = realloc(cti->s_buf, MIN_SIZE);
+		if (unlikely(!cti->s_buf))
+			fatal("Failed to realloc s_buf in compthread\n");
+		get_rand(cti->s_buf + cti->c_len, MIN_SIZE - cti->c_len);
+	}
+
 	if (!ret && ENCRYPT) {
 		/* Encryption requires CBC_LEN blocks so we can use ciphertext
 		 * stealing to not have to pad the block */
 		unsigned char ivec[CBC_LEN], tmp0[CBC_LEN], tmp1[CBC_LEN];
 		i64 N, M;
 
-		if (unlikely(cti->c_len < CBC_LEN))
-			failure("Unable to encrypt when compressed blocks end up being less than %d bytes, this one being %lld\n",
-				CBC_LEN, cti->c_len);
 		mlock(ivec, CBC_LEN);
 		memcpy(ivec, control->hash_iv, CBC_LEN);
-		M = cti->c_len % CBC_LEN;
-		N = cti->c_len - M;
+		M = padded_len % CBC_LEN;
+		N = padded_len - M;
 
 		print_maxverbose("Encrypting block        \n");
 		aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, N, ivec,
@@ -1256,7 +1268,8 @@ retry:
 	if (unlikely(seekto(control, ctis, ctis->cur_pos)))
 		fatal("Failed to seekto cur_pos in compthread %d\n", i);
 
-	print_maxverbose("Thread %ld writing %lld compressed bytes from stream %d\n", i, cti->c_len, cti->streamno);
+	print_maxverbose("Thread %ld writing %lld compressed bytes from stream %d\n", i, padded_len, cti->streamno);
+	/* We store the actual c_len even though we might pad it out */
 	if (unlikely(write_u8(control, ctis->fd, cti->c_type) ||
 		write_i64(control, ctis->fd, cti->c_len) ||
 		write_i64(control, ctis->fd, cti->s_len) ||
@@ -1265,10 +1278,10 @@ retry:
 	}
 	ctis->cur_pos += 25;
 
-	if (unlikely(write_buf(control, ctis->fd, cti->s_buf, cti->c_len)))
+	if (unlikely(write_buf(control, ctis->fd, cti->s_buf, padded_len)))
 		fatal("Failed to write_buf in compthread %d\n", i);
 
-	ctis->cur_pos += cti->c_len;
+	ctis->cur_pos += padded_len;
 	free(cti->s_buf);
 
 	lock_mutex(&output_lock);
@@ -1396,10 +1409,10 @@ static void xor128 (void *pa, const void *pb)
 /* fill a buffer from a stream - return -1 on failure */
 static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int streamno)
 {
-	i64 header_length, u_len, c_len, last_head;
+	i64 header_length, u_len, c_len, last_head, padded_len;
 	struct stream *s = &sinfo->s[streamno];
-	uchar c_type, *s_buf;
 	stream_thread_struct *st;
+	uchar c_type, *s_buf;
 
 	if (s->buf)
 		free(s->buf);
@@ -1439,14 +1452,15 @@ fill_another:
 		header_length = 25;
 	}
 
+	padded_len = MAX(c_len, MIN_SIZE);
 	fsync(control->fd_out);
 
-	s_buf = malloc(u_len);
+	s_buf = malloc(MAX(u_len, MIN_SIZE));
 	if (unlikely(u_len && !s_buf))
 		fatal("Unable to malloc buffer of size %lld in fill_buffer\n", u_len);
 	sinfo->ram_alloced += u_len;
 
-	if (unlikely(read_buf(control, sinfo->fd, s_buf, c_len)))
+	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len)))
 		return -1;
 
 	if (ENCRYPT) {
@@ -1455,8 +1469,8 @@ fill_another:
 
 		mlock(ivec, CBC_LEN);
 		memcpy(ivec, control->hash_iv, CBC_LEN);
-		M = c_len % CBC_LEN;
-		N = c_len - M;
+		M = padded_len % CBC_LEN;
+		N = padded_len - M;
 
 		print_maxverbose("Decrypting block        \n");
 		if (M) {
@@ -1473,7 +1487,7 @@ fill_another:
 				      s_buf + N - CBC_LEN);
 			xor128(s_buf + N - CBC_LEN, ivec);
 		} else
-			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, c_len,
+			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, padded_len,
 				      ivec, s_buf, s_buf);
 		memset(ivec, 0, CBC_LEN);
 		munlock(ivec, CBC_LEN);
@@ -1489,7 +1503,7 @@ fill_another:
 	/* List this thread as busy */
 	ucthread[s->uthread_no].busy = 1;
 	print_maxverbose("Starting thread %ld to decompress %lld bytes from stream %d\n",
-			 s->uthread_no, c_len, streamno);
+			 s->uthread_no, padded_len, streamno);
 
 	st = malloc(sizeof(stream_thread_struct));
 	if (unlikely(!st))
