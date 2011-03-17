@@ -94,7 +94,6 @@ typedef uint32_t u32;
 
 typedef struct rzip_control rzip_control;
 typedef struct md5_ctx md5_ctx;
-#include "aes.h" // for aes_context
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # define mremap fake_mremap
@@ -138,6 +137,7 @@ typedef struct md5_ctx md5_ctx;
 
 #define PASS_LEN 512
 #define HASH_LEN 64
+#define BLOCKSALT_LEN 24
 #define SALT_LEN 16
 #define CBC_LEN 16
 
@@ -203,8 +203,6 @@ struct rzip_control {
 	uchar salt[16];
 	uchar *pass_hash;
 	uchar *hash;
-	uchar *hash_iv;
-	aes_context aes_ctx;
 	unsigned char eof;
 	unsigned char magic_written;
 	md5_ctx ctx;

@@ -43,8 +43,6 @@
 #include "util.h"
 #include "stream.h"
 #include "liblrzip.h" /* flag defines */
-#include "sha4.h"
-#include "aes.h"
 
 #define MAGIC_LEN (39)
 
@@ -477,14 +475,12 @@ static void get_hash(rzip_control *control, int make_hash)
 	testphrase = calloc(PASS_LEN, 1);
 	control->pass_hash = calloc(HASH_LEN, 1);
 	control->hash = calloc(HASH_LEN, 1);
-	control->hash_iv = calloc(SALT_LEN, 1);
-	if (unlikely(!passphrase || !testphrase || !control->pass_hash || !control->hash || !control->hash_iv))
+	if (unlikely(!passphrase || !testphrase || !control->pass_hash || !control->hash))
 		fatal("Failed to calloc encrypt buffers in compress_file\n");
 	mlock(passphrase, PASS_LEN);
 	mlock(testphrase, PASS_LEN);
 	mlock(control->pass_hash, HASH_LEN);
 	mlock(control->hash, HASH_LEN);
-	mlock(control->hash_iv, SALT_LEN);
 
 	/* Disable stdin echo to screen */
 	tcgetattr(fileno(stdin), &termios_p);
@@ -510,18 +506,7 @@ retry_pass:
 	free(testphrase);
 
 	memcpy(passphrase + PASS_LEN - SALT_LEN, control->salt, SALT_LEN);
-	sha4(passphrase, PASS_LEN, control->pass_hash, 0);
-
-	print_maxverbose("Hashing passphrase %lld times\n", control->encloops);
-	for (i = 0; i < control->encloops; i++) {
-		for (j = 0; j < HASH_LEN; j++)
-			control->hash[j] ^= control->pass_hash[j];
-		sha4(control->hash, HASH_LEN, control->hash, 0);
-		if (unlikely(i == control->encloops - 1024)) {
-			for (j = 0; j < SALT_LEN; j++)
-				control->hash_iv[j] = control->hash[j];
-		}
-	}
+	lrz_keygen(control, passphrase);
 	memset(passphrase, 0, PASS_LEN);
 	munlock(passphrase, PASS_LEN);
 	free(passphrase);
@@ -531,11 +516,9 @@ static void release_hashes(rzip_control *control)
 {
 	memset(control->pass_hash, 0, HASH_LEN);
 	memset(control->hash, 0, SALT_LEN);
-	memset(control->hash_iv, 0, SALT_LEN);
 	munlockall();
 	free(control->pass_hash);
 	free(control->hash);
-	free(control->hash_iv);
 }
 
 /*

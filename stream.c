@@ -66,7 +66,7 @@ static struct compress_thread{
 	pthread_mutex_t mutex; /* This thread's mutex */
 	struct stream_info *sinfo;
 	int streamno;
-	uchar salt[16];
+	uchar salt[BLOCKSALT_LEN];
 } *cthread;
 
 static struct uncomp_thread{
@@ -1186,7 +1186,8 @@ retry:
 
 	if (!ret && ENCRYPT) {
 		get_rand(cti->salt, 8);
-		memcpy(cti->salt + 8, control->salt + 8, 8);
+		memcpy(cti->salt + 8, &cti->c_len, 8);
+		memcpy(cti->salt + 16, &cti->s_len, 8);
 		lrz_crypt(control, cti->s_buf, padded_len, cti->salt, 1);
 	}
 
@@ -1435,7 +1436,8 @@ fill_another:
 			print_err("Failed to read_buf salt in fill_buffer\n");
 			return -1;
 		}
-		memcpy(salt + 8, control->salt + 8, 8);
+		memcpy(salt + 8, &c_len, 8);
+		memcpy(salt + 16, &u_len, 8);
 	}
 
 	padded_len = MAX(c_len, MIN_SIZE);

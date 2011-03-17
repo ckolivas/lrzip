@@ -48,9 +48,13 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <fcntl.h>
 #include "lrzip_private.h"
 #include "liblrzip.h"
+#include "sha4.h"
+#include "aes.h"
+
 
 static const char *infile = NULL;
 static char delete_infile = 0;
@@ -164,64 +168,82 @@ void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, int encr
 {
 	/* Encryption requires CBC_LEN blocks so we can use ciphertext
 	* stealing to not have to pad the block */
-	uchar ivec[80], tmp0[CBC_LEN], tmp1[CBC_LEN];
-	uchar key[80], iv[80];
+	uchar key[HASH_LEN + BLOCKSALT_LEN], iv[HASH_LEN + BLOCKSALT_LEN];
+	uchar tmp0[CBC_LEN], tmp1[CBC_LEN];
+	aes_context aes_ctx;
 	i64 N, M;
 	int i;
 
 	/* Generate unique key and IV for each block of data based on salt */
-	mlock(key, 80);
-	mlock(iv, 80);
-	for (i = 0; i < 64; i++)
+	mlock(&aes_ctx, sizeof(aes_ctx));
+	mlock(key, HASH_LEN + BLOCKSALT_LEN);
+	mlock(iv, HASH_LEN + BLOCKSALT_LEN);
+	for (i = 0; i < HASH_LEN; i++)
 		key[i] = control->pass_hash[i] ^ control->hash[i];
-	memcpy(key + 64, salt, 16);
-	sha4(key, 80, key, 0);
-	for (i = 0; i < 64; i++)
-		ivec[i] = key[i] ^ control->pass_hash[i];
-	memcpy(ivec + 64, salt, 16);
-	sha4(ivec, 80, ivec, 0);
+	memcpy(key + HASH_LEN, salt, BLOCKSALT_LEN);
+	sha4(key, HASH_LEN + BLOCKSALT_LEN, key, 0);
+	for (i = 0; i < HASH_LEN; i++)
+		iv[i] = key[i] ^ control->pass_hash[i];
+	memcpy(iv + HASH_LEN, salt, BLOCKSALT_LEN);
+	sha4(iv, HASH_LEN + BLOCKSALT_LEN, iv, 0);
 
 	M = len % CBC_LEN;
 	N = len - M;
 
 	if (encrypt) {
 		print_maxverbose("Encrypting data        \n");
-		if (unlikely(aes_setkey_enc(&control->aes_ctx, key, 128)))
+		if (unlikely(aes_setkey_enc(&aes_ctx, key, 128)))
 			failure("Failed to aes_setkey_enc in lrz_crypt\n");
-		aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, N, ivec, buf, buf);
+		aes_crypt_cbc(&aes_ctx, AES_ENCRYPT, N, iv, buf, buf);
 		
 		if (M) {
-			memset(tmp0, 0, sizeof(tmp0));
+			memset(tmp0, 0, CBC_LEN);
 			memcpy(tmp0, buf + N, M);
-			aes_crypt_cbc(&control->aes_ctx, AES_ENCRYPT, CBC_LEN,
-				ivec, tmp0, tmp1);
+			aes_crypt_cbc(&aes_ctx, AES_ENCRYPT, CBC_LEN,
+				iv, tmp0, tmp1);
 			memcpy(buf + N, buf + N - CBC_LEN, M);
 			memcpy(buf + N - CBC_LEN, tmp1, CBC_LEN);
 		}
 	} else {
-		if (unlikely(aes_setkey_dec(&control->aes_ctx, key, 128)))
+		if (unlikely(aes_setkey_dec(&aes_ctx, key, 128)))
 			failure("Failed to aes_setkey_dec in lrz_crypt\n");
 		print_maxverbose("Decrypting data        \n");
 		if (M) {
-			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, N - CBC_LEN,
-				      ivec, buf, buf);
-			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT,
+			aes_crypt_cbc(&aes_ctx, AES_DECRYPT, N - CBC_LEN,
+				      iv, buf, buf);
+			aes_crypt_ecb(&aes_ctx, AES_DECRYPT,
 				      buf + N - CBC_LEN, tmp0);
 			memset(tmp1, 0, CBC_LEN);
 			memcpy(tmp1, buf + N, M);
 			xor128(tmp0, tmp1);
 			memcpy(buf + N, tmp0, M);
 			memcpy(tmp1 + M, tmp0 + M, CBC_LEN - M);
-			aes_crypt_ecb(&control->aes_ctx, AES_DECRYPT, tmp1,
+			aes_crypt_ecb(&aes_ctx, AES_DECRYPT, tmp1,
 				      buf + N - CBC_LEN);
-			xor128(buf + N - CBC_LEN, ivec);
+			xor128(buf + N - CBC_LEN, iv);
 		} else
-			aes_crypt_cbc(&control->aes_ctx, AES_DECRYPT, len,
-				      ivec, buf, buf);
+			aes_crypt_cbc(&aes_ctx, AES_DECRYPT, len,
+				      iv, buf, buf);
 	}
 
-	memset(ivec, 0, 80);
-	memset(key, 0, 80);
-	munlock(ivec, 80);
-	munlock(key, 80);
+	memset(&aes_ctx, 0, sizeof(aes_ctx));
+	memset(iv, 0, HASH_LEN + BLOCKSALT_LEN);
+	memset(key, 0, HASH_LEN + BLOCKSALT_LEN);
+	munlock(&aes_ctx, sizeof(aes_ctx));
+	munlock(iv, HASH_LEN + BLOCKSALT_LEN);
+	munlock(key, HASH_LEN + BLOCKSALT_LEN);
+}
+
+void lrz_keygen(rzip_control *control, const uchar *passphrase)
+{
+	int i, j;
+
+	sha4(passphrase, PASS_LEN, control->pass_hash, 0);
+
+	print_maxverbose("Hashing passphrase %lld times\n", control->encloops);
+	for (i = 0; i < control->encloops; i++) {
+		for (j = 0; j < HASH_LEN; j++)
+			control->hash[j] ^= control->pass_hash[j];
+		sha4(control->hash, HASH_LEN, control->hash, 0);
+	}
 }

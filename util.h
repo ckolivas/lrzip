@@ -30,5 +30,6 @@ void failure(const char *format, ...);
 void round_to_page(i64 *size);
 void get_rand(uchar *buf, int len);
 void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, int encrypt);
+void lrz_keygen(rzip_control *control, const uchar *passphrase);
 
 #endif
