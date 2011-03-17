@@ -1027,9 +1027,9 @@ void compress_file(rzip_control *control)
 		}
 
 		if (FORCE_REPLACE)
-			fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+			fd_out = open(control->outfile, O_RDWR | O_CREAT | O_TRUNC, 0666);
 		else
-			fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0666);
+			fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0666);
 		if (unlikely(fd_out == -1)) {
 			/* We must ensure we don't delete a file that already
 			 * exists just because we tried to create a new one */
