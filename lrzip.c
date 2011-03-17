@@ -96,7 +96,7 @@ static i64 fdout_seekto(rzip_control *control, i64 pos)
 		}
 		return 0;
 	}
-	return lseek(control->fd_out, 0, SEEK_SET);
+	return lseek(control->fd_out, pos, SEEK_SET);
 }
 
 void write_magic(rzip_control *control)
