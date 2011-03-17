@@ -85,24 +85,28 @@ static char *make_magic(rzip_control *control)
 	return magic;
 }
 
-void write_stdout_header(rzip_control *control)
+static i64 fdout_seekto(rzip_control *control, i64 pos)
 {
-	char *magic = make_magic(control);
-
-	memcpy(control->tmp_outbuf, magic, MAGIC_LEN);
-	control->magic_written = 1;
-
-	free(magic);
+	if (TMP_OUTBUF) {
+		pos -= control->out_relofs;
+		control->out_ofs = pos;
+		if (unlikely(pos > control->out_len || pos < 0)) {
+			print_err("Trying to seek to %lld outside tmp outbuf in fdout_seekto\n", pos);
+			return -1;
+		}
+		return 0;
+	}
+	return lseek(control->fd_out, 0, SEEK_SET);
 }
 
-static void write_magic(rzip_control *control, int fd_in, int fd_out)
+void write_magic(rzip_control *control)
 {
 	char *magic = make_magic(control);
 
-	if (unlikely(lseek(fd_out, 0, SEEK_SET)))
+	if (unlikely(fdout_seekto(control, 0)))
 		fatal("Failed to seek to BOF to write Magic Header\n");
 
-	if (unlikely(write(fd_out, magic, MAGIC_LEN) != MAGIC_LEN))
+	if (unlikely(put_fdout(control, magic, MAGIC_LEN) != MAGIC_LEN))
 		fatal("Failed to write magic header\n");
 	control->magic_written = 1;
 
@@ -1045,7 +1049,7 @@ void compress_file(rzip_control *control)
 
 	/* Wwrite magic at end b/c lzma does not tell us properties until it is done */
 	if (!STDOUT)
-		write_magic(control, fd_in, fd_out);
+		write_magic(control);
 
 	if (ENCRYPT)
 		release_hashes(control);

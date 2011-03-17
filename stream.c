@@ -1209,7 +1209,7 @@ retry:
 
 		if (TMP_OUTBUF) {
 			if (!control->magic_written)
-				write_stdout_header(control);
+				write_magic(control);
 			flush_tmpoutbuf(control);
 		}
 

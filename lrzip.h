@@ -21,7 +21,7 @@
 
 #include "lrzip_private.h"
 
-void write_magic(rzip_control *control, int fd_in, int fd_out);
+void write_magic(rzip_control *control);
 void read_magic(rzip_control *control, int fd_in, i64 *expected_size);
 void preserve_perms(rzip_control *control, int fd_in, int fd_out);
 int open_tmpoutfile(rzip_control *control);
@@ -32,7 +32,6 @@ void decompress_file(rzip_control *control);
 void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len, i64 *u_len, i64 *last_head);
 void get_fileinfo(rzip_control *control);
 void compress_file(rzip_control *control);
-void write_stdout_header(rzip_control *control);
 void write_fdout(rzip_control *control, void *buf, i64 len);
 void flush_tmpoutbuf(rzip_control *control);
 void close_tmpoutbuf(rzip_control *control);
