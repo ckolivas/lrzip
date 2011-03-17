@@ -203,6 +203,7 @@ struct rzip_control {
 	uchar salt[16];
 	uchar *hash;
 	uchar *hash_iv;
+	uchar *rehash_iv;
 	aes_context aes_ctx;
 	unsigned char eof;
 	unsigned char magic_written;

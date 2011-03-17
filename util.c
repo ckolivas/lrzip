@@ -168,7 +168,10 @@ void lrz_crypt(rzip_control *control, uchar *buf, i64 len, int encrypt, int carr
 	i64 N, M;
 
 	mlock(ivec, CBC_LEN);
-	memcpy(ivec, control->hash_iv, CBC_LEN);
+	if (carry_iv)
+		memcpy(ivec, control->rehash_iv, CBC_LEN);
+	else
+		memcpy(ivec, control->hash_iv, CBC_LEN);
 	M = len % CBC_LEN;
 	N = len - M;
 
@@ -204,9 +207,9 @@ void lrz_crypt(rzip_control *control, uchar *buf, i64 len, int encrypt, int carr
 				      ivec, buf, buf);
 	}
 	/* The carry_iv flag tells us if we want to update the value in
-	 * control->hash_iv for later encryption */
+	 * control->rehash_iv for later encryption */
 	if (carry_iv)
-		memcpy(control->hash_iv, ivec, CBC_LEN);
+		memcpy(control->rehash_iv, ivec, CBC_LEN);
 	memset(ivec, 0, CBC_LEN);
 	munlock(ivec, CBC_LEN);
 }

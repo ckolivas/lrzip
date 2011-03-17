@@ -473,12 +473,14 @@ static void get_hash(rzip_control *control, int make_hash)
 	testphrase = calloc(PASS_LEN, 1);
 	control->hash = calloc(HASH_LEN, 1);
 	control->hash_iv = calloc(SALT_LEN, 1);
-	if (unlikely(!passphrase || !testphrase || !control->hash || !control->hash_iv))
+	control->rehash_iv = calloc(SALT_LEN, 1);
+	if (unlikely(!passphrase || !testphrase || !control->hash || !control->hash_iv || !control->rehash_iv))
 		fatal("Failed to calloc encrypt buffers in compress_file\n");
 	mlock(passphrase, PASS_LEN);
 	mlock(testphrase, PASS_LEN);
 	mlock(control->hash, HASH_LEN);
 	mlock(control->hash_iv, SALT_LEN);
+	mlock(control->rehash_iv, SALT_LEN);
 
 	/* Disable stdin echo to screen */
 	tcgetattr(fileno(stdin), &termios_p);
@@ -516,6 +518,7 @@ retry_pass:
 				control->hash_iv[j] = control->hash[j];
 		}
 	}
+	memcpy(control->rehash_iv, control->hash_iv, SALT_LEN);
 
 	memset(control->hash + SALT_LEN, 0, HASH_LEN - SALT_LEN);
 	munlock(control->hash + SALT_LEN, HASH_LEN - SALT_LEN);
@@ -525,6 +528,17 @@ retry_pass:
 	memset(passphrase, 0, PASS_LEN);
 	munlock(passphrase, PASS_LEN);
 	free(passphrase);
+}
+
+static void release_hashes(rzip_control *control)
+{
+	memset(control->hash, 0, SALT_LEN);
+	memset(control->hash_iv, 0, SALT_LEN);
+	memset(control->rehash_iv, 0, SALT_LEN);
+	munlockall();
+	free(control->hash);
+	free(control->hash_iv);
+	free(control->rehash_iv);
 }
 
 /*
@@ -691,13 +705,8 @@ void decompress_file(rzip_control *control)
 			fatal("Failed to unlink %s\n", infilecopy);
 	}
 
-	if (ENCRYPT) {
-		memset(control->hash, 0, SALT_LEN);
-		memset(control->hash_iv, 0, SALT_LEN);
-		munlockall();
-		free(control->hash);
-		free(control->hash_iv);
-	}
+	if (ENCRYPT)
+		release_hashes(control);
 
 	free(control->outfile);
 	free(infilecopy);
@@ -1038,13 +1047,8 @@ void compress_file(rzip_control *control)
 	if (!STDOUT)
 		write_magic(control, fd_in, fd_out);
 
-	if (ENCRYPT) {
-		memset(control->hash, 0, SALT_LEN);
-		memset(control->hash_iv, 0, SALT_LEN);
-		munlockall();
-		free(control->hash);
-		free(control->hash_iv);
-	}
+	if (ENCRYPT)
+		release_hashes(control);
 
 	if (unlikely(close(fd_in)))
 		fatal("Failed to close fd_in\n");
