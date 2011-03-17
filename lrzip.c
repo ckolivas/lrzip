@@ -373,6 +373,7 @@ static void read_tmpinmagic(rzip_control *control)
 				failure("Reached end of file on STDIN prematurely on v06 magic read\n");
 			magic[i] = (char)tmpchar;
 		}
+		get_magicver06(control, magic);
 	}
 }
 
@@ -590,6 +591,8 @@ void decompress_file(rzip_control *control)
 	if (STDIN) {
 		fd_in = open_tmpinfile(control);
 		read_tmpinmagic(control);
+		if (ENCRYPT)
+			failure("Cannot decompress encrypted file from STDIN\n");
 		expected_size = control->st_size;
 		open_tmpinbuf(control);
 	} else {
