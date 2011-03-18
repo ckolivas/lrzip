@@ -1,6 +1,13 @@
+lrzip-0.60 update
+
+All files created with lrzip 0.6x are not backward compatible with versions
+prior to 0.60. v0.6x can read files generated with earlier versions.
+
+Con Kolivas March 2011.
+
 lrzip-0.50 update
 
-All files created with lrzip 0.50+ are not backward compatible with versions
+All files created with lrzip 0.5x are not backward compatible with versions
 prior to 0.50. v0.50 can read earlier generated files.
 
 lrzip-0.41 update

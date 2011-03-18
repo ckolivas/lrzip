@@ -65,10 +65,8 @@ lrztar wrapper to fake a complete archiver.
 really usable (for compression) with less than 256MB. Decompression requires
 less ram and works on smaller ram machines. Sometimes swap may need to be
 enabled on these lower ram machines for the operating system to be happy.
-3. Only stdin in compression works well. The other combinations of
-stdin/stdout work but in a very inefficient manner generating temporary files
-on disk so this method of using lrzip is not recommended. Solutions for this
-limitation are still under consideration.
+3. STDIN/STDOUT works fine on both compression and decompression, but larger
+files compressed in this manner will end up being less efficiently compressed.
 
 The unique feature of lrzip is that it tries to make the most of the available
 ram in your system at all times for maximum benefit. It does this by default,
@@ -100,6 +98,19 @@ make install
 
 
 FAQS.
+Q. What encryption does lrzip use?
+A. Lrzip uses the best current proven technologies to achieve high grade
+password protected encryption. It uses a combination of sha512 to multiply
+hash the password with random salt and aes128 to do block encryption of each
+block of data with more random salt. The amount of initial hashing of the
+password increases by the date an lrzip archive is encrypted according to
+Moore's law, making it harder each year to brute force attack the password
+to keep up with the increasing computing power each year. It is virtually
+guaranteed that the same file encrypted with the same password will never
+be the same twice. The weakest link in this encryption mode by far is the
+password chosen by the user. There is currently no known attack or backdoor
+for this encryption mechanism, and there is absolutely no way of retrieving
+your password should you forget it.
 
 Q. How do I make a static build?
 A. make static
@@ -147,10 +158,13 @@ A. The code is POSIXy with GNU extensions. Patches are welcome. Version 0.43+
 should build on MacOSX 10.5+
 
 Q. Does it work on stdin/stdout?
-A. Yes it does. Compression from stdin works nicely, but still not as well as
-working directly on files. However the other combinations of stdin and stdout
-use temporary files on disk because of seeking requirements so the performance
-of these mode is low. Not recommended!
+A. Yes it does. Compression and decompression work well to/from STDIN/STDOUT.
+However because lrzip does multiple passes on the data, it has to store a
+large amount in ram before it dumps it to STDOUT (and vice versa), thus it
+is unable to work with the massive compression windows regular operation
+provides. Thus the compression afforded on files larger than approximately
+25% RAM size will be less efficient (though still benefiting compared to
+traditional compression formats).
 
 Q. I have another compression format that is even better than zpaq, can you
 use that?
@@ -178,7 +192,7 @@ possible that data is compressible by the other backend (zpaq, lzma etc) and not
 at all by lzo, but in practice such data achieves only minuscule amounts of
 compression which are not worth pursuing. Most of the time it is clear one way
 or the other that data is compressible or not. If you wish to disable this
-test and force it to try compressing it anyway, use -T 0.
+test and force it to try compressing it anyway, use -T.
 
 Q. I have truckloads of ram so I can compress files much better, but can my
 generated file be decompressed on machines with less ram?
@@ -211,7 +225,7 @@ pre-processing phase so when using one of the more CPU intensive backend
 compressions like lzma or zpaq, SMP machines will show massive speed
 improvements. Lrzip will detect the number of CPUs to use, but it can be
 overridden with the -p option if the slightly better compression is desired
-more than speed.
+more than speed. -p 1 will give the best compression but also be the slowest.
 
 Q. This uses heaps of memory, can I make it use less?
 A. Well you can by setting -w to the lowest value (1) but the huge use of
@@ -300,7 +314,8 @@ LIMITATIONS
 Due to mmap limitations the maximum size a window can be set to is currently
 2GB on 32bit unless the -U option is specified. Files generated on 64 bit
 machines with windows >2GB in size might not be decompressible on 32bit
-machines.
+machines. Large files might not decompress on machines with less RAM if SWAP is
+disabled.
 
 BUGS:
 Probably lots. Tell me if you spot any :)
@@ -326,10 +341,11 @@ and the update to the multithreaded lzma library and all sorts of other
 features. Thanks to René Rhéaume for fixing executable stacks and
 Ed Avis for various fixes. Thanks to Matt Mahoney for zpaq code. Thanks to
 Jukka Laurila for Darwin support. Thanks to George Makrydakis for lrztar.
-Thanks to Ulrich Drepper for his md5 implementation.
+Thanks to Ulrich Drepper for his md5 implementation. Thanks to Serge Belyshev
+for extensive help, advice, and patches to implement encryption.
 
 Con Kolivas <kernel@kolivas.org>
-Mon, 21 Feb 2011
+Sat, 19 Mar 2011
 
 Also documented by
 Peter Hyman <pete@peterhyman.com>
