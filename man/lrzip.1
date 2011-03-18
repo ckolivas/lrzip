@@ -34,6 +34,7 @@ Here is a summary of the options to lrzip\&.
 General options:
   \-c            check integrity of file written on decompression
   \-d            decompress
+  \-e            password protected sha512/aes128 encryption on compression
   \-h|\-?         show help
   \-H            display md5 hash integrity information
   \-i            show compressed file information
@@ -92,6 +93,17 @@ written is the same as the original archived.
 Decompress. If this option is not used then lrzip looks at
 the name used to launch the program. If it contains the string
 "lrunzip" then the \-d option is automatically set.
+.IP
+.IP "\fB-e\fP"
+Encrypt. This option enables high grade password encryption using a combination
+of multiply sha512 hashed password, random salt and aes128 CBC encryption.
+Passwords up to 500 characters long are supported, and the encryption mechanism
+used virtually guarantees that the same file created with the same password
+will never be the same. Furthermore, the password hashing is increased
+according to the date the file is encrypted, increasing the number of CPU
+cycles required for each password attempt in accordance with Moore's law, thus
+making the difficulty of attempting brute force attacks proportional to the
+power of modern computers.
 .IP
 .IP "\fB-h|-?\fP"
 Print an options summary page
