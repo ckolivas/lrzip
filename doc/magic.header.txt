@@ -3,10 +3,10 @@ March 2011
 Con Kolivas
 
 Byte	Content
-0-38	Magic
+0-23	Magic
 ---
-39->98	Rzip chunk data
-99+	Data blocks
+24->83	Rzip chunk data
+84+	Data blocks
 --- repeat
 (end-MD5_DIGEST_SIZE)->(end) md5 hash
 
@@ -14,13 +14,15 @@ Magic data:
 0->3	LRZI
 4	LRZIP Major Version Number
 5	LRZIP Minor Version Number
-6->14	Source File Size or 0 if unknown
+6->14	Source File Size or 0 if unknown, or salt in encrypted file
 16->20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
-21	Flag that md5sum hash is stored at the end of the archive
-22	Flag that the data is encrypted
-23->27	Time in seconds (first 5 bytes of salt)
-28->29	Encoded number of hash loops (bytes 6-7 of salt)
-30->38	Random data (last 9 bytes of salt)
+21	1 = md5sum hash is stored at the end of the archive
+22	1 = data is encrypted with sha512/aes128
+23	Unused
+
+Encrypted salt (bytes 6->14 in magic if encrypted):
+0->1	Encoded number of loops to hash password
+2->7	Random data
 
 Rzip chunk data:
 0	Data offsets byte width

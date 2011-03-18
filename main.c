@@ -498,9 +498,8 @@ int main(int argc, char *argv[])
 	if (unlikely(gettimeofday(&tv, NULL)))
 		fatal("Failed to gettimeofday in main\n");
 	control.secs = tv.tv_sec;
-	memcpy(control.salt, &control.secs, 5);
-	control.encloops = nloops(control.secs, control.salt + 5, control.salt + 6);
-	get_rand(control.salt + 7, 9);
+	control.encloops = nloops(control.secs, control.salt, control.salt + 1);
+	get_rand(control.salt + 2, 6);
 
 	/* generate crc table */
 	CrcGenerateTable();

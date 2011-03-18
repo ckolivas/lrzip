@@ -45,22 +45,36 @@
 #include "stream.h"
 #include "liblrzip.h" /* flag defines */
 
-#define MAGIC_LEN (39)
+#define MAGIC_LEN (24)
 
-static char *make_magic(rzip_control *control)
+static i64 fdout_seekto(rzip_control *control, i64 pos)
 {
-	char *magic;
+	if (TMP_OUTBUF) {
+		pos -= control->out_relofs;
+		control->out_ofs = pos;
+		if (unlikely(pos > control->out_len || pos < 0)) {
+			print_err("Trying to seek to %lld outside tmp outbuf in fdout_seekto\n", pos);
+			return -1;
+		}
+		return 0;
+	}
+	return lseek(control->fd_out, pos, SEEK_SET);
+}
 
-	magic = calloc(MAGIC_LEN, 1);
-	if (unlikely(!magic))
-		fatal("Failed to calloc magic in make_magic\n");
+void write_magic(rzip_control *control)
+{
+	char magic[MAGIC_LEN];
+
 	strcpy(magic, "LRZI");
 	magic[4] = LRZIP_MAJOR_VERSION;
 	magic[5] = LRZIP_MINOR_VERSION;
 
 	/* File size is stored as zero for streaming STDOUT blocks when the
-	 * file size is unknown. */
-	if (!STDIN || !STDOUT || control->eof)
+	 * file size is unknown. In encrypted files, the size is left unknown
+	 * and instead the salt is stored here to preserve space. */
+	if (ENCRYPT)
+		memcpy(&magic[6], &control->salt, 8);
+	else if (!STDIN || !STDOUT || control->eof)
 		memcpy(&magic[6], &control->st_size, 8);
 
 	/* save LZMA compression flags */
@@ -79,44 +93,24 @@ static char *make_magic(rzip_control *control)
 	if (ENCRYPT)
 		magic[22] = 1;
 
-	memcpy(&magic[23], &control->salt, 16);
-
-	return magic;
-}
-
-static i64 fdout_seekto(rzip_control *control, i64 pos)
-{
-	if (TMP_OUTBUF) {
-		pos -= control->out_relofs;
-		control->out_ofs = pos;
-		if (unlikely(pos > control->out_len || pos < 0)) {
-			print_err("Trying to seek to %lld outside tmp outbuf in fdout_seekto\n", pos);
-			return -1;
-		}
-		return 0;
-	}
-	return lseek(control->fd_out, pos, SEEK_SET);
-}
-
-void write_magic(rzip_control *control)
-{
-	char *magic = make_magic(control);
-
 	if (unlikely(fdout_seekto(control, 0)))
 		fatal("Failed to seek to BOF to write Magic Header\n");
 
 	if (unlikely(put_fdout(control, magic, MAGIC_LEN) != MAGIC_LEN))
 		fatal("Failed to write magic header\n");
 	control->magic_written = 1;
-
-	free(magic);
 }
 
-static void get_magicver05(rzip_control *control, char *magic)
+static i64 enc_loops(uchar b1, uchar b2)
 {
+	return (i64)b2 << (i64)b1;
+}
+
+static void get_magic(rzip_control *control, char *magic)
+{
+	int encrypted, md5, i;
 	i64 expected_size;
 	uint32_t v;
-	int md5, i;
 
 	if (unlikely(strncmp(magic, "LRZI", 4)))
 		failure("Not an lrzip file\n");
@@ -147,29 +141,29 @@ static void get_magicver05(rzip_control *control, char *magic)
 
 	/* Whether this archive contains md5 data at the end or not */
 	md5 = magic[21];
-	if (md5 == 1)
-		control->flags |= FLAG_MD5;
-}
-
-static i64 enc_loops(uchar b1, uchar b2)
-{
-	return (i64)b2 << (i64)b1;
-}
-
-static void get_magicver06(rzip_control *control, char *magic)
-{
-	if (magic[22] == 1)
-		control->flags |= FLAG_ENCRYPT;
-	else if (ENCRYPT) {
-		print_output("Trying to decrypt a non-encrypted archive. Bypassing decryption.\n");
+	if (md5) {
+		if (md5 == 1)
+			control->flags |= FLAG_MD5;
+		else
+			print_verbose("Unknown hash, falling back to CRC\n");
+	}
+	encrypted = magic[22];
+	if (encrypted) {
+		if (encrypted == 1)
+			control->flags |= FLAG_ENCRYPT;
+		else
+			failure("Unkown encryption\n");
+		/* In encrypted files, the size field is used to store the salt
+		 * instead and the size is unknown, just like a STDOUT chunked
+		 * file */
+		memcpy(&control->salt, &magic[6], 8);
+		control->st_size = expected_size = 0;
+		control->encloops = enc_loops(control->salt[0], control->salt[1]);
+		print_maxverbose("Encryption hash loops %lld\n", control->encloops);
+	} else if (ENCRYPT) {
+		print_output("Asked to decrypt a non-encrypted archive. Bypassing decryption.\n");
 		control->flags &= ~FLAG_ENCRYPT;
 	}
-	memcpy(control->salt, &magic[23], 16);
-	memcpy(&control->secs, control->salt, 5);
-	print_maxverbose("Storage time in seconds %lld\n", control->secs);
-	control->encloops = enc_loops(control->salt[5], control->salt[6]);
-	if (ENCRYPT)
-		print_maxverbose("Encryption hash loops %lld\n", control->encloops);
 }
 
 void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
@@ -181,14 +175,8 @@ void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 	if (unlikely(read(fd_in, magic, 24) != 24))
 		fatal("Failed to read magic header\n");
 
-	get_magicver05(control, magic);
+	get_magic(control, magic);
 	*expected_size = control->st_size;
-
-	if (control->major_version == 0 && control->minor_version > 5) {
-		if (unlikely(read(fd_in, magic + 24, 15) != 15))
-			fatal("Failed to read v06 magic header\n");
-		get_magicver06(control, magic);
-	}
 }
 
 /* preserve ownership and permissions where possible */
@@ -367,17 +355,7 @@ static void read_tmpinmagic(rzip_control *control)
 			failure("Reached end of file on STDIN prematurely on v05 magic read\n");
 		magic[i] = (char)tmpchar;
 	}
-	get_magicver05(control, magic);
-
-	if (control->major_version == 0 && control->minor_version > 5) {
-		for (i = 24; i < MAGIC_LEN; i++) {
-			tmpchar = getchar();
-			if (unlikely(tmpchar == EOF))
-				failure("Reached end of file on STDIN prematurely on v06 magic read\n");
-			magic[i] = (char)tmpchar;
-		}
-		get_magicver06(control, magic);
-	}
+	get_magic(control, magic);
 }
 
 /* Read data from stdin into temporary inputfile */
@@ -719,8 +697,8 @@ void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
 
 void get_fileinfo(rzip_control *control)
 {
-	i64 u_len, c_len, last_head, utotal = 0, ctotal = 0, ofs = 49, stream_head[2];
-	i64 expected_size, infile_size, chunk_size, chunk_total = 0;
+	i64 u_len, c_len, last_head, utotal = 0, ctotal = 0, ofs = 34, stream_head[2];
+	i64 expected_size, infile_size, chunk_size = 0, chunk_total = 0;
 	int header_length = 25, stream = 0, chunk = 0;
 	char *tmp, *infilecopy = NULL;
 	int seekspot, fd_in;
@@ -777,7 +755,7 @@ void get_fileinfo(rzip_control *control)
 	else if (control->major_version == 0 && control->minor_version == 5)
 		seekspot = 75;
 	else
-		seekspot = 99;
+		seekspot = 84;
 	if (unlikely(lseek(fd_in, seekspot, SEEK_SET) == -1))
 		fatal("Failed to lseek in get_fileinfo\n");
 

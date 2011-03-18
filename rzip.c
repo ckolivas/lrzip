@@ -961,11 +961,15 @@ retry:
 		last.tv_sec = current.tv_sec;
 		last.tv_usec = current.tv_usec;
 
+		if (st->chunk_size == len)
+			control->eof = 1;
 		rzip_chunk(control, st, fd_in, fd_out, offset, pct_base, pct_multiple);
 
 		/* st->chunk_size may be shrunk in rzip_chunk */
 		last_chunk = st->chunk_size;
 		len -= st->chunk_size;
+		if (unlikely(len > 0 && control->eof))
+			failure("Wrote EOF to file yet chunk_size was shrunk, corrupting archive.\n");
 	}
 
 	close_streamout_threads(control);

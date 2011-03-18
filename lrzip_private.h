@@ -138,7 +138,7 @@ typedef struct md5_ctx md5_ctx;
 #define PASS_LEN 512
 #define HASH_LEN 64
 #define BLOCKSALT_LEN 24
-#define SALT_LEN 16
+#define SALT_LEN 8
 #define CBC_LEN 16
 
 /* Needs to be less than 31 bits and page aligned on 32 bits */
