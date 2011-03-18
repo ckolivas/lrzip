@@ -5,8 +5,8 @@ Con Kolivas
 Byte	Content
 0-23	Magic
 ---
-24->83	Rzip chunk data
-84+	Data blocks
+24+	Rzip Chunk Data (RCD)
+RCD+	Data blocks
 --- repeat
 (end-MD5_DIGEST_SIZE)->(end) md5 hash
 
@@ -24,19 +24,19 @@ Encrypted salt (bytes 6->14 in magic if encrypted):
 0->1	Encoded number of loops to hash password
 2->7	Random data
 
-Rzip chunk data:
-0	Data offsets byte width
-1	Flag that there is another chunk beyond this
-2->9	Chunk decompressed size
-10->34	Stream 0 header data
-35->59	Stream 1 header data
+Rzip Chunk Ddata:
+0	Data offsets byte width (meaning length is < (2 * 8)^RCD0)
+1	Flag that there is no chunk beyond this
+(RCD0 bytes)	Chunk decompressed size
+XX	Stream 0 header data
+XX	Stream 1 header data
 
 Stream Header Data:
 Byte:
 0	Compressed data type
-1->8	Compressed data length
-9->16	Uncompressed data length
-17->24	Next block head
+(RCD0 bytes)	Compressed data length
+(RCD0 bytes)	Uncompressed data length
+(RCD0 bytes)	Next block head
 
 Data blocks:
 0->(end-2) data
@@ -48,9 +48,9 @@ March 2011
 Con Kolivas
 
 Byte	Content
-0->22	Magic
+0->23	Magic
 --
-23->74	Rzip chunk data
+24->74	Rzip chunk data
 75+	Data blocks
 -- repeat
 (end-MD5_DIGEST_SIZE)->(end) md5 hash
@@ -62,7 +62,7 @@ Magic data:
 6->14	Source File Size
 16->20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
 21	Flag that md5sum hash is stored at the end of the archive
-22	not used
+22-23	not used
 
 Rzip chunk data:
 0	Data offsets byte width
@@ -91,8 +91,8 @@ Byte	Content
 5	LRZIP Minor Version Number
 6-14	Source File Size
 16-20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
-21-22	not used
-23-48	Stream 1 header data
+21-24	not used
+24-48	Stream 1 header data
 49-74	Stream 2 header data
 
 Block Data:
@@ -118,7 +118,7 @@ Byte	Content
 6-9	Source File Size (no HAVE_LARGE_FILES)
 6-14	Source File Size
 16-20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
-21-22	not used
-23-36	Stream 1 header data
+21-23	not used
+24-36	Stream 1 header data
 37-50	Stream 2 header data
 51	Compressed data type

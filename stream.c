@@ -768,18 +768,14 @@ static int write_buf(rzip_control *control, int f, uchar *p, i64 len)
 }
 
 /* write a byte */
-static int write_u8(rzip_control *control, int f, uchar v)
+static inline int write_u8(rzip_control *control, int f, uchar v)
 {
 	return write_buf(control, f, &v, 1);
 }
 
-/* write a i64 */
-static int write_i64(rzip_control *control, int f, i64 v)
+static inline int write_val(rzip_control *control, int f, i64 v, int len)
 {
-	if (unlikely(write_buf(control, f, (uchar *)&v, 8)))
-		return -1;
-
-	return 0;
+	return write_buf(control, f, (uchar *)&v, len);
 }
 
 static int read_buf(rzip_control *control, int f, uchar *p, i64 len)
@@ -798,23 +794,26 @@ static int read_buf(rzip_control *control, int f, uchar *p, i64 len)
 	return 0;
 }
 
-static int read_u8(rzip_control *control, int f, uchar *v)
+static inline int read_u8(rzip_control *control, int f, uchar *v)
 {
 	return read_buf(control, f, v, 1);
 }
 
-static int read_u32(rzip_control *control, int f, u32 *v)
+static inline int read_u32(rzip_control *control, int f, u32 *v)
 {
-	if (unlikely(read_buf(control, f, (uchar *)v, 4)))
-		return -1;
-	return 0;
+	return read_buf(control, f, (uchar *)v, 4);
 }
 
-static int read_i64(rzip_control *control, int f, i64 *v)
+static inline int read_i64(rzip_control *control, int f, i64 *v)
 {
-	if (unlikely(read_buf(control, f, (uchar *)v, 8)))
-		return -1;
-	return 0;
+	return read_buf(control, f, (uchar *)v, 8);
+}
+
+static inline int read_val(rzip_control *control, int f, i64 *v, int len)
+{
+	/* We only partially read all 8 bytes so have to zero v here */
+	*v = 0;
+	return read_buf(control, f, (uchar *)v, len);
 }
 
 static int fd_seekto(rzip_control *control, struct stream_info *sinfo, i64 spos, i64 pos)
@@ -1012,7 +1011,7 @@ retest_malloc:
 }
 
 /* prepare a set of n streams for reading on file descriptor f */
-void *open_stream_in(rzip_control *control, int f, int n)
+void *open_stream_in(rzip_control *control, int f, int n, int chunk_bytes)
 {
 	struct stream_info *sinfo;
 	int total_threads, i;
@@ -1038,6 +1037,7 @@ void *open_stream_in(rzip_control *control, int f, int n)
 
 	sinfo->num_streams = n;
 	sinfo->fd = f;
+	sinfo->chunk_bytes = chunk_bytes;
 
 	sinfo->s = calloc(sizeof(struct stream), n);
 	if (unlikely(!sinfo->s)) {
@@ -1056,7 +1056,7 @@ void *open_stream_in(rzip_control *control, int f, int n)
 			goto failed;
 		}
 		/* Read in the expected chunk size */
-		if (unlikely(read_i64(control, f, &sinfo->size))) {
+		if (unlikely(read_val(control, f, &sinfo->size, sinfo->chunk_bytes))) {
 			print_err("Failed to read in chunk size in open_stream_in\n");
 			goto failed;
 		}
@@ -1093,13 +1093,19 @@ again:
 			sinfo->s[i].last_head = last_head32;
 			header_length = 13;
 		} else {
-			if (unlikely(read_i64(control, f, &v1)))
+			int read_len;
+
+		if (control->major_version == 0 && control->minor_version < 6)
+			read_len = 8;
+		else
+			read_len = sinfo->chunk_bytes;
+			if (unlikely(read_val(control, f, &v1, read_len)))
 				goto failed;
-			if (unlikely(read_i64(control, f, &v2)))
+			if (unlikely(read_val(control, f, &v2, read_len)))
 				goto failed;
-			if (unlikely(read_i64(control, f, &sinfo->s[i].last_head)))
+			if (unlikely(read_val(control, f, &sinfo->s[i].last_head, read_len)))
 				goto failed;
-			header_length = 25;
+			header_length = 1 + (read_len * 3);
 		}
 		if (unlikely(c == CTYPE_NONE && v1 == 0 && v2 == 0 && sinfo->s[i].last_head == 0 && i == 0)) {
 			print_err("Enabling stream close workaround\n");
@@ -1225,40 +1231,40 @@ retry:
 		/* Write whether this is the last chunk, followed by the size
 		 * of this chunk */
 		write_u8(control, ctis->fd, control->eof);
-		write_i64(control, ctis->fd, ctis->size);
+		write_val(control, ctis->fd, ctis->size, ctis->chunk_bytes);
 
 		/* First chunk of this stream, write headers */
 		ctis->initial_pos = get_seek(control, ctis->fd);
 
 		for (j = 0; j < ctis->num_streams; j++) {
-			ctis->s[j].last_head = ctis->cur_pos + 17;
+			ctis->s[j].last_head = ctis->cur_pos + 1 + (ctis->chunk_bytes * 2);
 			write_u8(control, ctis->fd, CTYPE_NONE);
-			write_i64(control, ctis->fd, 0);
-			write_i64(control, ctis->fd, 0);
-			write_i64(control, ctis->fd, 0);
-			ctis->cur_pos += 25;
+			write_val(control, ctis->fd, 0, ctis->chunk_bytes);
+			write_val(control, ctis->fd, 0, ctis->chunk_bytes);
+			write_val(control, ctis->fd, 0, ctis->chunk_bytes);
+			ctis->cur_pos += 1 + (ctis->chunk_bytes * 3);
 		}
 	}
 
 	if (unlikely(seekto(control, ctis, ctis->s[cti->streamno].last_head)))
 		fatal("Failed to seekto in compthread %d\n", i);
 
-	if (unlikely(write_i64(control, ctis->fd, ctis->cur_pos)))
-		fatal("Failed to write_i64 in compthread %d\n", i);
+	if (unlikely(write_val(control, ctis->fd, ctis->cur_pos, ctis->chunk_bytes)))
+		fatal("Failed to write_val cur_pos in compthread %d\n", i);
 
-	ctis->s[cti->streamno].last_head = ctis->cur_pos + 17;
+	ctis->s[cti->streamno].last_head = ctis->cur_pos + 1 + (ctis->chunk_bytes * 2);
 	if (unlikely(seekto(control, ctis, ctis->cur_pos)))
 		fatal("Failed to seekto cur_pos in compthread %d\n", i);
 
 	print_maxverbose("Thread %ld writing %lld compressed bytes from stream %d\n", i, padded_len, cti->streamno);
 	/* We store the actual c_len even though we might pad it out */
 	if (unlikely(write_u8(control, ctis->fd, cti->c_type) ||
-		write_i64(control, ctis->fd, cti->c_len) ||
-		write_i64(control, ctis->fd, cti->s_len) ||
-		write_i64(control, ctis->fd, 0))) {
+		write_val(control, ctis->fd, cti->c_len, ctis->chunk_bytes) ||
+		write_val(control, ctis->fd, cti->s_len, ctis->chunk_bytes) ||
+		write_val(control, ctis->fd, 0, ctis->chunk_bytes))) {
 			fatal("Failed write in compthread %d\n", i);
 	}
-	ctis->cur_pos += 25;
+	ctis->cur_pos += 1 + (ctis->chunk_bytes * 3);
 
 	if (ENCRYPT) {
 		ctis->cur_pos += 8;
@@ -1423,13 +1429,19 @@ fill_another:
 		last_head = last_head32;
 		header_length = 13;
 	} else {
-		if (unlikely(read_i64(control, sinfo->fd, &c_len)))
+		int read_len;
+
+		if (control->major_version == 0 && control->minor_version < 6)
+			read_len = 8;
+		else
+			read_len = sinfo->chunk_bytes;
+		if (unlikely(read_val(control, sinfo->fd, &c_len, read_len)))
 			return -1;
-		if (unlikely(read_i64(control, sinfo->fd, &u_len)))
+		if (unlikely(read_val(control, sinfo->fd, &u_len, read_len)))
 			return -1;
-		if (unlikely(read_i64(control, sinfo->fd, &last_head)))
+		if (unlikely(read_val(control, sinfo->fd, &last_head, read_len)))
 			return -1;
-		header_length = 25;
+		header_length = 1 + (read_len * 3);
 	}
 
 	if (ENCRYPT) {

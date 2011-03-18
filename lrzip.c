@@ -668,11 +668,13 @@ void decompress_file(rzip_control *control)
 	free(infilecopy);
 }
 
-void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len, i64 *u_len, i64 *last_head)
+void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
+		     i64 *u_len, i64 *last_head, int chunk_bytes)
 {
 	if (unlikely(read(fd_in, ctype, 1) != 1))
 		fatal("Failed to read in get_header_info\n");
 
+	*c_len = *u_len = *last_head = 0;
 	if (control->major_version == 0 && control->minor_version < 4) {
 		u32 c_len32, u_len32, last_head32;
 
@@ -686,20 +688,26 @@ void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
 		*u_len = u_len32;
 		*last_head = last_head32;
 	} else {
-		if (unlikely(read(fd_in, c_len, 8) != 8))
+		int read_len;
+
+		if (control->major_version == 0 && control->minor_version == 5)
+			read_len = 8;
+		else
+			read_len = chunk_bytes;
+		if (unlikely(read(fd_in, c_len, read_len) != read_len))
 			fatal("Failed to read in get_header_info");
-		if (unlikely(read(fd_in, u_len, 8) != 8))
+		if (unlikely(read(fd_in, u_len, read_len) != read_len))
 			fatal("Failed to read in get_header_info");
-		if (unlikely(read(fd_in, last_head, 8) != 8))
+		if (unlikely(read(fd_in, last_head, read_len) != read_len))
 			fatal("Failed to read_i64 in get_header_info");
 	}
 }
 
 void get_fileinfo(rzip_control *control)
 {
-	i64 u_len, c_len, last_head, utotal = 0, ctotal = 0, ofs = 34, stream_head[2];
+	i64 u_len, c_len, last_head, utotal = 0, ctotal = 0, ofs = 25, stream_head[2];
 	i64 expected_size, infile_size, chunk_size = 0, chunk_total = 0;
-	int header_length = 25, stream = 0, chunk = 0;
+	int header_length, stream = 0, chunk = 0;
 	char *tmp, *infilecopy = NULL;
 	int seekspot, fd_in;
 	char chunk_byte = 0;
@@ -742,36 +750,24 @@ void get_fileinfo(rzip_control *control)
 		if (control->major_version == 0 && control->minor_version > 5) {
 			if (unlikely(read(fd_in, &control->eof, 1) != 1))
 				fatal("Failed to read eof in get_fileinfo\n");
-			if (unlikely(read(fd_in, &chunk_size, 8) != 8))
+			if (unlikely(read(fd_in, &chunk_size, chunk_byte) != chunk_byte))
 				fatal("Failed to read chunk_size in get_fileinfo\n");
 		}
 	}
 
-	/* Versions 0.3-0.6 had different file formats */
-	if (control->major_version == 0 && control->minor_version < 4)
-		seekspot = 50;
-	else if (control->major_version == 0 && control->minor_version == 4)
-		seekspot = 74;
-	else if (control->major_version == 0 && control->minor_version == 5)
-		seekspot = 75;
-	else
-		seekspot = 84;
-	if (unlikely(lseek(fd_in, seekspot, SEEK_SET) == -1))
-		fatal("Failed to lseek in get_fileinfo\n");
-
-	/* Read the compression type of the first block. It's possible that
-	   not all blocks are compressed so this may not be accurate. */
-	if (unlikely(read(fd_in, &ctype, 1) != 1))
-		fatal("Failed to read in get_fileinfo\n");
-
 	if (control->major_version == 0 && control->minor_version < 4) {
 		ofs = 24;
 		header_length = 13;
-	}
-	if (control->major_version == 0 && control->minor_version == 4)
+	} else if (control->major_version == 0 && control->minor_version == 4) {
 		ofs = 24;
-	if (control->major_version == 0 && control->minor_version == 5)
+		header_length = 25;
+	} else if (control->major_version == 0 && control->minor_version == 5) {
 		ofs = 25;
+		header_length = 25;
+	} else {
+		ofs = 26 + chunk_byte;
+		header_length = 1 + (chunk_byte * 3);
+	}
 next_chunk:
 	stream = 0;
 	stream_head[0] = 0;
@@ -789,7 +785,7 @@ next_chunk:
 
 		if (unlikely(lseek(fd_in, stream_head[stream] + ofs, SEEK_SET)) == -1)
 			fatal("Failed to seek to header data in get_fileinfo\n");
-		get_header_info(control, fd_in, &ctype, &c_len, &u_len, &last_head);
+		get_header_info(control, fd_in, &ctype, &c_len, &u_len, &last_head, chunk_byte);
 
 		print_verbose("Stream: %d\n", stream);
 		print_maxverbose("Offset: %lld\n", ofs);
@@ -801,7 +797,8 @@ next_chunk:
 				failure("Offset greater than archive size, likely corrupted/truncated archive.\n");
 			if (unlikely(head_off = lseek(fd_in, last_head + ofs, SEEK_SET)) == -1)
 				fatal("Failed to seek to header data in get_fileinfo\n");
-			get_header_info(control, fd_in, &ctype, &c_len, &u_len, &last_head);
+			get_header_info(control, fd_in, &ctype, &c_len, &u_len,
+					&last_head, chunk_byte);
 			if (unlikely(last_head < 0 || c_len < 0 || u_len < 0))
 				failure("Entry negative, likely corrupted archive.\n");
 			print_verbose("%d\t", block);
@@ -837,6 +834,8 @@ next_chunk:
 		fatal("Failed to lseek c_len in get_fileinfo\n");
 	}
 
+	if (ofs >= infile_size - (HAS_MD5 ? MD5_DIGEST_SIZE : 0))
+		goto done;
 	/* Chunk byte entry */
 	if (control->major_version == 0 && control->minor_version > 4) {
 		if (unlikely(read(fd_in, &chunk_byte, 1) != 1))
@@ -845,13 +844,14 @@ next_chunk:
 		if (control->major_version == 0 && control->minor_version > 5) {
 			if (unlikely(read(fd_in, &control->eof, 1) != 1))
 				fatal("Failed to read eof in get_fileinfo\n");
-			if (unlikely(read(fd_in, &chunk_size, 8) != 8))
+			if (unlikely(read(fd_in, &chunk_size, chunk_byte) != chunk_byte))
 				fatal("Failed to read chunk_size in get_fileinfo\n");
-			ofs += 9;
+			ofs += 1 + chunk_byte;
+			header_length = 1 + (chunk_byte * 3);
 		}
 	}
-	if (ofs < infile_size - (HAS_MD5 ? MD5_DIGEST_SIZE : 0))
-		goto next_chunk;
+	goto next_chunk;
+done:
 	if (unlikely(ofs > infile_size))
 		failure("Offset greater than archive size, likely corrupted/truncated archive.\n");
 	if (chunk_total > expected_size)

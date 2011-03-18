@@ -294,7 +294,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, int fd_out, int fd_his
 	if (fstat(fd_in, &st) || st.st_size - ofs == 0)
 		return 0;
 
-	ss = open_stream_in(control, fd_in, NUM_STREAMS);
+	ss = open_stream_in(control, fd_in, NUM_STREAMS, chunk_bytes);
 	if (unlikely(!ss))
 		fatal("Failed to open_stream_in in runzip_chunk\n");
 
