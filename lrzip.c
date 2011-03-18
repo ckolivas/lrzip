@@ -65,6 +65,7 @@ void write_magic(rzip_control *control)
 {
 	char magic[MAGIC_LEN];
 
+	memset(magic, 0, MAGIC_LEN);
 	strcpy(magic, "LRZI");
 	magic[4] = LRZIP_MAJOR_VERSION;
 	magic[5] = LRZIP_MINOR_VERSION;
