@@ -1195,7 +1195,7 @@ retry:
 		get_rand(cti->salt, 8);
 		memcpy(cti->salt + 8, &cti->c_len, 8);
 		memcpy(cti->salt + 16, &cti->s_len, 8);
-		lrz_crypt(control, cti->s_buf, padded_len, cti->salt, 1);
+		lrz_encrypt(control, cti->s_buf, padded_len, cti->salt);
 	}
 
 	/* If compression fails for whatever reason multithreaded, then wait
@@ -1465,7 +1465,7 @@ fill_another:
 		return -1;
 
 	if (ENCRYPT)
-		lrz_crypt(control, s_buf, padded_len, salt, 0);
+		lrz_decrypt(control, s_buf, padded_len, salt);
 
 	ucthread[s->uthread_no].s_buf = s_buf;
 	ucthread[s->uthread_no].c_len = c_len;

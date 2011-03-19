@@ -985,7 +985,7 @@ retry:
 	}
 	/* When encrypting data, we encrypt the MD5 value as well */
 	if (ENCRYPT)
-		lrz_crypt(control, md5_resblock, MD5_DIGEST_SIZE, control->pass_hash, 1);
+		lrz_encrypt(control, md5_resblock, MD5_DIGEST_SIZE, control->pass_hash);
 	if (unlikely(write_1g(control, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 		fatal("Failed to write md5 in rzip_fd\n");
 

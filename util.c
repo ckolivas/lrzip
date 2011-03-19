@@ -55,6 +55,8 @@
 #include "sha4.h"
 #include "aes.h"
 
+#define LRZ_DECRYPT	(0)
+#define LRZ_ENCRYPT	(1)
 
 static const char *infile = NULL;
 static char delete_infile = 0;
@@ -164,7 +166,7 @@ static void xor128 (void *pa, const void *pb)
 	a [1] ^= b [1];
 }
 
-void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, int encrypt)
+static void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, int encrypt)
 {
 	/* Encryption requires CBC_LEN blocks so we can use ciphertext
 	* stealing to not have to pad the block */
@@ -190,7 +192,7 @@ void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, int encr
 	M = len % CBC_LEN;
 	N = len - M;
 
-	if (encrypt) {
+	if (encrypt == LRZ_ENCRYPT) {
 		print_maxverbose("Encrypting data        \n");
 		if (unlikely(aes_setkey_enc(&aes_ctx, key, 128)))
 			failure("Failed to aes_setkey_enc in lrz_crypt\n");
@@ -232,6 +234,16 @@ void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, int encr
 	munlock(&aes_ctx, sizeof(aes_ctx));
 	munlock(iv, HASH_LEN + BLOCKSALT_LEN);
 	munlock(key, HASH_LEN + BLOCKSALT_LEN);
+}
+
+inline void lrz_encrypt(rzip_control *control, uchar *buf, i64 len, uchar *salt)
+{
+	lrz_crypt(control, buf, len, salt, LRZ_ENCRYPT);
+}
+
+inline void lrz_decrypt(rzip_control *control, uchar *buf, i64 len, uchar *salt)
+{
+	lrz_crypt(control, buf, len, salt, LRZ_DECRYPT);
 }
 
 void lrz_keygen(rzip_control *control, const uchar *passphrase)

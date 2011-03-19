@@ -377,7 +377,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 			if (unlikely(read_1g(control, fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 				fatal("Failed to read md5 data in runzip_fd\n");
 			if (ENCRYPT)
-				lrz_crypt(control, md5_stored, MD5_DIGEST_SIZE, control->pass_hash, 0);
+				lrz_decrypt(control, md5_stored, MD5_DIGEST_SIZE, control->pass_hash);
 			for (i = 0; i < MD5_DIGEST_SIZE; i++)
 				if (md5_stored[i] != md5_resblock[i]) {
 					print_output("MD5 CHECK FAILED.\nStored:");
