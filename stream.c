@@ -736,6 +736,14 @@ ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
 		return len;
 	}
 
+	if (TMP_OUTBUF && fd == control->fd_out) {
+		if (unlikely(control->out_ofs + len > control->out_maxlen))
+			failure("Trying to read beyond out_ofs in tmpoutbuf\n");
+		memcpy(buf, control->tmp_outbuf + control->out_ofs, len);
+		control->out_ofs += len;
+		return len;
+	}
+
 read_fd:
 	total = 0;
 	while (len > 0) {
