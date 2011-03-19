@@ -973,6 +973,8 @@ retry:
 	}
 
 	close_streamout_threads(control);
+	if (likely(st->hash_table))
+		free(st->hash_table);
 
 	md5_finish_ctx(&control->ctx, md5_resblock);
 	if (HASH_CHECK || MAX_VERBOSE) {

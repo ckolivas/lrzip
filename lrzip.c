@@ -102,7 +102,7 @@ void write_magic(rzip_control *control)
 	control->magic_written = 1;
 }
 
-static i64 enc_loops(uchar b1, uchar b2)
+static inline i64 enc_loops(uchar b1, uchar b2)
 {
 	return (i64)b2 << (i64)b1;
 }
@@ -299,7 +299,7 @@ void dump_tmpoutfile(rzip_control *control, int fd_out)
 
 /* Used if we're unable to read STDIN into the temporary buffer, shunts data
  * to temporary file */
-void write_fdin(struct rzip_control *control)
+void write_fdin(rzip_control *control)
 {
 	uchar *offset_buf = control->tmp_inbuf;
 	i64 len = control->in_len;
@@ -408,7 +408,7 @@ static void open_tmpinbuf(rzip_control *control)
 		fatal("Failed to malloc tmp_inbuf in open_tmpinbuf\n");
 }
 
-void clear_tmpinbuf(rzip_control *control)
+inline void clear_tmpinbuf(rzip_control *control)
 {
 	control->in_len = control->in_ofs = 0;
 }

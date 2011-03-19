@@ -181,7 +181,7 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, int fd_out, u
 	return stream_read;
 }
 
-static i64 read_fdhist(struct rzip_control *control, void *buf, i64 len)
+static i64 read_fdhist(rzip_control *control, void *buf, i64 len)
 {
 	if (!TMP_OUTBUF)
 		return read_1g(control, control->fd_hist, buf, len);

@@ -33,10 +33,10 @@ void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
 void get_fileinfo(rzip_control *control);
 void compress_file(rzip_control *control);
 void write_fdout(rzip_control *control, void *buf, i64 len);
-void write_fdin(struct rzip_control *control);
+void write_fdin(rzip_control *control);
 void flush_tmpoutbuf(rzip_control *control);
 void close_tmpoutbuf(rzip_control *control);
 void clear_tmpinbuf(rzip_control *control);
-void clear_tmpinfile(rzip_control *control);
+inline void clear_tmpinfile(rzip_control *control);
 void close_tmpinbuf(rzip_control *control);
 #endif

@@ -283,7 +283,7 @@ static void show_summary(void)
 	}
 }
 
-static void read_config( struct rzip_control *control )
+static void read_config(rzip_control *control)
 {
 	/* check for lrzip.conf in ., $HOME/.lrzip and /etc/lrzip */
 	char *HOME, *homeconf;
