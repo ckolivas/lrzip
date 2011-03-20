@@ -37,6 +37,7 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <termios.h>
+#include <endian.h>
 
 #include "md5.h"
 #include "rzip.h"
@@ -75,8 +76,10 @@ void write_magic(rzip_control *control)
 	 * and instead the salt is stored here to preserve space. */
 	if (ENCRYPT)
 		memcpy(&magic[6], &control->salt, 8);
-	else if (!STDIN || !STDOUT || control->eof)
+	else if (!STDIN || !STDOUT || control->eof) {
 		memcpy(&magic[6], &control->st_size, 8);
+		control->st_size = le64toh(control->st_size);
+	}
 
 	/* save LZMA compression flags */
 	if (LZMA_COMPRESS) {
@@ -130,8 +133,10 @@ static void get_magic(rzip_control *control, char *magic)
 		expected_size = ntohl(v);
 		memcpy(&v, &magic[10], 4);
 		expected_size |= ((i64)ntohl(v)) << 32;
-	} else
+	} else {
 		memcpy(&expected_size, &magic[6], 8);
+		expected_size = le64toh(expected_size);
+	}
 	control->st_size = expected_size;
 
 	/* restore LZMA compression flags only if stored */

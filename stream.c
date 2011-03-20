@@ -38,6 +38,7 @@
 #ifdef HAVE_ERRNO_H
 # include <errno.h>
 #endif
+#include <endian.h>
 
 /* LZMA C Wrapper */
 #include "lzma/C/LzmaLib.h"
@@ -783,6 +784,7 @@ static inline int write_u8(rzip_control *control, int f, uchar v)
 
 static inline int write_val(rzip_control *control, int f, i64 v, int len)
 {
+	v = htole64(v);
 	return write_buf(control, f, (uchar *)&v, len);
 }
 
@@ -809,12 +811,12 @@ static inline int read_u8(rzip_control *control, int f, uchar *v)
 
 static inline int read_u32(rzip_control *control, int f, u32 *v)
 {
-	return read_buf(control, f, (uchar *)v, 4);
+	return le32toh(read_buf(control, f, (uchar *)v, 4));
 }
 
 static inline int read_i64(rzip_control *control, int f, i64 *v)
 {
-	return read_buf(control, f, (uchar *)v, 8);
+	return le64toh(read_buf(control, f, (uchar *)v, 8));
 }
 
 static inline int read_val(rzip_control *control, int f, i64 *v, int len)
