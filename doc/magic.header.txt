@@ -23,15 +23,16 @@ Magic data:
 Encrypted salt (bytes 6->14 in magic if encrypted):
 0->1	Encoded number of loops to hash password
 2->7	Random data
+(RCD0 is set to 8 bytes always on encrypted files)
 
-Rzip Chunk Ddata:
+Rzip Chunk Data:
 0	Data offsets byte width (meaning length is < (2 * 8)^RCD0)
 1	Flag that there is no chunk beyond this
-(RCD0 bytes)	Chunk decompressed size
+(RCD0 bytes)	Chunk decompressed size (not stored in encrypted file)
 XX	Stream 0 header data
 XX	Stream 1 header data
 
-Stream Header Data:
+Stream Header Data: 
 Byte:
 0	Compressed data type
 (RCD0 bytes)	Compressed data length
