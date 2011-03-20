@@ -1335,7 +1335,7 @@ retry:
 	if (ENCRYPT)
 		rewrite_encrypted(control, ctis, ctis->s[cti->streamno].last_head - 17);
 
-	ctis->s[cti->streamno].last_head = ctis->cur_pos + 1 + (write_len * 2);
+	ctis->s[cti->streamno].last_head = ctis->cur_pos + 1 + (write_len * 2) + (ENCRYPT ? SALT_LEN : 0);
 	if (unlikely(seekto(control, ctis, ctis->cur_pos)))
 		fatal("Failed to seekto cur_pos in compthread %d\n", i);
 
