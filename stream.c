@@ -989,6 +989,7 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 		limit = (control->maxram - (control->overhead * control->threads)) / testbufs;
 		limit = MIN(limit, chunk_limit);
 	}
+	limit = MAX(limit, STREAM_BUFSIZE);
 retest_malloc:
 	testsize = (limit * testbufs) + (control->overhead * control->threads);
 	testmalloc = malloc(testsize);
