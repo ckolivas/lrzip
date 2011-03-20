@@ -77,8 +77,9 @@ void write_magic(rzip_control *control)
 	if (ENCRYPT)
 		memcpy(&magic[6], &control->salt, 8);
 	else if (!STDIN || !STDOUT || control->eof) {
-		memcpy(&magic[6], &control->st_size, 8);
-		control->st_size = le64toh(control->st_size);
+		i64 esize = htole64(control->st_size);
+
+		memcpy(&magic[6], &esize, 8);
 	}
 
 	/* save LZMA compression flags */
