@@ -745,6 +745,11 @@ void get_fileinfo(rzip_control *control)
 	/* Get decompressed size */
 	read_magic(control, fd_in, &expected_size);
 
+	if (ENCRYPT) {
+		print_output("Encrypted lrzip archive. No further information available\n");
+		goto out;
+	}
+
 	if (control->major_version == 0 && control->minor_version > 4) {
 		if (unlikely(read(fd_in, &chunk_byte, 1) != 1))
 			fatal("Failed to read chunk_byte in get_fileinfo\n");
@@ -827,13 +832,8 @@ next_chunk:
 		++stream;
 	}
 
-	if (ENCRYPT) {
-		if (unlikely((ofs = lseek(fd_in, c_len + 8, SEEK_CUR)) == -1))
-			fatal("Failed to lseek c_len in get_fileinfo\n");
-	} else {
-		if (unlikely((ofs = lseek(fd_in, c_len, SEEK_CUR)) == -1))
+	if (unlikely((ofs = lseek(fd_in, c_len, SEEK_CUR)) == -1))
 		fatal("Failed to lseek c_len in get_fileinfo\n");
-	}
 
 	if (ofs >= infile_size - (HAS_MD5 ? MD5_DIGEST_SIZE : 0))
 		goto done;
@@ -871,8 +871,6 @@ done:
 
 	print_output("%s:\nlrzip version: %d.%d file\n", infilecopy, control->major_version, control->minor_version);
 
-	if (ENCRYPT)
-		print_output("Encrypted\n");
 	print_output("Compression: ");
 	if (ctype == CTYPE_NONE)
 		print_output("rzip alone\n");
@@ -902,18 +900,15 @@ done:
 		if (unlikely(read(fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 			fatal("Failed to read md5 data in runzip_fd\n");
 		print_output("MD5: ");
-		if (ENCRYPT)
-			print_output("Unknown, encrypted\n");
-		else {
-			for (i = 0; i < MD5_DIGEST_SIZE; i++)
-				print_output("%02x", md5_stored[i] & 0xFF);
-		}
+		for (i = 0; i < MD5_DIGEST_SIZE; i++)
+			print_output("%02x", md5_stored[i] & 0xFF);
 		print_output("\n");
 	} else
 		print_output("CRC32 used for integrity testing\n");
 	if (unlikely(close(fd_in)))
 		fatal("Failed to close fd_in in get_fileinfo\n");
 
+out:
 	free(control->outfile);
 	free(infilecopy);
 }

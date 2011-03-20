@@ -67,7 +67,7 @@ static struct compress_thread{
 	pthread_mutex_t mutex; /* This thread's mutex */
 	struct stream_info *sinfo;
 	int streamno;
-	uchar salt[BLOCKSALT_LEN];
+	uchar salt[SALT_LEN];
 } *cthread;
 
 static struct uncomp_thread{
@@ -1018,11 +1018,33 @@ retest_malloc:
 	return (void *)sinfo;
 }
 
+/* The block headers are all encrypted so we read the data and salt associated
+ * with them, decrypt the data, then return the decrypted version of the
+ * values */
+static void decrypt_header(rzip_control *control, uchar *head, uchar *c_type,
+			   i64 *c_len, i64 *u_len, i64 *last_head)
+{
+	uchar *buf = head + SALT_LEN;
+
+	memcpy(buf, c_type, 1);
+	memcpy(buf + 1, c_len, 8);
+	memcpy(buf + 9, u_len, 8);
+	memcpy(buf + 17, last_head, 8);
+
+	lrz_decrypt(control, buf, 25, head);
+
+	memcpy(c_type, buf, 1);
+	memcpy(c_len, buf + 1, 8);
+	memcpy(u_len, buf + 9, 8);
+	memcpy(last_head, buf + 17, 8);
+}
+
 /* prepare a set of n streams for reading on file descriptor f */
 void *open_stream_in(rzip_control *control, int f, int n, int chunk_bytes)
 {
 	struct stream_info *sinfo;
 	int total_threads, i;
+	uchar salt[SALT_LEN];
 	i64 header_length;
 
 	sinfo = calloc(sizeof(struct stream_info), 1);
@@ -1064,7 +1086,7 @@ void *open_stream_in(rzip_control *control, int f, int n, int chunk_bytes)
 			goto failed;
 		}
 		/* Read in the expected chunk size */
-		if (unlikely(read_val(control, f, &sinfo->size, sinfo->chunk_bytes))) {
+		if (unlikely(!ENCRYPT && read_val(control, f, &sinfo->size, sinfo->chunk_bytes))) {
 			print_err("Failed to read in chunk size in open_stream_in\n");
 			goto failed;
 		}
@@ -1074,13 +1096,15 @@ void *open_stream_in(rzip_control *control, int f, int n, int chunk_bytes)
 	sinfo->initial_pos = get_readseek(control, f);
 
 	for (i = 0; i < n; i++) {
-		uchar c;
+		uchar c, enc_head[25 + SALT_LEN];
 		i64 v1, v2;
 
 		sinfo->s[i].base_thread = i;
 		sinfo->s[i].uthread_no = sinfo->s[i].base_thread;
 		sinfo->s[i].unext_thread = sinfo->s[i].base_thread;
 
+		if (unlikely(ENCRYPT && read_buf(control, f, enc_head, SALT_LEN)))
+			goto failed;
 again:
 		if (unlikely(read_u8(control, f, &c)))
 			goto failed;
@@ -1103,10 +1127,11 @@ again:
 		} else {
 			int read_len;
 
-		if (control->major_version == 0 && control->minor_version < 6)
-			read_len = 8;
-		else
-			read_len = sinfo->chunk_bytes;
+			if ((control->major_version == 0 && control->minor_version < 6) ||
+				ENCRYPT)
+					read_len = 8;
+			else
+				read_len = sinfo->chunk_bytes;
 			if (unlikely(read_val(control, f, &v1, read_len)))
 				goto failed;
 			if (unlikely(read_val(control, f, &v2, read_len)))
@@ -1115,6 +1140,10 @@ again:
 				goto failed;
 			header_length = 1 + (read_len * 3);
 		}
+
+		if (ENCRYPT)
+			decrypt_header(control, enc_head, &c, &v1, &v2, &sinfo->s[i].last_head);
+
 		if (unlikely(c == CTYPE_NONE && v1 == 0 && v2 == 0 && sinfo->s[i].last_head == 0 && i == 0)) {
 			print_err("Enabling stream close workaround\n");
 			sinfo->initial_pos += header_length;
@@ -1145,6 +1174,39 @@ failed:
 
 #define MIN_SIZE (ENCRYPT ? CBC_LEN : 0)
 
+/* Once the final data has all been written to the block header, we go back
+ * and write SALT_LEN bytes of salt before it, and encrypt the header in place
+ * by reading what has been written, encrypting it, and writing back over it.
+ * This is very convoluted depending on whether a last_head value is written
+ * to this block or not. See the callers of this function */
+static void rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, i64 ofs)
+{
+	uchar *buf, *head;
+	i64 cur_ofs;
+
+	cur_ofs = get_seek(control, sinfo->fd);
+	head = malloc(25 + SALT_LEN);
+	if (unlikely(!head))
+		fatal("Failed to malloc head in rewrite_encrypted\n");
+	buf = head + SALT_LEN;
+	get_rand(head, SALT_LEN);
+	if (unlikely(seekto(control, sinfo, ofs - SALT_LEN)))
+		failure("Failed to seekto buf ofs in rewrite_encrypted\n");
+	if (unlikely(write_buf(control, sinfo->fd, head, SALT_LEN)))
+		failure("Failed to write_buf head in rewrite_encrypted\n");
+	if (unlikely(read_buf(control, sinfo->fd, buf, 25)))
+		failure("Failed to read_buf buf in rewrite_encrypted\n");
+
+	lrz_encrypt(control, buf, 25, head);
+
+	if (unlikely(seekto(control, sinfo, ofs)))
+		failure("Failed to seek back to ofs in rewrite_encrypted\n");
+	if (unlikely(write_buf(control, sinfo->fd, buf, 25)))
+		failure("Failed to write_buf encrypted buf in rewrite_encrypted\n");
+	free(head);
+	seekto(control, sinfo, cur_ofs);
+}
+
 /* Enter with s_buf allocated,s_buf points to the compressed data after the
  * backend compression and is then freed here */
 static void *compthread(void *data)
@@ -1156,6 +1218,7 @@ static void *compthread(void *data)
 	struct stream_info *ctis;
 	int waited = 0, ret = 0;
 	i64 padded_len;
+	int write_len;
 
 	/* Make sure this thread doesn't already exist */
 	
@@ -1199,13 +1262,6 @@ retry:
 		get_rand(cti->s_buf + cti->c_len, MIN_SIZE - cti->c_len);
 	}
 
-	if (!ret && ENCRYPT) {
-		get_rand(cti->salt, 8);
-		memcpy(cti->salt + 8, &cti->c_len, 8);
-		memcpy(cti->salt + 16, &cti->s_len, 8);
-		lrz_encrypt(control, cti->s_buf, padded_len, cti->salt);
-	}
-
 	/* If compression fails for whatever reason multithreaded, then wait
 	 * for the previous thread to finish, serialising the work to decrease
 	 * the memory requirements, increasing the chance of success */
@@ -1224,6 +1280,12 @@ retry:
 		goto retry;
 	}
 
+	/* Need to be big enough to fill one CBC_LEN */
+	if (ENCRYPT)
+		write_len = 8;
+	else
+		write_len = ctis->chunk_bytes;
+
 	if (!ctis->chunks++) {
 		int j;
 
@@ -1239,47 +1301,66 @@ retry:
 		/* Write whether this is the last chunk, followed by the size
 		 * of this chunk */
 		write_u8(control, ctis->fd, control->eof);
-		write_val(control, ctis->fd, ctis->size, ctis->chunk_bytes);
+		if (!ENCRYPT)
+			write_val(control, ctis->fd, ctis->size, ctis->chunk_bytes);
 
 		/* First chunk of this stream, write headers */
 		ctis->initial_pos = get_seek(control, ctis->fd);
 
 		for (j = 0; j < ctis->num_streams; j++) {
-			ctis->s[j].last_head = ctis->cur_pos + 1 + (ctis->chunk_bytes * 2);
+			/* If encrypting, we leave SALT_LEN room to write in salt
+			* later */
+			if (ENCRYPT) {
+				if (unlikely(write_val(control, ctis->fd, 0, SALT_LEN)))
+					fatal("Failed to write_buf blank salt in compthread %d\n", i);
+				ctis->cur_pos += SALT_LEN;
+			}
+			ctis->s[j].last_head = ctis->cur_pos + 1 + (write_len * 2);
 			write_u8(control, ctis->fd, CTYPE_NONE);
-			write_val(control, ctis->fd, 0, ctis->chunk_bytes);
-			write_val(control, ctis->fd, 0, ctis->chunk_bytes);
-			write_val(control, ctis->fd, 0, ctis->chunk_bytes);
-			ctis->cur_pos += 1 + (ctis->chunk_bytes * 3);
+			write_val(control, ctis->fd, 0, write_len);
+			write_val(control, ctis->fd, 0, write_len);
+			write_val(control, ctis->fd, 0, write_len);
+			ctis->cur_pos += 1 + (write_len * 3);
 		}
 	}
 
 	if (unlikely(seekto(control, ctis, ctis->s[cti->streamno].last_head)))
 		fatal("Failed to seekto in compthread %d\n", i);
 
-	if (unlikely(write_val(control, ctis->fd, ctis->cur_pos, ctis->chunk_bytes)))
+	if (unlikely(write_val(control, ctis->fd, ctis->cur_pos, write_len)))
 		fatal("Failed to write_val cur_pos in compthread %d\n", i);
 
-	ctis->s[cti->streamno].last_head = ctis->cur_pos + 1 + (ctis->chunk_bytes * 2);
+	if (ENCRYPT)
+		rewrite_encrypted(control, ctis, ctis->s[cti->streamno].last_head - 17);
+
+	ctis->s[cti->streamno].last_head = ctis->cur_pos + 1 + (write_len * 2);
 	if (unlikely(seekto(control, ctis, ctis->cur_pos)))
 		fatal("Failed to seekto cur_pos in compthread %d\n", i);
 
 	print_maxverbose("Thread %ld writing %lld compressed bytes from stream %d\n", i, padded_len, cti->streamno);
-	/* We store the actual c_len even though we might pad it out */
-	if (unlikely(write_u8(control, ctis->fd, cti->c_type) ||
-		write_val(control, ctis->fd, cti->c_len, ctis->chunk_bytes) ||
-		write_val(control, ctis->fd, cti->s_len, ctis->chunk_bytes) ||
-		write_val(control, ctis->fd, 0, ctis->chunk_bytes))) {
-			fatal("Failed write in compthread %d\n", i);
-	}
-	ctis->cur_pos += 1 + (ctis->chunk_bytes * 3);
 
 	if (ENCRYPT) {
-		ctis->cur_pos += 8;
-		if (unlikely(write_buf(control, ctis->fd, cti->salt, 8)))
-			fatal("Failed to write_buf salt in compthread %d\n", i);
+		if (unlikely(write_val(control, ctis->fd, 0, SALT_LEN)))
+			fatal("Failed to write_buf header salt in compthread %d\n", i);
+		ctis->cur_pos += SALT_LEN;
+		ctis->s[cti->streamno].last_headofs = ctis->cur_pos;
 	}
+	/* We store the actual c_len even though we might pad it out */
+	if (unlikely(write_u8(control, ctis->fd, cti->c_type) ||
+		write_val(control, ctis->fd, cti->c_len, write_len) ||
+		write_val(control, ctis->fd, cti->s_len, write_len) ||
+		write_val(control, ctis->fd, 0, write_len))) {
+			fatal("Failed write in compthread %d\n", i);
+	}
+	ctis->cur_pos += 1 + (write_len * 3);
 
+	if (ENCRYPT) {
+		get_rand(cti->salt, SALT_LEN);
+		if (unlikely(write_buf(control, ctis->fd, cti->salt, SALT_LEN)))
+			fatal("Failed to write_buf block salt in compthread %d\n", i);
+		lrz_encrypt(control, cti->s_buf, padded_len, cti->salt);
+		ctis->cur_pos += SALT_LEN;
+	}
 	if (unlikely(write_buf(control, ctis->fd, cti->s_buf, padded_len)))
 		fatal("Failed to write_buf s_buf in compthread %d\n", i);
 
@@ -1402,11 +1483,11 @@ retry:
 /* fill a buffer from a stream - return -1 on failure */
 static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int streamno)
 {
-	i64 header_length, u_len, c_len, last_head, padded_len;
+	i64 u_len, c_len, last_head, padded_len;
+	uchar enc_head[25 + SALT_LEN], blocksalt[SALT_LEN];
 	struct stream *s = &sinfo->s[streamno];
 	stream_thread_struct *st;
 	uchar c_type, *s_buf;
-	uchar salt[BLOCKSALT_LEN];
 
 	if (s->buf)
 		free(s->buf);
@@ -1417,6 +1498,9 @@ fill_another:
 		failure("Trying to start a busy thread, this shouldn't happen!\n");
 
 	if (unlikely(read_seekto(control, sinfo, s->last_head)))
+		return -1;
+
+	if (unlikely(ENCRYPT && read_buf(control, sinfo->fd, enc_head, SALT_LEN)))
 		return -1;
 
 	if (unlikely(read_u8(control, sinfo->fd, &c_type)))
@@ -1435,11 +1519,10 @@ fill_another:
 		c_len = c_len32;
 		u_len = u_len32;
 		last_head = last_head32;
-		header_length = 13;
 	} else {
 		int read_len;
 
-		if (control->major_version == 0 && control->minor_version < 6)
+		if ((control->major_version == 0 && control->minor_version < 6) || ENCRYPT)
 			read_len = 8;
 		else
 			read_len = sinfo->chunk_bytes;
@@ -1449,16 +1532,12 @@ fill_another:
 			return -1;
 		if (unlikely(read_val(control, sinfo->fd, &last_head, read_len)))
 			return -1;
-		header_length = 1 + (read_len * 3);
 	}
 
 	if (ENCRYPT) {
-		if (unlikely(read_buf(control, sinfo->fd, salt, 8))) {
-			print_err("Failed to read_buf salt in fill_buffer\n");
+		decrypt_header(control, enc_head, &c_type, &c_len, &u_len, &last_head);
+		if (unlikely(read_buf(control, sinfo->fd, blocksalt, SALT_LEN)))
 			return -1;
-		}
-		memcpy(salt + 8, &c_len, 8);
-		memcpy(salt + 16, &u_len, 8);
 	}
 
 	padded_len = MAX(c_len, MIN_SIZE);
@@ -1473,7 +1552,7 @@ fill_another:
 		return -1;
 
 	if (ENCRYPT)
-		lrz_decrypt(control, s_buf, padded_len, salt);
+		lrz_decrypt(control, s_buf, padded_len, blocksalt);
 
 	ucthread[s->uthread_no].s_buf = s_buf;
 	ucthread[s->uthread_no].c_len = c_len;
@@ -1590,6 +1669,22 @@ int close_stream_out(rzip_control *control, void *ss)
 	for (i = 0; i < sinfo->num_streams; i++) {
 		if (sinfo->s[i].buflen)
 			clear_buffer(control, sinfo, i, 0);
+	}
+
+	if (ENCRYPT) {
+		/* Last two compressed blocks do not have an offset written
+		 * to them so we have to go back and encrypt them now, but we
+		 * must wait till the threads return. */
+		int close_thread = output_thread;
+
+		for (i = 0; i < control->threads; i++) {
+			lock_mutex(&cthread[close_thread].mutex);
+			unlock_mutex(&cthread[close_thread].mutex);
+			if (++close_thread == control->threads)
+				close_thread = 0;
+		}
+		for (i = 0; i < sinfo->num_streams; i++)
+			rewrite_encrypted(control, sinfo, sinfo->s[i].last_headofs);
 	}
 
 #if 0

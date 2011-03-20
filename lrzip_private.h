@@ -137,7 +137,6 @@ typedef struct md5_ctx md5_ctx;
 
 #define PASS_LEN 512
 #define HASH_LEN 64
-#define BLOCKSALT_LEN 24
 #define SALT_LEN 8
 #define CBC_LEN 16
 
@@ -219,6 +218,7 @@ struct stream {
 	long unext_thread;
 	long base_thread;
 	int total_threads;
+	i64 last_headofs;
 };
 
 struct stream_info {

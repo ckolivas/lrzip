@@ -170,7 +170,7 @@ static void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, i
 {
 	/* Encryption requires CBC_LEN blocks so we can use ciphertext
 	* stealing to not have to pad the block */
-	uchar key[HASH_LEN + BLOCKSALT_LEN], iv[HASH_LEN + BLOCKSALT_LEN];
+	uchar key[HASH_LEN + SALT_LEN], iv[HASH_LEN + SALT_LEN];
 	uchar tmp0[CBC_LEN], tmp1[CBC_LEN];
 	aes_context aes_ctx;
 	i64 N, M;
@@ -178,16 +178,16 @@ static void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, i
 
 	/* Generate unique key and IV for each block of data based on salt */
 	mlock(&aes_ctx, sizeof(aes_ctx));
-	mlock(key, HASH_LEN + BLOCKSALT_LEN);
-	mlock(iv, HASH_LEN + BLOCKSALT_LEN);
+	mlock(key, HASH_LEN + SALT_LEN);
+	mlock(iv, HASH_LEN + SALT_LEN);
 	for (i = 0; i < HASH_LEN; i++)
 		key[i] = control->pass_hash[i] ^ control->hash[i];
-	memcpy(key + HASH_LEN, salt, BLOCKSALT_LEN);
-	sha4(key, HASH_LEN + BLOCKSALT_LEN, key, 0);
+	memcpy(key + HASH_LEN, salt, SALT_LEN);
+	sha4(key, HASH_LEN + SALT_LEN, key, 0);
 	for (i = 0; i < HASH_LEN; i++)
 		iv[i] = key[i] ^ control->pass_hash[i];
-	memcpy(iv + HASH_LEN, salt, BLOCKSALT_LEN);
-	sha4(iv, HASH_LEN + BLOCKSALT_LEN, iv, 0);
+	memcpy(iv + HASH_LEN, salt, SALT_LEN);
+	sha4(iv, HASH_LEN + SALT_LEN, iv, 0);
 
 	M = len % CBC_LEN;
 	N = len - M;
@@ -229,11 +229,11 @@ static void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, i
 	}
 
 	memset(&aes_ctx, 0, sizeof(aes_ctx));
-	memset(iv, 0, HASH_LEN + BLOCKSALT_LEN);
-	memset(key, 0, HASH_LEN + BLOCKSALT_LEN);
+	memset(iv, 0, HASH_LEN + SALT_LEN);
+	memset(key, 0, HASH_LEN + SALT_LEN);
 	munlock(&aes_ctx, sizeof(aes_ctx));
-	munlock(iv, HASH_LEN + BLOCKSALT_LEN);
-	munlock(key, HASH_LEN + BLOCKSALT_LEN);
+	munlock(iv, HASH_LEN + SALT_LEN);
+	munlock(key, HASH_LEN + SALT_LEN);
 }
 
 inline void lrz_encrypt(rzip_control *control, uchar *buf, i64 len, uchar *salt)
