@@ -190,8 +190,8 @@ struct rzip_control {
 	i64 max_mmap;
 	int threads;
 	int nice_val;		// added for consistency
-	int major_version;
-	int minor_version;
+	char major_version;
+	char minor_version;
 	i64 st_size;
 	long page_size;
 	int fd_in;

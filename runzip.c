@@ -359,7 +359,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 	} while (total < expected_size || (!expected_size && !control->eof));
 
 	gettimeofday(&end,NULL);
-	print_progress("\nAverage DeCompression Speed: %6.3fMB/s\n",
+	if (!ENCRYPT)
+		print_progress("\nAverage DeCompression Speed: %6.3fMB/s\n",
 			(total / 1024 / 1024) / (double)((end.tv_sec-start.tv_sec)? : 1));
 
 	if (!NO_MD5) {
