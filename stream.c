@@ -1155,9 +1155,12 @@ again:
 				goto failed;
 			header_length = 1 + (read_len * 3);
 		}
-
 		if (ENCRYPT)
 			decrypt_header(control, enc_head, &c, &v1, &v2, &sinfo->s[i].last_head);
+
+		v1 = le64toh(v1);
+		v2 = le64toh(v2);
+		sinfo->s[i].last_head = le64toh(sinfo->s[i].last_head);
 
 		if (unlikely(c == CTYPE_NONE && v1 == 0 && v2 == 0 && sinfo->s[i].last_head == 0 && i == 0)) {
 			print_err("Enabling stream close workaround\n");
