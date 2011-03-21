@@ -65,12 +65,8 @@ static inline i64 read_vchars(rzip_control *control, void *ss, int stream, int l
 	int bytes;
 	i64 s = 0;
 
-	for (bytes = 0; bytes < length; bytes++) {
-		int bits = bytes * 8;
-
-		uchar sb = read_u8(control, ss, stream);
-		s |= (i64)sb << bits;
-	}
+	if (unlikely(read_stream(control, ss, stream, (uchar *)&s, length) != length))
+		fatal("Stream read of %d bytes failed\n", length);
 	s = le64toh(s);
 	return s;
 }
