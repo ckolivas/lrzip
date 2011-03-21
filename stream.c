@@ -1104,7 +1104,7 @@ void *open_stream_in(rzip_control *control, int f, int n, int chunk_bytes)
 			goto failed;
 		}
 		/* Read in the expected chunk size */
-		if (!ENCRYPT) {
+		if (CHUNKED) {
 			if (unlikely(read_val(control, f, &sinfo->size, sinfo->chunk_bytes))) {
 				print_err("Failed to read in chunk size in open_stream_in\n");
 				goto failed;
@@ -1323,9 +1323,9 @@ retry:
 		write_u8(control, ctis->fd, ctis->chunk_bytes);
 
 		/* Write whether this is the last chunk, followed by the size
-		 * of this chunk */
+		 * of this chunk if working with STDOUT and !ENCRYPT */
 		write_u8(control, ctis->fd, control->eof);
-		if (!ENCRYPT)
+		if (CHUNKED)
 			write_val(control, ctis->fd, ctis->size, ctis->chunk_bytes);
 
 		/* First chunk of this stream, write headers */

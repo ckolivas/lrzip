@@ -28,7 +28,7 @@ Encrypted salt (bytes 6->14 in magic if encrypted):
 Rzip Chunk Data:
 0	Data offsets byte width (meaning length is < (2 * 8)^RCD0)
 1	Flag that there is no chunk beyond this
-(RCD0 bytes)	Chunk decompressed size (not stored in encrypted file)
+(RCD0 bytes)	Chunk decompressed size (only stored in stdout chunked file)
 XX	Stream 0 header data
 XX	Stream 1 header data
 

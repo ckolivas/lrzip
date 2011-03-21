@@ -175,6 +175,10 @@ static void get_magic(rzip_control *control, char *magic)
 		print_output("Asked to decrypt a non-encrypted archive. Bypassing decryption.\n");
 		control->flags &= ~FLAG_ENCRYPT;
 	}
+	/* If the file was generated from STDOUT and !ENCRYPT, an extra field
+	 * describing the chunk length exists */
+	if (!ENCRYPT && !expected_size)
+		control->flags |= FLAG_CHUNKED;
 }
 
 void read_magic(rzip_control *control, int fd_in, i64 *expected_size)
@@ -777,9 +781,11 @@ void get_fileinfo(rzip_control *control)
 		if (control->major_version == 0 && control->minor_version > 5) {
 			if (unlikely(read(fd_in, &control->eof, 1) != 1))
 				fatal("Failed to read eof in get_fileinfo\n");
-			if (unlikely(read(fd_in, &chunk_size, chunk_byte) != chunk_byte))
-				fatal("Failed to read chunk_size in get_fileinfo\n");
-			chunk_size = le64toh(chunk_size);
+			if (CHUNKED) {
+				if (unlikely(read(fd_in, &chunk_size, chunk_byte) != chunk_byte))
+					fatal("Failed to read chunk_size in get_fileinfo\n");
+				chunk_size = le64toh(chunk_size);
+			}
 		}
 	}
 
@@ -793,7 +799,7 @@ void get_fileinfo(rzip_control *control)
 		ofs = 25;
 		header_length = 25;
 	} else {
-		ofs = 26 + chunk_byte;
+		ofs = 26 + (CHUNKED ? chunk_byte: 0);
 		header_length = 1 + (chunk_byte * 3);
 	}
 next_chunk:
@@ -867,10 +873,13 @@ next_chunk:
 		if (control->major_version == 0 && control->minor_version > 5) {
 			if (unlikely(read(fd_in, &control->eof, 1) != 1))
 				fatal("Failed to read eof in get_fileinfo\n");
-			if (unlikely(read(fd_in, &chunk_size, chunk_byte) != chunk_byte))
-				fatal("Failed to read chunk_size in get_fileinfo\n");
-			chunk_size = le64toh(chunk_size);
-			ofs += 1 + chunk_byte;
+			ofs++;
+			if (CHUNKED) {
+				if (unlikely(read(fd_in, &chunk_size, chunk_byte) != chunk_byte))
+					fatal("Failed to read chunk_size in get_fileinfo\n");
+				chunk_size = le64toh(chunk_size);
+				ofs += chunk_byte;
+			}
 			header_length = 1 + (chunk_byte * 3);
 		}
 	}
@@ -949,6 +958,9 @@ void compress_file(rzip_control *control)
 
 	if (ENCRYPT)
 		get_hash(control, 1);
+	else if (STDOUT)
+		control->flags |= FLAG_CHUNKED;
+
 	memset(header, 0, sizeof(header));
 
 	if (!STDIN) {
