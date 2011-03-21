@@ -55,6 +55,7 @@ static inline u32 read_u32(rzip_control *control, void *ss, int stream)
 
 	if (unlikely(read_stream(control, ss, stream, (uchar *)&ret, 4) != 4))
 		fatal("Stream read u32 failed\n");
+	ret = le32toh(ret);
 	return ret;
 }
 
@@ -70,6 +71,7 @@ static inline i64 read_vchars(rzip_control *control, void *ss, int stream, int l
 		uchar sb = read_u8(control, ss, stream);
 		s |= (i64)sb << bits;
 	}
+	s = le64toh(s);
 	return s;
 }
 
