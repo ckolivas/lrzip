@@ -811,7 +811,12 @@ static inline int read_u8(rzip_control *control, int f, uchar *v)
 
 static inline int read_u32(rzip_control *control, int f, u32 *v)
 {
-	return read_buf(control, f, (uchar *)v, 4);
+	return le32toh(read_buf(control, f, (uchar *)v, 4));
+}
+
+static inline int read_i64(rzip_control *control, int f, i64 *v)
+{
+	return le64toh(read_buf(control, f, (uchar *)v, 8));
 }
 
 static inline int read_val(rzip_control *control, int f, i64 *v, int len)
@@ -1084,15 +1089,12 @@ void *open_stream_in(rzip_control *control, int f, int n, int chunk_bytes)
 			goto failed;
 		}
 		/* Read in the expected chunk size */
-		if (!ENCRYPT) {
-			if (unlikely(!read_val(control, f, &sinfo->size, sinfo->chunk_bytes))) {
-				print_err("Failed to read in chunk size in open_stream_in\n");
-				goto failed;
-			}
-			sinfo->size = le64toh(sinfo->size);
-			print_maxverbose("Chunk size: %lld\n", sinfo->size);
-			control->st_size += sinfo->size;
+		if (unlikely(!ENCRYPT && read_val(control, f, &sinfo->size, sinfo->chunk_bytes))) {
+			print_err("Failed to read in chunk size in open_stream_in\n");
+			goto failed;
 		}
+		print_maxverbose("Chunk size: %lld\n", sinfo->size);
+		control->st_size += sinfo->size;
 	}
 	sinfo->initial_pos = get_readseek(control, f);
 
@@ -1144,9 +1146,6 @@ again:
 
 		if (ENCRYPT)
 			decrypt_header(control, enc_head, &c, &v1, &v2, &sinfo->s[i].last_head);
-		v1 = le64toh(v1);
-		v2 = le64toh(v2);
-		sinfo->s[i].last_head = le64toh(sinfo->s[i].last_head);
 
 		if (unlikely(c == CTYPE_NONE && v1 == 0 && v2 == 0 && sinfo->s[i].last_head == 0 && i == 0)) {
 			print_err("Enabling stream close workaround\n");
@@ -1543,9 +1542,6 @@ fill_another:
 		if (unlikely(read_buf(control, sinfo->fd, blocksalt, SALT_LEN)))
 			return -1;
 	}
-	c_len = le64toh(c_len);
-	u_len = le64toh(u_len);
-	last_head = le64toh(last_head);
 
 	padded_len = MAX(c_len, MIN_SIZE);
 	fsync(control->fd_out);
