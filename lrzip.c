@@ -761,7 +761,7 @@ void get_fileinfo(rzip_control *control)
 	/* Get file size */
 	if (unlikely(fstat(fd_in, &st)))
 		fatal("bad magic file descriptor!?\n");
-	memcpy(&infile_size, &st.st_size, 8);
+	infile_size = st.st_size;
 
 	/* Get decompressed size */
 	read_magic(control, fd_in, &expected_size);
