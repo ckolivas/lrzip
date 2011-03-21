@@ -31,6 +31,11 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#elif HAVE_SYS_ENDIAN_H
+# include <sys/endian.h>
+#endif
 
 #include "md5.h"
 #include "runzip.h"
@@ -40,6 +45,7 @@
 #include "liblrzip.h"
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
+
 static inline uchar read_u8(rzip_control *control, void *ss, int stream)
 {
 	uchar b;

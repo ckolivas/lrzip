@@ -39,6 +39,11 @@
 #ifdef HAVE_ERRNO_H
 # include <errno.h>
 #endif
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#elif HAVE_SYS_ENDIAN_H
+# include <sys/endian.h>
+#endif
 
 /* LZMA C Wrapper */
 #include "lzma/C/LzmaLib.h"

@@ -113,20 +113,25 @@ typedef struct md5_ctx md5_ctx;
       | (((x) & 0x000000000000ff00ull) << 40)				      \
       | (((x) & 0x00000000000000ffull) << 56))
 
+#ifdef leto32h
+# define le32toh(x) leto32h(x)
+# define le64toh(x) leto64h(x)
+#endif
+
+#ifndef le32toh
 # if __BYTE_ORDER == __LITTLE_ENDIAN
 #  define htole32(x) (x)
 #  define le32toh(x) (x)
-
 #  define htole64(x) (x)
 #  define le64toh(x) (x)
 # elif __BYTE_ORDER == __BIG_ENDIAN
 #  define htole32(x) bswap_32 (x)
 #  define le32toh(x) bswap_32 (x)
-
 #  define htole64(x) bswap_64 (x)
 #  define le64toh(x) bswap_64 (x)
 #else
 #error UNKNOWN BYTE ORDER
+#endif
 #endif
 
 #define FLAG_SHOW_PROGRESS	(1 << 0)

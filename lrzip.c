@@ -37,6 +37,11 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <termios.h>
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#elif HAVE_SYS_ENDIAN_H
+# include <sys/endian.h>
+#endif
 
 #include "md5.h"
 #include "rzip.h"
