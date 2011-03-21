@@ -31,6 +31,7 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
+#include <endian.h>
 
 #include "md5.h"
 #include "runzip.h"

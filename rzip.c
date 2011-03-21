@@ -42,6 +42,7 @@
 #ifdef HAVE_ERRNO_H
 # include <errno.h>
 #endif
+#include <endian.h>
 
 #include "md5.h"
 #include "stream.h"
@@ -196,6 +197,7 @@ static inline void put_u8(rzip_control *control, void *ss, uchar b)
 
 static inline void put_u32(rzip_control *control, void *ss, uint32_t s)
 {
+	s = htole32(s);
 	if (unlikely(write_stream(control, ss, 0, (uchar *)&s, 4)))
 		fatal("Failed to put_u32\n");
 }
@@ -205,12 +207,9 @@ static inline void put_vchars(rzip_control *control, void *ss, i64 s, int length
 {
 	int bytes;
 
-	for (bytes = 0; bytes < length; bytes++) {
-		int bits = bytes * 8;
-		uchar sb = (s >> bits) & (i64)0XFF;
-
-		put_u8(control, ss, sb);
-	}
+	s = htole64(s);
+	if (unlikely(write_stream(control, ss, 0, (uchar *)&s, length)))
+		fatal("Failed to put_vchars\n");
 }
 
 static void put_header(rzip_control *control, void *ss, uchar head, i64 len)
