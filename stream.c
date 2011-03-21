@@ -811,19 +811,28 @@ static inline int read_u8(rzip_control *control, int f, uchar *v)
 
 static inline int read_u32(rzip_control *control, int f, u32 *v)
 {
-	return le32toh(read_buf(control, f, (uchar *)v, 4));
+	int ret = read_buf(control, f, (uchar *)v, 4);
+
+	*v = le32toh(*v);
+	return ret;
 }
 
 static inline int read_i64(rzip_control *control, int f, i64 *v)
 {
-	return le64toh(read_buf(control, f, (uchar *)v, 8));
+	int ret = read_buf(control, f, (uchar *)v, 8);
+
+	*v = le64toh(*v);
+	return ret;
 }
 
 static inline int read_val(rzip_control *control, int f, i64 *v, int len)
 {
+	int ret;
+
 	/* We only partially read all 8 bytes so have to zero v here */
 	*v = 0;
-	return read_buf(control, f, (uchar *)v, len);
+	ret = read_buf(control, f, (uchar *)v, len);
+	*v = le64toh(*v);
 }
 
 static int fd_seekto(rzip_control *control, struct stream_info *sinfo, i64 spos, i64 pos)
