@@ -1557,6 +1557,9 @@ fill_another:
 		if (unlikely(read_buf(control, sinfo->fd, blocksalt, SALT_LEN)))
 			return -1;
 	}
+	c_len = le64toh(c_len);
+	u_len = le64toh(u_len);
+	last_head = le64toh(last_head);
 
 	padded_len = MAX(c_len, MIN_SIZE);
 	fsync(control->fd_out);
