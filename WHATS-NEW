@@ -1,6 +1,32 @@
+lrzip-0.600
+
+Compressing/decompressing to/from STDIN/STDOUT now works without generating
+any temporary files. Very large files compressed in this way will be less
+efficiently compressed than if the whole solid file is presented to lrzip,
+but it is guaranteed not to generate temporary files on compression. 
+Decompressing files on a machine with the same amount of ram will also not
+generate temporary files, but if a file was generated on a larger ram machine,
+lrzip might employ temporary files, but they will not be the full size of the
+final file.
+Decompression should now be faster as the rzip reconstruction stage is mostly
+performed in ram before being written to disk.
+Final file sizes should be slightly smaller as block headers are now also
+compressed.
+Heavy grade encryption is now provided with the -e option. A combination of
+a time scaled multiply hashed sha512 password with random salt followed by
+aes128 block encryption of all data, including the data headers, provides for
+extremely secure encryption. Passwords up to 500 characters in length are
+supported, and the same file encrypted with the same password is virtually
+guaranteed to never produce the same data twice. All data beyond the basic
+lrzip opening header is completely obscured. Don't lose your password!
+Lrzip will not try to malloc a negative amount of ram on smaller ram machines,
+preferring to decrease the number of threads used when compressing, and then
+aborting to a nominal minimum.
+A new build configuration system which should be more robust and provides
+neater output during compilation.
+
 lrzip-0.571
 
-A new build configuration system.
 Avoid spurious errors on failing to mmap a file.
 Fee space will now be checked to ensure there is enough room for the
 compressed or decompressed file and lrzip will abort unless the -f option is

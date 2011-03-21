@@ -1,6 +1,45 @@
 lrzip ChangeLog
 MARCH 2011, version 0.600 Con Kolivas
-* Massive rewrite
+* Massive rewrite with new file format to accomodate new features.
+* Allocate temporary buffers of safely sized ram that can act as temporary
+storage for performing de/compression to/from STDIN/STDOUT without requiring
+temporary physical files. Files compressed on machines with much larger ram
+being decompressed on smaller ram machines may still require temporary files,
+but as much as possible is done using in-ram decompression, and minimally
+sized temporary files. Information displayed is more verbose and accurate in
+STDIN/STDOUT mode.
+* The temporary buffers created for decompressing to STDOUT are also used
+for decompressing regular files now avoiding multiple write/reads when
+re-constructing the file on decompression. This can dramatically speed up
+the rzip phase of decompression on complicated files with many small matches.
+* Compress block headers as well now since we know how many bytes can be used
+to describe the length of the block, decreasing overall file size.
+* Store the rzip chunk size per chunk to make it possible to check total file
+size by summating each rzip chunk size when it's not known till the end (as
+happens when compressing from STDIN).
+* Implement password protected encryption. Import the polarssl code for
+sha512 and aes128 routines. Read password without echoing to screen by
+disabling echo via terminfo. Take the password then multiply hash it
+according to the date it was generated. Inrease the number of hashes according
+to Moore's law so it always takes approximately 1 second per password on the
+most modern hardware when first encrypted. Hash the password against 8 bytes
+of salt which is a combination of the 2 byte encoded loop counter (for how 
+many times to hash the password) and 6 random bytes. Take random from
+/dev/urandom if it's available and fall back to random() if not. Encrypt each
+block of compressed data with 8 extra bytes of random salt. Once the headers
+are written, go back and encrypt the headers as well. Then encrypt the md5
+hash value as well. Anything beyond the initial lrzip magic header should
+apppear as random data and no two successive encryptions of the same data with
+the same password should generate the same data.
+* New build system should be more robust and portable.
+* Abstract out functions better into separate files and headers, and remove
+all use of global variables. This will make the generation of an lrzip
+library possible in the future.
+* Prevent testmalloc from coming up with a negative number when determining
+how big a block of memory to allocate by decreasing the number of threads to
+be used and then aborting to a minimum value should it still be too much
+apparent ram.
+* Numerous other fixes, documentation and cleanups.
 
 MARCH 2011, version 0.571 Con Kolivas
 * Only retry mmaping if it's a memory error, otherwise it may give spurious
