@@ -719,9 +719,9 @@ void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
 			fatal("Failed to read in get_header_info");
 		if (unlikely(read(fd_in, last_head, read_len) != read_len))
 			fatal("Failed to read_i64 in get_header_info");
-		c_len = le64toh(c_len);
-		u_len = le64toh(u_len);
-		last_head = le64toh(last_head);
+		*c_len = le64toh(*c_len);
+		*u_len = le64toh(*u_len);
+		*last_head = le64toh(*last_head);
 	}
 }
 
