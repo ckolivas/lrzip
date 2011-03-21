@@ -1098,12 +1098,15 @@ void *open_stream_in(rzip_control *control, int f, int n, int chunk_bytes)
 			goto failed;
 		}
 		/* Read in the expected chunk size */
-		if (unlikely(!ENCRYPT && read_val(control, f, &sinfo->size, sinfo->chunk_bytes))) {
-			print_err("Failed to read in chunk size in open_stream_in\n");
-			goto failed;
+		if (!ENCRYPT) {
+			if (unlikely(read_val(control, f, &sinfo->size, sinfo->chunk_bytes))) {
+				print_err("Failed to read in chunk size in open_stream_in\n");
+				goto failed;
+			}
+			sinfo->size = le64toh(sinfo->size);
+			print_maxverbose("Chunk size: %lld\n", sinfo->size);
+			control->st_size += sinfo->size;
 		}
-		print_maxverbose("Chunk size: %lld\n", sinfo->size);
-		control->st_size += sinfo->size;
 	}
 	sinfo->initial_pos = get_readseek(control, f);
 
