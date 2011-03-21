@@ -757,7 +757,7 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	 * If file size < compression window, can't do
 	 */
 	struct timeval current, start, last;
-	char md5_resblock[MD5_DIGEST_SIZE];
+	uchar md5_resblock[MD5_DIGEST_SIZE];
 	i64 len = 0, last_chunk = 0;
 	int pass = 0, passes, j;
 	struct rzip_state *st;

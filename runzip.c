@@ -336,8 +336,8 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, int fd_out, int fd_his
  */
 i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 expected_size)
 {
-	char md5_resblock[MD5_DIGEST_SIZE];
-	char md5_stored[MD5_DIGEST_SIZE];
+	uchar md5_resblock[MD5_DIGEST_SIZE];
+	uchar md5_stored[MD5_DIGEST_SIZE];
 	struct timeval start,end;
 	i64 total = 0;
 

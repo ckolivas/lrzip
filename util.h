@@ -36,12 +36,12 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 #define LRZ_DECRYPT	(0)
 #define LRZ_ENCRYPT	(1)
 
-static void lrz_encrypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt)
+static inline void lrz_encrypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt)
 {
 	lrz_crypt(control, buf, len, salt, LRZ_ENCRYPT);
 }
 
-static void lrz_decrypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt)
+static inline void lrz_decrypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt)
 {
 	lrz_crypt(control, buf, len, salt, LRZ_DECRYPT);
 }
