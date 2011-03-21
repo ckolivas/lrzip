@@ -833,6 +833,7 @@ static inline int read_val(rzip_control *control, int f, i64 *v, int len)
 	*v = 0;
 	ret = read_buf(control, f, (uchar *)v, len);
 	*v = le64toh(*v);
+	return ret;
 }
 
 static int fd_seekto(rzip_control *control, struct stream_info *sinfo, i64 spos, i64 pos)
