@@ -1187,7 +1187,7 @@ static void rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, 
 	uchar *buf, *head;
 	i64 cur_ofs;
 
-	cur_ofs = get_seek(control, sinfo->fd);
+	cur_ofs = get_seek(control, sinfo->fd) - sinfo->initial_pos;
 	head = malloc(25 + SALT_LEN);
 	if (unlikely(!head))
 		fatal("Failed to malloc head in rewrite_encrypted\n");
