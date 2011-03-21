@@ -205,8 +205,6 @@ static inline void put_u32(rzip_control *control, void *ss, uint32_t s)
 /* Put a variable length of bytes dependant on how big the chunk is */
 static inline void put_vchars(rzip_control *control, void *ss, i64 s, int length)
 {
-	int bytes;
-
 	s = htole64(s);
 	if (unlikely(write_stream(control, ss, 0, (uchar *)&s, length)))
 		fatal("Failed to put_vchars\n");

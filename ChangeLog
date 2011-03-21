@@ -1,4 +1,7 @@
 lrzip ChangeLog
+MARCH 2011, version 0.600 Con Kolivas
+* Massive rewrite
+
 MARCH 2011, version 0.571 Con Kolivas
 * Only retry mmaping if it's a memory error, otherwise it may give spurious
 errors.
