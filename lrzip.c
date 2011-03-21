@@ -696,6 +696,9 @@ void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
 			fatal("Failed to read in get_header_info");
 		if (unlikely(read(fd_in, &last_head32, 4) != 4))
 			fatal("Failed to read in get_header_info");
+		c_len32 = le32toh(c_len32);
+		u_len32 = le32toh(u_len32);
+		last_head32 = le32toh(last_head32);
 		*c_len = c_len32;
 		*u_len = u_len32;
 		*last_head = last_head32;
@@ -712,6 +715,9 @@ void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
 			fatal("Failed to read in get_header_info");
 		if (unlikely(read(fd_in, last_head, read_len) != read_len))
 			fatal("Failed to read_i64 in get_header_info");
+		c_len = le64toh(c_len);
+		u_len = le64toh(u_len);
+		last_head = le64toh(last_head);
 	}
 }
 
@@ -769,6 +775,7 @@ void get_fileinfo(rzip_control *control)
 				fatal("Failed to read eof in get_fileinfo\n");
 			if (unlikely(read(fd_in, &chunk_size, chunk_byte) != chunk_byte))
 				fatal("Failed to read chunk_size in get_fileinfo\n");
+			chunk_size = le64toh(chunk_size);
 		}
 	}
 
@@ -858,6 +865,7 @@ next_chunk:
 				fatal("Failed to read eof in get_fileinfo\n");
 			if (unlikely(read(fd_in, &chunk_size, chunk_byte) != chunk_byte))
 				fatal("Failed to read chunk_size in get_fileinfo\n");
+			chunk_size = le64toh(chunk_size);
 			ofs += 1 + chunk_byte;
 			header_length = 1 + (chunk_byte * 3);
 		}
