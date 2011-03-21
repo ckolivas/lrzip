@@ -168,7 +168,7 @@ static rzip_control control;
 
 static void usage(void)
 {
-	print_output("lrzip version %d.%d%d\n", LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
+	print_output("lrzip version %s\n", PACKAGE_VERSION);
 	print_output("Copyright (C) Con Kolivas 2006-2011\n");
 	print_output("Based on rzip ");
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
