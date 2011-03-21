@@ -41,6 +41,7 @@
 #include "rzip.h"
 #include "lrzip.h"
 #include "util.h"
+#include "stream.h"
 
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
@@ -762,12 +763,12 @@ int main(int argc, char *argv[])
 			i64 usable_ram;
 
 			/* Decrease usable ram size on 32 bits due to kernel /
-			 * userspace split. Cannot allocate larger than a 2
+			 * userspace split. Cannot allocate larger than a 1
 			 * gigabyte chunk due to 32 bit signed long being
 			 * used in alloc */
 			usable_ram = MAX(control.ramsize - 900000000ll, 900000000ll);
 			control.maxram = MIN(control.maxram, usable_ram);
-			control.maxram = MIN((unsigned long long)control.maxram, two_gig);
+			control.maxram = MIN(control.maxram, one_g);
 		}
 		round_to_page(&control.maxram);
 
