@@ -266,6 +266,8 @@ static void put_literal(rzip_control *control, struct rzip_state *st, i64 last, 
 {
 	do {
 		i64 len = p - last;
+		i64 le_last;
+
 		if (len > 0xFFFF)
 			len = 0xFFFF;
 
@@ -274,7 +276,8 @@ static void put_literal(rzip_control *control, struct rzip_state *st, i64 last, 
 
 		put_header(control, st->ss, 0, len);
 
-		if (unlikely(len && write_sbstream(control, st->ss, 1, last, len)))
+		le_last = htole64(last);
+		if (unlikely(len && write_sbstream(control, st->ss, 1, le_last, len)))
 			fatal("Failed to write_stream in put_literal\n");
 		last += len;
 	} while (p > last);
