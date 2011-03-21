@@ -433,7 +433,7 @@ void close_tmpinbuf(rzip_control *control)
 	free(control->tmp_inbuf);
 }
 
-static void get_pass(char *s)
+static int get_pass(char *s)
 {
 	int len;
 
@@ -448,6 +448,7 @@ static void get_pass(char *s)
 	len = strlen(s);
 	if (unlikely(0 == len))
 		failure("Empty passphrase\n");
+	return len;
 }
 
 static void get_hash(rzip_control *control, int make_hash)
@@ -459,13 +460,13 @@ static void get_hash(rzip_control *control, int make_hash)
 
 	passphrase = calloc(PASS_LEN, 1);
 	testphrase = calloc(PASS_LEN, 1);
-	control->pass_hash = calloc(HASH_LEN, 1);
+	control->salt_pass = calloc(PASS_LEN, 1);
 	control->hash = calloc(HASH_LEN, 1);
-	if (unlikely(!passphrase || !testphrase || !control->pass_hash || !control->hash))
+	if (unlikely(!passphrase || !testphrase || !control->salt_pass || !control->hash))
 		fatal("Failed to calloc encrypt buffers in compress_file\n");
 	mlock(passphrase, PASS_LEN);
 	mlock(testphrase, PASS_LEN);
-	mlock(control->pass_hash, HASH_LEN);
+	mlock(control->salt_pass, PASS_LEN);
 	mlock(control->hash, HASH_LEN);
 
 	/* Disable stdin echo to screen */
@@ -474,7 +475,7 @@ static void get_hash(rzip_control *control, int make_hash)
 	tcsetattr(fileno(stdin), 0, &termios_p);
 retry_pass:
 	print_output("Enter passphrase: ");
-	get_pass(passphrase);
+	control->salt_pass_len = get_pass(passphrase) + SALT_LEN;
 	print_output("\n");
 	if (make_hash) {
 		print_output("Re-enter passphrase: ");
@@ -491,8 +492,9 @@ retry_pass:
 	munlock(testphrase, PASS_LEN);
 	free(testphrase);
 
-	memcpy(passphrase + PASS_LEN - SALT_LEN, control->salt, SALT_LEN);
-	lrz_keygen(control, passphrase);
+	memcpy(control->salt_pass, control->salt, SALT_LEN);
+	memcpy(control->salt_pass + SALT_LEN, passphrase, PASS_LEN - SALT_LEN);
+	lrz_stretch(control);
 	memset(passphrase, 0, PASS_LEN);
 	munlock(passphrase, PASS_LEN);
 	free(passphrase);
@@ -500,10 +502,10 @@ retry_pass:
 
 static void release_hashes(rzip_control *control)
 {
-	memset(control->pass_hash, 0, HASH_LEN);
+	memset(control->salt_pass, 0, PASS_LEN);
 	memset(control->hash, 0, SALT_LEN);
 	munlockall();
-	free(control->pass_hash);
+	free(control->salt_pass);
 	free(control->hash);
 }
 

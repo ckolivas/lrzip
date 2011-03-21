@@ -29,8 +29,21 @@ void fatal(const char *format, ...);
 void failure(const char *format, ...);
 void round_to_page(i64 *size);
 void get_rand(uchar *buf, int len);
-inline void lrz_encrypt(rzip_control *control, uchar *buf, i64 len, uchar *salt);
-inline void lrz_decrypt(rzip_control *control, uchar *buf, i64 len, uchar *salt);
-void lrz_keygen(rzip_control *control, const uchar *passphrase);
+void lrz_stretch(rzip_control *control);
+void lrz_stretch2(rzip_control *control);
+void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt);
+
+#define LRZ_DECRYPT	(0)
+#define LRZ_ENCRYPT	(1)
+
+static void lrz_encrypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt)
+{
+	lrz_crypt(control, buf, len, salt, LRZ_ENCRYPT);
+}
+
+static void lrz_decrypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt)
+{
+	lrz_crypt(control, buf, len, salt, LRZ_DECRYPT);
+}
 
 #endif

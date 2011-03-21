@@ -52,11 +52,9 @@
 #include <fcntl.h>
 #include "lrzip_private.h"
 #include "liblrzip.h"
+#include "util.h"
 #include "sha4.h"
 #include "aes.h"
-
-#define LRZ_DECRYPT	(0)
-#define LRZ_ENCRYPT	(1)
 
 static const char *infile = NULL;
 static char delete_infile = 0;
@@ -166,11 +164,30 @@ static void xor128 (void *pa, const void *pb)
 	a [1] ^= b [1];
 }
 
-static void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, int encrypt)
+static void lrz_keygen(const rzip_control *control, const uchar *salt, uchar *key, uchar *iv)
+{
+	uchar buf [HASH_LEN + SALT_LEN + PASS_LEN];
+	mlock(buf, HASH_LEN + SALT_LEN + PASS_LEN);
+
+	memcpy(buf, control->hash, HASH_LEN);
+	memcpy(buf + HASH_LEN, salt, SALT_LEN);
+	memcpy(buf + HASH_LEN + SALT_LEN, control->salt_pass, control->salt_pass_len);
+	sha4(buf, HASH_LEN + SALT_LEN + control->salt_pass_len, key, 0);
+
+	memcpy(buf, key, HASH_LEN);
+	memcpy(buf + HASH_LEN, salt, SALT_LEN);
+	memcpy(buf + HASH_LEN + SALT_LEN, control->salt_pass, control->salt_pass_len);
+	sha4(buf, HASH_LEN + SALT_LEN + control->salt_pass_len, iv, 0);
+
+	memset(buf, 0, sizeof(buf));
+	munlock(buf, sizeof(buf));
+}
+
+void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt)
 {
 	/* Encryption requires CBC_LEN blocks so we can use ciphertext
 	* stealing to not have to pad the block */
-	uchar key[HASH_LEN + SALT_LEN], iv[HASH_LEN + SALT_LEN];
+	uchar key[HASH_LEN], iv[HASH_LEN];
 	uchar tmp0[CBC_LEN], tmp1[CBC_LEN];
 	aes_context aes_ctx;
 	i64 N, M;
@@ -178,16 +195,10 @@ static void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, i
 
 	/* Generate unique key and IV for each block of data based on salt */
 	mlock(&aes_ctx, sizeof(aes_ctx));
-	mlock(key, HASH_LEN + SALT_LEN);
-	mlock(iv, HASH_LEN + SALT_LEN);
-	for (i = 0; i < HASH_LEN; i++)
-		key[i] = control->pass_hash[i] ^ control->hash[i];
-	memcpy(key + HASH_LEN, salt, SALT_LEN);
-	sha4(key, HASH_LEN + SALT_LEN, key, 0);
-	for (i = 0; i < HASH_LEN; i++)
-		iv[i] = key[i] ^ control->pass_hash[i];
-	memcpy(iv + HASH_LEN, salt, SALT_LEN);
-	sha4(iv, HASH_LEN + SALT_LEN, iv, 0);
+	mlock(key, HASH_LEN);
+	mlock(iv, HASH_LEN);
+
+	lrz_keygen(control, salt, key, iv);
 
 	M = len % CBC_LEN;
 	N = len - M;
@@ -229,33 +240,29 @@ static void lrz_crypt(rzip_control *control, uchar *buf, i64 len, uchar *salt, i
 	}
 
 	memset(&aes_ctx, 0, sizeof(aes_ctx));
-	memset(iv, 0, HASH_LEN + SALT_LEN);
-	memset(key, 0, HASH_LEN + SALT_LEN);
+	memset(iv, 0, HASH_LEN);
+	memset(key, 0, HASH_LEN);
 	munlock(&aes_ctx, sizeof(aes_ctx));
-	munlock(iv, HASH_LEN + SALT_LEN);
-	munlock(key, HASH_LEN + SALT_LEN);
+	munlock(iv, HASH_LEN);
+	munlock(key, HASH_LEN);
 }
 
-inline void lrz_encrypt(rzip_control *control, uchar *buf, i64 len, uchar *salt)
+void lrz_stretch(rzip_control *control)
 {
-	lrz_crypt(control, buf, len, salt, LRZ_ENCRYPT);
-}
+	sha4_context ctx;
+	i64 j, n, counter;
 
-inline void lrz_decrypt(rzip_control *control, uchar *buf, i64 len, uchar *salt)
-{
-	lrz_crypt(control, buf, len, salt, LRZ_DECRYPT);
-}
+	mlock(&ctx, sizeof(ctx));
+	sha4_starts(&ctx, 0);
 
-void lrz_keygen(rzip_control *control, const uchar *passphrase)
-{
-	int i, j;
-
-	sha4(passphrase, PASS_LEN, control->pass_hash, 0);
-
-	print_maxverbose("Hashing passphrase %lld times\n", control->encloops);
-	for (i = 0; i < control->encloops; i++) {
-		for (j = 0; j < HASH_LEN; j++)
-			control->hash[j] ^= control->pass_hash[j];
-		sha4(control->hash, HASH_LEN, control->hash, 0);
+	n = control->encloops * HASH_LEN / (control->salt_pass_len + sizeof(i64));
+	print_maxverbose("Hashing passphrase %lld (%lld) times \n", control->encloops, n);
+	for (j = 0; j < n; j ++) {
+		counter = htole64(j);
+		sha4_update(&ctx, (uchar *)&counter, sizeof(counter));
+		sha4_update(&ctx, control->salt_pass, control->salt_pass_len);
 	}
+	sha4_finish(&ctx, control->hash);
+	memset(&ctx, 0, sizeof(ctx));
+	munlock(&ctx, sizeof(ctx));
 }

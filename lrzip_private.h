@@ -199,8 +199,9 @@ struct rzip_control {
 	int fd_hist;
 	i64 encloops;
 	i64 secs;
-	uchar salt[16];
-	uchar *pass_hash;
+	uchar salt[8];
+	uchar *salt_pass;
+	int salt_pass_len;
 	uchar *hash;
 	unsigned char eof;
 	unsigned char magic_written;
