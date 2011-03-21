@@ -167,13 +167,13 @@ struct rzip_control {
 	char *outfile;
 	char *outdir;
 	char *tmpdir; // when stdin, stdout, or test used
-	char *tmp_outbuf; // Temporary file storage for stdout
+	uchar *tmp_outbuf; // Temporary file storage for stdout
 	i64 out_ofs; // Output offset when tmp_outbuf in use
 	i64 hist_ofs; // History offset
 	i64 out_len; // Total length of tmp_outbuf
 	i64 out_maxlen; // The largest the tmp_outbuf can be used
 	i64 out_relofs; // Relative tmp_outbuf offset when stdout has been flushed
-	char *tmp_inbuf;
+	uchar *tmp_inbuf;
 	i64 in_ofs;
 	i64 in_len;
 	i64 in_maxlen;
