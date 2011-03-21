@@ -42,7 +42,6 @@
 #ifdef HAVE_ERRNO_H
 # include <errno.h>
 #endif
-#include <endian.h>
 
 #include "md5.h"
 #include "stream.h"

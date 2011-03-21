@@ -99,6 +99,36 @@ typedef struct md5_ctx md5_ctx;
 # define mremap fake_mremap
 #endif
 
+#define bswap_32(x) \
+     ((((x) & 0xff000000) >> 24) | (((x) & 0x00ff0000) >>  8) |		      \
+      (((x) & 0x0000ff00) <<  8) | (((x) & 0x000000ff) << 24))
+
+# define bswap_64(x) \
+     ((((x) & 0xff00000000000000ull) >> 56)				      \
+      | (((x) & 0x00ff000000000000ull) >> 40)				      \
+      | (((x) & 0x0000ff0000000000ull) >> 24)				      \
+      | (((x) & 0x000000ff00000000ull) >> 8)				      \
+      | (((x) & 0x00000000ff000000ull) << 8)				      \
+      | (((x) & 0x0000000000ff0000ull) << 24)				      \
+      | (((x) & 0x000000000000ff00ull) << 40)				      \
+      | (((x) & 0x00000000000000ffull) << 56))
+
+# if __BYTE_ORDER == __LITTLE_ENDIAN
+#  define htole32(x) (x)
+#  define le32toh(x) (x)
+
+#  define htole64(x) (x)
+#  define le64toh(x) (x)
+# elif __BYTE_ORDER == __BIG_ENDIAN
+#  define htole32(x) bswap_32 (x)
+#  define le32toh(x) bswap_32 (x)
+
+#  define htole64(x) bswap_64 (x)
+#  define le64toh(x) bswap_64 (x)
+#else
+#error UNKNOWN BYTE ORDER
+#endif
+
 #define FLAG_SHOW_PROGRESS	(1 << 0)
 #define FLAG_KEEP_FILES		(1 << 1)
 #define FLAG_TEST_ONLY		(1 << 2)

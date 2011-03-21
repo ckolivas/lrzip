@@ -37,7 +37,6 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <termios.h>
-#include <endian.h>
 
 #include "md5.h"
 #include "rzip.h"
