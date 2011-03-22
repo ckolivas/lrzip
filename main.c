@@ -284,7 +284,8 @@ static void show_summary(void)
 			if (UNLIMITED)
 				print_verbose("Using Unlimited Window size\n");
 		}
-		print_maxverbose("Storage time in seconds %lld\n", control.secs);
+		if (!DECOMPRESS && !TEST_ONLY)
+			print_maxverbose("Storage time in seconds %lld\n", control.secs);
 		if (ENCRYPT)
 			print_maxverbose("Encryption hash loops %lld\n", control.encloops);
 	}
