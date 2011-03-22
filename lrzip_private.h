@@ -85,7 +85,6 @@ extern int errno;
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 
 typedef long long int i64;
-typedef uint16_t u16;
 typedef uint32_t u32;
 
 typedef struct rzip_control rzip_control;
@@ -171,9 +170,6 @@ typedef struct md5_ctx md5_ctx;
 #define HASH_LEN 64
 #define SALT_LEN 8
 #define CBC_LEN 16
-
-/* Needs to be less than 31 bits and page aligned on 32 bits */
-#define two_gig ((1ull << 31) - 4096)
 
 #define print_err(format, args...)	do {\
 	fprintf(stderr, format, ##args);	\
