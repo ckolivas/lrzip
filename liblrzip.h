@@ -49,7 +49,6 @@
 #define TMP_OUTBUF	(control->flags & FLAG_TMP_OUTBUF)
 #define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
 #define ENCRYPT		(control->flags & FLAG_ENCRYPT)
-#define CHUNKED		(control->flags & FLAG_CHUNKED)
 
 #define print_output(format, args...)	do {\
 	fprintf(control->msgout, format, ##args);	\

@@ -153,7 +153,6 @@ typedef struct md5_ctx md5_ctx;
 #define FLAG_TMP_OUTBUF		(1 << 21)
 #define FLAG_TMP_INBUF		(1 << 22)
 #define FLAG_ENCRYPT		(1 << 23)
-#define FLAG_CHUNKED		(1 << 24)
 
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
