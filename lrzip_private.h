@@ -207,7 +207,7 @@ struct rzip_control {
 	i64 in_maxlen;
 	FILE *msgout; //stream for output messages
 	const char *suffix;
-	int compression_level;
+	uchar compression_level;
 	i64 overhead; // compressor overhead
 	i64 usable_ram; // the most ram we'll try to use on one activity
 	i64 maxram; // the largest chunk of ram to allocate
@@ -218,7 +218,7 @@ struct rzip_control {
 	i64 max_chunk;
 	i64 max_mmap;
 	int threads;
-	int nice_val;		// added for consistency
+	char nice_val;		// added for consistency
 	char major_version;
 	char minor_version;
 	i64 st_size;
@@ -243,7 +243,7 @@ struct stream {
 	uchar *buf;
 	i64 buflen;
 	i64 bufp;
-	int eos;
+	uchar eos;
 	long uthread_no;
 	long unext_thread;
 	long base_thread;
@@ -253,7 +253,7 @@ struct stream {
 
 struct stream_info {
 	struct stream *s;
-	int num_streams;
+	uchar num_streams;
 	int fd;
 	i64 bufsize;
 	i64 cur_pos;

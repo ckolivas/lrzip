@@ -531,7 +531,11 @@ void decompress_file(rzip_control *control)
 	struct statvfs fbuf;
 
 	if (!STDIN) {
-		if ((tmp = strrchr(control->infile, '.')) && strcmp(tmp,control->suffix)) {
+		struct stat fdin_stat;
+
+		stat(control->infile, &fdin_stat);
+		if (!S_ISREG(fdin_stat.st_mode) && (tmp = strrchr(control->infile, '.')) &&
+		    strcmp(tmp,control->suffix)) {
 			/* make sure infile has an extension. If not, add it
 			  * because manipulations may be made to input filename, set local ptr
 			*/
@@ -747,7 +751,11 @@ void get_fileinfo(rzip_control *control)
 	struct stat st;
 
 	if (!STDIN) {
-		if ((tmp = strrchr(control->infile, '.')) && strcmp(tmp,control->suffix)) {
+		struct stat fdin_stat;
+
+		stat(control->infile, &fdin_stat);
+		if (!S_ISREG(fdin_stat.st_mode) && (tmp = strrchr(control->infile, '.')) &&
+		    strcmp(tmp,control->suffix)) {
 			infilecopy = malloc(strlen(control->infile) + strlen(control->suffix) + 1);
 			if (unlikely(infilecopy == NULL))
 				fatal("Failed to allocate memory for infile suffix\n");

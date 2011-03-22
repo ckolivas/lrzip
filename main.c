@@ -603,6 +603,7 @@ int main(int argc, char *argv[])
 			if (control.outdir)
 				failure("Cannot have -o and -O together\n");
 			control.outname = optarg;
+			control.suffix = "";
 			break;
 		case 'O':
 			if (control.outname)	/* can't mix -o and -O */
@@ -623,6 +624,8 @@ int main(int argc, char *argv[])
 			control.flags &= ~FLAG_SHOW_PROGRESS;
 			break;
 		case 'S':
+			if (control.outname)
+				failure("Specified output filename already, can't specify an extension.\n");
 			control.suffix = optarg;
 			break;
 		case 't':
