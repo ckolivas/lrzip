@@ -998,6 +998,7 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	}
 	/* Use a nominal minimum size should we fail all previous shrinking */
 	limit = MAX(limit, STREAM_BUFSIZE);
+	limit = MIN(limit, chunk_limit);
 retest_malloc:
 	testsize = limit + (control->overhead * control->threads);
 	testmalloc = malloc(testsize);
