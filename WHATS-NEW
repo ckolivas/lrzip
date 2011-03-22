@@ -25,6 +25,7 @@ aborting to a nominal minimum.
 A new build configuration system which should be more robust and provides
 neater output during compilation.
 lrzip should work again on big endian hardware.
+lrztar / lrzuntar will no longer use temporary files.
 
 lrzip-0.571
 

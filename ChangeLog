@@ -41,6 +41,7 @@ how big a block of memory to allocate by decreasing the number of threads to
 be used and then aborting to a minimum value should it still be too much
 apparent ram.
 * Big Endian fixes.
+* Change lrztar and lrzuntar to not use temporary files.
 * Countless other fixes, documentation and cleanups.
 
 MARCH 2011, version 0.571 Con Kolivas
