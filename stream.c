@@ -985,14 +985,9 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	else
 		testbufs = 2;
 
-	/* Serious limits imposed on 32 bit capabilities */
-	if (BITS32)
-		limit = MIN((unsigned long long)limit, (two_gig / testbufs) -
-			(control->overhead * control->threads));
-
 	testsize = (limit * testbufs) + (control->overhead * control->threads);
-	if (testsize > control->maxram)
-		limit = (control->maxram - (control->overhead * control->threads)) / testbufs;
+	if (testsize > control->usable_ram)
+		limit = (control->usable_ram - (control->overhead * control->threads)) / testbufs;
 
 	/* If we don't have enough ram for the number of threads, decrease the
 	 * number of threads till we do, or only have one thread. */
@@ -1001,16 +996,29 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 			--control->threads;
 		else
 			break;
-		limit = (control->maxram - (control->overhead * control->threads)) / testbufs;
+		limit = (control->usable_ram - (control->overhead * control->threads)) / testbufs;
 		limit = MIN(limit, chunk_limit);
 	}
+	if (BITS32) // Shouldn't be higher than this by now, but just in case
+		limit = MIN(limit, one_g);
+	/* Use a nominal minimum size should we fail all previous shrinking */
 	limit = MAX(limit, STREAM_BUFSIZE);
 retest_malloc:
-	testsize = (limit * testbufs) + (control->overhead * control->threads);
+	testsize = limit + (control->overhead * control->threads);
 	testmalloc = malloc(testsize);
 	if (!testmalloc) {
 		limit = limit / 10 * 9;
 		goto retest_malloc;
+	}
+	if (!NO_COMPRESS) {
+		char *testmalloc2 = malloc(limit);
+
+		if (!testmalloc2) {
+			free(testmalloc);
+			limit = limit / 10 * 9;
+			goto retest_malloc;
+		}
+		free(testmalloc2);
 	}
 	free(testmalloc);
 	print_maxverbose("Succeeded in testing %lld sized malloc for back end compression\n", testsize);

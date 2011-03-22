@@ -766,16 +766,15 @@ int main(int argc, char *argv[])
 		else
 			control.maxram = control.ramsize / 3;
 		if (BITS32) {
-			i64 usable_ram;
-
 			/* Decrease usable ram size on 32 bits due to kernel /
 			 * userspace split. Cannot allocate larger than a 1
 			 * gigabyte chunk due to 32 bit signed long being
 			 * used in alloc */
-			usable_ram = MAX(control.ramsize - 900000000ll, 900000000ll);
-			control.maxram = MIN(control.maxram, usable_ram);
+			control.usable_ram = MAX(control.ramsize - 900000000ll, 900000000ll);
+			control.maxram = MIN(control.maxram, control.usable_ram);
 			control.maxram = MIN(control.maxram, one_g);
-		}
+		} else
+			control.usable_ram = control.maxram;
 		round_to_page(&control.maxram);
 
 		show_summary();

@@ -213,6 +213,7 @@ struct rzip_control {
 	const char *suffix;
 	int compression_level;
 	i64 overhead; // compressor overhead
+	i64 usable_ram; // the most ram we'll try to use on one activity
 	i64 maxram; // the largest chunk of ram to allocate
 	unsigned char lzma_properties[5]; // lzma properties, encoded
 	i64 window;

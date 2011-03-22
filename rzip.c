@@ -812,11 +812,6 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	 * buffer to work on 2/3 ram size, leaving enough ram for the
 	 * compression backends */
 	control->max_mmap = control->maxram;
-
-	/* On 32 bits we can have a big window with sliding mmap, but can
-	 * not enable much per mmap/malloc */
-	if (BITS32)
-		control->max_mmap = MIN((unsigned long long)control->max_mmap, two_gig);
 	round_to_page(&control->max_mmap);
 
 	/* Set maximum chunk size to 2/3 of ram if not unlimited or specified
