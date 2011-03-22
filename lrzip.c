@@ -42,6 +42,9 @@
 #elif HAVE_SYS_ENDIAN_H
 # include <sys/endian.h>
 #endif
+#ifdef HAVE_ARPA_INET_H
+# include <arpa/inet.h>
+#endif
 
 #include "md5.h"
 #include "rzip.h"

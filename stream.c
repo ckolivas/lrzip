@@ -44,6 +44,10 @@
 #elif HAVE_SYS_ENDIAN_H
 # include <sys/endian.h>
 #endif
+#ifdef HAVE_ARPA_INET_H
+# include <arpa/inet.h>
+#endif
+
 
 /* LZMA C Wrapper */
 #include "lzma/C/LzmaLib.h"
