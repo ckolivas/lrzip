@@ -712,18 +712,6 @@ static void read_fdin(struct rzip_control *control, i64 len)
 	control->in_len = control->in_ofs + len;
 }
 
-static i64 seekto_fdin(rzip_control *control, i64 pos)
-{
-	if (!TMP_INBUF)
-		return lseek(control->fd_in, pos, SEEK_SET);
-	control->in_ofs = pos;
-	if (unlikely(control->in_ofs > control->in_len || control->in_ofs < 0)) {
-		print_err("Tried to seek outside of in_ofs range in seekto_fdin\n");
-		return -1;
-	}
-	return pos;
-}
-
 /* Ditto for read */
 ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
 {
@@ -770,7 +758,7 @@ read_fd:
 }
 
 /* write to a file, return 0 on success and -1 on failure */
-static int write_buf(rzip_control *control, int f, uchar *p, i64 len)
+static int write_buf(rzip_control *control, uchar *p, i64 len)
 {
 	ssize_t ret;
 
@@ -787,15 +775,15 @@ static int write_buf(rzip_control *control, int f, uchar *p, i64 len)
 }
 
 /* write a byte */
-static inline int write_u8(rzip_control *control, int f, uchar v)
+static inline int write_u8(rzip_control *control, uchar v)
 {
-	return write_buf(control, f, &v, 1);
+	return write_buf(control, &v, 1);
 }
 
-static inline int write_val(rzip_control *control, int f, i64 v, int len)
+static inline int write_val(rzip_control *control, i64 v, int len)
 {
 	v = htole64(v);
-	return write_buf(control, f, (uchar *)&v, len);
+	return write_buf(control, (uchar *)&v, len);
 }
 
 static int read_buf(rzip_control *control, int f, uchar *p, i64 len)
@@ -845,7 +833,7 @@ static inline int read_val(rzip_control *control, int f, i64 *v, int len)
 	return ret;
 }
 
-static int fd_seekto(rzip_control *control, struct stream_info *sinfo, i64 spos, i64 pos)
+static int fd_seekto(struct stream_info *sinfo, i64 spos, i64 pos)
 {
 	if (unlikely(lseek(sinfo->fd, spos, SEEK_SET) != spos)) {
 		print_err("Failed to seek to %lld in stream\n", pos);
@@ -869,7 +857,7 @@ static int seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
 		return 0;
 	}
 
-	return fd_seekto(control, sinfo, spos, pos);
+	return fd_seekto(sinfo, spos, pos);
 }
 
 static int read_seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
@@ -887,7 +875,7 @@ static int read_seekto(rzip_control *control, struct stream_info *sinfo, i64 pos
 		return 0;
 	}
 
-	return fd_seekto(control, sinfo, spos, pos);
+	return fd_seekto(sinfo, spos, pos);
 }
 
 static i64 get_seek(rzip_control *control, int fd)
@@ -1077,7 +1065,6 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 {
 	struct stream_info *sinfo;
 	int total_threads, i;
-	uchar salt[SALT_LEN];
 	i64 header_length;
 
 	sinfo = calloc(sizeof(struct stream_info), 1);
@@ -1233,7 +1220,7 @@ static void rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, 
 	get_rand(head, SALT_LEN);
 	if (unlikely(seekto(control, sinfo, ofs - SALT_LEN)))
 		failure("Failed to seekto buf ofs in rewrite_encrypted\n");
-	if (unlikely(write_buf(control, sinfo->fd, head, SALT_LEN)))
+	if (unlikely(write_buf(control, head, SALT_LEN)))
 		failure("Failed to write_buf head in rewrite_encrypted\n");
 	if (unlikely(read_buf(control, sinfo->fd, buf, 25)))
 		failure("Failed to read_buf buf in rewrite_encrypted\n");
@@ -1242,7 +1229,7 @@ static void rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, 
 
 	if (unlikely(seekto(control, sinfo, ofs)))
 		failure("Failed to seek back to ofs in rewrite_encrypted\n");
-	if (unlikely(write_buf(control, sinfo->fd, buf, 25)))
+	if (unlikely(write_buf(control, buf, 25)))
 		failure("Failed to write_buf encrypted buf in rewrite_encrypted\n");
 	free(head);
 	seekto(control, sinfo, cur_ofs);
@@ -1337,13 +1324,13 @@ retry:
 		}
 
 		/* Write chunk bytes of this block */
-		write_u8(control, ctis->fd, ctis->chunk_bytes);
+		write_u8(control, ctis->chunk_bytes);
 
 		/* Write whether this is the last chunk, followed by the size
 		 * of this chunk */
-		write_u8(control, ctis->fd, control->eof);
+		write_u8(control, control->eof);
 		if (!ENCRYPT)
-			write_val(control, ctis->fd, ctis->size, ctis->chunk_bytes);
+			write_val(control, ctis->size, ctis->chunk_bytes);
 
 		/* First chunk of this stream, write headers */
 		ctis->initial_pos = get_seek(control, ctis->fd);
@@ -1352,15 +1339,15 @@ retry:
 			/* If encrypting, we leave SALT_LEN room to write in salt
 			* later */
 			if (ENCRYPT) {
-				if (unlikely(write_val(control, ctis->fd, 0, SALT_LEN)))
+				if (unlikely(write_val(control, 0, SALT_LEN)))
 					fatal("Failed to write_buf blank salt in compthread %d\n", i);
 				ctis->cur_pos += SALT_LEN;
 			}
 			ctis->s[j].last_head = ctis->cur_pos + 1 + (write_len * 2);
-			write_u8(control, ctis->fd, CTYPE_NONE);
-			write_val(control, ctis->fd, 0, write_len);
-			write_val(control, ctis->fd, 0, write_len);
-			write_val(control, ctis->fd, 0, write_len);
+			write_u8(control, CTYPE_NONE);
+			write_val(control, 0, write_len);
+			write_val(control, 0, write_len);
+			write_val(control, 0, write_len);
 			ctis->cur_pos += 1 + (write_len * 3);
 		}
 	}
@@ -1368,7 +1355,7 @@ retry:
 	if (unlikely(seekto(control, ctis, ctis->s[cti->streamno].last_head)))
 		fatal("Failed to seekto in compthread %d\n", i);
 
-	if (unlikely(write_val(control, ctis->fd, ctis->cur_pos, write_len)))
+	if (unlikely(write_val(control, ctis->cur_pos, write_len)))
 		fatal("Failed to write_val cur_pos in compthread %d\n", i);
 
 	if (ENCRYPT)
@@ -1381,28 +1368,28 @@ retry:
 	print_maxverbose("Thread %ld writing %lld compressed bytes from stream %d\n", i, padded_len, cti->streamno);
 
 	if (ENCRYPT) {
-		if (unlikely(write_val(control, ctis->fd, 0, SALT_LEN)))
+		if (unlikely(write_val(control, 0, SALT_LEN)))
 			fatal("Failed to write_buf header salt in compthread %d\n", i);
 		ctis->cur_pos += SALT_LEN;
 		ctis->s[cti->streamno].last_headofs = ctis->cur_pos;
 	}
 	/* We store the actual c_len even though we might pad it out */
-	if (unlikely(write_u8(control, ctis->fd, cti->c_type) ||
-		write_val(control, ctis->fd, cti->c_len, write_len) ||
-		write_val(control, ctis->fd, cti->s_len, write_len) ||
-		write_val(control, ctis->fd, 0, write_len))) {
+	if (unlikely(write_u8(control, cti->c_type) ||
+		write_val(control, cti->c_len, write_len) ||
+		write_val(control, cti->s_len, write_len) ||
+		write_val(control, 0, write_len))) {
 			fatal("Failed write in compthread %d\n", i);
 	}
 	ctis->cur_pos += 1 + (write_len * 3);
 
 	if (ENCRYPT) {
 		get_rand(cti->salt, SALT_LEN);
-		if (unlikely(write_buf(control, ctis->fd, cti->salt, SALT_LEN)))
+		if (unlikely(write_buf(control, cti->salt, SALT_LEN)))
 			fatal("Failed to write_buf block salt in compthread %d\n", i);
 		lrz_encrypt(control, cti->s_buf, padded_len, cti->salt);
 		ctis->cur_pos += SALT_LEN;
 	}
-	if (unlikely(write_buf(control, ctis->fd, cti->s_buf, padded_len)))
+	if (unlikely(write_buf(control, cti->s_buf, padded_len)))
 		fatal("Failed to write_buf s_buf in compthread %d\n", i);
 
 	ctis->cur_pos += padded_len;

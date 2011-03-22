@@ -192,7 +192,6 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 	uchar tmp0[CBC_LEN], tmp1[CBC_LEN];
 	aes_context aes_ctx;
 	i64 N, M;
-	int i;
 
 	/* Generate unique key and IV for each block of data based on salt */
 	mlock(&aes_ctx, sizeof(aes_ctx));

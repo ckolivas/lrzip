@@ -462,8 +462,6 @@ static void get_hash(rzip_control *control, int make_hash)
 {
 	char *passphrase, *testphrase;
 	struct termios termios_p;
-	i64 i;
-	int j;
 
 	passphrase = calloc(PASS_LEN, 1);
 	testphrase = calloc(PASS_LEN, 1);
@@ -740,11 +738,11 @@ void get_fileinfo(rzip_control *control)
 	i64 expected_size, infile_size, chunk_size = 0, chunk_total = 0;
 	int header_length, stream = 0, chunk = 0;
 	char *tmp, *infilecopy = NULL;
-	int seekspot, fd_in;
 	char chunk_byte = 0;
 	long double cratio;
 	uchar ctype = 0;
 	struct stat st;
+	int fd_in;
 
 	if (!STDIN) {
 		struct stat fdin_stat;

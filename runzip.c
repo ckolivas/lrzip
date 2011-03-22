@@ -71,7 +71,6 @@ static inline u32 read_u32(rzip_control *control, void *ss, int stream)
 /* Read a variable length of chars dependant on how big the chunk was */
 static inline i64 read_vchars(rzip_control *control, void *ss, int stream, int length)
 {
-	int bytes;
 	i64 s = 0;
 
 	if (unlikely(read_stream(control, ss, stream, (uchar *)&s, length) != length))
@@ -85,20 +84,6 @@ static i64 seekcur_fdout(rzip_control *control)
 	if (!TMP_OUTBUF)
 		return lseek(control->fd_out, 0, SEEK_CUR);
 	return (control->out_relofs + control->out_ofs);
-}
-
-static i64 seekto_fdout(rzip_control *control, i64 pos)
-{
-	if (!TMP_OUTBUF)
-		return lseek(control->fd_out, pos, SEEK_SET);
-	control->out_ofs = pos - control->out_relofs;
-	if (control->out_ofs > control->out_len)
-		control->out_len = control->out_ofs;
-	if (unlikely(control->out_ofs < 0 || control->out_ofs > control->out_maxlen)) {
-		print_err("Trying to seek outside tmpoutbuf to %lld in seekto_fdout\n", control->out_ofs);
-		return -1;
-	}
-	return pos;
 }
 
 static i64 seekto_fdhist(rzip_control *control, i64 pos)
@@ -160,7 +145,7 @@ static i64 read_header(rzip_control *control, void *ss, uchar *head)
 	return read_vchars(control, ss, 0, chunk_bytes);
 }
 
-static i64 unzip_literal(rzip_control *control, void *ss, i64 len, int fd_out, uint32 *cksum)
+static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum)
 {
 	i64 stream_read;
 	uchar *buf;
@@ -200,7 +185,7 @@ static i64 read_fdhist(rzip_control *control, void *buf, i64 len)
 	return len;
 }
 
-static i64 unzip_match(rzip_control *control, void *ss, i64 len, int fd_out, int fd_hist, uint32 *cksum, int chunk_bytes)
+static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, int chunk_bytes)
 {
 	i64 offset, n, total, cur_pos;
 	uchar *buf, *off_buf;
@@ -251,7 +236,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, int fd_out, int
 /* decompress a section of an open file. Call fatal() on error
    return the number of bytes that have been retrieved
  */
-static i64 runzip_chunk(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 expected_size, i64 tally)
+static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64 tally)
 {
 	uint32 good_cksum, cksum = 0;
 	i64 len, ofs, total = 0;
@@ -308,11 +293,11 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, int fd_out, int fd_his
 	while ((len = read_header(control, ss, &head)) || head) {
 		switch (head) {
 			case 0:
-				total += unzip_literal(control, ss, len, fd_out, &cksum);
+				total += unzip_literal(control, ss, len, &cksum);
 				break;
 
 			default:
-				total += unzip_match(control, ss, len, fd_out, fd_hist, &cksum, chunk_bytes);
+				total += unzip_match(control, ss, len, &cksum, chunk_bytes);
 				break;
 		}
 		if (expected_size) {
@@ -354,7 +339,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 	gettimeofday(&start,NULL);
 
 	do {
-		total += runzip_chunk(control, fd_in, fd_out, fd_hist, expected_size, total);
+		total += runzip_chunk(control, fd_in, expected_size, total);
 		if (TMP_OUTBUF)
 			flush_tmpoutbuf(control);
 		else if (STDOUT)
