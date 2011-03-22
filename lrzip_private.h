@@ -90,8 +90,8 @@ typedef uint32_t u32;
 typedef struct rzip_control rzip_control;
 typedef struct md5_ctx md5_ctx;
 
-#ifndef mremap
-# define mremap fake_mremap
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__APPLE__)
+ #define mremap fake_mremap
 #endif
 
 #define bswap_32(x) \
