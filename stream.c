@@ -837,7 +837,6 @@ static inline int read_val(rzip_control *control, int f, i64 *v, int len)
 	/* We only partially read all 8 bytes so have to zero v here */
 	*v = 0;
 	ret = read_buf(control, f, (uchar *)v, len);
-	*v = le64toh(*v);
 	return ret;
 }
 
