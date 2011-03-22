@@ -66,6 +66,13 @@ if test x"$ASM" = xyes; then
 	fi
 fi
 
+static=no
+AC_ARG_ENABLE([static-bin],
+	[AC_HELP_STRING([--enable-static-bin],[Build statically linked binary @<:@default=no@:>@])],
+	[static=$enableval]
+	)
+AM_CONDITIONAL([STATIC], [test "x$static" = "xyes"])
+
 AC_CHECK_HEADERS(fcntl.h sys/time.h unistd.h sys/mman.h)
 AC_CHECK_HEADERS(ctype.h errno.h sys/resource.h)
 AC_CHECK_HEADERS(endian.h sys/endian.h arpa/inet.h)
@@ -142,6 +149,7 @@ echo
 echo "Configuration Options Summary:"
 echo
 echo "  ASM................: $ASM"
+echo "  Static binary......: $static"
 echo
 echo "Compilation............: make (or gmake)"
 echo "  CPPFLAGS.............: $CPPFLAGS"

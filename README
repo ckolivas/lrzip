@@ -113,7 +113,7 @@ for this encryption mechanism, and there is absolutely no way of retrieving
 your password should you forget it.
 
 Q. How do I make a static build?
-A. make static
+A. ./configure --enable-static-bin
 
 Q. I want the absolute maximum compression I can possibly get, what do I do?
 A. Try the command line options "-Uzp 1 -L 9". This uses all available ram and

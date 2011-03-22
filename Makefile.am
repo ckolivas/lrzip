@@ -53,6 +53,9 @@ lrzip_SOURCES = \
   sha4.h
 
 lrzip_LDADD = lzma/C/liblzma.la
+if STATIC
+  lrzip_LDFLAGS = -all-static
+endif
 
 dist_doc_DATA = \
   AUTHORS \
