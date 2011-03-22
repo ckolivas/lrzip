@@ -912,7 +912,7 @@ SRes LzmaProps_Decode(CLzmaProps *p, const Byte *data, unsigned size)
     return SZ_ERROR_UNSUPPORTED;
   else
     dicSize = data[1] | ((UInt32)data[2] << 8) | ((UInt32)data[3] << 16) | ((UInt32)data[4] << 24);
-  dicSize = le32toh(dicSize);
+
   if (dicSize < LZMA_DIC_MIN)
     dicSize = LZMA_DIC_MIN;
   p->dicSize = dicSize;

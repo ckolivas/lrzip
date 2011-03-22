@@ -91,7 +91,7 @@ void write_magic(rzip_control *control)
 		int i;
 
 		for (i = 0; i < 5; i++)
-			magic[i + 16] = control->lzma_properties[i];
+			magic[i + 16] = (char)control->lzma_properties[i];
 	}
 
 	/* This is a flag that the archive contains an md5 sum at the end
@@ -145,7 +145,7 @@ static void get_magic(rzip_control *control, char *magic)
 	control->st_size = expected_size;
 
 	/* restore LZMA compression flags only if stored */
-	if (magic[16]) {
+	if ((int) magic[16]) {
 		for (i = 0; i < 5; i++)
 			control->lzma_properties[i] = magic[i + 16];
 	}
