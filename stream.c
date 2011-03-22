@@ -580,6 +580,7 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 	size_t dlen = (size_t)ucthread->u_len;
 	int ret = 0, lzmaerr;
 	uchar *c_buf;
+	SizeT c_len = ucthread->c_len;
 
 	c_buf = ucthread->s_buf;
 	ucthread->s_buf = malloc(dlen);
@@ -591,7 +592,7 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 
 	/* With LZMA SDK 4.63 we pass control->lzma_properties
 	 * which is needed for proper uncompress */
-	lzmaerr = LzmaUncompress(ucthread->s_buf, &dlen, c_buf, (SizeT *)&ucthread->c_len, control->lzma_properties, 5);
+	lzmaerr = LzmaUncompress(ucthread->s_buf, &dlen, c_buf, &c_len, control->lzma_properties, 5);
 	if (unlikely(lzmaerr)) {
 		print_err("Failed to decompress buffer - lzmaerr=%d\n", lzmaerr);
 		free(ucthread->s_buf);
