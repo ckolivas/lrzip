@@ -999,8 +999,11 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 		limit = (control->usable_ram - (control->overhead * control->threads)) / testbufs;
 		limit = MIN(limit, chunk_limit);
 	}
-	if (BITS32) // Shouldn't be higher than this by now, but just in case
+	if (BITS32) {
 		limit = MIN(limit, one_g);
+		if (limit + (control->overhead * control->threads) > one_g)
+			limit = one_g - (control->overhead * control->threads);
+	}
 	/* Use a nominal minimum size should we fail all previous shrinking */
 	limit = MAX(limit, STREAM_BUFSIZE);
 retest_malloc:
