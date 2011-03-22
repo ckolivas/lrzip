@@ -9,7 +9,7 @@ generate temporary files, but if a file was generated on a larger ram machine,
 lrzip might employ temporary files, but they will not be the full size of the
 final file.
 Decompression should now be faster as the rzip reconstruction stage is mostly
-performed in ram before being written to disk.
+performed in ram before being written to disk, and testing much faster.
 Final file sizes should be slightly smaller as block headers are now also
 compressed.
 Heavy grade encryption is now provided with the -e option. A combination of

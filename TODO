@@ -14,16 +14,3 @@ Consider using LZMA Filters for processor-optimised
 coding to increase compression.
 
 Get the ASM working on 64bit.
-
-Clean up the config system since it's a mystery to me.
-
-Make stdout work without a temporary file.
-
-Make stdin on decompression work without a temporary file.
-
-Make testing file integrity work without a temporary file.
-
-Add error detection and correction with either reed-solomon or low density
-parity checking.
-
-Add password protection.

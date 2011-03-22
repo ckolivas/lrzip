@@ -11,7 +11,8 @@ STDIN/STDOUT mode.
 * The temporary buffers created for decompressing to STDOUT are also used
 for decompressing regular files now avoiding multiple write/reads when
 re-constructing the file on decompression. This can dramatically speed up
-the rzip phase of decompression on complicated files with many small matches.
+the rzip phase of decompression on complicated files with many small matches,
+and always makes testing faster.
 * Compress block headers as well now since we know how many bytes can be used
 to describe the length of the block, decreasing overall file size.
 * Store the rzip chunk size per chunk to make it possible to check total file
