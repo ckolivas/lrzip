@@ -318,7 +318,8 @@ machines. Large files might not decompress on machines with less RAM if SWAP is
 disabled.
 
 BUGS:
-Probably lots. Tell me if you spot any :)
+Probably lots. Tell me if you spot any :) Any known ones should be documented
+in the file BUGS.
 
 
 Links:
@@ -341,11 +342,13 @@ and the update to the multithreaded lzma library and all sorts of other
 features. Thanks to René Rhéaume for fixing executable stacks and
 Ed Avis for various fixes. Thanks to Matt Mahoney for zpaq code. Thanks to
 Jukka Laurila for Darwin support. Thanks to George Makrydakis for lrztar.
-Thanks to Ulrich Drepper for his md5 implementation. Thanks to Serge Belyshev
-for extensive help, advice, and patches to implement encryption.
+Thanks to Ulrich Drepper for his md5 implementation. Thanks to Michael
+Blumenkrantz for new configuration tools. Thanks to the PolarSSL authors for
+encryption code. Thanks to Serge Belyshev for extensive help, advice, and
+patches to implement encryption.
 
 Con Kolivas <kernel@kolivas.org>
-Sat, 19 Mar 2011
+Sat, 23 Mar 2011
 
 Also documented by
 Peter Hyman <pete@peterhyman.com>
