@@ -303,7 +303,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, int fd_out, int fd_his
 
 	ss = open_stream_in(control, fd_in, NUM_STREAMS, chunk_bytes);
 	if (unlikely(!ss))
-		fatal("Failed to open_stream_in in runzip_chunk\n");
+		failure("Failed to open_stream_in in runzip_chunk\n");
 
 	while ((len = read_header(control, ss, &head)) || head) {
 		switch (head) {

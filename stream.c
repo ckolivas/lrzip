@@ -584,7 +584,7 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 	c_buf = ucthread->s_buf;
 	ucthread->s_buf = malloc(dlen);
 	if (unlikely(!ucthread->s_buf)) {
-		print_err("Failed to allocate %lldd bytes for decompression\n", (i64)dlen);
+		print_err("Failed to allocate %lld bytes for decompression\n", (i64)dlen);
 		ret = -1;
 		goto out;
 	}
@@ -1072,7 +1072,7 @@ static void decrypt_header(rzip_control *control, uchar *head, uchar *c_type,
 }
 
 /* prepare a set of n streams for reading on file descriptor f */
-void *open_stream_in(rzip_control *control, int f, int n, int chunk_bytes)
+void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 {
 	struct stream_info *sinfo;
 	int total_threads, i;
@@ -1190,6 +1190,8 @@ again:
 
 		if (unlikely(c != CTYPE_NONE)) {
 			print_err("Unexpected initial tag %d in streams\n", c);
+			if (ENCRYPT)
+				print_err("Wrong password?\n");
 			goto failed;
 		}
 		if (unlikely(v1)) {
