@@ -24,6 +24,7 @@ preferring to decrease the number of threads used when compressing, and then
 aborting to a nominal minimum.
 A new build configuration system which should be more robust and provides
 neater output during compilation.
+lrzip should work again on big endian hardware.
 
 lrzip-0.571
 
