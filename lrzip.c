@@ -597,10 +597,12 @@ void decompress_file(rzip_control *control)
 	control->fd_in = fd_in;
 
 	if (!(TEST_ONLY | STDOUT)) {
-		if (FORCE_REPLACE)
-			fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-		else
-			fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0666);
+		fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0600);
+		if (FORCE_REPLACE && (-1 == fd_out) && (EEXIST == errno)) {
+			if (unlikely(unlink(control->outfile)))
+				fatal("Failed to unlink an existing file: %s\n", control->outfile);
+			fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0600);
+		}
 		if (unlikely(fd_out == -1)) {
 			/* We must ensure we don't delete a file that already
 			 * exists just because we tried to create a new one */
@@ -1016,10 +1018,12 @@ void compress_file(rzip_control *control)
 			print_progress("Output filename is: %s\n", control->outfile);
 		}
 
-		if (FORCE_REPLACE)
-			fd_out = open(control->outfile, O_RDWR | O_CREAT | O_TRUNC, 0666);
-		else
-			fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0666);
+		fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0600);
+		if (FORCE_REPLACE && (-1 == fd_out) && (EEXIST == errno)) {
+			if (unlikely(unlink(control->outfile)))
+				fatal("Failed to unlink an existing file: %s\n", control->outfile);
+			fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0600);
+		}
 		if (unlikely(fd_out == -1)) {
 			/* We must ensure we don't delete a file that already
 			 * exists just because we tried to create a new one */
