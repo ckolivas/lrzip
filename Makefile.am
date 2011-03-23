@@ -69,7 +69,6 @@ dist_doc_DATA = \
 
 EXTRA_DIST = \
 		lrztar \
-		regression_test.sh \
 		description-pak \
 		autogen.sh \
 		INSTALL \
