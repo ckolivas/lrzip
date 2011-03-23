@@ -2,7 +2,7 @@
 ##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
 m4_define([v_maj], [0])
 m4_define([v_min], [6])
-m4_define([v_mic], [00])
+m4_define([v_mic], [01])
 ##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
 m4_define([v_v], m4_join([], v_min, v_mic))
 m4_define([v_ver], [v_maj.v_v])
@@ -84,6 +84,12 @@ AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
 AC_CHECK_SIZEOF(short)
 
+if test $ac_cv_sizeof_long != 4 -a "x$ASM" = "xyes" ; then
+	AC_MSG_WARN([64bit arch detected, disabling ASM])
+	ASM=no
+fi
+
+
 AC_CACHE_CHECK([for large file support],rzip_cv_HAVE_LARGE_FILES,[
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdio.h>
@@ -148,7 +154,7 @@ echo
 echo
 echo "Configuration Options Summary:"
 echo
-echo "  ASM................: $ASM"
+echo "  ASM.(32 bit only)..: $ASM"
 echo "  Static binary......: $static"
 echo
 echo "Compilation............: make (or gmake)"

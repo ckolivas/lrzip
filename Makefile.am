@@ -73,3 +73,12 @@ EXTRA_DIST = \
 		autogen.sh \
 		INSTALL \
 		$(dist_doc_DATA)
+
+install-exec-hook:
+	$(LN_S) -f @bindir@/lrzip$(EXEEXT) @bindir@/lrunzip
+	$(LN_S) -f @bindir@/lrztar @bindir@/lrzuntar
+
+
+uninstall-local:
+	rm -f @bindir@/lrunzip
+	rm -f @bindir@/lrzuntar

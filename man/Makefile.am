@@ -1,6 +1,18 @@
 MAINTAINERCLEANFILES = Makefile.in lrunzip.1 lrztar.1 lrzuntar.1
 
-man1_MANS = lrzip.1 lrunzip.1.pod lrztar.1.pod lrzuntar.1.pod
+man1_MANS = lrzip.1 lrunzip.1 lrztar.1 lrzuntar.1
 man5_MANS = lrzip.conf.5
 
-EXTRA_DIST = $(man1_MANS) $(man5_MANS)
+BUILT_SOURCES = lrunzip.1 lrztar.1 lrzuntar.1
+CLEANFILES = $(BUILT_SOURCES)
+
+EXTRA_DIST = lrzip.1 lrunzip.1.pod lrztar.1.pod lrzuntar.1.pod $(man5_MANS)
+
+lrunzip.1: lrunzip.1.pod
+	pod2man $< $@
+
+lrztar.1: lrztar.1.pod
+	pod2man $< $@
+
+lrzuntar.1: lrzuntar.1.pod
+	pod2man $< $@
