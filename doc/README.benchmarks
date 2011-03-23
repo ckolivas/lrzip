@@ -1,8 +1,9 @@
-The first comparison is that of a linux kernel tarball (2.6.31). In all cases
-the default options were used. 3 other common compression apps were used for
+The first comparison is that of a linux kernel tarball (2.6.37). In all cases
+the default options were used. 4 other common compression apps were used for
 comparison, 7z which is an excellent all-round lzma based compression app,
 gzip which is the benchmark fast standard that has good compression, and bzip2
-which is the most common linux used compression.
+which is the most common linux used compression. xz was included for
+completeness.
 
 In the following tables, lrzip means lrzip default options, lrzip -l means
 lrzip using the lzo backend, lrzip -g means using the gzip backend,
@@ -10,29 +11,31 @@ lrzip -b means using the bzip2 backend and lrzip -z means using the zpaq
 backend.
 
 
-linux-2.6.31.tar
+linux-2.6.37.tar
 
 These are benchmarks performed on a 3GHz quad core Intel Core2 with 8GB ram
-using lrzip v0.540
+using lrzip v0.570 on an SSD drive.
 
 Compression	Size		Percentage	Compress	Decompress
-None		365711360	100
-7z		53315279	14.6		1m58s		0m5.6s
-lrzip		52724172	14.4		1m33s		0m13.5s
-lrzip -z	43223954	11.8		3m32s		3m40s
-lrzip -l	110893724	30.3		0m21s		0m12.1s
-lrzip -g	72746424	19.9		0m25s		0m12.3s
-lrzip -b	60774043	16.6		0m29s		0m15.2s
-bzip2		62416571	17.1		0m44s		0m10.5s
-gzip		80563601	22.0		0m14s		0m3.0s
+None		430612480	100
+7z		63636839	14.8		2m28s		0m6.6s
+xz		63291156	14.7		4m02s		0m8.7
+lrzip		64474279	14.9		1m27s		0m7.6s
+lrzip -z	51464086	12.0		3m43s		4m11s
+lrzip -l	132833903	30.8		0m23s		0m6.5s
+lrzip -g	86976639	20.2		0m26s		0m6.6s
+lrzip -b	72433191	16.8		0m30s		0m9.6s
+bzip2		74060625	17.2		0m48s		0m12.8s
+gzip		94512561	21.9		0m17s		0m4.0s
 
 
 These results are interesting to note the compression of lrzip by default is
-only slightly better than lzma, but it's significantly faster thanks to its
-heavily multithreaded nature. Decompression is slower because of the 2 stages.
-Zpaq offers by far the best compression but at the cost of extra time. However
-with the heavily threaded nature of lrzip, it's not a lot longer given how
-much better its compression is.
+about the same as 7z, but it's significantly faster thanks to its heavily
+multithreaded nature. Decompression is only slightly slower because of the 2
+stages in decompression. Zpaq offers by far the best compression but at the cost
+of extra time. However with the heavily threaded nature of lrzip, it's not a lot
+longer given how much better its compression is. It's actually faster than xz
+on compression on a quad core machine.
 
 
 Let's take six kernel trees one version apart as a tarball, linux-2.6.31 to
@@ -131,4 +134,4 @@ Or, to make things easier, just use the default settings all the time and be
 happy as lzma gives good results. :D
 
 Con Kolivas
-Tue, 22 Feb 2011
+Fri, 25 Feb 2011
