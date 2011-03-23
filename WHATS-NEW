@@ -1,3 +1,8 @@
+lrzip-0.601
+
+lrzuntar, lrunzip symlinks and the pod-based manpages are installed again.
+Configuration clearly shows now that ASM isn't supported on 64bit.
+
 lrzip-0.600
 
 Compressing/decompressing to/from STDIN/STDOUT now works without generating

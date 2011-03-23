@@ -1,4 +1,9 @@
 lrzip ChangeLog
+MARCH 2011, version 0.601 Con Kolivas
+* Fixed the symlinks for lrzuntar, lrunzip not being installed.
+* Fixed the pod-based manpages not being installed.
+* Clearly demonstrate that ASM is not supported on 64bits.
+
 MARCH 2011, version 0.600 Con Kolivas
 * Massive rewrite with new file format to accomodate new features.
 * Allocate temporary buffers of safely sized ram that can act as temporary
