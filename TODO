@@ -1,5 +1,7 @@
 MAYBE TODO for lrzip program
 
+Make a liblrzip library.
+
 Other posix/windows builds?? Need help there...
 
 Add log file option so that output could be
