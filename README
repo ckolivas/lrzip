@@ -12,12 +12,10 @@ than bzip2).
 Quick lowdown of the most used options:
 
  lrztar directory
-This will produce an archive directory.tar.lrz compressed with lzma (it ONLY
-works with a directory, and only one!)
+This will produce an archive directory.tar.lrz compressed with lzma.
 
  lrzuntar directory.tar.lrz
-This will completely extract an archived directory (this also ONLY works with
-a directory!)
+This will completely extract an archived directory.
 
  lrzip filename
 This will produce an archive filename.lrz compressed with lzma (best all
