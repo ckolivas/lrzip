@@ -53,7 +53,12 @@ AC_PROG_LN_S
 AC_SUBST(SHELL)
 AC_SYS_LARGEFILE
 
-AC_ARG_ENABLE(
+AC_CHECK_PROG([HAVE_POD2MAN], [pod2man], [yes])
+AS_IF([test "$HAVE_POD2MAN" != "yes"],
+	AC_MSG_FAILURE([pod2man is needed to generate manual from POD]))
+
+
+ AC_ARG_ENABLE(
 		asm,
 		[AC_HELP_STRING([--enable-asm],[Enable native Assembly code])],
 		ASM=$enableval,
