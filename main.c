@@ -650,8 +650,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'V':
-			print_output("lrzip version %d.%d%d\n",
-				LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION, LRZIP_MINOR_SUBVERSION);
+			print_output("lrzip version %s\n", PACKAGE_VERSION);
 			exit(0);
 			break;
 		case 'w':
