@@ -595,11 +595,11 @@ void decompress_file(rzip_control *control)
 	control->fd_in = fd_in;
 
 	if (!(TEST_ONLY | STDOUT)) {
-		fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0600);
+		fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0777);
 		if (FORCE_REPLACE && (-1 == fd_out) && (EEXIST == errno)) {
 			if (unlikely(unlink(control->outfile)))
 				fatal("Failed to unlink an existing file: %s\n", control->outfile);
-			fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0600);
+			fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0777);
 		}
 		if (unlikely(fd_out == -1)) {
 			/* We must ensure we don't delete a file that already
@@ -611,7 +611,9 @@ void decompress_file(rzip_control *control)
 		if (unlikely(fd_hist == -1))
 			fatal("Failed to open history file %s\n", control->outfile);
 
-		preserve_perms(control, fd_in, fd_out);
+		/* Can't copy permissions from STDIN */
+		if (!STDIN)
+			preserve_perms(control, fd_in, fd_out);
 	} else {
 		fd_out = open_tmpoutfile(control);
 		if (unlikely(fd_out == -1))
@@ -1012,11 +1014,11 @@ void compress_file(rzip_control *control)
 			print_progress("Output filename is: %s\n", control->outfile);
 		}
 
-		fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0600);
+		fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0777);
 		if (FORCE_REPLACE && (-1 == fd_out) && (EEXIST == errno)) {
 			if (unlikely(unlink(control->outfile)))
 				fatal("Failed to unlink an existing file: %s\n", control->outfile);
-			fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0600);
+			fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0777);
 		}
 		if (unlikely(fd_out == -1)) {
 			/* We must ensure we don't delete a file that already
@@ -1025,7 +1027,8 @@ void compress_file(rzip_control *control)
 			fatal("Failed to create %s\n", control->outfile);
 		}
 		control->fd_out = fd_out;
-		preserve_perms(control, fd_in, fd_out);
+		if (!STDIN)
+			preserve_perms(control, fd_in, fd_out);
 	} else 
 		open_tmpoutbuf(control);
 
