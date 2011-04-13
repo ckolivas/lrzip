@@ -624,7 +624,8 @@ static void hash_search(rzip_control *control, struct rzip_state *st, double pct
 			for (i = 0; i < n; i++)
 				memcpy(ckbuf + i, get_sb(control, cksum_limit + i), 1);
 			st->cksum = CrcUpdate(st->cksum, ckbuf, n);
-			md5_process_bytes(ckbuf, n, &control->ctx);
+			if (!NO_MD5)
+				md5_process_bytes(ckbuf, n, &control->ctx);
 			cksum_limit += n;
 			free(ckbuf);
 		}
@@ -645,7 +646,8 @@ static void hash_search(rzip_control *control, struct rzip_state *st, double pct
 		for (i = 0; i < n; i++)
 			memcpy(ckbuf + i, get_sb(control, cksum_limit + i), 1);
 		st->cksum = CrcUpdate(st->cksum, ckbuf, n);
-		md5_process_bytes(ckbuf, n, &control->ctx);
+		if (!NO_MD5)
+			md5_process_bytes(ckbuf, n, &control->ctx);
 		cksum_limit += n;
 		free(ckbuf);
 	}
@@ -773,7 +775,8 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	double chunkmbs;
 	i64 free_space;
 
-	md5_init_ctx (&control->ctx);
+	if (!NO_MD5)
+		md5_init_ctx (&control->ctx);
 
 	st = calloc(sizeof(*st), 1);
 	if (unlikely(!st))
@@ -975,18 +978,21 @@ retry:
 	if (likely(st->hash_table))
 		free(st->hash_table);
 
-	md5_finish_ctx(&control->ctx, md5_resblock);
-	if (HASH_CHECK || MAX_VERBOSE) {
-		print_output("MD5: ");
-		for (j = 0; j < MD5_DIGEST_SIZE; j++)
-			print_output("%02x", md5_resblock[j] & 0xFF);
-		print_output("\n");
+	if (!NO_MD5) {
+		/* Temporary workaround till someone fixes apple md5 */
+		md5_finish_ctx(&control->ctx, md5_resblock);
+		if (HASH_CHECK || MAX_VERBOSE) {
+			print_output("MD5: ");
+			for (j = 0; j < MD5_DIGEST_SIZE; j++)
+				print_output("%02x", md5_resblock[j] & 0xFF);
+			print_output("\n");
+		}
+		/* When encrypting data, we encrypt the MD5 value as well */
+		if (ENCRYPT)
+			lrz_encrypt(control, md5_resblock, MD5_DIGEST_SIZE, control->salt_pass);
+		if (unlikely(write_1g(control, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
+			fatal("Failed to write md5 in rzip_fd\n");
 	}
-	/* When encrypting data, we encrypt the MD5 value as well */
-	if (ENCRYPT)
-		lrz_encrypt(control, md5_resblock, MD5_DIGEST_SIZE, control->salt_pass);
-	if (unlikely(write_1g(control, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
-		fatal("Failed to write md5 in rzip_fd\n");
 
 	if (TMP_OUTBUF)
 		flush_tmpoutbuf(control);

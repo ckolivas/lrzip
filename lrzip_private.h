@@ -95,6 +95,12 @@ typedef struct md5_ctx md5_ctx;
  #define mremap fake_mremap
 #endif
 
+#if defined(__APPLE__)
+# define MD5_RELIABLE (0)
+#else
+# define MD5_RELIABLE (1)
+#endif
+
 #define bswap_32(x) \
      ((((x) & 0xff000000) >> 24) | (((x) & 0x00ff0000) >>  8) |		      \
       (((x) & 0x0000ff00) <<  8) | (((x) & 0x000000ff) << 24))

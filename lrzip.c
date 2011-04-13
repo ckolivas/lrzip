@@ -101,7 +101,8 @@ void write_magic(rzip_control *control)
 	 * which can be used as an integrity check instead of crc check.
 	 * crc is still stored for compatibility with 0.5 versions.
 	 */
-	magic[21] = 1;
+	if (!NO_MD5)
+		magic[21] = 1;
 	if (ENCRYPT)
 		magic[22] = 1;
 
@@ -155,7 +156,7 @@ static void get_magic(rzip_control *control, char *magic)
 
 	/* Whether this archive contains md5 data at the end or not */
 	md5 = magic[21];
-	if (md5) {
+	if (md5 && MD5_RELIABLE) {
 		if (md5 == 1)
 			control->flags |= FLAG_MD5;
 		else
@@ -961,6 +962,8 @@ void compress_file(rzip_control *control)
 	int fd_in, fd_out = -1;
 	char header[MAGIC_LEN];
 
+	if (MD5_RELIABLE)
+		control->flags |= FLAG_MD5;
 	if (ENCRYPT)
 		get_hash(control, 1);
 	memset(header, 0, sizeof(header));
