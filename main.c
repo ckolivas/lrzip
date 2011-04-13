@@ -776,10 +776,13 @@ int main(int argc, char *argv[])
 			/* Decrease usable ram size on 32 bits due to kernel /
 			 * userspace split. Cannot allocate larger than a 1
 			 * gigabyte chunk due to 32 bit signed long being
-			 * used in alloc */
+			 * used in alloc, and at most 3GB can be malloced, and
+			 * 2/3 of that makes for a total of 2GB to be split
+			 * into thirds.
+			 */
 			control.usable_ram = MAX(control.ramsize - 900000000ll, 900000000ll);
 			control.maxram = MIN(control.maxram, control.usable_ram);
-			control.maxram = MIN(control.maxram, one_g);
+			control.maxram = MIN(control.maxram, one_g * 2 / 3);
 		} else
 			control.usable_ram = control.maxram;
 		round_to_page(&control.maxram);

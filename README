@@ -308,6 +308,10 @@ A. See http://www.7-zip.org and http://www.p7zip.org. Also, see the file
    ./lzma/C/lzmalib.h which explains the LZMA properties used and the LZMA
    memory requirements and computation.
 
+Q. This version is much slower than the old version?
+A. Make sure you have set CFLAGS and CXXFLAGS. An unoptimised build will be
+almost 3 times slower.
+
 LIMITATIONS
 Due to mmap limitations the maximum size a window can be set to is currently
 2GB on 32bit unless the -U option is specified. Files generated on 64 bit
