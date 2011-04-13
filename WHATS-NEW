@@ -1,3 +1,13 @@
+lrzip-0.602
+
+Fixed wrong symlinks which broke some package generation.
+Imposed limits for 32bit machines with way too much ram for their own good.
+Disable md5 generation on Apple for now since it's faulty.
+Displays full version with -V.
+Checks for podman on ./configure
+Now builds on Cygwin.
+File permissions are better carried over instead of being only 0600.
+
 lrzip-0.601
 
 lrzuntar, lrunzip symlinks and the pod-based manpages are installed again.

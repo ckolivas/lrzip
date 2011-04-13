@@ -1,4 +1,16 @@
 lrzip ChangeLog
+APRIL 2011, version 0.602 Con Kolivas
+* Fixed the symlinks breaking package generation.
+* Made maximum chunk allocable on 32bits 2/3 of a GB again limiting total ram
+used to 2GB, regardless of how much crazy ram people have put on such systems
+since the rest is unusable.
+* Now builds on Cygwin courtesy of Тулебаев Салават.
+* Check for podman on ./configure.
+* Disable md5 generation and checking on Apple till it's fixed.
+* Display full version when -V is invoked.
+* Don't restrict file permissions from unknown source, respecting umode
+instead.
+
 MARCH 2011, version 0.601 Con Kolivas
 * Fixed the symlinks for lrzuntar, lrunzip not being installed.
 * Fixed the pod-based manpages not being installed.
