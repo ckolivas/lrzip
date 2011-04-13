@@ -279,7 +279,7 @@ static void show_summary(void)
 				if (STDOUT || STDIN)
 					temp_chunk = control.maxram;
 				else
-					temp_chunk = control.maxram * 2;
+					temp_chunk = control.ramsize * 2 / 3;
 				temp_window = temp_chunk / (100 * 1024 * 1024);
 				print_verbose("Heuristically Computed Compression Window: %lld = %lldMB\n", temp_window, temp_window * 100ull);
 			}
