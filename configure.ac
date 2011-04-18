@@ -23,7 +23,6 @@ AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([1.6 dist-bzip2 foreign])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AC_GNU_SOURCE
-AC_DEFINE([_LARGEFILE64_SOURCE], [1], [Use lseek64])
 
 AC_PROG_LIBTOOL
 ##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
