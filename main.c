@@ -727,8 +727,10 @@ int main(int argc, char *argv[])
 			register_outputfile(control.msgout);
 		}
 
-		/* If we're using stdin and no output filename, use stdout */
-		if (STDIN && !control.outname) {
+		/* If no output filename is specified, and we're using stdin,
+		 * or we detect that stdout is not going to the terminal,
+		 * use stdout */
+		if (!control.outname && (STDIN || !isatty(fileno((FILE *)stdout)))) {
 			control.flags |= FLAG_STDOUT;
 			control.msgout = stderr;
 			register_outputfile(control.msgout);
