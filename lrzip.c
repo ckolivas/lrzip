@@ -167,7 +167,7 @@ static void get_magic(rzip_control *control, char *magic)
 		if (encrypted == 1)
 			control->flags |= FLAG_ENCRYPT;
 		else
-			failure("Unkown encryption\n");
+			failure("Unknown encryption\n");
 		/* In encrypted files, the size field is used to store the salt
 		 * instead and the size is unknown, just like a STDOUT chunked
 		 * file */
