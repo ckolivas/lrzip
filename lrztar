@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (C) George Makrydakis 2009, 2010
+# Copyright (C) George Makrydakis 2009, 2010, 2011
 # Copyright (C) Con Kolivas 2011
 
 # A bash wrapper for Con Kolivas' excellent lrzip utility. For the time
@@ -21,47 +21,55 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 function lrztar_local() {
-    local p="${@:1:$(($#-1))}" s="${!#}" tname= fname= \
-        v_w=0 v_O=0 v_S=0 v_D=0 v_p=0 v_q=0 v_L=0 \
+    local hv="lrztar wrapper for compressing/decompressing \
+whole directories with lrzip.
+lrztar [lrzip options] <directory>  will compress directory \
+to directory.tar.lrz
+lrztar -d [lrzip options] <directory.tar.lrz>  will extract directory \
+from directory.tar.lrz
+lrzuntar [lrzip options] <directory.tar.lrz> will extract directory \
+from directory.tar.lrz
+lrz[un]tar -h will display this help message
+lrzip -h will display lrzip options"
+    local p="${@:1:$(($#-1))}" s="${!#}" vopt=("lrz") \
+        v_w=0 v_S=0 v_D=0 v_p=0 v_q=0 v_L=0 \
         v_n=0 v_l=0 v_b=0 v_g=0 v_z=0 v_U=0 \
         v_T=0 v_N=0 v_v=0 v_f=0 v_d=0 v_h=0 \
-        v_H=0 v_c=0 v_k=0 x= i=
-    OPTERR=0
-    trap '[[ -z $tname ]] || rm -rf "$tname" &> /dev/null' 1 2 3 15
-    which tar   &> /dev/null || { printf "lrztar: no tar in your path\n"; return 1; }
-    which lrzip &> /dev/null || { printf "lrztar: no lrzip in your path\n"; return 1; }
-    while getopts w:O:S:DqL:nlbgzUTN:p:vfodtVhHck x; do
-    [[ $x == [otV] ]] || ((v_$x=1)) &> /dev/null \
-        || { printf "lrztar: invalid option for lrztar %s\n" "$x"; return 1; }
+        v_H=0 v_c=0 v_k=0 v_o=0 x= i=
+    which tar   &> /dev/null \
+        || { printf "lrztar: no tar in your path\n"; return 1; }
+    which lrzip &> /dev/null \
+        || { printf "lrztar: no lrzip in your path\n"; return 1; }
+    while getopts w:OS:DqL:nlbgzUTN:p:vfo:dtVhHck x; do
+        [[ $x == [OtV] ]] && {
+            printf "lrztar: invalid option for lrztar: %s\n" "$x";
+            return 1;
+        }
+        ((v_$x=${#vopt[@]}))
+        [ $x == S ] && vopt[${#vopt[@]}]="$OPTARG"
     done
     [[ $(basename "$0") == lrzuntar ]] \
         && { v_d=1; p="-d $p"; }
     { ! (($#)) || ((v_h)); } && {
-        printf "lrztar wrapper for compressing/decompressing whole directories with lrzip.\n"
-        printf "usage: lrztar [lrzip options] <directory>  will compress directory to directory.tar.lrz\n"
-        printf "lrztar -d [lrzip options] <directory.tar.lrz>  will extract directory from directory.tar.lrz\n"
-        printf "lrzuntar [lrzip options] <directory.tar.lrz> will extract directory from directory.tar.lrz\n"
-        printf "lrz[un]tar -h will display this help message\n"
-        printf "lrzip -h will display lrzip options\n"
+        printf "%s\n" "$hv"
         return
     }
+    [[ ${s%/*} != $s ]] && i="${s%/*}/" || i="./"
     ((v_d)) && {
-        fname="$(basename "$s")"; tname="${fname%.lrz}";
-        ! ((v_f)) && [[ -e ${tname%.tar} ]] && {
-            printf "lrztar: ${tname%.tar} already present, aborting\n"
+        i+="$(basename "$s")"
+        [[ -e $i ]] || {
+            printf "lrztar: file does not exist: %s\n" "$i"
             return 1
         }
-        [[ ${s%/*} != $s ]] && i="${s%/*}/" || i="./"
-        tname="$i$tname"
-        lrzip $p "$i$fname" -o - | tar x
+        lrzip $p "$i" | tar x
         x=$?
     } || {
-        fname="$(basename "$s")"; tname="$fname.tar"
-        [[ $fname == *.lrz ]] && {
-            printf "lrztar: $fname is already a .lrz file, aborting\n"
+        ((v_o)) || p="$p -o $(basename "$s").tar.${vopt[v_S]}"
+        [[ -d $s ]] || {
+            printf "lrztar: directory does not exist: %s\n" "$s"
             return 1
         }
-        tar c "$s" | lrzip $p -o "$tname".lrz
+        tar c "$s" | lrzip $p
         x=$?
     }
     ! ((x)) && ((v_D)) && rm -rf "$s" &> /dev/null
