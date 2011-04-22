@@ -731,10 +731,9 @@ int main(int argc, char *argv[])
 				struct stat infile_stat;
 
 				stat(control.infile, &infile_stat);
-				if (unlikely(!S_ISREG(infile_stat.st_mode) &&
-					!S_ISLNK(infile_stat.st_mode)))
-						failure("lrzip only works directly on FILES.\n"
-						"Use lrztar or pipe through tar for compressing directories.\n");
+				if (unlikely(S_ISDIR(infile_stat.st_mode)))
+					failure("lrzip only works directly on FILES.\n"
+					"Use lrztar or pipe through tar for compressing directories.\n");
 			}
 		}
 
