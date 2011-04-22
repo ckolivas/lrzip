@@ -427,6 +427,9 @@ static void read_config(rzip_control *control)
 			strcpy(control->tmpdir, parametervalue);
 			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
 				strcat(control->tmpdir, "/");
+		} else if (isparameter(parameter, "encrypt")) {
+			if (isparameter(parameter, "YES"))
+				control->flags |= FLAG_ENCRYPT;
 		} else
 			/* oops, we have an invalid parameter, display */
 			print_err("lrzip.conf: Unrecognized parameter value, %s = %s. Continuing.\n",\
