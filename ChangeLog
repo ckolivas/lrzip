@@ -7,6 +7,7 @@ stdout unless a filename is specified.
 * Update lrztar to properly support -S -O and -o, and use new syntax not
 requiring '-o -' for stdout.
 * Update lrzip.conf to support encryption.
+* Do a sanity check to ensure lrzip is not attempting to work on a directory.
 * Typo fixes.
 
 APRIL 2011, version 0.602 Con Kolivas

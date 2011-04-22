@@ -8,6 +8,8 @@ Apple builds will not have errors on compressing files >2GB in size which
 broke with 0.600.
 lrztar will properly support -o, -O and -S.
 lrzip.conf file now supports encryption.
+lrzip will now warn if it's inappropriately passed a directory as an argument
+directly.
 
 lrzip-0.602
 
