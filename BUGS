@@ -1,5 +1,4 @@
 BUGME March 2011
 
 Mac may not be able to work with STDIN/STDOUT on very large files.
-MD5 displayed on large files on Mac may not match file produced, but file
-generated should match original file.
+MD5 is disabled on Mac due to not working properly.
