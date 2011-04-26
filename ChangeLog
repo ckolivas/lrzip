@@ -1,4 +1,10 @@
 lrzip ChangeLog
+APRIL 2011, version 0.604 Con Kolivas
+* Detach threads after creating them on the compression side. Not joining them
+meant that compressing massive files requiring hundreds of threads would
+eventually hit the resource limit of number of threads created even though
+the threads themselves would exit.
+
 APRIL 2011, version 0.603 Con Kolivas, George Makrydakis, Jari Aalto.
 * lseek in stream.c wasn't being compiled to the lseek64 variant on Apple
 due to missing includes, breaking >2GB files. Added includes.

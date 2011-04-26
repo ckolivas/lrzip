@@ -1,3 +1,9 @@
+lrzip-0.604
+
+lrzip will no longer fail with a "resource temporarily unavailable" error
+when compressing files over 100GB that require hundreds of threads to
+complete.
+
 lrzip-0.603
 
 lrzip now supports stdout without requiring the '-o -' option. It detects when

@@ -1,5 +1,12 @@
 MAYBE TODO for lrzip program
 
+Upgrade to newer version of zpaq supporting 3 compression levels without
+relying on open_memstream so it works without temporary files on apple.
+
+Get MD5 working on apple.
+
+Make sure STDIO works properly on large files on apple.
+
 Make a liblrzip library.
 
 Other posix/windows builds?? Need help there...
