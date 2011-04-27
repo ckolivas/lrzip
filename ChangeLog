@@ -1,4 +1,21 @@
 lrzip ChangeLog
+APRIL 2011, version 0.604 Con Kolivas
+* Detach threads after creating them on the compression side. Not joining them
+meant that compressing massive files requiring hundreds of threads would
+eventually hit the resource limit of number of threads created even though
+the threads themselves would exit.
+
+APRIL 2011, version 0.603 Con Kolivas, George Makrydakis, Jari Aalto.
+* lseek in stream.c wasn't being compiled to the lseek64 variant on Apple
+due to missing includes, breaking >2GB files. Added includes.
+* Detect when stdout is being redirected and automatically direct output to
+stdout unless a filename is specified.
+* Update lrztar to properly support -S -O and -o, and use new syntax not
+requiring '-o -' for stdout.
+* Update lrzip.conf to support encryption.
+* Do a sanity check to ensure lrzip is not attempting to work on a directory.
+* Typo fixes.
+
 APRIL 2011, version 0.602 Con Kolivas
 * Fixed the symlinks breaking package generation.
 * Made maximum chunk allocable on 32bits 2/3 of a GB again limiting total ram

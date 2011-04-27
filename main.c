@@ -35,6 +35,12 @@
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
 #endif
+#ifdef HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
 #include <math.h>
 #include <termios.h>
 #ifdef HAVE_ENDIAN_H
@@ -427,6 +433,9 @@ static void read_config(rzip_control *control)
 			strcpy(control->tmpdir, parametervalue);
 			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
 				strcat(control->tmpdir, "/");
+		} else if (isparameter(parameter, "encrypt")) {
+			if (isparameter(parameter, "YES"))
+				control->flags |= FLAG_ENCRYPT;
 		} else
 			/* oops, we have an invalid parameter, display */
 			print_err("lrzip.conf: Unrecognized parameter value, %s = %s. Continuing.\n",\
@@ -715,8 +724,18 @@ int main(int argc, char *argv[])
 			control.infile = argv[i];
 		else if (!(i == 0 && STDIN))
 			break;
-		if (control.infile && (strcmp(control.infile, "-") == 0))
-			control.flags |= FLAG_STDIN;
+		if (control.infile) {
+			if ((strcmp(control.infile, "-") == 0))
+				control.flags |= FLAG_STDIN;
+			else {
+				struct stat infile_stat;
+
+				stat(control.infile, &infile_stat);
+				if (unlikely(S_ISDIR(infile_stat.st_mode)))
+					failure("lrzip only works directly on FILES.\n"
+					"Use lrztar or pipe through tar for compressing directories.\n");
+			}
+		}
 
 		if (INFO && STDIN)
 			failure("Will not get file info from STDIN\n");

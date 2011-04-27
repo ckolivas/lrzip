@@ -135,11 +135,17 @@ static void cond_broadcast(pthread_cond_t *cond)
 		fatal("pthread_cond_broadcast failed");
 }
 
-void create_pthread(pthread_t  * thread, pthread_attr_t * attr,
+void create_pthread(pthread_t  *thread, pthread_attr_t * attr,
 	void * (*start_routine)(void *), void *arg)
 {
-	if (pthread_create(thread, attr, start_routine, arg))
+	if (unlikely(pthread_create(thread, attr, start_routine, arg)))
 		fatal("pthread_create");
+}
+
+void detach_pthread(pthread_t *thread)
+{
+	if (unlikely(pthread_detach(*thread)))
+		fatal("pthread_detach");
 }
 
 void join_pthread(pthread_t th, void **thread_return)
@@ -1435,6 +1441,7 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 	s->i = i;
 	s->control = control;
 	create_pthread(&threads[i], NULL, compthread, s);
+	detach_pthread(&threads[i]);
 
 	if (newbuf) {
 		/* The stream buffer has been given to the thread, allocate a

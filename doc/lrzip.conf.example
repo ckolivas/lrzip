@@ -57,3 +57,7 @@
 
 # Override for Temporary Directory. Only valid when stdin/out or Test is used
 # TMPDIR = /tmp
+
+# ENCRYPT = NO
+
+# Whether to use encryption on compression

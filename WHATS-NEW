@@ -1,3 +1,22 @@
+lrzip-0.604
+
+lrzip will no longer fail with a "resource temporarily unavailable" error
+when compressing files over 100GB that require hundreds of threads to
+complete.
+
+lrzip-0.603
+
+lrzip now supports stdout without requiring the '-o -' option. It detects when
+output is being redirected without a filename and will automatically output to
+stdout so you can do:
+ lrunzip patch-2.6.38.4.lrz | patch -p1
+Apple builds will not have errors on compressing files >2GB in size which
+broke with 0.600.
+lrztar will properly support -o, -O and -S.
+lrzip.conf file now supports encryption.
+lrzip will now warn if it's inappropriately passed a directory as an argument
+directly.
+
 lrzip-0.602
 
 Fixed wrong symlinks which broke some package generation.
