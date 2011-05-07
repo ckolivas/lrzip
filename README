@@ -94,6 +94,10 @@ To build/install:
 make
 make install
 
+To build from the git repository do:
+./autogen.sh
+before the above steps.
+
 
 FAQS.
 Q. What encryption does lrzip use?
@@ -350,7 +354,7 @@ encryption code. Thanks to Serge Belyshev for extensive help, advice, and
 patches to implement encryption.
 
 Con Kolivas <kernel@kolivas.org>
-Sat, 23 Mar 2011
+Sat, 7 May 2011
 
 Also documented by
 Peter Hyman <pete@peterhyman.com>
