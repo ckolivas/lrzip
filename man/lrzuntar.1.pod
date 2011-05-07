@@ -1,6 +1,6 @@
 #   Copyright
 #
-#      Copyright (C) 2010 Con Kolivas
+#      Copyright (C) 2010-2011 Con Kolivas
 #
 #   License
 #
@@ -47,17 +47,22 @@ None.
 
 =head1 SEE ALSO
 
+lrzip.conf(5),
 lrztar(1),
+lrzip(1),
+lrunzip(1),
+lrzcat(1),
 bzip2(1),
 gzip(1),
 lzop(1),
-lrzip(1),
 rzip(1),
-zip(1),
-lrzip.conf(5)
+zip(1)
 
 =head1 AUTHORS
 
-Con Kolivas.
+This manual page was written by Con Kolivas <kernel@kolivas.org> (but
+may be used by others). Released under license GNU GPL version 2 or (at
+your option) any later version. For more information about license,
+visit <http://www.gnu.org/copyleft/gpl.html>.
 
 =cut

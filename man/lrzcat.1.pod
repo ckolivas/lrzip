@@ -1,7 +1,6 @@
 #   Copyright
 #
-#      Copyright (C) 2010-2011 Con Kolivas
-#      Copyright (C) 2009-2010 Jari Aalto
+#      Copyright (C) 2011 Con Kolivas
 #
 #   License
 #
@@ -41,19 +40,15 @@
 
 =head1 NAME
 
-lrztar - Directory wrapper for lrzip
+lrzcat - Uncompress LRZ files to STDOUT
 
 =head1 SYNOPSIS
 
-  lrztar [options] DIRECTORY
-  lrztar -d [options] DIRECTORY.tar.lrz
-  lrzuntar [options] DIRECTORY.tar.lrz
+  lrzcat [options] FILE [... FILE]
 
 =head1 DESCRIPTION
 
-lrztar is a wrapper for compressing and decompressing whole directories with lrzip(1)
-to corresponding file C<DIRECTORY.tar.lrz>. lrzuntar is identical to C<lrztar -d>.
-lrztar takes the same options as lrzip.
+lrzcat is identical to C<lrzip -d -o -> used to decompress files to STDOUT.
 
 =head1 OPTIONS
 
@@ -70,10 +65,10 @@ None.
 =head1 SEE ALSO
 
 lrzip.conf(5),
-lrzuntar(1),
 lrzip(1),
 lrunzip(1),
-lrzcat(1),
+lrztar(1),
+lrzuntar(1),
 bzip2(1),
 gzip(1),
 lzop(1),
@@ -82,9 +77,7 @@ zip(1)
 
 =head1 AUTHORS
 
-Program was written by Con Kolivas.
-
-This manual page was written by Jari Aalto <jari.aalto@cante.net> (but
+This manual page was written by Con Kolivas <kernel@kolivas.org> (but
 may be used by others). Released under license GNU GPL version 2 or (at
 your option) any later version. For more information about license,
 visit <http://www.gnu.org/copyleft/gpl.html>.

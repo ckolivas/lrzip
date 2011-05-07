@@ -1,4 +1,9 @@
 lrzip ChangeLog
+MAY 2011, Con Kolivas
+* Addition of explicit lrzcat symlink which automatically sets "-d -o -"
+* Revert automatic output to stdout due to addition of explicit lrzcat
+executable, and to be consistent with gzip.
+
 APRIL 2011, version 0.604 Con Kolivas
 * Detach threads after creating them on the compression side. Not joining them
 meant that compressing massive files requiring hundreds of threads would

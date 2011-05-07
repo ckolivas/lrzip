@@ -1,6 +1,6 @@
 #   Copyright
 #
-#      Copyright (C) 2010 Con Kolivas
+#      Copyright (C) 2010-2011 Con Kolivas
 #      Copyright (C) 2009-2009 Jari Aalto
 #
 #   License
@@ -65,21 +65,23 @@ None.
 
 =head1 SEE ALSO
 
+lrzip.conf(5),
+lrzip(1),
+lrzcat(1),
+lrztar(1),
+lrzuntar(1),
 bzip2(1),
 gzip(1),
 lzop(1),
-lrzip(1),
 rzip(1),
 zip(1)
-lrztar(1),
-lrzip.conf(5)
 
 =head1 AUTHORS
 
 Program was written by Con Kolivas.
 
 This manual page was written by Jari Aalto <jari.aalto@cante.net> (but
-may be used by others). Released under license GNU GPL version 2or (at
+may be used by others). Released under license GNU GPL version 2 or (at
 your option) any later version. For more information about license,
 visit <http://www.gnu.org/copyleft/gpl.html>.
 

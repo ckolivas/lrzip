@@ -505,6 +505,8 @@ int main(int argc, char *argv[])
 
 	if (strstr(argv[0], "lrunzip"))
 		control.flags |= FLAG_DECOMPRESS;
+	else if (strstr(argv[0], "lrzcat"))
+		control.flags |= FLAG_DECOMPRESS | FLAG_STDOUT;
 
 	control.compression_level = 7;
 	control.ramsize = get_ram();
@@ -610,12 +612,16 @@ int main(int argc, char *argv[])
 		case 'o':
 			if (control.outdir)
 				failure("Cannot have -o and -O together\n");
+			if (unlikely(STDOUT))
+				failure("Cannot specify an output filename when outputting to stdout\n");
 			control.outname = optarg;
 			control.suffix = "";
 			break;
 		case 'O':
 			if (control.outname)	/* can't mix -o and -O */
 				failure("Cannot have options -o and -O together\n");
+			if (unlikely(STDOUT))
+				failure("Cannot specify an output directory when outputting to stdout\n");
 			control.outdir = malloc(strlen(optarg) + 2);
 			if (control.outdir == NULL)
 				fatal("Failed to allocate for outdir\n");
@@ -634,6 +640,8 @@ int main(int argc, char *argv[])
 		case 'S':
 			if (control.outname)
 				failure("Specified output filename already, can't specify an extension.\n");
+			if (unlikely(STDOUT))
+				failure("Cannot specify a filename suffix when outputting to stdout\n");
 			control.suffix = optarg;
 			break;
 		case 't':
@@ -747,9 +755,8 @@ int main(int argc, char *argv[])
 		}
 
 		/* If no output filename is specified, and we're using stdin,
-		 * or we detect that stdout is not going to the terminal,
 		 * use stdout */
-		if (!control.outname && (STDIN || !isatty(fileno((FILE *)stdout)))) {
+		if (!control.outname && STDIN) {
 			control.flags |= FLAG_STDOUT;
 			control.msgout = stderr;
 			register_outputfile(control.msgout);

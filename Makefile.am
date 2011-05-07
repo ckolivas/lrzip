@@ -76,9 +76,11 @@ EXTRA_DIST = \
 
 install-exec-hook:
 	$(LN_S) -f lrzip$(EXEEXT) $(DESTDIR)@bindir@/lrunzip$(EXEEXT)
+	$(LN_S) -f lrzip$(EXEEXT) $(DESTDIR)@bindir@/lrzcat$(EXEEXT)
 	$(LN_S) -f lrztar$(EXEEXT) $(DESTDIR)@bindir@/lrzuntar$(EXEEXT)
 
 
 uninstall-local:
 	rm -f @bindir@/lrunzip
+	rm -f @bindir@/lrzcat
 	rm -f @bindir@/lrzuntar

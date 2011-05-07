@@ -1,3 +1,7 @@
+Addition of lrzcat - automatically decompresses .lrz files to stdout.
+lrzip and lrunzip will no longer automatically output to stdout due to
+addition of lrzcat executable, and to be consistent with gzip.
+
 lrzip-0.604
 
 lrzip will no longer fail with a "resource temporarily unavailable" error

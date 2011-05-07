@@ -1,4 +1,4 @@
-.TH "lrzip" "1" "February 2011" "" ""
+.TH "lrzip" "1" "May 2011" "" ""
 .SH "NAME"
 lrzip \- a large-file compression program
 .SH "SYNOPSIS"
@@ -8,6 +8,8 @@ lrzip [OPTIONS] <file>
 lrzip \-d [OPTIONS] <file>
 .br
 lrunzip [OPTIONS] <file>
+.br
+lrzcat [OPTIONS] <file>
 .br
 lrztar [lrzip options] <directory>
 .br
@@ -91,7 +93,8 @@ written is the same as the original archived.
 .IP "\fB-d\fP"
 Decompress. If this option is not used then lrzip looks at
 the name used to launch the program. If it contains the string
-"lrunzip" then the \-d option is automatically set.
+"lrunzip" then the \-d option is automatically set. If it contains the string
+"lrzcat" then the \-d \-o \- options are automatically set.
 .IP
 .IP "\fB-e\fP"
 Encrypt. This option enables high grade password encryption using a combination
@@ -322,14 +325,15 @@ Nil known.
 .PP
 .SH "SEE ALSO"
 lrzip.conf(5),
+lrunzip(1),
+lrzcat(1),
+lrztar(1),
+lrzuntar(1),
 bzip2(1),
 gzip(1),
 lzop(1),
-lrzip(1),
 rzip(1),
 zip(1)
-lrztar(1),
-lrzuntar(1)
 
 .PP
 .SH "AUTHOR and CREDITS"
