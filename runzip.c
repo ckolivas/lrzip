@@ -274,6 +274,8 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 		/* Read in the stored chunk byte width from the file */
 		if (unlikely(read_1g(control, fd_in, &chunk_bytes, 1) != 1))
 			fatal("Failed to read chunk_bytes size in runzip_chunk\n");
+		if (unlikely(chunk_bytes < 1 || chunk_bytes > 8))
+			failure("chunk_bytes %d is invalid in runzip_chunk\n", chunk_bytes);
 	}
 	if (!tally && expected_size)
 		print_maxverbose("Expected size: %lld\n", expected_size);
