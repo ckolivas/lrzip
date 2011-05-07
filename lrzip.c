@@ -827,6 +827,9 @@ void get_fileinfo(rzip_control *control)
 		ofs = 26 + chunk_byte;
 		header_length = 1 + (chunk_byte * 3);
 	}
+	if (control->major_version == 0 && control->minor_version < 6 &&
+		!expected_size)
+			goto done;
 next_chunk:
 	stream = 0;
 	stream_head[0] = 0;
