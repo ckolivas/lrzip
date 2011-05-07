@@ -1,5 +1,5 @@
 lrzip ChangeLog
-MAY 2011, Con Kolivas
+MAY 2011, version 0.605 Con Kolivas
 * Addition of explicit lrzcat symlink which automatically sets "-d -o -"
 * Revert automatic output to stdout due to addition of explicit lrzcat
 executable, and to be consistent with gzip.
@@ -16,6 +16,8 @@ any size file can be safely archived.
 byte sized archives.
 * Update the percentage counter when getting file info to not overflow with
 tiny files.
+* Set the maximum file mode to 0666 to avoid setting the executable bit when
+permissions are not carried over (such as from STDIO).
 
 APRIL 2011, version 0.604 Con Kolivas
 * Detach threads after creating them on the compression side. Not joining them

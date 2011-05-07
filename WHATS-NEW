@@ -1,3 +1,5 @@
+lrzip-0.605
+
 Addition of lrzcat - automatically decompresses .lrz files to stdout.
 lrzip and lrunzip will no longer automatically output to stdout due to
 addition of lrzcat executable, and to be consistent with gzip.
@@ -7,6 +9,8 @@ lrzip now has no lower limit on file sizes it will happily compress and is
 able to work with zero byte sized files.
 The percentage counter when getting file info on small files will not show
 %nan.
+The executable bit will not be enabled when compressing via a means that
+can't preserve the original permissions (e.g. from STDIN).
 
 lrzip-0.604
 
