@@ -512,7 +512,7 @@ static void show_distrib(rzip_control *control, struct rzip_state *st)
 		print_err("WARNING: hash_count says total %lld\n", st->hash_count);
 
 	print_output("%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n", total, primary,
-	       primary*100.0/total);
+		     primary * 100.0 / (total ? : 1));
 }
 
 static void hash_search(rzip_control *control, struct rzip_state *st, double pct_base, double pct_multiple)
