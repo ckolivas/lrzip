@@ -147,6 +147,8 @@ static void get_magic(rzip_control *control, char *magic)
 		expected_size = le64toh(expected_size);
 	}
 	control->st_size = expected_size;
+	if (control->major_version == 0 && control->minor_version < 6)
+		control->eof = 1;
 
 	/* restore LZMA compression flags only if stored */
 	if ((int) magic[16]) {
