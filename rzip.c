@@ -666,8 +666,6 @@ static void init_hash_indexes(struct rzip_state *st)
 		st->hash_index[i] = ((random() << 16) ^ random());
 }
 
-extern const i64 one_g;
-
 static inline void *fake_mremap(void *old_address, size_t old_size, size_t new_size, int flags __UNUSED__)
 {
 	munmap(old_address, old_size);
@@ -980,7 +978,6 @@ retry:
 		if (unlikely(len > 0 && control->eof))
 			failure("Wrote EOF to file yet chunk_size was shrunk, corrupting archive.\n");
 	}
-close_streams:
 
 	close_streamout_threads(control);
 	if (likely(st->hash_table))

@@ -662,7 +662,7 @@ out:
 
 /* WORK FUNCTIONS */
 
-const i64 one_g = 1000 * 1024 * 1024;
+i64 one_g = 1000 * 1024 * 1024;
 
 /* Look at whether we're writing to a ram location or physical files and write
  * the data accordingly. */
