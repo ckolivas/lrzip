@@ -605,8 +605,8 @@ static void hash_search(rzip_control *control, struct rzip_state *st, double pct
 			int pct, chunk_pct;
 
 			pct = pct_base + (pct_multiple * (100.0 * p) /
-			      st->chunk_size);
-			chunk_pct = p / (end / 100);
+			      (st->chunk_size ? : 1));
+			chunk_pct = p / ((end / 100) ? : 1);
 			if (pct != lastpct || chunk_pct != last_chunkpct) {
 				if (!STDIN || st->stdin_eof)
 					print_progress("Total: %2d%%  ", pct);
