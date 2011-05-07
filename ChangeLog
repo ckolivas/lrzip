@@ -6,6 +6,16 @@ executable, and to be consistent with gzip.
 * Fix counter from being zeroed on every loop in rzip.c which was creating
 excess progress output.
 * Update GNU license.
+* Set aside at least page_size of zeroes when compressing a chunk, thus
+allowing files that are otherwise too small to compress with lrzip to be
+compressed. The zeroes will just be dropped on decompression.
+* Add explicit checks to cope with zero sized files as well.
+* Remove the arbitrary 128 byte minimum size restriction on archives now that
+any size file can be safely archived.
+* Set the eof flag when reading older file format files to not hang on zero
+byte sized archives.
+* Update the percentage counter when getting file info to not overflow with
+tiny files.
 
 APRIL 2011, version 0.604 Con Kolivas
 * Detach threads after creating them on the compression side. Not joining them

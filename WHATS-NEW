@@ -3,6 +3,10 @@ lrzip and lrunzip will no longer automatically output to stdout due to
 addition of lrzcat executable, and to be consistent with gzip.
 lrzip progress output will no longer spam the output unless the percentage
 has changed.
+lrzip now has no lower limit on file sizes it will happily compress and is
+able to work with zero byte sized files.
+The percentage counter when getting file info on small files will not show
+%nan.
 
 lrzip-0.604
 
