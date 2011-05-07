@@ -736,6 +736,20 @@ void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len,
 	}
 }
 
+static double percentage(i64 num, i64 den)
+{
+	double d_num, d_den;
+
+	if (den < 100) {
+		d_num = num * 100;
+		d_den = den ? : 1;
+	} else {
+		d_num = num;
+		d_den = den / 100;
+	}
+	return d_num / d_den;
+}
+
 void get_fileinfo(rzip_control *control)
 {
 	i64 u_len, c_len, last_head, utotal = 0, ctotal = 0, ofs = 25, stream_head[2];
@@ -861,7 +875,7 @@ next_chunk:
 				print_verbose("Dunno wtf");
 			utotal += u_len;
 			ctotal += c_len;
-			print_verbose("\t%.1f%%\t%lld / %lld", (double)c_len / (double)(u_len / 100), c_len, u_len);
+			print_verbose("\t%.1f%%\t%lld / %lld", percentage(c_len, u_len), c_len, u_len);
 			print_maxverbose("\tOffset: %lld\tHead: %lld", head_off, last_head);
 			print_verbose("\n");
 			block++;
@@ -896,13 +910,13 @@ done:
 	if (chunk_total > expected_size)
 		expected_size = chunk_total;
 	print_verbose("Rzip compression: %.1f%% %lld / %lld\n",
-			(double)utotal / (double)(expected_size / 100),
+			percentage (utotal, expected_size),
 			utotal, expected_size);
 	print_verbose("Back end compression: %.1f%% %lld / %lld\n",
-			(double)ctotal / (double)(utotal / 100),
+			percentage(ctotal, utotal),
 			ctotal, utotal);
 	print_verbose("Overall compression: %.1f%% %lld / %lld\n",
-			(double)ctotal / (double)(expected_size / 100),
+			percentage(ctotal, expected_size),
 			ctotal, expected_size);
 
 	cratio = (long double)expected_size / (long double)infile_size;

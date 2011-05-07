@@ -966,7 +966,8 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	sinfo = calloc(sizeof(struct stream_info), 1);
 	if (unlikely(!sinfo))
 		return NULL;
-
+	if (chunk_limit < control->page_size)
+		chunk_limit = control->page_size;
 	sinfo->bufsize = sinfo->size = limit = chunk_limit;
 
 	sinfo->chunk_bytes = cbytes;
@@ -1044,7 +1045,7 @@ retest_malloc:
 			sinfo->bufsize);
 
 	for (i = 0; i < n; i++) {
-		sinfo->s[i].buf = malloc(sinfo->bufsize);
+		sinfo->s[i].buf = calloc(sinfo->bufsize , 1);
 		if (unlikely(!sinfo->s[i].buf))
 			fatal("Unable to malloc buffer of size %lld in open_stream_out\n", sinfo->bufsize);
 	}

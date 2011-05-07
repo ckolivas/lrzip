@@ -558,7 +558,8 @@ static void hash_search(rzip_control *control, struct rzip_state *st, double pct
 	current.p = p;
 	current.ofs = 0;
 
-	t = full_tag(control, st, p);
+	if (likely(end > 0))
+		t = full_tag(control, st, p);
 
 	while (p < end) {
 		i64 reverse, mlen, offset = 0;
@@ -693,13 +694,18 @@ static void mmap_stdin(rzip_control *control, uchar *buf, struct rzip_state *st)
 		total += ret;
 		if (ret == 0) {
 			/* Should be EOF */
-			if (total < 128)
-				failure("Will not compress a tiny file\n");
 			print_maxverbose("Shrinking chunk to %lld\n", total);
-			buf = (uchar *)mremap(buf, st->chunk_size, total, 0);
+			if (likely(total)) {
+				buf = (uchar *)mremap(buf, st->chunk_size, total, 0);
+				st->mmap_size = st->chunk_size = total;
+			} else {
+				/* Empty file */ 
+				buf = (uchar *)mremap(buf, st->chunk_size, control->page_size, 0);
+				st->mmap_size = control->page_size;
+				st->chunk_size = 0;
+			}
 			if (unlikely(buf == MAP_FAILED))
 				fatal("Failed to remap to smaller buf in mmap_stdin\n");
-			st->mmap_size = st->chunk_size = total;
 			control->eof = st->stdin_eof = 1;
 			break;
 		}
@@ -792,8 +798,6 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 
 	if (!STDIN) {
 		len = control->st_size = s.st_size;
-		if (len < 128)
-			failure("Will not compress a tiny file\n");
 		print_verbose("File size: %lld\n", len);
 	} else
 		control->st_size = 0;
@@ -855,7 +859,7 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 
 	prepare_streamout_threads(control);
 
-	while (len > 0 || (STDIN && !st->stdin_eof)) {
+	while (!pass || len > 0 || (STDIN && !st->stdin_eof)) {
 		double pct_base, pct_multiple;
 		i64 offset = s.st_size - len;
 		int bits = 8;
@@ -864,7 +868,10 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 		st->mmap_size = control->max_mmap;
 		if (!STDIN) {
 			st->chunk_size = MIN(st->chunk_size, len);
-			st->mmap_size = MIN(st->mmap_size, len);
+			if (likely(st->chunk_size))
+				st->mmap_size = MIN(st->mmap_size, len);
+			else
+				st->mmap_size = control->page_size;
 		}
 
 retry:
@@ -903,7 +910,7 @@ retry:
 		if (st->chunk_size > control->ramsize)
 			print_verbose("Compression window is larger than ram, will proceed with unlimited mode possibly much slower\n");
 
-		if (!passes && !STDIN) {
+		if (!passes && !STDIN && st->chunk_size) {
 			passes = s.st_size / st->chunk_size + !!(s.st_size % st->chunk_size);
 			if (passes == 1)
 				print_verbose("Will take 1 pass\n");
@@ -973,6 +980,7 @@ retry:
 		if (unlikely(len > 0 && control->eof))
 			failure("Wrote EOF to file yet chunk_size was shrunk, corrupting archive.\n");
 	}
+close_streams:
 
 	close_streamout_threads(control);
 	if (likely(st->hash_table))
