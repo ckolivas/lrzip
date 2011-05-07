@@ -1,6 +1,8 @@
 Addition of lrzcat - automatically decompresses .lrz files to stdout.
 lrzip and lrunzip will no longer automatically output to stdout due to
 addition of lrzcat executable, and to be consistent with gzip.
+lrzip progress output will no longer spam the output unless the percentage
+has changed.
 
 lrzip-0.604
 

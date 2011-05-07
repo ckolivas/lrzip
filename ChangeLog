@@ -3,6 +3,9 @@ MAY 2011, Con Kolivas
 * Addition of explicit lrzcat symlink which automatically sets "-d -o -"
 * Revert automatic output to stdout due to addition of explicit lrzcat
 executable, and to be consistent with gzip.
+* Fix counter from being zeroed on every loop in rzip.c which was creating
+excess progress output.
+* Update GNU license.
 
 APRIL 2011, version 0.604 Con Kolivas
 * Detach threads after creating them on the compression side. Not joining them
