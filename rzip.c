@@ -517,6 +517,7 @@ static void show_distrib(rzip_control *control, struct rzip_state *st)
 
 static void hash_search(rzip_control *control, struct rzip_state *st, double pct_base, double pct_multiple)
 {
+	int lastpct = 0, last_chunkpct = 0;
 	i64 cksum_limit = 0, p, end;
 	tag t = 0;
 	struct {
@@ -560,7 +561,6 @@ static void hash_search(rzip_control *control, struct rzip_state *st, double pct
 	t = full_tag(control, st, p);
 
 	while (p < end) {
-		int lastpct = 0, last_chunkpct = 0;
 		i64 reverse, mlen, offset = 0;
 
 		p++;
