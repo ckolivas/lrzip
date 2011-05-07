@@ -947,7 +947,7 @@ retry:
 				elapsed_hours, elapsed_minutes, elapsed_seconds, diff_seconds;
 
 			elapsed_time = current.tv_sec - start.tv_sec;
-			finish_time = elapsed_time / (pct_base / 100.0);
+			finish_time = elapsed_time / ((pct_base / 100.0) ? : 1);
 			elapsed_hours = elapsed_time / 3600;
 			elapsed_minutes = (elapsed_time / 60) % 60;
 			elapsed_seconds = elapsed_time % 60;
