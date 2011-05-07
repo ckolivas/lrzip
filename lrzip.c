@@ -203,7 +203,7 @@ void preserve_perms(rzip_control *control, int fd_in, int fd_out)
 
 	if (unlikely(fstat(fd_in, &st)))
 		fatal("Failed to fstat input file\n");
-	if (unlikely(fchmod(fd_out, (st.st_mode & 0777))))
+	if (unlikely(fchmod(fd_out, (st.st_mode & 0666))))
 		print_err("Warning, unable to set permissions on %s\n", control->outfile);
 
 	/* chown fail is not fatal */
@@ -599,11 +599,11 @@ void decompress_file(rzip_control *control)
 	control->fd_in = fd_in;
 
 	if (!(TEST_ONLY | STDOUT)) {
-		fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0777);
+		fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0666);
 		if (FORCE_REPLACE && (-1 == fd_out) && (EEXIST == errno)) {
 			if (unlikely(unlink(control->outfile)))
 				fatal("Failed to unlink an existing file: %s\n", control->outfile);
-			fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0777);
+			fd_out = open(control->outfile, O_WRONLY | O_CREAT | O_EXCL, 0666);
 		}
 		if (unlikely(fd_out == -1)) {
 			/* We must ensure we don't delete a file that already
@@ -1037,11 +1037,11 @@ void compress_file(rzip_control *control)
 			print_progress("Output filename is: %s\n", control->outfile);
 		}
 
-		fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0777);
+		fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0666);
 		if (FORCE_REPLACE && (-1 == fd_out) && (EEXIST == errno)) {
 			if (unlikely(unlink(control->outfile)))
 				fatal("Failed to unlink an existing file: %s\n", control->outfile);
-			fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0777);
+			fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0666);
 		}
 		if (unlikely(fd_out == -1)) {
 			/* We must ensure we don't delete a file that already
