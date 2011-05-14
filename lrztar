@@ -61,7 +61,7 @@ lrzip -h will display lrzip options"
             printf "lrztar: file does not exist: %s\n" "$i"
             return 1
         }
-        lrzip $p "$i" | tar x
+        lrzcat $p "$i" | tar x
         x=$?
     } || {
         ((v_o)) || p="$p -o $(basename "$s").tar.${vopt[v_S]}"
