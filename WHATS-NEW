@@ -1,3 +1,8 @@
+lrzip-0.606
+
+lrzuntar, which broke last version leaving behind an untarred .tar file, is
+working properly again.
+
 lrzip-0.605
 
 Addition of lrzcat - automatically decompresses .lrz files to stdout.

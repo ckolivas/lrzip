@@ -1,4 +1,8 @@
 lrzip ChangeLog
+MAY 2011, version 0.606 Con Kolivas
+* lrzuntar broke as lrzip doesn't automatically use stdout now, so use lrzcat
+in the lrztar script instead.
+
 MAY 2011, version 0.605 Con Kolivas
 * Addition of explicit lrzcat symlink which automatically sets "-d -o -"
 * Revert automatic output to stdout due to addition of explicit lrzcat
