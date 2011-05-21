@@ -8,14 +8,6 @@ CLEANFILES = $(BUILT_SOURCES)
 
 EXTRA_DIST = lrzip.1 lrunzip.1.pod lrzcat.1.pod lrztar.1.pod lrzuntar.1.pod $(man5_MANS)
 
-lrunzip.1: lrunzip.1.pod
-	pod2man $< $@
-
-lrzcat.1: lrzcat.1.pod
-	pod2man $< $@
-
-lrztar.1: lrztar.1.pod
-	pod2man $< $@
-
-lrzuntar.1: lrzuntar.1.pod
+SUFFIXES = .1 .1.pod
+.1.pod.1:
 	pod2man $< $@
