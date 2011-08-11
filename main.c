@@ -52,6 +52,7 @@
 # include <arpa/inet.h>
 #endif
 
+#include "liblrzip.h"
 #include "rzip.h"
 #include "lrzip.h"
 #include "util.h"
@@ -64,58 +65,7 @@
 #define isparameter( parmstring, value )	(!strcasecmp( parmstring, value ))
 #define iscaseparameter( parmvalue, value )	(!strcmp( parmvalue, value ))
 
-/* main() defines, different from liblrzip defines */
-#define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
-#define FLAG_NOT_LZMA (FLAG_NO_COMPRESS | FLAG_LZO_COMPRESS | FLAG_BZIP2_COMPRESS | FLAG_ZLIB_COMPRESS | FLAG_ZPAQ_COMPRESS)
-#define LZMA_COMPRESS	(!(control.flags & FLAG_NOT_LZMA))
-
-#define SHOW_PROGRESS	(control.flags & FLAG_SHOW_PROGRESS)
-#define KEEP_FILES	(control.flags & FLAG_KEEP_FILES)
-#define TEST_ONLY	(control.flags & FLAG_TEST_ONLY)
-#define FORCE_REPLACE	(control.flags & FLAG_FORCE_REPLACE)
-#define DECOMPRESS	(control.flags & FLAG_DECOMPRESS)
-#define NO_COMPRESS	(control.flags & FLAG_NO_COMPRESS)
-#define LZO_COMPRESS	(control.flags & FLAG_LZO_COMPRESS)
-#define BZIP2_COMPRESS	(control.flags & FLAG_BZIP2_COMPRESS)
-#define ZLIB_COMPRESS	(control.flags & FLAG_ZLIB_COMPRESS)
-#define ZPAQ_COMPRESS	(control.flags & FLAG_ZPAQ_COMPRESS)
-#define VERBOSE		(control.flags & FLAG_VERBOSE)
-#define VERBOSITY	(control.flags & FLAG_VERBOSITY)
-#define MAX_VERBOSE	(control.flags & FLAG_VERBOSITY_MAX)
-#define STDIN		(control.flags & FLAG_STDIN)
-#define STDOUT		(control.flags & FLAG_STDOUT)
-#define INFO		(control.flags & FLAG_INFO)
-#define UNLIMITED	(control.flags & FLAG_UNLIMITED)
-#define HASH_CHECK	(control.flags & FLAG_HASH)
-#define HAS_MD5		(control.flags & FLAG_MD5)
-#define CHECK_FILE	(control.flags & FLAG_CHECK)
-#define KEEP_BROKEN	(control.flags & FLAG_KEEP_BROKEN)
-#define LZO_TEST	(control.flags & FLAG_THRESHOLD)
-#define TMP_OUTBUF	(control.flags & FLAG_TMP_OUTBUF)
-#define TMP_INBUF	(control.flags & FLAG_TMP_INBUF)
-#define ENCRYPT		(control.flags & FLAG_ENCRYPT)
-
-#define print_output(format, args...)	do {\
-	fprintf(control.msgout, format, ##args);	\
-	fflush(control.msgout);	\
-} while (0)
-
-#define print_progress(format, args...)	do {\
-	if (SHOW_PROGRESS)	\
-		print_output(format, ##args);	\
-} while (0)
-
-#define print_verbose(format, args...)	do {\
-	if (VERBOSE)	\
-		print_output(format, ##args);	\
-} while (0)
-
-#define print_maxverbose(format, args...)	do {\
-	if (MAX_VERBOSE)	\
-		print_output(format, ##args);	\
-} while (0)
-
-static rzip_control control;
+static rzip_control controlstaticvariablehaha, *control;
 
 static void usage(void)
 {
@@ -183,11 +133,11 @@ static void show_summary(void)
 		if (!TEST_ONLY)
 			print_verbose("The following options are in effect for this %s.\n",
 				      DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
-		print_verbose("Threading is %s. Number of CPUs detected: %d\n", control.threads > 1? "ENABLED" : "DISABLED",
-			      control.threads);
-		print_verbose("Detected %lld bytes ram\n", control.ramsize);
-		print_verbose("Compression level %d\n", control.compression_level);
-		print_verbose("Nice Value: %d\n", control.nice_val);
+		print_verbose("Threading is %s. Number of CPUs detected: %d\n", control->threads > 1? "ENABLED" : "DISABLED",
+			      control->threads);
+		print_verbose("Detected %lld bytes ram\n", control->ramsize);
+		print_verbose("Compression level %d\n", control->compression_level);
+		print_verbose("Nice Value: %d\n", control->nice_val);
 		print_verbose("Show Progress\n");
 		print_maxverbose("Max ");
 		print_verbose("Verbose\n");
@@ -195,14 +145,14 @@ static void show_summary(void)
 			print_verbose("Overwrite Files\n");
 		if (!KEEP_FILES)
 			print_verbose("Remove input files on completion\n");
-		if (control.outdir)
-			print_verbose("Output Directory Specified: %s\n", control.outdir);
-		else if (control.outname)
-			print_verbose("Output Filename Specified: %s\n", control.outname);
+		if (control->outdir)
+			print_verbose("Output Directory Specified: %s\n", control->outdir);
+		else if (control->outname)
+			print_verbose("Output Filename Specified: %s\n", control->outname);
 		if (TEST_ONLY)
 			print_verbose("Test file integrity\n");
-		if (control.tmpdir)
-			print_verbose("Temporary Directory set as: %s\n", control.tmpdir);
+		if (control->tmpdir)
+			print_verbose("Temporary Directory set as: %s\n", control->tmpdir);
 
 		/* show compression options */
 		if (!DECOMPRESS && !TEST_ONLY) {
@@ -219,16 +169,16 @@ static void show_summary(void)
 				print_verbose("ZPAQ. LZO Compressibility testing %s\n", (LZO_TEST? "enabled" : "disabled"));
 			else if (NO_COMPRESS)
 				print_verbose("RZIP pre-processing only\n");
-			if (control.window)
-				print_verbose("Compression Window: %lld = %lldMB\n", control.window, control.window * 100ull);
+			if (control->window)
+				print_verbose("Compression Window: %lld = %lldMB\n", control->window, control->window * 100ull);
 			/* show heuristically computed window size */
-			if (!control.window && !UNLIMITED) {
+			if (!control->window && !UNLIMITED) {
 				i64 temp_chunk, temp_window;
 
 				if (STDOUT || STDIN)
-					temp_chunk = control.maxram;
+					temp_chunk = control->maxram;
 				else
-					temp_chunk = control.ramsize * 2 / 3;
+					temp_chunk = control->ramsize * 2 / 3;
 				temp_window = temp_chunk / (100 * 1024 * 1024);
 				print_verbose("Heuristically Computed Compression Window: %lld = %lldMB\n", temp_window, temp_window * 100ull);
 			}
@@ -236,9 +186,9 @@ static void show_summary(void)
 				print_verbose("Using Unlimited Window size\n");
 		}
 		if (!DECOMPRESS && !TEST_ONLY)
-			print_maxverbose("Storage time in seconds %lld\n", control.secs);
+			print_maxverbose("Storage time in seconds %lld\n", control->secs);
 		if (ENCRYPT)
-			print_maxverbose("Encryption hash loops %lld\n", control.encloops);
+			print_maxverbose("Encryption hash loops %lld\n", control->encloops);
 	}
 }
 
@@ -411,35 +361,36 @@ int main(int argc, char *argv[])
 	extern int optind;
 	char *eptr; /* for environment */
 
-	memset(&control, 0, sizeof(control));
+        control = &controlstaticvariablehaha;
+	memset(control, 0, sizeof(rzip_control));
 
-	control.msgout = stderr;
-	register_outputfile(control.msgout);
-	control.flags = FLAG_SHOW_PROGRESS | FLAG_KEEP_FILES | FLAG_THRESHOLD;
-	control.suffix = ".lrz";
-	control.outdir = NULL;
-	control.tmpdir = NULL;
+	control->msgout = stderr;
+	register_outputfile(control->msgout);
+	control->flags = FLAG_SHOW_PROGRESS | FLAG_KEEP_FILES | FLAG_THRESHOLD;
+	control->suffix = ".lrz";
+	control->outdir = NULL;
+	control->tmpdir = NULL;
 
 	if (strstr(argv[0], "lrunzip"))
-		control.flags |= FLAG_DECOMPRESS;
+		control->flags |= FLAG_DECOMPRESS;
 	else if (strstr(argv[0], "lrzcat"))
-		control.flags |= FLAG_DECOMPRESS | FLAG_STDOUT;
+		control->flags |= FLAG_DECOMPRESS | FLAG_STDOUT;
 
-	control.compression_level = 7;
-	control.ramsize = get_ram();
+	control->compression_level = 7;
+	control->ramsize = get_ram();
 	/* for testing single CPU */
-	control.threads = PROCESSORS;	/* get CPUs for LZMA */
-	control.page_size = PAGE_SIZE;
-	control.nice_val = 19;
+	control->threads = PROCESSORS;	/* get CPUs for LZMA */
+	control->page_size = PAGE_SIZE;
+	control->nice_val = 19;
 
 	/* The first 5 bytes of the salt is the time in seconds.
 	 * The next 2 bytes encode how many times to hash the password.
 	 * The last 9 bytes are random data, making 16 bytes of salt */
 	if (unlikely(gettimeofday(&tv, NULL)))
 		fatal("Failed to gettimeofday in main\n");
-	control.secs = tv.tv_sec;
-	control.encloops = nloops(control.secs, control.salt, control.salt + 1);
-	get_rand(control.salt + 2, 6);
+	control->secs = tv.tv_sec;
+	control->encloops = nloops(control->secs, control->salt, control->salt + 1);
+	get_rand(control->salt + 2, 6);
 
 	/* generate crc table */
 	CrcGenerateTable();
@@ -447,12 +398,12 @@ int main(int argc, char *argv[])
 	/* Get Temp Dir */
 	eptr = getenv("TMP");
 	if (eptr != NULL) {
-		control.tmpdir = malloc(strlen(eptr)+2);
-		if (control.tmpdir == NULL)
+		control->tmpdir = malloc(strlen(eptr)+2);
+		if (control->tmpdir == NULL)
 			fatal("Failed to allocate for tmpdir\n");
-		strcpy(control.tmpdir, eptr);
+		strcpy(control->tmpdir, eptr);
 		if (strcmp(eptr+strlen(eptr) - 1, "/")) 	/* need a trailing slash */
-			strcat(control.tmpdir, "/");
+			strcat(control->tmpdir, "/");
 	}
 
 	/* Get Preloaded Defaults from lrzip.conf
@@ -461,126 +412,126 @@ int main(int argc, char *argv[])
 	 */
 	eptr = getenv("LRZIP");
 	if (eptr == NULL)
-		read_config(&control);
+		read_config(control);
 	else if (!strstr(eptr,"NOCONFIG"))
-		read_config(&control);
+		read_config(control);
 
 	while ((c = getopt(argc, argv, "bcdDefghHiklL:nN:o:O:p:qS:tTUvVw:z?")) != -1) {
 		switch (c) {
 		case 'b':
-			if (control.flags & FLAG_NOT_LZMA)
+			if (control->flags & FLAG_NOT_LZMA)
 				failure("Can only use one of -l, -b, -g, -z or -n\n");
-			control.flags |= FLAG_BZIP2_COMPRESS;
+			control->flags |= FLAG_BZIP2_COMPRESS;
 			break;
 		case 'c':
-			control.flags |= FLAG_CHECK;
-			control.flags |= FLAG_HASH;
+			control->flags |= FLAG_CHECK;
+			control->flags |= FLAG_HASH;
 			break;
 		case 'd':
-			control.flags |= FLAG_DECOMPRESS;
+			control->flags |= FLAG_DECOMPRESS;
 			break;
 		case 'D':
-			control.flags &= ~FLAG_KEEP_FILES;
+			control->flags &= ~FLAG_KEEP_FILES;
 			break;
 		case 'e':
-			control.flags |= FLAG_ENCRYPT;
+			control->flags |= FLAG_ENCRYPT;
 			break;
 		case 'f':
-			control.flags |= FLAG_FORCE_REPLACE;
+			control->flags |= FLAG_FORCE_REPLACE;
 			break;
 		case 'g':
-			if (control.flags & FLAG_NOT_LZMA)
+			if (control->flags & FLAG_NOT_LZMA)
 				failure("Can only use one of -l, -b, -g, -z or -n\n");
-			control.flags |= FLAG_ZLIB_COMPRESS;
+			control->flags |= FLAG_ZLIB_COMPRESS;
 			break;
 		case 'h':
 		case '?':
 			usage();
 			return -1;
 		case 'H':
-			control.flags |= FLAG_HASH;
+			control->flags |= FLAG_HASH;
 			break;
 		case 'i':
-			control.flags |= FLAG_INFO;
+			control->flags |= FLAG_INFO;
 			break;
 		case 'k':
-			control.flags |= FLAG_KEEP_BROKEN;
+			control->flags |= FLAG_KEEP_BROKEN;
 			break;
 		case 'l':
-			if (control.flags & FLAG_NOT_LZMA)
+			if (control->flags & FLAG_NOT_LZMA)
 				failure("Can only use one of -l, -b, -g, -z or -n\n");
-			control.flags |= FLAG_LZO_COMPRESS;
+			control->flags |= FLAG_LZO_COMPRESS;
 			break;
 		case 'L':
-			control.compression_level = atoi(optarg);
-			if (control.compression_level < 1 || control.compression_level > 9)
+			control->compression_level = atoi(optarg);
+			if (control->compression_level < 1 || control->compression_level > 9)
 				failure("Invalid compression level (must be 1-9)\n");
 			break;
 		case 'n':
-			if (control.flags & FLAG_NOT_LZMA)
+			if (control->flags & FLAG_NOT_LZMA)
 				failure("Can only use one of -l, -b, -g, -z or -n\n");
-			control.flags |= FLAG_NO_COMPRESS;
+			control->flags |= FLAG_NO_COMPRESS;
 			break;
 		case 'N':
-			control.nice_val = atoi(optarg);
-			if (control.nice_val < -20 || control.nice_val > 19)
+			control->nice_val = atoi(optarg);
+			if (control->nice_val < -20 || control->nice_val > 19)
 				failure("Invalid nice value (must be -20..19)\n");
 			break;
 		case 'o':
-			if (control.outdir)
+			if (control->outdir)
 				failure("Cannot have -o and -O together\n");
 			if (unlikely(STDOUT))
 				failure("Cannot specify an output filename when outputting to stdout\n");
-			control.outname = optarg;
-			control.suffix = "";
+			control->outname = optarg;
+			control->suffix = "";
 			break;
 		case 'O':
-			if (control.outname)	/* can't mix -o and -O */
+			if (control->outname)	/* can't mix -o and -O */
 				failure("Cannot have options -o and -O together\n");
 			if (unlikely(STDOUT))
 				failure("Cannot specify an output directory when outputting to stdout\n");
-			control.outdir = malloc(strlen(optarg) + 2);
-			if (control.outdir == NULL)
+			control->outdir = malloc(strlen(optarg) + 2);
+			if (control->outdir == NULL)
 				fatal("Failed to allocate for outdir\n");
-			strcpy(control.outdir,optarg);
+			strcpy(control->outdir,optarg);
 			if (strcmp(optarg+strlen(optarg) - 1, "/")) 	/* need a trailing slash */
-				strcat(control.outdir, "/");
+				strcat(control->outdir, "/");
 			break;
 		case 'p':
-			control.threads = atoi(optarg);
-			if (control.threads < 1)
+			control->threads = atoi(optarg);
+			if (control->threads < 1)
 				failure("Must have at least one thread\n");
 			break;
 		case 'q':
-			control.flags &= ~FLAG_SHOW_PROGRESS;
+			control->flags &= ~FLAG_SHOW_PROGRESS;
 			break;
 		case 'S':
-			if (control.outname)
+			if (control->outname)
 				failure("Specified output filename already, can't specify an extension.\n");
 			if (unlikely(STDOUT))
 				failure("Cannot specify a filename suffix when outputting to stdout\n");
-			control.suffix = optarg;
+			control->suffix = optarg;
 			break;
 		case 't':
-			if (control.outname)
+			if (control->outname)
 				failure("Cannot specify an output file name when just testing.\n");
 			if (!KEEP_FILES)
 				failure("Doubt that you want to delete a file when just testing.\n");
-			control.flags |= FLAG_TEST_ONLY;
+			control->flags |= FLAG_TEST_ONLY;
 			break;
 		case 'T':
-			control.flags &= ~FLAG_THRESHOLD;
+			control->flags &= ~FLAG_THRESHOLD;
 			break;
 		case 'U':
-			control.flags |= FLAG_UNLIMITED;
+			control->flags |= FLAG_UNLIMITED;
 			break;
 		case 'v':
 			/* set verbosity flag */
-			if (!(control.flags & FLAG_VERBOSITY) && !(control.flags & FLAG_VERBOSITY_MAX))
-				control.flags |= FLAG_VERBOSITY;
-			else if ((control.flags & FLAG_VERBOSITY)) {
-				control.flags &= ~FLAG_VERBOSITY;
-				control.flags |= FLAG_VERBOSITY_MAX;
+			if (!(control->flags & FLAG_VERBOSITY) && !(control->flags & FLAG_VERBOSITY_MAX))
+				control->flags |= FLAG_VERBOSITY;
+			else if ((control->flags & FLAG_VERBOSITY)) {
+				control->flags &= ~FLAG_VERBOSITY;
+				control->flags |= FLAG_VERBOSITY_MAX;
 			}
 			break;
 		case 'V':
@@ -588,12 +539,12 @@ int main(int argc, char *argv[])
 			exit(0);
 			break;
 		case 'w':
-			control.window = atol(optarg);
+			control->window = atol(optarg);
 			break;
 		case 'z':
-			if (control.flags & FLAG_NOT_LZMA)
+			if (control->flags & FLAG_NOT_LZMA)
 				failure("Can only use one of -l, -b, -g, -z or -n\n");
-			control.flags |= FLAG_ZPAQ_COMPRESS;
+			control->flags |= FLAG_ZPAQ_COMPRESS;
 			break;
 		}
 	}
@@ -601,61 +552,61 @@ int main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (control.outname && argc > 1)
+	if (control->outname && argc > 1)
 		failure("Cannot specify output filename with more than 1 file\n");
 
 	if (VERBOSE && !SHOW_PROGRESS) {
 		print_err("Cannot have -v and -q options. -v wins.\n");
-		control.flags |= FLAG_SHOW_PROGRESS;
+		control->flags |= FLAG_SHOW_PROGRESS;
 	}
 
-	if (UNLIMITED && control.window) {
+	if (UNLIMITED && control->window) {
 		print_err("If -U used, cannot specify a window size with -w.\n");
-		control.window = 0;
+		control->window = 0;
 	}
 
 	if (argc < 1)
-		control.flags |= FLAG_STDIN;
+		control->flags |= FLAG_STDIN;
 
 	if (UNLIMITED && STDIN) {
 		print_err("Cannot have -U and stdin, unlimited mode disabled.\n");
-		control.flags &= ~FLAG_UNLIMITED;
+		control->flags &= ~FLAG_UNLIMITED;
 	}
 
 	/* Work out the compression overhead per compression thread for the
 	 * compression back-ends that need a lot of ram */
 	if (LZMA_COMPRESS) {
-		int level = control.compression_level * 7 / 9 ? : 1;
+		int level = control->compression_level * 7 / 9 ? : 1;
 		i64 dictsize = (level <= 5 ? (1 << (level * 2 + 14)) :
 				(level == 6 ? (1 << 25) : (1 << 26)));
 
-		control.overhead = (dictsize * 23 / 2) + (4 * 1024 * 1024);
+		control->overhead = (dictsize * 23 / 2) + (4 * 1024 * 1024);
 	} else if (ZPAQ_COMPRESS)
-		control.overhead = 112 * 1024 * 1024;
+		control->overhead = 112 * 1024 * 1024;
 
 	/* Set the main nice value to half that of the backend threads since
 	 * the rzip stage is usually the rate limiting step */
-	if (control.nice_val > 0 && !NO_COMPRESS) {
-		if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val / 2) == -1))
+	if (control->nice_val > 0 && !NO_COMPRESS) {
+		if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val / 2) == -1))
 			print_err("Warning, unable to set nice value\n");
 	} else {
-		if (unlikely(setpriority(PRIO_PROCESS, 0, control.nice_val) == -1))
+		if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1))
 			print_err("Warning, unable to set nice value\n");
 	}
 
 	/* One extra iteration for the case of no parameters means we will default to stdin/out */
 	for (i = 0; i <= argc; i++) {
 		if (i < argc)
-			control.infile = argv[i];
+			control->infile = argv[i];
 		else if (!(i == 0 && STDIN))
 			break;
-		if (control.infile) {
-			if ((strcmp(control.infile, "-") == 0))
-				control.flags |= FLAG_STDIN;
+		if (control->infile) {
+			if ((strcmp(control->infile, "-") == 0))
+				control->flags |= FLAG_STDIN;
 			else {
 				struct stat infile_stat;
 
-				stat(control.infile, &infile_stat);
+				stat(control->infile, &infile_stat);
 				if (unlikely(S_ISDIR(infile_stat.st_mode)))
 					failure("lrzip only works directly on FILES.\n"
 					"Use lrztar or pipe through tar for compressing directories.\n");
@@ -665,23 +616,23 @@ int main(int argc, char *argv[])
 		if (INFO && STDIN)
 			failure("Will not get file info from STDIN\n");
 
-		if (control.outname && (strcmp(control.outname, "-") == 0)) {
-			control.flags |= FLAG_STDOUT;
-			control.msgout = stderr;
-			register_outputfile(control.msgout);
+		if (control->outname && (strcmp(control->outname, "-") == 0)) {
+			control->flags |= FLAG_STDOUT;
+			control->msgout = stderr;
+			register_outputfile(control->msgout);
 		}
 
 		/* If no output filename is specified, and we're using stdin,
 		 * use stdout */
-		if (!control.outname && STDIN) {
-			control.flags |= FLAG_STDOUT;
-			control.msgout = stderr;
-			register_outputfile(control.msgout);
+		if (!control->outname && STDIN) {
+			control->flags |= FLAG_STDOUT;
+			control->msgout = stderr;
+			register_outputfile(control->msgout);
 		}
 
 		if (!STDOUT) {
-			control.msgout = stdout;
-			register_outputfile(control.msgout);
+			control->msgout = stdout;
+			register_outputfile(control->msgout);
 		}
 		/* Implement signal handler only once flags are set */
 		handler.sa_handler = &sighandler;
@@ -704,19 +655,19 @@ int main(int argc, char *argv[])
 		if (CHECK_FILE) {
 			if (!DECOMPRESS) {
 				print_err("Can only check file written on decompression.\n");
-				control.flags &= ~FLAG_CHECK;
+				control->flags &= ~FLAG_CHECK;
 			} else if (STDOUT) {
 				print_err("Can't check file written when writing to stdout. Checking disabled.\n");
-				control.flags &= ~FLAG_CHECK;
+				control->flags &= ~FLAG_CHECK;
 			}
 		}
 
 		/* Use less ram when using STDOUT to store the temporary output
 		 * file. */
 		if (STDOUT && ((STDIN && DECOMPRESS) || !(DECOMPRESS || TEST_ONLY)))
-			control.maxram = control.ramsize * 2 / 9;
+			control->maxram = control->ramsize * 2 / 9;
 		else
-			control.maxram = control.ramsize / 3;
+			control->maxram = control->ramsize / 3;
 		if (BITS32) {
 			/* Decrease usable ram size on 32 bits due to kernel /
 			 * userspace split. Cannot allocate larger than a 1
@@ -725,12 +676,12 @@ int main(int argc, char *argv[])
 			 * 2/3 of that makes for a total of 2GB to be split
 			 * into thirds.
 			 */
-			control.usable_ram = MAX(control.ramsize - 900000000ll, 900000000ll);
-			control.maxram = MIN(control.maxram, control.usable_ram);
-			control.maxram = MIN(control.maxram, one_g * 2 / 3);
+			control->usable_ram = MAX(control->ramsize - 900000000ll, 900000000ll);
+			control->maxram = MIN(control->maxram, control->usable_ram);
+			control->maxram = MIN(control->maxram, one_g * 2 / 3);
 		} else
-			control.usable_ram = control.maxram;
-		round_to_page(&control.maxram);
+			control->usable_ram = control->maxram;
+		round_to_page(&control->maxram);
 
 		show_summary();
 
@@ -740,11 +691,11 @@ int main(int argc, char *argv[])
 			failure("Unable to work from STDIN while reading password\n");
 
 		if (DECOMPRESS || TEST_ONLY)
-			decompress_file(&control);
+			decompress_file(control);
 		else if (INFO)
-			get_fileinfo(&control);
+			get_fileinfo(control);
 		else
-			compress_file(&control);
+			compress_file(control);
 
 		/* compute total time */
 		gettimeofday(&end_time, NULL);
