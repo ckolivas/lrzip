@@ -27,6 +27,7 @@ void unlink_files(void);
 void register_outputfile(FILE *f);
 void fatal(const char *format, ...);
 void failure(const char *format, ...);
+void setup_ram(rzip_control *control);
 void round_to_page(i64 *size);
 void get_rand(uchar *buf, int len);
 void lrz_stretch(rzip_control *control);

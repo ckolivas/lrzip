@@ -662,8 +662,6 @@ out:
 
 /* WORK FUNCTIONS */
 
-i64 one_g = 1000 * 1024 * 1024;
-
 /* Look at whether we're writing to a ram location or physical files and write
  * the data accordingly. */
 ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)

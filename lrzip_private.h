@@ -177,6 +177,8 @@ typedef struct md5_ctx md5_ctx;
 #define SALT_LEN 8
 #define CBC_LEN 16
 
+#define one_g (1000 * 1024 * 1024)
+
 #if defined(NOTHREAD) || !defined(_SC_NPROCESSORS_ONLN)
 # define PROCESSORS (1)
 #else
