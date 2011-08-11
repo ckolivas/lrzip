@@ -21,16 +21,16 @@
 
 #include "lrzip_private.h"
 
-void register_infile(const char *name, char delete);
-void register_outfile(const char *name, char delete);
-void unlink_files(void);
-void register_outputfile(FILE *f);
-void fatal(const char *format, ...);
-void failure(const char *format, ...);
+void register_infile(rzip_control *control, const char *name, char delete);
+void register_outfile(rzip_control *control, const char *name, char delete);
+void unlink_files(rzip_control *control);
+void register_outputfile(rzip_control *control, FILE *f);
+void fatal(const rzip_control *control, const char *format, ...);
+void failure(const rzip_control *control, const char *format, ...);
 void setup_overhead(rzip_control *control);
 void setup_ram(rzip_control *control);
 void round_to_page(i64 *size);
-void get_rand(uchar *buf, int len);
+void get_rand(rzip_control *control, uchar *buf, int len);
 void lrz_stretch(rzip_control *control);
 void lrz_stretch2(rzip_control *control);
 void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt);

@@ -203,6 +203,57 @@ typedef struct md5_ctx md5_ctx;
 #define MOORE_TIMES_PER_SECOND pow (MOORE, 1.0 / SECONDS_IN_A_YEAR)
 #define ARBITRARY_AT_EPOCH (ARBITRARY * pow (MOORE_TIMES_PER_SECOND, -T_ZERO))
 
+#define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
+#define FLAG_NOT_LZMA (FLAG_NO_COMPRESS | FLAG_LZO_COMPRESS | FLAG_BZIP2_COMPRESS | FLAG_ZLIB_COMPRESS | FLAG_ZPAQ_COMPRESS)
+#define LZMA_COMPRESS	(!(control->flags & FLAG_NOT_LZMA))
+
+#define SHOW_PROGRESS	(control->flags & FLAG_SHOW_PROGRESS)
+#define KEEP_FILES	(control->flags & FLAG_KEEP_FILES)
+#define TEST_ONLY	(control->flags & FLAG_TEST_ONLY)
+#define FORCE_REPLACE	(control->flags & FLAG_FORCE_REPLACE)
+#define DECOMPRESS	(control->flags & FLAG_DECOMPRESS)
+#define NO_COMPRESS	(control->flags & FLAG_NO_COMPRESS)
+#define LZO_COMPRESS	(control->flags & FLAG_LZO_COMPRESS)
+#define BZIP2_COMPRESS	(control->flags & FLAG_BZIP2_COMPRESS)
+#define ZLIB_COMPRESS	(control->flags & FLAG_ZLIB_COMPRESS)
+#define ZPAQ_COMPRESS	(control->flags & FLAG_ZPAQ_COMPRESS)
+#define VERBOSE		(control->flags & FLAG_VERBOSE)
+#define VERBOSITY	(control->flags & FLAG_VERBOSITY)
+#define MAX_VERBOSE	(control->flags & FLAG_VERBOSITY_MAX)
+#define STDIN		(control->flags & FLAG_STDIN)
+#define STDOUT		(control->flags & FLAG_STDOUT)
+#define INFO		(control->flags & FLAG_INFO)
+#define UNLIMITED	(control->flags & FLAG_UNLIMITED)
+#define HASH_CHECK	(control->flags & FLAG_HASH)
+#define HAS_MD5		(control->flags & FLAG_MD5)
+#define CHECK_FILE	(control->flags & FLAG_CHECK)
+#define KEEP_BROKEN	(control->flags & FLAG_KEEP_BROKEN)
+#define LZO_TEST	(control->flags & FLAG_THRESHOLD)
+#define TMP_OUTBUF	(control->flags & FLAG_TMP_OUTBUF)
+#define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
+#define ENCRYPT		(control->flags & FLAG_ENCRYPT)
+
+#define print_output(format, args...)	do {\
+	fprintf(control->msgout, format, ##args);	\
+	fflush(control->msgout);	\
+} while (0)
+
+#define print_progress(format, args...)	do {\
+	if (SHOW_PROGRESS)	\
+		print_output(format, ##args);	\
+} while (0)
+
+#define print_verbose(format, args...)	do {\
+	if (VERBOSE)	\
+		print_output(format, ##args);	\
+} while (0)
+
+#define print_maxverbose(format, args...)	do {\
+	if (MAX_VERBOSE)	\
+		print_output(format, ##args);	\
+} while (0)
+
+
 #define print_err(format, args...)	do {\
 	fprintf(stderr, format, ##args);	\
 } while (0)
@@ -268,6 +319,11 @@ struct rzip_control {
 	unsigned char magic_written;
 	md5_ctx ctx;
 	i64 md5_read; // How far into the file the md5 has done so far
+	const char *util_infile;
+	char delete_infile;
+	const char *util_outfile;
+	char delete_outfile;
+	FILE *outputfile;
 };
 
 struct stream {

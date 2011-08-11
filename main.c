@@ -122,7 +122,7 @@ static void sighandler(int sig __UNUSED__)
 	termios_p.c_lflag |= ECHO;
 	tcsetattr(fileno(stdin), 0, &termios_p);
 
-	unlink_files();
+	unlink_files(control);
 	exit(0);
 }
 
@@ -204,7 +204,7 @@ static void read_config(rzip_control *control)
 	line = malloc(255);
 	homeconf = malloc(255);
 	if (line == NULL || homeconf == NULL)
-		fatal("Fatal Memory Error in read_config");
+		fatal(control, "Fatal Memory Error in read_config");
 
 	fp = fopen("lrzip.conf", "r");
 	if (fp)
@@ -255,11 +255,11 @@ static void read_config(rzip_control *control)
 		} else if (isparameter(parameter, "compressionlevel")) {
 			control->compression_level = atoi(parametervalue);
 			if ( control->compression_level < 1 || control->compression_level > 9 )
-				failure("CONF.FILE error. Compression Level must between 1 and 9");
+				failure(control, "CONF.FILE error. Compression Level must between 1 and 9");
 		} else if (isparameter(parameter, "compressionmethod")) {
 			/* valid are rzip, gzip, bzip2, lzo, lzma (default), and zpaq */
 			if (control->flags & FLAG_NOT_LZMA)
-				failure("CONF.FILE error. Can only specify one compression method");
+				failure(control, "CONF.FILE error. Can only specify one compression method");
 			if (isparameter(parametervalue, "bzip2"))
 				control->flags |= FLAG_BZIP2_COMPRESS;
 			else if (isparameter(parametervalue, "gzip"))
@@ -271,7 +271,7 @@ static void read_config(rzip_control *control)
 			else if (isparameter(parametervalue, "zpaq"))
 				control->flags |= FLAG_ZPAQ_COMPRESS;
 			else if (!isparameter(parametervalue, "lzma")) /* oops, not lzma! */
-				failure("CONF.FILE error. Invalid compression method %s specified\n",parametervalue);
+				failure(control, "CONF.FILE error. Invalid compression method %s specified\n",parametervalue);
 		} else if (isparameter(parameter, "lzotest")) {
 			/* default is yes */
 			if (isparameter(parametervalue, "no"))
@@ -287,13 +287,13 @@ static void read_config(rzip_control *control)
 		} else if (isparameter(parameter, "outputdirectory")) {
 			control->outdir = malloc(strlen(parametervalue) + 2);
 			if (!control->outdir)
-				fatal("Fatal Memory Error in read_config");
+				fatal(control, "Fatal Memory Error in read_config");
 			strcpy(control->outdir, parametervalue);
 			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
 				strcat(control->outdir, "/");
 		} else if (isparameter(parameter,"verbosity")) {
 			if (control->flags & FLAG_VERBOSE)
-				failure("CONF.FILE error. Verbosity already defined.");
+				failure(control, "CONF.FILE error. Verbosity already defined.");
 			if (isparameter(parametervalue, "yes"))
 				control->flags |= FLAG_VERBOSITY;
 			else if (isparameter(parametervalue,"max"))
@@ -307,7 +307,7 @@ static void read_config(rzip_control *control)
 		} else if (isparameter(parameter,"nice")) {
 			control->nice_val = atoi(parametervalue);
 			if (control->nice_val < -20 || control->nice_val > 19)
-				failure("CONF.FILE error. Nice must be between -20 and 19");
+				failure(control, "CONF.FILE error. Nice must be between -20 and 19");
 		} else if (isparameter(parameter, "keepbroken")) {
 			if (isparameter(parametervalue, "yes" ))
 				control->flags |= FLAG_KEEP_BROKEN;
@@ -322,7 +322,7 @@ static void read_config(rzip_control *control)
 		} else if (isparameter(parameter, "tmpdir")) {
 			control->tmpdir = realloc(NULL, strlen(parametervalue) + 2);
 			if (!control->tmpdir)
-				fatal("Fatal Memory Error in read_config");
+				fatal(control, "Fatal Memory Error in read_config");
 			strcpy(control->tmpdir, parametervalue);
 			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
 				strcat(control->tmpdir, "/");
@@ -336,7 +336,7 @@ static void read_config(rzip_control *control)
 	}
 
 	if (unlikely(fclose(fp)))
-		fatal("Failed to fclose fp in read_config\n");
+		fatal(control, "Failed to fclose fp in read_config\n");
 out:
 	/* clean up */
 	free(line);
@@ -387,7 +387,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'b':
 			if (control->flags & FLAG_NOT_LZMA)
-				failure("Can only use one of -l, -b, -g, -z or -n\n");
+				failure(control, "Can only use one of -l, -b, -g, -z or -n\n");
 			control->flags |= FLAG_BZIP2_COMPRESS;
 			break;
 		case 'c':
@@ -408,7 +408,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'g':
 			if (control->flags & FLAG_NOT_LZMA)
-				failure("Can only use one of -l, -b, -g, -z or -n\n");
+				failure(control, "Can only use one of -l, -b, -g, -z or -n\n");
 			control->flags |= FLAG_ZLIB_COMPRESS;
 			break;
 		case 'h':
@@ -426,40 +426,40 @@ int main(int argc, char *argv[])
 			break;
 		case 'l':
 			if (control->flags & FLAG_NOT_LZMA)
-				failure("Can only use one of -l, -b, -g, -z or -n\n");
+				failure(control, "Can only use one of -l, -b, -g, -z or -n\n");
 			control->flags |= FLAG_LZO_COMPRESS;
 			break;
 		case 'L':
 			control->compression_level = atoi(optarg);
 			if (control->compression_level < 1 || control->compression_level > 9)
-				failure("Invalid compression level (must be 1-9)\n");
+				failure(control, "Invalid compression level (must be 1-9)\n");
 			break;
 		case 'n':
 			if (control->flags & FLAG_NOT_LZMA)
-				failure("Can only use one of -l, -b, -g, -z or -n\n");
+				failure(control, "Can only use one of -l, -b, -g, -z or -n\n");
 			control->flags |= FLAG_NO_COMPRESS;
 			break;
 		case 'N':
 			control->nice_val = atoi(optarg);
 			if (control->nice_val < -20 || control->nice_val > 19)
-				failure("Invalid nice value (must be -20..19)\n");
+				failure(control, "Invalid nice value (must be -20..19)\n");
 			break;
 		case 'o':
 			if (control->outdir)
-				failure("Cannot have -o and -O together\n");
+				failure(control, "Cannot have -o and -O together\n");
 			if (unlikely(STDOUT))
-				failure("Cannot specify an output filename when outputting to stdout\n");
+				failure(control, "Cannot specify an output filename when outputting to stdout\n");
 			control->outname = optarg;
 			control->suffix = "";
 			break;
 		case 'O':
 			if (control->outname)	/* can't mix -o and -O */
-				failure("Cannot have options -o and -O together\n");
+				failure(control, "Cannot have options -o and -O together\n");
 			if (unlikely(STDOUT))
-				failure("Cannot specify an output directory when outputting to stdout\n");
+				failure(control, "Cannot specify an output directory when outputting to stdout\n");
 			control->outdir = malloc(strlen(optarg) + 2);
 			if (control->outdir == NULL)
-				fatal("Failed to allocate for outdir\n");
+				fatal(control, "Failed to allocate for outdir\n");
 			strcpy(control->outdir,optarg);
 			if (strcmp(optarg+strlen(optarg) - 1, "/")) 	/* need a trailing slash */
 				strcat(control->outdir, "/");
@@ -467,23 +467,23 @@ int main(int argc, char *argv[])
 		case 'p':
 			control->threads = atoi(optarg);
 			if (control->threads < 1)
-				failure("Must have at least one thread\n");
+				failure(control, "Must have at least one thread\n");
 			break;
 		case 'q':
 			control->flags &= ~FLAG_SHOW_PROGRESS;
 			break;
 		case 'S':
 			if (control->outname)
-				failure("Specified output filename already, can't specify an extension.\n");
+				failure(control, "Specified output filename already, can't specify an extension.\n");
 			if (unlikely(STDOUT))
-				failure("Cannot specify a filename suffix when outputting to stdout\n");
+				failure(control, "Cannot specify a filename suffix when outputting to stdout\n");
 			control->suffix = optarg;
 			break;
 		case 't':
 			if (control->outname)
-				failure("Cannot specify an output file name when just testing.\n");
+				failure(control, "Cannot specify an output file name when just testing.\n");
 			if (!KEEP_FILES)
-				failure("Doubt that you want to delete a file when just testing.\n");
+				failure(control, "Doubt that you want to delete a file when just testing.\n");
 			control->flags |= FLAG_TEST_ONLY;
 			break;
 		case 'T':
@@ -510,7 +510,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'z':
 			if (control->flags & FLAG_NOT_LZMA)
-				failure("Can only use one of -l, -b, -g, -z or -n\n");
+				failure(control, "Can only use one of -l, -b, -g, -z or -n\n");
 			control->flags |= FLAG_ZPAQ_COMPRESS;
 			break;
 		}
@@ -520,7 +520,7 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	if (control->outname && argc > 1)
-		failure("Cannot specify output filename with more than 1 file\n");
+		failure(control, "Cannot specify output filename with more than 1 file\n");
 
 	if (VERBOSE && !SHOW_PROGRESS) {
 		print_err("Cannot have -v and -q options. -v wins.\n");
@@ -566,18 +566,18 @@ int main(int argc, char *argv[])
 
 				stat(control->infile, &infile_stat);
 				if (unlikely(S_ISDIR(infile_stat.st_mode)))
-					failure("lrzip only works directly on FILES.\n"
+					failure(control, "lrzip only works directly on FILES.\n"
 					"Use lrztar or pipe through tar for compressing directories.\n");
 			}
 		}
 
 		if (INFO && STDIN)
-			failure("Will not get file info from STDIN\n");
+			failure(control, "Will not get file info from STDIN\n");
 
 		if (control->outname && (strcmp(control->outname, "-") == 0)) {
 			control->flags |= FLAG_STDOUT;
 			control->msgout = stderr;
-			register_outputfile(control->msgout);
+			register_outputfile(control, control->msgout);
 		}
 
 		/* If no output filename is specified, and we're using stdin,
@@ -585,12 +585,12 @@ int main(int argc, char *argv[])
 		if (!control->outname && STDIN) {
 			control->flags |= FLAG_STDOUT;
 			control->msgout = stderr;
-			register_outputfile(control->msgout);
+			register_outputfile(control, control->msgout);
 		}
 
 		if (!STDOUT) {
 			control->msgout = stdout;
-			register_outputfile(control->msgout);
+			register_outputfile(control, control->msgout);
 		}
 		/* Implement signal handler only once flags are set */
 		handler.sa_handler = &sighandler;
@@ -626,7 +626,7 @@ int main(int argc, char *argv[])
 		gettimeofday(&start_time, NULL);
 
 		if (unlikely(STDIN && ENCRYPT))
-			failure("Unable to work from STDIN while reading password\n");
+			failure(control, "Unable to work from STDIN while reading password\n");
 
 		if (DECOMPRESS || TEST_ONLY)
 			decompress_file(control);

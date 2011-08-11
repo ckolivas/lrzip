@@ -65,8 +65,8 @@
 
 
 #ifdef __APPLE__
-# define fmemopen fake_fmemopen
-# define open_memstream fake_open_memstream
+# define fmemopen(s, len, modes) fake_fmemopen(control, (s), (len), (modes))
+# define open_memstream(bufloc, sizeloc) fake_open_memstream(control, (bufloc), (sizeloc))
 # define memstream_update_buffer fake_open_memstream_update_buffer
 # define mremap fake_mremap
 #else
@@ -105,53 +105,53 @@ static pthread_mutex_t output_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t output_cond = PTHREAD_COND_INITIALIZER;
 static pthread_t *threads;
 
-static void init_mutex(pthread_mutex_t *mutex)
+static void init_mutex(rzip_control *control, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_mutex_init(mutex, NULL)))
-		fatal("pthread_mutex_init failed");
+		fatal(control, "pthread_mutex_init failed");
 }
 
-static void unlock_mutex(pthread_mutex_t *mutex)
+static void unlock_mutex(rzip_control *control, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_mutex_unlock(mutex)))
-		fatal("pthread_mutex_unlock failed");
+		fatal(control, "pthread_mutex_unlock failed");
 }
 
-static void lock_mutex(pthread_mutex_t *mutex)
+static void lock_mutex(rzip_control *control, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_mutex_lock(mutex)))
-		fatal("pthread_mutex_lock failed");
+		fatal(control, "pthread_mutex_lock failed");
 }
 
-static void cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
+static void cond_wait(rzip_control *control, pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_cond_wait(cond, mutex)))
-		fatal("pthread_cond_wait failed");
+		fatal(control, "pthread_cond_wait failed");
 }
 
-static void cond_broadcast(pthread_cond_t *cond)
+static void cond_broadcast(rzip_control *control, pthread_cond_t *cond)
 {
 	if (unlikely(pthread_cond_broadcast(cond)))
-		fatal("pthread_cond_broadcast failed");
+		fatal(control, "pthread_cond_broadcast failed");
 }
 
-void create_pthread(pthread_t  *thread, pthread_attr_t * attr,
+void create_pthread(rzip_control *control, pthread_t *thread, pthread_attr_t * attr,
 	void * (*start_routine)(void *), void *arg)
 {
 	if (unlikely(pthread_create(thread, attr, start_routine, arg)))
-		fatal("pthread_create");
+		fatal(control, "pthread_create");
 }
 
-void detach_pthread(pthread_t *thread)
+void detach_pthread(rzip_control *control, pthread_t *thread)
 {
 	if (unlikely(pthread_detach(*thread)))
-		fatal("pthread_detach");
+		fatal(control, "pthread_detach");
 }
 
-void join_pthread(pthread_t th, void **thread_return)
+void join_pthread(rzip_control *control, pthread_t th, void **thread_return)
 {
 	if (pthread_join(th, thread_return))
-		fatal("pthread_join");
+		fatal(control, "pthread_join");
 }
 
 /* just to keep things clean, declare function here
@@ -159,12 +159,12 @@ void join_pthread(pthread_t th, void **thread_return)
 */
 static int lzo_compresses(rzip_control *control, uchar *s_buf, i64 s_len);
 
-static inline FILE *fake_fmemopen(void *buf, size_t buflen, char *mode)
+static inline FILE *fake_fmemopen(rzip_control *control, void *buf, size_t buflen, char *mode)
 {
 	FILE *in;
 
 	if (unlikely(strcmp(mode, "r")))
-		failure("fake_fmemopen only supports mode \"r\".");
+		failure(control, "fake_fmemopen only supports mode \"r\".");
 	in = tmpfile();
 	if (unlikely(!in))
 		return NULL;
@@ -174,12 +174,12 @@ static inline FILE *fake_fmemopen(void *buf, size_t buflen, char *mode)
         return in;
 }
 
-static inline FILE *fake_open_memstream(char **buf, size_t *length)
+static inline FILE *fake_open_memstream(rzip_control *control, char **buf, size_t *length)
 {
 	FILE *out;
 
 	if (unlikely(buf == NULL || length == NULL))
-		failure("NULL parameter to fake_open_memstream");
+		failure(control, "NULL parameter to fake_open_memstream");
 	out = tmpfile();
 	if (unlikely(!out))
 	        return NULL;
@@ -239,7 +239,7 @@ static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthr
 		       (int)(SHOW_PROGRESS), thread);
 
 	if (unlikely(memstream_update_buffer(out, &c_buf, &dlen)))
-	        fatal("Failed to memstream_update_buffer in zpaq_compress_buf");
+	        fatal(control, "Failed to memstream_update_buffer in zpaq_compress_buf");
 
 	fclose(in);
 	fclose(out);
@@ -501,7 +501,7 @@ static int zpaq_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 	zpipe_decompress(in, out, control->msgout, ucthread->u_len, (int)(SHOW_PROGRESS), thread);
 
 	if (unlikely(memstream_update_buffer(out, &c_buf, &dlen)))
-	        fatal("Failed to memstream_update_buffer in zpaq_decompress_buf");
+	        fatal(control, "Failed to memstream_update_buffer in zpaq_decompress_buf");
 
 	fclose(in);
 	fclose(out);
@@ -715,7 +715,7 @@ static void read_fdin(struct rzip_control *control, i64 len)
 	for (i = 0; i < len; i++) {
 		tmpchar = getchar();
 		if (unlikely(tmpchar == EOF))
-			failure("Reached end of file on STDIN prematurely on read_fdin, asked for %lld got %lld\n",
+			failure(control, "Reached end of file on STDIN prematurely on read_fdin, asked for %lld got %lld\n",
 				len, i);
 		control->tmp_inbuf[control->in_ofs + i] = (char)tmpchar;
 	}
@@ -747,7 +747,7 @@ ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
 
 	if (TMP_OUTBUF && fd == control->fd_out) {
 		if (unlikely(control->out_ofs + len > control->out_maxlen))
-			failure("Trying to read beyond out_ofs in tmpoutbuf\n");
+			failure(control, "Trying to read beyond out_ofs in tmpoutbuf\n");
 		memcpy(buf, control->tmp_outbuf + control->out_ofs, len);
 		control->out_ofs += len;
 		return len;
@@ -896,7 +896,7 @@ static i64 get_seek(rzip_control *control, int fd)
 		return control->out_relofs + control->out_ofs;
 	ret = lseek(fd, 0, SEEK_CUR);
 	if (unlikely(ret == -1))
-		fatal("Failed to lseek in get_seek\n");
+		fatal(control, "Failed to lseek in get_seek\n");
 	return ret;
 }
 
@@ -908,7 +908,7 @@ static i64 get_readseek(rzip_control *control, int fd)
 		return control->in_ofs;
 	ret = lseek(fd, 0, SEEK_CUR);
 	if (unlikely(ret == -1))
-		fatal("Failed to lseek in get_seek\n");
+		fatal(control, "Failed to lseek in get_seek\n");
 	return ret;
 }
 
@@ -926,14 +926,14 @@ void prepare_streamout_threads(rzip_control *control)
 		control->threads = 1;
 	threads = calloc(sizeof(pthread_t), control->threads);
 	if (unlikely(!threads))
-		fatal("Unable to calloc threads in prepare_streamout_threads\n");
+		fatal(control, "Unable to calloc threads in prepare_streamout_threads\n");
 
 	cthread = calloc(sizeof(struct compress_thread), control->threads);
 	if (unlikely(!cthread))
-		fatal("Unable to calloc cthread in prepare_streamout_threads\n");
+		fatal(control, "Unable to calloc cthread in prepare_streamout_threads\n");
 
 	for (i = 0; i < control->threads; i++)
-		init_mutex(&cthread[i].mutex);
+		init_mutex(control, &cthread[i].mutex);
 }
 
 
@@ -944,7 +944,7 @@ void close_streamout_threads(rzip_control *control)
 	/* Wait for the threads in the correct order in case they end up
 	 * serialised */
 	for (i = 0; i < control->threads; i++) {
-		lock_mutex(&cthread[close_thread].mutex);
+		lock_mutex(control, &cthread[close_thread].mutex);
 		if (++close_thread == control->threads)
 			close_thread = 0;
 	}
@@ -1045,7 +1045,7 @@ retest_malloc:
 	for (i = 0; i < n; i++) {
 		sinfo->s[i].buf = calloc(sinfo->bufsize , 1);
 		if (unlikely(!sinfo->s[i].buf))
-			fatal("Unable to malloc buffer of size %lld in open_stream_out\n", sinfo->bufsize);
+			fatal(control, "Unable to malloc buffer of size %lld in open_stream_out\n", sinfo->bufsize);
 	}
 
 	return (void *)sinfo;
@@ -1095,7 +1095,7 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 
 	ucthread = calloc(sizeof(struct uncomp_thread), total_threads);
 	if (unlikely(!ucthread))
-		fatal("Unable to calloc cthread in open_stream_in\n");
+		fatal(control, "Unable to calloc cthread in open_stream_in\n");
 
 	sinfo->num_streams = n;
 	sinfo->fd = f;
@@ -1227,22 +1227,22 @@ static void rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, 
 	cur_ofs = get_seek(control, sinfo->fd) - sinfo->initial_pos;
 	head = malloc(25 + SALT_LEN);
 	if (unlikely(!head))
-		fatal("Failed to malloc head in rewrite_encrypted\n");
+		fatal(control, "Failed to malloc head in rewrite_encrypted\n");
 	buf = head + SALT_LEN;
-	get_rand(head, SALT_LEN);
+	get_rand(control, head, SALT_LEN);
 	if (unlikely(seekto(control, sinfo, ofs - SALT_LEN)))
-		failure("Failed to seekto buf ofs in rewrite_encrypted\n");
+		failure(control, "Failed to seekto buf ofs in rewrite_encrypted\n");
 	if (unlikely(write_buf(control, head, SALT_LEN)))
-		failure("Failed to write_buf head in rewrite_encrypted\n");
+		failure(control, "Failed to write_buf head in rewrite_encrypted\n");
 	if (unlikely(read_buf(control, sinfo->fd, buf, 25)))
-		failure("Failed to read_buf buf in rewrite_encrypted\n");
+		failure(control, "Failed to read_buf buf in rewrite_encrypted\n");
 
 	lrz_encrypt(control, buf, 25, head);
 
 	if (unlikely(seekto(control, sinfo, ofs)))
-		failure("Failed to seek back to ofs in rewrite_encrypted\n");
+		failure(control, "Failed to seek back to ofs in rewrite_encrypted\n");
 	if (unlikely(write_buf(control, buf, 25)))
-		failure("Failed to write_buf encrypted buf in rewrite_encrypted\n");
+		failure(control, "Failed to write_buf encrypted buf in rewrite_encrypted\n");
 	free(head);
 	seekto(control, sinfo, cur_ofs);
 }
@@ -1287,7 +1287,7 @@ retry:
 			ret = gzip_compress_buf(control, cti);
 		else if (ZPAQ_COMPRESS)
 			ret = zpaq_compress_buf(control, cti, i);
-		else failure("Dunno wtf compression to use!\n");
+		else failure(control, "Dunno wtf compression to use!\n");
 	}
 
 	padded_len = cti->c_len;
@@ -1298,21 +1298,21 @@ retry:
 		padded_len = MIN_SIZE;
 		cti->s_buf = realloc(cti->s_buf, MIN_SIZE);
 		if (unlikely(!cti->s_buf))
-			fatal("Failed to realloc s_buf in compthread\n");
-		get_rand(cti->s_buf + cti->c_len, MIN_SIZE - cti->c_len);
+			fatal(control, "Failed to realloc s_buf in compthread\n");
+		get_rand(control, cti->s_buf + cti->c_len, MIN_SIZE - cti->c_len);
 	}
 
 	/* If compression fails for whatever reason multithreaded, then wait
 	 * for the previous thread to finish, serialising the work to decrease
 	 * the memory requirements, increasing the chance of success */
 	if (unlikely(ret && waited))
-		failure("Failed to compress in compthread\n");
+		failure(control, "Failed to compress in compthread\n");
 
 	if (!waited) {
-		lock_mutex(&output_lock);
+		lock_mutex(control, &output_lock);
 		while (output_thread != i)
-			cond_wait(&output_cond, &output_lock);
-		unlock_mutex(&output_lock);
+			cond_wait(control, &output_cond, &output_lock);
+		unlock_mutex(control, &output_lock);
 		waited = 1;
 	}
 	if (unlikely(ret)) {
@@ -1352,7 +1352,7 @@ retry:
 			* later */
 			if (ENCRYPT) {
 				if (unlikely(write_val(control, 0, SALT_LEN)))
-					fatal("Failed to write_buf blank salt in compthread %d\n", i);
+					fatal(control, "Failed to write_buf blank salt in compthread %d\n", i);
 				ctis->cur_pos += SALT_LEN;
 			}
 			ctis->s[j].last_head = ctis->cur_pos + 1 + (write_len * 2);
@@ -1365,23 +1365,23 @@ retry:
 	}
 
 	if (unlikely(seekto(control, ctis, ctis->s[cti->streamno].last_head)))
-		fatal("Failed to seekto in compthread %d\n", i);
+		fatal(control, "Failed to seekto in compthread %d\n", i);
 
 	if (unlikely(write_val(control, ctis->cur_pos, write_len)))
-		fatal("Failed to write_val cur_pos in compthread %d\n", i);
+		fatal(control, "Failed to write_val cur_pos in compthread %d\n", i);
 
 	if (ENCRYPT)
 		rewrite_encrypted(control, ctis, ctis->s[cti->streamno].last_head - 17);
 
 	ctis->s[cti->streamno].last_head = ctis->cur_pos + 1 + (write_len * 2) + (ENCRYPT ? SALT_LEN : 0);
 	if (unlikely(seekto(control, ctis, ctis->cur_pos)))
-		fatal("Failed to seekto cur_pos in compthread %d\n", i);
+		fatal(control, "Failed to seekto cur_pos in compthread %d\n", i);
 
 	print_maxverbose("Thread %ld writing %lld compressed bytes from stream %d\n", i, padded_len, cti->streamno);
 
 	if (ENCRYPT) {
 		if (unlikely(write_val(control, 0, SALT_LEN)))
-			fatal("Failed to write_buf header salt in compthread %d\n", i);
+			fatal(control, "Failed to write_buf header salt in compthread %d\n", i);
 		ctis->cur_pos += SALT_LEN;
 		ctis->s[cti->streamno].last_headofs = ctis->cur_pos;
 	}
@@ -1390,30 +1390,30 @@ retry:
 		write_val(control, cti->c_len, write_len) ||
 		write_val(control, cti->s_len, write_len) ||
 		write_val(control, 0, write_len))) {
-			fatal("Failed write in compthread %d\n", i);
+			fatal(control, "Failed write in compthread %d\n", i);
 	}
 	ctis->cur_pos += 1 + (write_len * 3);
 
 	if (ENCRYPT) {
-		get_rand(cti->salt, SALT_LEN);
+		get_rand(control, cti->salt, SALT_LEN);
 		if (unlikely(write_buf(control, cti->salt, SALT_LEN)))
-			fatal("Failed to write_buf block salt in compthread %d\n", i);
+			fatal(control, "Failed to write_buf block salt in compthread %d\n", i);
 		lrz_encrypt(control, cti->s_buf, padded_len, cti->salt);
 		ctis->cur_pos += SALT_LEN;
 	}
 	if (unlikely(write_buf(control, cti->s_buf, padded_len)))
-		fatal("Failed to write_buf s_buf in compthread %d\n", i);
+		fatal(control, "Failed to write_buf s_buf in compthread %d\n", i);
 
 	ctis->cur_pos += padded_len;
 	free(cti->s_buf);
 
-	lock_mutex(&output_lock);
+	lock_mutex(control, &output_lock);
 	if (++output_thread == control->threads)
 		output_thread = 0;
-	cond_broadcast(&output_cond);
-	unlock_mutex(&output_lock);
+	cond_broadcast(control, &output_cond);
+	unlock_mutex(control, &output_lock);
 
-	unlock_mutex(&cti->mutex);
+	unlock_mutex(control, &cti->mutex);
 
 	return 0;
 }
@@ -1424,7 +1424,7 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 	stream_thread_struct *s;
 
 	/* Make sure this thread doesn't already exist */
-	lock_mutex(&cthread[i].mutex);
+	lock_mutex(control, &cthread[i].mutex);
 
 	cthread[i].sinfo = sinfo;
 	cthread[i].streamno = streamno;
@@ -1436,18 +1436,18 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 
 	s = malloc(sizeof(stream_thread_struct));
 	if (unlikely(!s))
-		fatal("Unable to malloc in clear_buffer");
+		fatal(control, "Unable to malloc in clear_buffer");
 	s->i = i;
 	s->control = control;
-	create_pthread(&threads[i], NULL, compthread, s);
-	detach_pthread(&threads[i]);
+	create_pthread(control, &threads[i], NULL, compthread, s);
+	detach_pthread(control, &threads[i]);
 
 	if (newbuf) {
 		/* The stream buffer has been given to the thread, allocate a
 		 * new one. */
 		sinfo->s[streamno].buf = malloc(sinfo->bufsize);
 		if (unlikely(!sinfo->s[streamno].buf))
-			fatal("Unable to malloc buffer of size %lld in flush_buffer\n", sinfo->bufsize);
+			fatal(control, "Unable to malloc buffer of size %lld in flush_buffer\n", sinfo->bufsize);
 		sinfo->s[streamno].buflen = 0;
 	}
 
@@ -1494,7 +1494,7 @@ retry:
 				ret = zpaq_decompress_buf(control, uci, i);
 				break;
 			default:
-				failure("Dunno wtf decompression type to use!\n");
+				failure(control, "Dunno wtf decompression type to use!\n");
 				break;
 		}
 	}
@@ -1503,15 +1503,15 @@ retry:
 	 * parallel */
 	if (unlikely(ret)) {
 		if (unlikely(waited))
-			failure("Failed to decompress in ucompthread\n");
+			failure(control, "Failed to decompress in ucompthread\n");
 		print_maxverbose("Unable to decompress in parallel, waiting for previous thread to complete before trying again\n");
 		/* We do not strictly need to wait for this, so it's used when
 		 * decompression fails due to inadequate memory to try again
 		 * serialised. */
-		lock_mutex(&output_lock);
+		lock_mutex(control, &output_lock);
 		while (output_thread != i)
-			cond_wait(&output_cond, &output_lock);
-		unlock_mutex(&output_lock);
+			cond_wait(control, &output_cond, &output_lock);
+		unlock_mutex(control, &output_lock);
 		waited = 1;
 		goto retry;
 	}
@@ -1536,7 +1536,7 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int str
 		goto out;
 fill_another:
 	if (unlikely(ucthread[s->uthread_no].busy))
-		failure("Trying to start a busy thread, this shouldn't happen!\n");
+		failure(control, "Trying to start a busy thread, this shouldn't happen!\n");
 
 	if (unlikely(read_seekto(control, sinfo, s->last_head)))
 		return -1;
@@ -1589,7 +1589,7 @@ fill_another:
 
 	s_buf = malloc(MAX(u_len, MIN_SIZE));
 	if (unlikely(u_len && !s_buf))
-		fatal("Unable to malloc buffer of size %lld in fill_buffer\n", u_len);
+		fatal(control, "Unable to malloc buffer of size %lld in fill_buffer\n", u_len);
 	sinfo->ram_alloced += u_len;
 
 	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len)))
@@ -1612,10 +1612,10 @@ fill_another:
 
 	st = malloc(sizeof(stream_thread_struct));
 	if (unlikely(!st))
-		fatal("Unable to malloc in fill_buffer");
+		fatal(control, "Unable to malloc in fill_buffer");
 	st->i = s->uthread_no;
 	st->control = control;
-	create_pthread(&threads[s->uthread_no], NULL, ucompthread, st);
+	create_pthread(control, &threads[s->uthread_no], NULL, ucompthread, st);
 
 	if (++s->uthread_no == s->base_thread + s->total_threads)
 		s->uthread_no = s->base_thread;
@@ -1630,13 +1630,13 @@ fill_another:
 		 sinfo->ram_alloced < control->maxram)
 			goto fill_another;
 out:
-	lock_mutex(&output_lock);
+	lock_mutex(control, &output_lock);
 	output_thread = s->unext_thread;
-	cond_broadcast(&output_cond);
-	unlock_mutex(&output_lock);
+	cond_broadcast(control, &output_cond);
+	unlock_mutex(control, &output_lock);
 
 	/* join_pthread here will make it wait till the data is ready */
-	join_pthread(threads[s->unext_thread], NULL);
+	join_pthread(control, threads[s->unext_thread], NULL);
 	ucthread[s->unext_thread].busy = 0;
 
 	print_maxverbose("Taking decompressed data from thread %ld\n", s->unext_thread);
@@ -1722,8 +1722,8 @@ int close_stream_out(rzip_control *control, void *ss)
 		int close_thread = output_thread;
 
 		for (i = 0; i < control->threads; i++) {
-			lock_mutex(&cthread[close_thread].mutex);
-			unlock_mutex(&cthread[close_thread].mutex);
+			lock_mutex(control, &cthread[close_thread].mutex);
+			unlock_mutex(control, &cthread[close_thread].mutex);
 			if (++close_thread == control->threads)
 				close_thread = 0;
 		}
@@ -1779,14 +1779,14 @@ static int lzo_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 		return 1;
 	wrkmem = (lzo_bytep) malloc(LZO1X_1_MEM_COMPRESS);
 	if (unlikely(wrkmem == NULL))
-		fatal("Unable to allocate wrkmem in lzo_compresses\n");
+		fatal(control, "Unable to allocate wrkmem in lzo_compresses\n");
 
 	in_len = MIN(test_len, buftest_size);
 	dlen = STREAM_BUFSIZE + STREAM_BUFSIZE / 16 + 64 + 3;
 
 	c_buf = malloc(dlen);
 	if (unlikely(!c_buf))
-		fatal("Unable to allocate c_buf in lzo_compresses\n");
+		fatal(control, "Unable to allocate c_buf in lzo_compresses\n");
 
 	/* Test progressively larger blocks at a time and as soon as anything
 	   compressible is found, jump out as a success */

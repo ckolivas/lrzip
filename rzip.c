@@ -150,19 +150,19 @@ static void remap_low_sb(rzip_control *control)
 	round_to_page(&new_offset);
 	print_maxverbose("Sliding main buffer to offset %lld\n", new_offset);
 	if (unlikely(munmap(sb.buf_low, sb.size_low)))
-		fatal("Failed to munmap in remap_low_sb\n");
+		fatal(control, "Failed to munmap in remap_low_sb\n");
 	if (new_offset + sb.size_low > sb.orig_size)
 		sb.size_low = sb.orig_size - new_offset;
 	sb.offset_low = new_offset;
 	sb.buf_low = (uchar *)mmap(sb.buf_low, sb.size_low, PROT_READ, MAP_SHARED, sb.fd, sb.orig_offset + sb.offset_low);
 	if (unlikely(sb.buf_low == MAP_FAILED))
-		fatal("Failed to re mmap in remap_low_sb\n");
+		fatal(control, "Failed to re mmap in remap_low_sb\n");
 }
 
 static inline void remap_high_sb(rzip_control *control, i64 p)
 {
 	if (unlikely(munmap(sb.buf_high, sb.size_high)))
-		fatal("Failed to munmap in remap_high_sb\n");
+		fatal(control, "Failed to munmap in remap_high_sb\n");
 	sb.size_high = sb.high_length; /* In case we shrunk it when we hit the end of the file */
 	sb.offset_high = p;
 	/* Make sure offset is rounded to page size of total offset */
@@ -171,7 +171,7 @@ static inline void remap_high_sb(rzip_control *control, i64 p)
 		sb.size_high = sb.orig_size - sb.offset_high;
 	sb.buf_high = (uchar *)mmap(sb.buf_high, sb.size_high, PROT_READ, MAP_SHARED, sb.fd, sb.orig_offset + sb.offset_high);
 	if (unlikely(sb.buf_high == MAP_FAILED))
-		fatal("Failed to re mmap in remap_high_sb\n");
+		fatal(control, "Failed to re mmap in remap_high_sb\n");
 }
 
 /* We use a "sliding mmap" to effectively read more than we can fit into the
@@ -199,14 +199,14 @@ static uchar *get_sb(rzip_control *control, i64 p)
 static inline void put_u8(rzip_control *control, void *ss, uchar b)
 {
 	if (unlikely(write_stream(control, ss, 0, &b, 1)))
-		fatal("Failed to put_u8\n");
+		fatal(control, "Failed to put_u8\n");
 }
 
 static inline void put_u32(rzip_control *control, void *ss, uint32_t s)
 {
 	s = htole32(s);
 	if (unlikely(write_stream(control, ss, 0, (uchar *)&s, 4)))
-		fatal("Failed to put_u32\n");
+		fatal(control, "Failed to put_u32\n");
 }
 
 /* Put a variable length of bytes dependant on how big the chunk is */
@@ -214,7 +214,7 @@ static inline void put_vchars(rzip_control *control, void *ss, i64 s, int length
 {
 	s = htole64(s);
 	if (unlikely(write_stream(control, ss, 0, (uchar *)&s, length)))
-		fatal("Failed to put_vchars\n");
+		fatal(control, "Failed to put_vchars\n");
 }
 
 static void put_header(rzip_control *control, void *ss, uchar head, i64 len)
@@ -280,7 +280,7 @@ static void put_literal(rzip_control *control, struct rzip_state *st, i64 last, 
 		put_header(control, st->ss, 0, len);
 
 		if (unlikely(len && write_sbstream(control, st->ss, 1, last, len)))
-			fatal("Failed to write_stream in put_literal\n");
+			fatal(control, "Failed to write_stream in put_literal\n");
 		last += len;
 	} while (p > last);
 }
@@ -544,7 +544,7 @@ static void hash_search(rzip_control *control, struct rzip_state *st, double pct
 	}
 
 	if (unlikely(!st->hash_table))
-		fatal("Failed to allocate hash table in hash_search\n");
+		fatal(control, "Failed to allocate hash table in hash_search\n");
 
 	st->minimum_tag_mask = tag_mask;
 	st->tag_clean_ptr = 0;
@@ -621,7 +621,7 @@ static void hash_search(rzip_control *control, struct rzip_state *st, double pct
 			uchar *ckbuf = malloc(n);
 
 			if (unlikely(!ckbuf))
-				fatal("Failed to malloc ckbuf in hash_search\n");
+				fatal(control, "Failed to malloc ckbuf in hash_search\n");
 			for (i = 0; i < n; i++)
 				memcpy(ckbuf + i, get_sb(control, cksum_limit + i), 1);
 			st->cksum = CrcUpdate(st->cksum, ckbuf, n);
@@ -643,7 +643,7 @@ static void hash_search(rzip_control *control, struct rzip_state *st, double pct
 		uchar *ckbuf = malloc(n);
 
 		if (unlikely(!ckbuf))
-			fatal("Failed to malloc ckbuf in hash_search\n");
+			fatal(control, "Failed to malloc ckbuf in hash_search\n");
 		for (i = 0; i < n; i++)
 			memcpy(ckbuf + i, get_sb(control, cksum_limit + i), 1);
 		st->cksum = CrcUpdate(st->cksum, ckbuf, n);
@@ -688,7 +688,7 @@ static void mmap_stdin(rzip_control *control, uchar *buf, struct rzip_state *st)
 		ret = MIN(len, one_g);
 		ret = read(0, offset_buf, (size_t)ret);
 		if (unlikely(ret < 0))
-			fatal("Failed to read in mmap_stdin\n");
+			fatal(control, "Failed to read in mmap_stdin\n");
 		total += ret;
 		if (ret == 0) {
 			/* Should be EOF */
@@ -703,7 +703,7 @@ static void mmap_stdin(rzip_control *control, uchar *buf, struct rzip_state *st)
 				st->chunk_size = 0;
 			}
 			if (unlikely(buf == MAP_FAILED))
-				fatal("Failed to remap to smaller buf in mmap_stdin\n");
+				fatal(control, "Failed to remap to smaller buf in mmap_stdin\n");
 			control->eof = st->stdin_eof = 1;
 			break;
 		}
@@ -723,7 +723,7 @@ static void init_sliding_mmap(rzip_control *control, struct rzip_state *st, int 
 			sb.high_length += control->page_size - (sb.high_length % control->page_size);
 		sb.buf_high = (uchar *)mmap(NULL, sb.high_length, PROT_READ, MAP_SHARED, fd_in, offset);
 		if (unlikely(sb.buf_high == MAP_FAILED))
-			fatal("Unable to mmap buf_high in init_sliding_mmap\n");
+			fatal(control, "Unable to mmap buf_high in init_sliding_mmap\n");
 		sb.size_high = sb.high_length;
 		sb.offset_high = 0;
 	}
@@ -743,21 +743,21 @@ static void rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, 
 
 	st->ss = open_stream_out(control, fd_out, NUM_STREAMS, st->chunk_size, st->chunk_bytes);
 	if (unlikely(!st->ss))
-		fatal("Failed to open streams in rzip_chunk\n");
+		fatal(control, "Failed to open streams in rzip_chunk\n");
 
 	print_verbose("Beginning rzip pre-processing phase\n");
 	hash_search(control, st, pct_base, pct_multiple);
 
 	/* unmap buffer before closing and reallocating streams */
 	if (unlikely(munmap(sb.buf_low, sb.size_low)))
-		fatal("Failed to munmap in rzip_chunk\n");
+		fatal(control, "Failed to munmap in rzip_chunk\n");
 	if (!STDIN) {
 		if (unlikely(munmap(sb.buf_high, sb.size_high)))
-			fatal("Failed to munmap in rzip_chunk\n");
+			fatal(control, "Failed to munmap in rzip_chunk\n");
 	}
 
 	if (unlikely(close_stream_out(control, st->ss)))
-		fatal("Failed to flush/close streams in rzip_chunk\n");
+		fatal(control, "Failed to flush/close streams in rzip_chunk\n");
 }
 
 /* compress a whole file chunks at a time */
@@ -784,15 +784,15 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 
 	st = calloc(sizeof(*st), 1);
 	if (unlikely(!st))
-		fatal("Failed to allocate control state in rzip_fd\n");
+		fatal(control, "Failed to allocate control state in rzip_fd\n");
 
 	if (LZO_COMPRESS) {
 		if (unlikely(lzo_init() != LZO_E_OK))
-			fatal("lzo_init() failed\n");
+			fatal(control, "lzo_init() failed\n");
 	}
 
 	if (unlikely(fstat(fd_in, &s)))
-		fatal("Failed to stat fd_in in rzip_fd\n");
+		fatal(control, "Failed to stat fd_in in rzip_fd\n");
 
 	if (!STDIN) {
 		len = control->st_size = s.st_size;
@@ -805,13 +805,13 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 		* compressed file, based on the compressed file being as large as the
 		* uncompressed file. */
 		if (unlikely(fstatvfs(fd_out, &fbuf)))
-			fatal("Failed to fstatvfs in compress_file\n");
+			fatal(control, "Failed to fstatvfs in compress_file\n");
 		free_space = (i64)fbuf.f_bsize * (i64)fbuf.f_bavail;
 		if (free_space < control->st_size) {
 			if (FORCE_REPLACE)
 				print_err("Warning, possibly inadequate free space detected, but attempting to compress due to -f option being used.\n");
 			else
-				failure("Possibly inadequate free space to compress file, use -f to override.\n");
+				failure(control, "Possibly inadequate free space to compress file, use -f to override.\n");
 		}
 	}
 
@@ -879,11 +879,11 @@ retry:
 			/* Better to shrink the window to the largest size that works than fail */
 			if (sb.buf_low == MAP_FAILED) {
 				if (unlikely(errno != ENOMEM))
-					fatal("Failed to mmap %s\n", control->infile);
+					fatal(control, "Failed to mmap %s\n", control->infile);
 				st->mmap_size = st->mmap_size / 10 * 9;
 				round_to_page(&st->mmap_size);
 				if (unlikely(!st->mmap_size))
-					fatal("Unable to mmap any ram\n");
+					fatal(control, "Unable to mmap any ram\n");
 				goto retry;
 			}
 			st->chunk_size = st->mmap_size;
@@ -893,11 +893,11 @@ retry:
 			sb.buf_low = (uchar *)mmap(sb.buf_low, st->mmap_size, PROT_READ, MAP_SHARED, fd_in, offset);
 			if (sb.buf_low == MAP_FAILED) {
 				if (unlikely(errno != ENOMEM))
-					fatal("Failed to mmap %s\n", control->infile);
+					fatal(control, "Failed to mmap %s\n", control->infile);
 				st->mmap_size = st->mmap_size / 10 * 9;
 				round_to_page(&st->mmap_size);
 				if (unlikely(!st->mmap_size))
-					fatal("Unable to mmap any ram\n");
+					fatal(control, "Unable to mmap any ram\n");
 				goto retry;
 			}
 			if (st->mmap_size < st->chunk_size)
@@ -976,7 +976,7 @@ retry:
 		last_chunk = st->chunk_size;
 		len -= st->chunk_size;
 		if (unlikely(len > 0 && control->eof))
-			failure("Wrote EOF to file yet chunk_size was shrunk, corrupting archive.\n");
+			failure(control, "Wrote EOF to file yet chunk_size was shrunk, corrupting archive.\n");
 	}
 
 	close_streamout_threads(control);
@@ -996,7 +996,7 @@ retry:
 		if (ENCRYPT)
 			lrz_encrypt(control, md5_resblock, MD5_DIGEST_SIZE, control->salt_pass);
 		if (unlikely(write_1g(control, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
-			fatal("Failed to write md5 in rzip_fd\n");
+			fatal(control, "Failed to write md5 in rzip_fd\n");
 	}
 
 	if (TMP_OUTBUF)
@@ -1025,4 +1025,12 @@ retry:
 		       1.0 * s.st_size / s2.st_size, chunkmbs);
 
 	free(st);
+}
+
+void rzip_control_free(rzip_control *control)
+{
+   if (!control) return;
+
+   free(control->tmpdir);
+   free(control);
 }

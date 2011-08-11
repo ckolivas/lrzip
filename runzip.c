@@ -54,7 +54,7 @@ static inline uchar read_u8(rzip_control *control, void *ss, int stream)
 	uchar b;
 
 	if (unlikely(read_stream(control, ss, stream, &b, 1) != 1))
-		fatal("Stream read u8 failed\n");
+		fatal(control, "Stream read u8 failed\n");
 	return b;
 }
 
@@ -63,7 +63,7 @@ static inline u32 read_u32(rzip_control *control, void *ss, int stream)
 	u32 ret;
 
 	if (unlikely(read_stream(control, ss, stream, (uchar *)&ret, 4) != 4))
-		fatal("Stream read u32 failed\n");
+		fatal(control, "Stream read u32 failed\n");
 	ret = le32toh(ret);
 	return ret;
 }
@@ -74,7 +74,7 @@ static inline i64 read_vchars(rzip_control *control, void *ss, int stream, int l
 	i64 s = 0;
 
 	if (unlikely(read_stream(control, ss, stream, (uchar *)&s, length) != length))
-		fatal("Stream read of %d bytes failed\n", length);
+		fatal(control, "Stream read of %d bytes failed\n", length);
 	s = le64toh(s);
 	return s;
 }
@@ -128,7 +128,7 @@ static i64 seekto_fdinend(rzip_control *control)
 	while ((tmpchar = getchar()) != EOF) {
 		control->tmp_inbuf[control->in_len++] = (char)tmpchar;
 		if (unlikely(control->in_len > control->in_maxlen))
-			failure("Trying to read greater than max_len\n");
+			failure(control, "Trying to read greater than max_len\n");
 	}
 	control->in_ofs = control->in_len;
 	return control->in_ofs;
@@ -151,18 +151,18 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum
 	uchar *buf;
 
 	if (unlikely(len < 0))
-		failure("len %lld is negative in unzip_literal!\n",len);
+		failure(control, "len %lld is negative in unzip_literal!\n",len);
 
 	buf = (uchar *)malloc(len);
 	if (unlikely(!buf))
-		fatal("Failed to malloc literal buffer of size %lld\n", len);
+		fatal(control, "Failed to malloc literal buffer of size %lld\n", len);
 
 	stream_read = read_stream(control, ss, 1, buf, len);
 	if (unlikely(stream_read == -1 ))
-		fatal("Failed to read_stream in unzip_literal\n");
+		fatal(control, "Failed to read_stream in unzip_literal\n");
 
 	if (unlikely(write_1g(control, buf, (size_t)stream_read) != (ssize_t)stream_read))
-		fatal("Failed to write literal buffer of size %lld\n", stream_read);
+		fatal(control, "Failed to write literal buffer of size %lld\n", stream_read);
 
 	if (!HAS_MD5)
 		*cksum = CrcUpdate(*cksum, buf, stream_read);
@@ -191,32 +191,32 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 	uchar *buf, *off_buf;
 
 	if (unlikely(len < 0))
-		failure("len %lld is negative in unzip_match!\n",len);
+		failure(control, "len %lld is negative in unzip_match!\n",len);
 
 	total = 0;
 	cur_pos = seekcur_fdout(control);
 	if (unlikely(cur_pos == -1))
-		fatal("Seek failed on out file in unzip_match.\n");
+		fatal(control, "Seek failed on out file in unzip_match.\n");
 
 	/* Note the offset is in a different format v0.40+ */
 	offset = read_vchars(control, ss, 0, chunk_bytes);
 	if (unlikely(seekto_fdhist(control, cur_pos - offset) == -1))
-		fatal("Seek failed by %d from %d on history file in unzip_match\n",
+		fatal(control, "Seek failed by %d from %d on history file in unzip_match\n",
 		      offset, cur_pos);
 
 	buf = (uchar *)malloc(len);
 	if (unlikely(!buf))
-		fatal("Failed to malloc match buffer of size %lld\n", len);
+		fatal(control, "Failed to malloc match buffer of size %lld\n", len);
 	off_buf = buf;
 
 	while (len) {
 		n = MIN(len, offset);
 
 		if (unlikely(read_fdhist(control, off_buf, (size_t)n) != (ssize_t)n))
-			fatal("Failed to read %d bytes in unzip_match\n", n);
+			fatal(control, "Failed to read %d bytes in unzip_match\n", n);
 
 		if (unlikely(write_1g(control, off_buf, (size_t)n) != (ssize_t)n))
-			fatal("Failed to write %d bytes in unzip_match\n", n);
+			fatal(control, "Failed to write %d bytes in unzip_match\n", n);
 
 		if (!HAS_MD5)
 			*cksum = CrcUpdate(*cksum, off_buf, n);
@@ -233,7 +233,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 	return total;
 }
 
-/* decompress a section of an open file. Call fatal() on error
+/* decompress a section of an open file. Call fatal(control, ) on error
    return the number of bytes that have been retrieved
  */
 static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64 tally)
@@ -273,9 +273,9 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	else {
 		/* Read in the stored chunk byte width from the file */
 		if (unlikely(read_1g(control, fd_in, &chunk_bytes, 1) != 1))
-			fatal("Failed to read chunk_bytes size in runzip_chunk\n");
+			fatal(control, "Failed to read chunk_bytes size in runzip_chunk\n");
 		if (unlikely(chunk_bytes < 1 || chunk_bytes > 8))
-			failure("chunk_bytes %d is invalid in runzip_chunk\n", chunk_bytes);
+			failure(control, "chunk_bytes %d is invalid in runzip_chunk\n", chunk_bytes);
 	}
 	if (!tally && expected_size)
 		print_maxverbose("Expected size: %lld\n", expected_size);
@@ -283,14 +283,14 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 
 	ofs = seekcur_fdin(control);
 	if (unlikely(ofs == -1))
-		fatal("Failed to seek input file in runzip_fd\n");
+		fatal(control, "Failed to seek input file in runzip_fd\n");
 
 	if (fstat(fd_in, &st) || st.st_size - ofs == 0)
 		return 0;
 
 	ss = open_stream_in(control, fd_in, NUM_STREAMS, chunk_bytes);
 	if (unlikely(!ss))
-		failure("Failed to open_stream_in in runzip_chunk\n");
+		failure(control, "Failed to open_stream_in in runzip_chunk\n");
 
 	while ((len = read_header(control, ss, &head)) || head) {
 		switch (head) {
@@ -316,17 +316,17 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	if (!HAS_MD5) {
 		good_cksum = read_u32(control, ss, 0);
 		if (unlikely(good_cksum != cksum))
-			failure("Bad checksum: 0x%08x - expected: 0x%08x\n", cksum, good_cksum);
+			failure(control, "Bad checksum: 0x%08x - expected: 0x%08x\n", cksum, good_cksum);
 		print_maxverbose("Checksum for block: 0x%08x\n", cksum);
 	}
 
 	if (unlikely(close_stream_in(ss)))
-		fatal("Failed to close stream!\n");
+		fatal(control, "Failed to close stream!\n");
 
 	return total;
 }
 
-/* Decompress an open file. Call fatal() on error
+/* Decompress an open file. Call fatal(control, ) on error
    return the number of bytes that have been retrieved
  */
 i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 expected_size)
@@ -365,12 +365,12 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 			i64 fdinend = seekto_fdinend(control);
 
 			if (unlikely(fdinend == -1))
-				failure("Failed to seekto_fdinend in rzip_fd\n");
+				failure(control, "Failed to seekto_fdinend in rzip_fd\n");
 			if (unlikely(seekto_fdin(control, fdinend - MD5_DIGEST_SIZE) == -1))
-				failure("Failed to seekto_fdin in rzip_fd\n");
+				failure(control, "Failed to seekto_fdin in rzip_fd\n");
 
 			if (unlikely(read_1g(control, fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
-				fatal("Failed to read md5 data in runzip_fd\n");
+				fatal(control, "Failed to read md5 data in runzip_fd\n");
 			if (ENCRYPT)
 				lrz_decrypt(control, md5_stored, MD5_DIGEST_SIZE, control->salt_pass);
 			for (i = 0; i < MD5_DIGEST_SIZE; i++)
@@ -381,7 +381,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 					print_output("\nOutput file:");
 					for (j = 0; j < MD5_DIGEST_SIZE; j++)
 						print_output("%02x", md5_resblock[j] & 0xFF);
-					failure("\n");
+					failure(control, "\n");
 				}
 		}
 
@@ -400,11 +400,11 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 				close_tmpoutbuf(control);
 			memcpy(md5_stored, md5_resblock, MD5_DIGEST_SIZE);
 			if (unlikely(seekto_fdhist(control, 0) == -1))
-				fatal("Failed to seekto_fdhist in runzip_fd\n");
+				fatal(control, "Failed to seekto_fdhist in runzip_fd\n");
 			if (unlikely((md5_fstream = fdopen(fd_hist, "r")) == NULL))
-				fatal("Failed to fdopen fd_hist in runzip_fd\n");
+				fatal(control, "Failed to fdopen fd_hist in runzip_fd\n");
 			if (unlikely(md5_stream(md5_fstream, md5_resblock)))
-				fatal("Failed to md5_stream in runzip_fd\n");
+				fatal(control, "Failed to md5_stream in runzip_fd\n");
 			/* We don't close the file here as it's closed in main */
 			for (i = 0; i < MD5_DIGEST_SIZE; i++)
 				if (md5_stored[i] != md5_resblock[i]) {
@@ -414,7 +414,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 					print_output("\nOutput file:");
 					for (j = 0; j < MD5_DIGEST_SIZE; j++)
 						print_output("%02x", md5_resblock[j] & 0xFF);
-					failure("\n");
+					failure(control, "\n");
 				}
 			print_output("MD5 integrity of written file matches archive\n");
 			if (!HAS_MD5)

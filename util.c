@@ -57,40 +57,34 @@
 #include "sha4.h"
 #include "aes.h"
 
-static const char *infile = NULL;
-static char delete_infile = 0;
-static const char *outfile = NULL;
-static char delete_outfile = 0;
-static FILE *outputfile = NULL;
-
-void register_infile(const char *name, char delete)
+void register_infile(rzip_control *control, const char *name, char delete)
 {
-	infile = name;
-	delete_infile = delete;
+	control->util_infile = name;
+	control->delete_infile = delete;
 }
 
-void register_outfile(const char *name, char delete)
+void register_outfile(rzip_control *control, const char *name, char delete)
 {
-	outfile = name;
-	delete_outfile = delete;
+	control->util_outfile = name;
+	control->delete_outfile = delete;
 }
 
-void register_outputfile(FILE *f)
+void register_outputfile(rzip_control *control, FILE *f)
 {
-	outputfile = f;
+	control->outputfile = f;
 }
 
-void unlink_files(void)
+void unlink_files(rzip_control *control)
 {
 	/* Delete temporary files generated for testing or faking stdio */
-	if (outfile && delete_outfile)
-		unlink(outfile);
+	if (control->util_outfile && control->delete_outfile)
+		unlink(control->util_outfile);
 
-	if (infile && delete_infile)
-		unlink(infile);
+	if (control->util_infile && control->delete_infile)
+		unlink(control->util_infile);
 }
 
-static void fatal_exit(void)
+static void fatal_exit(rzip_control *control)
 {
 	struct termios termios_p;
 
@@ -99,14 +93,14 @@ static void fatal_exit(void)
 	termios_p.c_lflag |= ECHO;
 	tcsetattr(fileno(stdin), 0, &termios_p);
 
-	unlink_files();
-	fprintf(outputfile, "Fatal error - exiting\n");
-	fflush(outputfile);
+	unlink_files(control);
+	fprintf(control->outputfile, "Fatal error - exiting\n");
+	fflush(control->outputfile);
 	abort();
 }
 
 /* Failure when there is likely to be a meaningful error in perror */
-void fatal(const char *format, ...)
+void fatal(const rzip_control *control, const char *format, ...)
 {
 	va_list ap;
 
@@ -117,10 +111,10 @@ void fatal(const char *format, ...)
 	}
 
 	perror(NULL);
-	fatal_exit();
+	fatal_exit((rzip_control*)control);
 }
 
-void failure(const char *format, ...)
+void failure(const rzip_control *control, const char *format, ...)
 {
 	va_list ap;
 
@@ -130,7 +124,7 @@ void failure(const char *format, ...)
 		va_end(ap);
 	}
 
-	fatal_exit();
+	fatal_exit((rzip_control*)control);
 }
 
 void setup_overhead(rzip_control *control)
@@ -177,7 +171,7 @@ void round_to_page(i64 *size)
 		*size = PAGE_SIZE;
 }
 
-void get_rand(uchar *buf, int len)
+void get_rand(rzip_control *control, uchar *buf, int len)
 {
 	int fd, i;
 
@@ -187,9 +181,9 @@ void get_rand(uchar *buf, int len)
 			buf[i] = (uchar)random();
 	} else {
 		if (unlikely(read(fd, buf, len) != len))
-			fatal("Failed to read fd in get_rand\n");
+			fatal(control, "Failed to read fd in get_rand\n");
 		if (unlikely(close(fd)))
-			fatal("Failed to close fd in get_rand\n");
+			fatal(control, "Failed to close fd in get_rand\n");
 	}
 }
 
@@ -243,7 +237,7 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 	if (encrypt == LRZ_ENCRYPT) {
 		print_maxverbose("Encrypting data        \n");
 		if (unlikely(aes_setkey_enc(&aes_ctx, key, 128)))
-			failure("Failed to aes_setkey_enc in lrz_crypt\n");
+			failure(control, "Failed to aes_setkey_enc in lrz_crypt\n");
 		aes_crypt_cbc(&aes_ctx, AES_ENCRYPT, N, iv, buf, buf);
 		
 		if (M) {
@@ -256,7 +250,7 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 		}
 	} else {
 		if (unlikely(aes_setkey_dec(&aes_ctx, key, 128)))
-			failure("Failed to aes_setkey_dec in lrz_crypt\n");
+			failure(control, "Failed to aes_setkey_dec in lrz_crypt\n");
 		print_maxverbose("Decrypting data        \n");
 		if (M) {
 			aes_crypt_cbc(&aes_ctx, AES_DECRYPT, N - CBC_LEN,

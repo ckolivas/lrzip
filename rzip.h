@@ -22,5 +22,6 @@
 #include "lrzip_private.h"
 
 void rzip_fd(rzip_control *control, int fd_in, int fd_out);
+void rzip_control_free(rzip_control *control);
 
 #endif
