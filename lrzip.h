@@ -21,6 +21,8 @@
 
 #include "lrzip_private.h"
 
+inline i64 get_ram(void);
+i64 nloops(i64 seconds, uchar *b1, uchar *b2);
 void write_magic(rzip_control *control);
 void read_magic(rzip_control *control, int fd_in, i64 *expected_size);
 void preserve_perms(rzip_control *control, int fd_in, int fd_out);

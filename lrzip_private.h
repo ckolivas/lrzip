@@ -177,6 +177,30 @@ typedef struct md5_ctx md5_ctx;
 #define SALT_LEN 8
 #define CBC_LEN 16
 
+#if defined(NOTHREAD) || !defined(_SC_NPROCESSORS_ONLN)
+# define PROCESSORS (1)
+#else
+# define PROCESSORS (sysconf(_SC_NPROCESSORS_ONLN))
+#endif
+
+#ifdef _SC_PAGE_SIZE
+# define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
+#else
+# define PAGE_SIZE (4096)
+#endif
+
+/* Determine how many times to hash the password when encrypting, based on
+ * the date such that we increase the number of loops according to Moore's
+ * law relative to when the data is encrypted. It is then stored as a two
+ * byte value in the header */
+#define MOORE 1.835          // world constant  [TIMES per YEAR]
+#define ARBITRARY  1000000   // number of sha2 calls per one second in 2011
+#define T_ZERO 1293840000    // seconds since epoch in 2011
+
+#define SECONDS_IN_A_YEAR (365*86400)
+#define MOORE_TIMES_PER_SECOND pow (MOORE, 1.0 / SECONDS_IN_A_YEAR)
+#define ARBITRARY_AT_EPOCH (ARBITRARY * pow (MOORE_TIMES_PER_SECOND, -T_ZERO))
+
 #define print_err(format, args...)	do {\
 	fprintf(stderr, format, ##args);	\
 } while (0)

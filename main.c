@@ -41,7 +41,7 @@
 #ifdef HAVE_SYS_STAT_H
 # include <sys/stat.h>
 #endif
-#include <math.h>
+
 #include <termios.h>
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
@@ -114,63 +114,6 @@
 	if (MAX_VERBOSE)	\
 		print_output(format, ##args);	\
 } while (0)
-
-
-#if defined(NOTHREAD) || !defined(_SC_NPROCESSORS_ONLN)
-# define PROCESSORS (1)
-#else
-# define PROCESSORS (sysconf(_SC_NPROCESSORS_ONLN))
-#endif
-
-#ifdef _SC_PAGE_SIZE
-# define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
-#else
-# define PAGE_SIZE (4096)
-#endif
-
-#ifdef __APPLE__
-# include <sys/sysctl.h>
-static inline i64 get_ram(void)
-{
-	int mib[2];
-	size_t len;
-	i64 *p, ramsize;
-
-	mib[0] = CTL_HW;
-	mib[1] = HW_MEMSIZE;
-	sysctl(mib, 2, NULL, &len, NULL, 0);
-	p = malloc(len);
-	sysctl(mib, 2, p, &len, NULL, 0);
-	ramsize = *p;
-
-	return ramsize;
-}
-#else /* __APPLE__ */
-static inline i64 get_ram(void)
-{
-	i64 ramsize;
-	FILE *meminfo;
-	char aux[256];
-
-	ramsize = (i64)sysconf(_SC_PHYS_PAGES) * PAGE_SIZE;
-	if (ramsize > 0)
-		return ramsize;
-
-	/* Workaround for uclibc which doesn't properly support sysconf */
-	if(!(meminfo = fopen("/proc/meminfo", "r")))
-		fatal("fopen\n");
-
-	while(!feof(meminfo) && !fscanf(meminfo, "MemTotal: %Lu kB", &ramsize)) {
-		if (unlikely(fgets(aux, sizeof(aux), meminfo) == NULL))
-			fatal("Failed to fgets in get_ram\n");
-	}
-	if (fclose(meminfo) == -1)
-		fatal("fclose");
-	ramsize *= 1000;
-
-	return ramsize;
-}
-#endif
 
 static rzip_control control;
 
@@ -457,32 +400,6 @@ out:
 */
 }
 
-/* Determine how many times to hash the password when encrypting, based on
- * the date such that we increase the number of loops according to Moore's
- * law relative to when the data is encrypted. It is then stored as a two
- * byte value in the header */
-#define MOORE 1.835          // world constant  [TIMES per YEAR]
-#define ARBITRARY  1000000   // number of sha2 calls per one second in 2011
-#define T_ZERO 1293840000    // seconds since epoch in 2011
-
-#define SECONDS_IN_A_YEAR (365*86400)
-#define MOORE_TIMES_PER_SECOND pow (MOORE, 1.0 / SECONDS_IN_A_YEAR)
-#define ARBITRARY_AT_EPOCH (ARBITRARY * pow (MOORE_TIMES_PER_SECOND, -T_ZERO))
-
-static i64 nloops(i64 seconds, uchar *b1, uchar *b2)
-{
-	i64 nloops;
-	int nbits;
-
-	nloops = ARBITRARY_AT_EPOCH * pow(MOORE_TIMES_PER_SECOND, seconds);
-	if (nloops < ARBITRARY)
-		nloops = ARBITRARY;
-	for (nbits = 0; nloops > 255; nbits ++)
-		nloops = nloops >> 1;
-	*b1 = nbits;
-	*b2 = nloops;
-	return nloops << nbits;
-}
 
 int main(int argc, char *argv[])
 {

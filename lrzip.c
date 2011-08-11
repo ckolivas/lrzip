@@ -45,6 +45,7 @@
 #ifdef HAVE_ARPA_INET_H
 # include <arpa/inet.h>
 #endif
+#include <math.h>
 
 #include "md5.h"
 #include "rzip.h"
@@ -68,6 +69,66 @@ static i64 fdout_seekto(rzip_control *control, i64 pos)
 	}
 	return lseek(control->fd_out, pos, SEEK_SET);
 }
+
+#ifdef __APPLE__
+# include <sys/sysctl.h>
+inline i64 get_ram(void)
+{
+	int mib[2];
+	size_t len;
+	i64 *p, ramsize;
+
+	mib[0] = CTL_HW;
+	mib[1] = HW_MEMSIZE;
+	sysctl(mib, 2, NULL, &len, NULL, 0);
+	p = malloc(len);
+	sysctl(mib, 2, p, &len, NULL, 0);
+	ramsize = *p;
+
+	return ramsize;
+}
+#else /* __APPLE__ */
+inline i64 get_ram(void)
+{
+	i64 ramsize;
+	FILE *meminfo;
+	char aux[256];
+
+	ramsize = (i64)sysconf(_SC_PHYS_PAGES) * PAGE_SIZE;
+	if (ramsize > 0)
+		return ramsize;
+
+	/* Workaround for uclibc which doesn't properly support sysconf */
+	if(!(meminfo = fopen("/proc/meminfo", "r")))
+		fatal("fopen\n");
+
+	while(!feof(meminfo) && !fscanf(meminfo, "MemTotal: %Lu kB", &ramsize)) {
+		if (unlikely(fgets(aux, sizeof(aux), meminfo) == NULL))
+			fatal("Failed to fgets in get_ram\n");
+	}
+	if (fclose(meminfo) == -1)
+		fatal("fclose");
+	ramsize *= 1000;
+
+	return ramsize;
+}
+#endif
+
+i64 nloops(i64 seconds, uchar *b1, uchar *b2)
+{
+	i64 nloops;
+	int nbits;
+
+	nloops = ARBITRARY_AT_EPOCH * pow(MOORE_TIMES_PER_SECOND, seconds);
+	if (nloops < ARBITRARY)
+		nloops = ARBITRARY;
+	for (nbits = 0; nloops > 255; nbits ++)
+		nloops = nloops >> 1;
+	*b1 = nbits;
+	*b2 = nloops;
+	return nloops << nbits;
+}
+
 
 void write_magic(rzip_control *control)
 {
