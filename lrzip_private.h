@@ -311,6 +311,8 @@ struct rzip_control {
 	int fd_hist;
 	i64 encloops;
 	i64 secs;
+	void (*pass_cb)(void *, char *, size_t); /* callback to get password in lib */
+	void *pass_data;
 	uchar salt[SALT_LEN];
 	uchar *salt_pass;
 	int salt_pass_len;

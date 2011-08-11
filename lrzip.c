@@ -538,34 +538,38 @@ static void get_hash(rzip_control *control, int make_hash)
 	mlock(control->salt_pass, PASS_LEN);
 	mlock(control->hash, HASH_LEN);
 
-	/* Disable stdin echo to screen */
-	tcgetattr(fileno(stdin), &termios_p);
-	termios_p.c_lflag &= ~ECHO;
-	tcsetattr(fileno(stdin), 0, &termios_p);
+	if (control->pass_cb) {
+		control->pass_cb(control->pass_data, passphrase, PASS_LEN);
+		if (!passphrase[0]) fatal(control, "Supplied password was null!");
+	} else {
+		/* Disable stdin echo to screen */
+		tcgetattr(fileno(stdin), &termios_p);
+		termios_p.c_lflag &= ~ECHO;
+		tcsetattr(fileno(stdin), 0, &termios_p);
 retry_pass:
-	print_output("Enter passphrase: ");
-	control->salt_pass_len = get_pass(control, passphrase) + SALT_LEN;
-	print_output("\n");
-	if (make_hash) {
-		print_output("Re-enter passphrase: ");
-		get_pass(control, testphrase);
+		print_output("Enter passphrase: ");
+		control->salt_pass_len = get_pass(control, passphrase) + SALT_LEN;
 		print_output("\n");
-		if (strcmp(passphrase, testphrase)) {
-			print_output("Passwords do not match. Try again.\n");
-			goto retry_pass;
+		if (make_hash) {
+			print_output("Re-enter passphrase: ");
+			get_pass(control, testphrase);
+			print_output("\n");
+			if (strcmp(passphrase, testphrase)) {
+				print_output("Passwords do not match. Try again.\n");
+				goto retry_pass;
+			}
 		}
+		termios_p.c_lflag |= ECHO;
+		tcsetattr(fileno(stdin), 0, &termios_p);
+		memset(testphrase, 0, PASS_LEN);
 	}
-	termios_p.c_lflag |= ECHO;
-	tcsetattr(fileno(stdin), 0, &termios_p);
-	memset(testphrase, 0, PASS_LEN);
-	munlock(testphrase, PASS_LEN);
-	free(testphrase);
-
 	memcpy(control->salt_pass, control->salt, SALT_LEN);
 	memcpy(control->salt_pass + SALT_LEN, passphrase, PASS_LEN - SALT_LEN);
 	lrz_stretch(control);
 	memset(passphrase, 0, PASS_LEN);
 	munlock(passphrase, PASS_LEN);
+	munlock(testphrase, PASS_LEN);
+	free(testphrase);
 	free(passphrase);
 }
 
