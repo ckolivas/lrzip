@@ -1032,5 +1032,6 @@ void rzip_control_free(rzip_control *control)
    if (!control) return;
 
    free(control->tmpdir);
+   free(control->suffix);
    free(control);
 }

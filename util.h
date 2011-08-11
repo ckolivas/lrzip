@@ -31,6 +31,7 @@ void setup_overhead(rzip_control *control);
 void setup_ram(rzip_control *control);
 void round_to_page(i64 *size);
 void get_rand(rzip_control *control, uchar *buf, int len);
+void read_config(rzip_control *control);
 void lrz_stretch(rzip_control *control);
 void lrz_stretch2(rzip_control *control);
 void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt);

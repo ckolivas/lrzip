@@ -289,7 +289,7 @@ struct rzip_control {
 	i64 in_len;
 	i64 in_maxlen;
 	FILE *msgout; //stream for output messages
-	const char *suffix;
+	char *suffix;
 	uchar compression_level;
 	i64 overhead; // compressor overhead
 	i64 usable_ram; // the most ram we'll try to use on one activity
