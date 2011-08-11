@@ -41,4 +41,5 @@ void close_tmpoutbuf(rzip_control *control);
 void clear_tmpinbuf(rzip_control *control);
 inline void clear_tmpinfile(rzip_control *control);
 void close_tmpinbuf(rzip_control *control);
+void initialize_control(rzip_control *control);
 #endif

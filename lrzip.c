@@ -1143,3 +1143,43 @@ void compress_file(rzip_control *control)
 
 	free(control->outfile);
 }
+
+void initialize_control(rzip_control *control)
+{
+	struct timeval tv;
+	char *eptr; /* for environment */
+
+	memset(control, 0, sizeof(rzip_control));
+	control->msgout = stderr;
+	register_outputfile(control->msgout);
+	control->flags = FLAG_SHOW_PROGRESS | FLAG_KEEP_FILES | FLAG_THRESHOLD;
+	control->suffix = ".lrz";
+	control->compression_level = 7;
+	control->ramsize = get_ram();
+	/* for testing single CPU */
+	control->threads = PROCESSORS;	/* get CPUs for LZMA */
+	control->page_size = PAGE_SIZE;
+	control->nice_val = 19;
+
+	/* The first 5 bytes of the salt is the time in seconds.
+	 * The next 2 bytes encode how many times to hash the password.
+	 * The last 9 bytes are random data, making 16 bytes of salt */
+	if (unlikely(gettimeofday(&tv, NULL)))
+		fatal("Failed to gettimeofday in main\n");
+	control->secs = tv.tv_sec;
+	control->encloops = nloops(control->secs, control->salt, control->salt + 1);
+	get_rand(control->salt + 2, 6);
+
+	/* Get Temp Dir */
+	eptr = getenv("TMP");
+	if (eptr != NULL) {
+		size_t len = strlen(eptr);
+		control->tmpdir = malloc(len+2);
+		if (control->tmpdir == NULL)
+			fatal("Failed to allocate for tmpdir\n");
+		strcpy(control->tmpdir, eptr);
+		if (eptr[len - 2] != '/')
+			eptr[len - 2] = '/'; /* need a trailing slash */
+		eptr[len - 1] = 0;
+	}
+}

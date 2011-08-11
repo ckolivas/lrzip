@@ -353,7 +353,7 @@ out:
 
 int main(int argc, char *argv[])
 {
-	struct timeval start_time, end_time, tv;
+	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
 	int c, i;
@@ -362,49 +362,16 @@ int main(int argc, char *argv[])
 	char *eptr; /* for environment */
 
         control = &controlstaticvariablehaha;
-	memset(control, 0, sizeof(rzip_control));
 
-	control->msgout = stderr;
-	register_outputfile(control->msgout);
-	control->flags = FLAG_SHOW_PROGRESS | FLAG_KEEP_FILES | FLAG_THRESHOLD;
-	control->suffix = ".lrz";
-	control->outdir = NULL;
-	control->tmpdir = NULL;
+	initialize_control(control);
 
 	if (strstr(argv[0], "lrunzip"))
 		control->flags |= FLAG_DECOMPRESS;
 	else if (strstr(argv[0], "lrzcat"))
 		control->flags |= FLAG_DECOMPRESS | FLAG_STDOUT;
 
-	control->compression_level = 7;
-	control->ramsize = get_ram();
-	/* for testing single CPU */
-	control->threads = PROCESSORS;	/* get CPUs for LZMA */
-	control->page_size = PAGE_SIZE;
-	control->nice_val = 19;
-
-	/* The first 5 bytes of the salt is the time in seconds.
-	 * The next 2 bytes encode how many times to hash the password.
-	 * The last 9 bytes are random data, making 16 bytes of salt */
-	if (unlikely(gettimeofday(&tv, NULL)))
-		fatal("Failed to gettimeofday in main\n");
-	control->secs = tv.tv_sec;
-	control->encloops = nloops(control->secs, control->salt, control->salt + 1);
-	get_rand(control->salt + 2, 6);
-
 	/* generate crc table */
 	CrcGenerateTable();
-
-	/* Get Temp Dir */
-	eptr = getenv("TMP");
-	if (eptr != NULL) {
-		control->tmpdir = malloc(strlen(eptr)+2);
-		if (control->tmpdir == NULL)
-			fatal("Failed to allocate for tmpdir\n");
-		strcpy(control->tmpdir, eptr);
-		if (strcmp(eptr+strlen(eptr) - 1, "/")) 	/* need a trailing slash */
-			strcat(control->tmpdir, "/");
-	}
 
 	/* Get Preloaded Defaults from lrzip.conf
 	 * Look in ., $HOME/.lrzip/, /etc/lrzip.
