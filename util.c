@@ -102,7 +102,7 @@ static void fatal_exit(void)
 	unlink_files();
 	fprintf(outputfile, "Fatal error - exiting\n");
 	fflush(outputfile);
-	exit(1);
+	abort();
 }
 
 /* Failure when there is likely to be a meaningful error in perror */
