@@ -133,6 +133,20 @@ void failure(const char *format, ...)
 	fatal_exit();
 }
 
+void setup_overhead(rzip_control *control)
+{
+	/* Work out the compression overhead per compression thread for the
+	 * compression back-ends that need a lot of ram */
+	if (LZMA_COMPRESS) {
+		int level = control->compression_level * 7 / 9 ? : 1;
+		i64 dictsize = (level <= 5 ? (1 << (level * 2 + 14)) :
+				(level == 6 ? (1 << 25) : (1 << 26)));
+
+		control->overhead = (dictsize * 23 / 2) + (4 * 1024 * 1024);
+	} else if (ZPAQ_COMPRESS)
+		control->overhead = 112 * 1024 * 1024;
+}
+
 void setup_ram(rzip_control *control)
 {
 	/* Use less ram when using STDOUT to store the temporary output file. */
