@@ -23,20 +23,20 @@ m4/ltversion.m4
 
 SUBDIRS = lzma man doc
 
-AM_CFLAGS = -I lzma/C -DNDEBUG
+AM_CFLAGS = -I. -I lzma/C -DNDEBUG
+AM_CXXFLAGS = $(AM_CFLAGS)
 
 lrztardir = @bindir@
 lrztar_SCRIPTS = lrztar
 
-bin_PROGRAMS = lrzip
-lrzip_SOURCES = \
+noinst_LTLIBRARIES = libtmplrzip.la
+libtmplrzip_la_SOURCES = \
   zpipe.cpp \
   zpipe.h \
   lrzip_private.h \
   liblrzip.h \
   lrzip.c \
   lrzip.h \
-  main.c \
   rzip.h \
   rzip.c \
   runzip.c \
@@ -51,11 +51,28 @@ lrzip_SOURCES = \
   aes.h \
   sha4.c \
   sha4.h
+libtmplrzip_la_LIBADD = lzma/C/liblzma.la
 
-lrzip_LDADD = lzma/C/liblzma.la
+
+lib_LTLIBRARIES = liblrzip.la
+liblrzip_la_SOURCES = \
+  liblrzip.c
+nodist_EXTRA_liblrzip_la_SOURCES = dummy.cxx
+liblrzip_la_LIBADD = libtmplrzip.la
+
+bin_PROGRAMS = lrzip
+lrzip_SOURCES = \
+  main.c
+nodist_EXTRA_lrzip_SOURCES = dummyy.cxx
+
+lrzip_LDADD = libtmplrzip.la
 if STATIC
   lrzip_LDFLAGS = -all-static
 endif
+
+noinst_PROGRAMS = decompress_demo
+decompress_demo_SOURCES = decompress_demo.c
+decompress_demo_LDADD = liblrzip.la
 
 dist_doc_DATA = \
   AUTHORS \
