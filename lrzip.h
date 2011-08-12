@@ -23,23 +23,23 @@
 
 inline i64 get_ram(rzip_control *control);
 i64 nloops(i64 seconds, uchar *b1, uchar *b2);
-void write_magic(rzip_control *control);
-void read_magic(rzip_control *control, int fd_in, i64 *expected_size);
+bool write_magic(rzip_control *control);
+bool read_magic(rzip_control *control, int fd_in, i64 *expected_size);
 void preserve_perms(rzip_control *control, int fd_in, int fd_out);
 int open_tmpoutfile(rzip_control *control);
-void dump_tmpoutfile(rzip_control *control, int fd_out);
+bool dump_tmpoutfile(rzip_control *control, int fd_out);
 int open_tmpinfile(rzip_control *control);
-void read_tmpinfile(rzip_control *control, int fd_in);
-void decompress_file(rzip_control *control);
-void get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len, i64 *u_len, i64 *last_head);
-void get_fileinfo(rzip_control *control);
-void compress_file(rzip_control *control);
-void write_fdout(rzip_control *control, void *buf, i64 len);
-void write_fdin(rzip_control *control);
-void flush_tmpoutbuf(rzip_control *control);
+bool read_tmpinfile(rzip_control *control, int fd_in);
+bool decompress_file(rzip_control *control);
+bool get_header_info(rzip_control *control, int fd_in, uchar *ctype, i64 *c_len, i64 *u_len, i64 *last_head);
+bool get_fileinfo(rzip_control *control);
+bool compress_file(rzip_control *control);
+bool write_fdout(rzip_control *control, void *buf, i64 len);
+bool write_fdin(rzip_control *control);
+bool flush_tmpoutbuf(rzip_control *control);
 void close_tmpoutbuf(rzip_control *control);
 void clear_tmpinbuf(rzip_control *control);
-inline void clear_tmpinfile(rzip_control *control);
+inline bool clear_tmpinfile(rzip_control *control);
 void close_tmpinbuf(rzip_control *control);
-void initialize_control(rzip_control *control);
+bool initialize_control(rzip_control *control);
 #endif

@@ -221,7 +221,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'b':
 			if (control->flags & FLAG_NOT_LZMA)
-				failure(control, "Can only use one of -l, -b, -g, -z or -n\n");
+				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			control->flags |= FLAG_BZIP2_COMPRESS;
 			break;
 		case 'c':
@@ -242,7 +242,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'g':
 			if (control->flags & FLAG_NOT_LZMA)
-				failure(control, "Can only use one of -l, -b, -g, -z or -n\n");
+				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			control->flags |= FLAG_ZLIB_COMPRESS;
 			break;
 		case 'h':
@@ -260,40 +260,40 @@ int main(int argc, char *argv[])
 			break;
 		case 'l':
 			if (control->flags & FLAG_NOT_LZMA)
-				failure(control, "Can only use one of -l, -b, -g, -z or -n\n");
+				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			control->flags |= FLAG_LZO_COMPRESS;
 			break;
 		case 'L':
 			control->compression_level = atoi(optarg);
 			if (control->compression_level < 1 || control->compression_level > 9)
-				failure(control, "Invalid compression level (must be 1-9)\n");
+				failure("Invalid compression level (must be 1-9)\n");
 			break;
 		case 'n':
 			if (control->flags & FLAG_NOT_LZMA)
-				failure(control, "Can only use one of -l, -b, -g, -z or -n\n");
+				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			control->flags |= FLAG_NO_COMPRESS;
 			break;
 		case 'N':
 			control->nice_val = atoi(optarg);
 			if (control->nice_val < -20 || control->nice_val > 19)
-				failure(control, "Invalid nice value (must be -20..19)\n");
+				failure("Invalid nice value (must be -20..19)\n");
 			break;
 		case 'o':
 			if (control->outdir)
-				failure(control, "Cannot have -o and -O together\n");
+				failure("Cannot have -o and -O together\n");
 			if (unlikely(STDOUT))
-				failure(control, "Cannot specify an output filename when outputting to stdout\n");
+				failure("Cannot specify an output filename when outputting to stdout\n");
 			control->outname = optarg;
 			control->suffix = "";
 			break;
 		case 'O':
 			if (control->outname)	/* can't mix -o and -O */
-				failure(control, "Cannot have options -o and -O together\n");
+				failure("Cannot have options -o and -O together\n");
 			if (unlikely(STDOUT))
-				failure(control, "Cannot specify an output directory when outputting to stdout\n");
+				failure("Cannot specify an output directory when outputting to stdout\n");
 			control->outdir = malloc(strlen(optarg) + 2);
 			if (control->outdir == NULL)
-				fatal(control, "Failed to allocate for outdir\n");
+				fatal("Failed to allocate for outdir\n");
 			strcpy(control->outdir,optarg);
 			if (strcmp(optarg+strlen(optarg) - 1, "/")) 	/* need a trailing slash */
 				strcat(control->outdir, "/");
@@ -301,23 +301,23 @@ int main(int argc, char *argv[])
 		case 'p':
 			control->threads = atoi(optarg);
 			if (control->threads < 1)
-				failure(control, "Must have at least one thread\n");
+				failure("Must have at least one thread\n");
 			break;
 		case 'q':
 			control->flags &= ~FLAG_SHOW_PROGRESS;
 			break;
 		case 'S':
 			if (control->outname)
-				failure(control, "Specified output filename already, can't specify an extension.\n");
+				failure("Specified output filename already, can't specify an extension.\n");
 			if (unlikely(STDOUT))
-				failure(control, "Cannot specify a filename suffix when outputting to stdout\n");
+				failure("Cannot specify a filename suffix when outputting to stdout\n");
 			control->suffix = optarg;
 			break;
 		case 't':
 			if (control->outname)
-				failure(control, "Cannot specify an output file name when just testing.\n");
+				failure("Cannot specify an output file name when just testing.\n");
 			if (!KEEP_FILES)
-				failure(control, "Doubt that you want to delete a file when just testing.\n");
+				failure("Doubt that you want to delete a file when just testing.\n");
 			control->flags |= FLAG_TEST_ONLY;
 			break;
 		case 'T':
@@ -344,7 +344,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'z':
 			if (control->flags & FLAG_NOT_LZMA)
-				failure(control, "Can only use one of -l, -b, -g, -z or -n\n");
+				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			control->flags |= FLAG_ZPAQ_COMPRESS;
 			break;
 		}
@@ -354,7 +354,7 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	if (control->outname && argc > 1)
-		failure(control, "Cannot specify output filename with more than 1 file\n");
+		failure("Cannot specify output filename with more than 1 file\n");
 
 	if (VERBOSE && !SHOW_PROGRESS) {
 		print_err("Cannot have -v and -q options. -v wins.\n");
@@ -400,13 +400,13 @@ int main(int argc, char *argv[])
 
 				stat(control->infile, &infile_stat);
 				if (unlikely(S_ISDIR(infile_stat.st_mode)))
-					failure(control, "lrzip only works directly on FILES.\n"
+					failure("lrzip only works directly on FILES.\n"
 					"Use lrztar or pipe through tar for compressing directories.\n");
 			}
 		}
 
 		if (INFO && STDIN)
-			failure(control, "Will not get file info from STDIN\n");
+			failure("Will not get file info from STDIN\n");
 
 		if (control->outname && (strcmp(control->outname, "-") == 0)) {
 			control->flags |= FLAG_STDOUT;
@@ -460,7 +460,7 @@ int main(int argc, char *argv[])
 		gettimeofday(&start_time, NULL);
 
 		if (unlikely(STDIN && ENCRYPT))
-			failure(control, "Unable to work from STDIN while reading password\n");
+			failure("Unable to work from STDIN while reading password\n");
 
 		if (DECOMPRESS || TEST_ONLY)
 			decompress_file(control);

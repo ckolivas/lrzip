@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 #ifdef HAVE_STRING_H
 # include <string.h>
 #endif
@@ -33,6 +34,34 @@
 #ifdef HAVE_MALLOC_H
 # include <malloc.h>
 #endif
+
+#ifdef HAVE_ALLOCA_H
+# include <alloca.h>
+#elif defined __GNUC__
+# define alloca __builtin_alloca
+#elif defined _AIX
+# define alloca __alloca
+#elif defined _MSC_VER
+# include <malloc.h>
+# define alloca _alloca
+#else
+# include <stddef.h>
+# ifdef  __cplusplus
+extern "C"
+# endif
+void *alloca (size_t);
+#endif
+
+#define free(X) do { free((X)); (X) = NULL; } while (0)
+
+#ifndef strdupa
+# define strdupa(str) strcpy(alloca(strlen(str) + 1), str)
+#endif
+
+#ifndef strndupa
+# define strndupa(str, len) strncpy(alloca(len + 1), str, len)
+#endif
+
 
 #ifndef uchar
 #define uchar unsigned char
@@ -326,6 +355,9 @@ struct rzip_control {
 	const char *util_outfile;
 	char delete_outfile;
 	FILE *outputfile;
+	char library_mode : 1;
+	void (*log_cb)(void *, unsigned int, const char *, const char *, va_list);
+	void *log_data;
 };
 
 struct stream {

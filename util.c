@@ -91,7 +91,7 @@ void unlink_files(rzip_control *control)
 		unlink(control->util_infile);
 }
 
-static void fatal_exit(rzip_control *control)
+void fatal_exit(rzip_control *control)
 {
 	struct termios termios_p;
 
@@ -103,35 +103,7 @@ static void fatal_exit(rzip_control *control)
 	unlink_files(control);
 	fprintf(control->outputfile, "Fatal error - exiting\n");
 	fflush(control->outputfile);
-	abort();
-}
-
-/* Failure when there is likely to be a meaningful error in perror */
-void fatal(const rzip_control *control, const char *format, ...)
-{
-	va_list ap;
-
-	if (format) {
-		va_start(ap, format);
-		vfprintf(stderr, format, ap);
-		va_end(ap);
-	}
-
-	perror(NULL);
-	fatal_exit((rzip_control*)control);
-}
-
-void failure(const rzip_control *control, const char *format, ...)
-{
-	va_list ap;
-
-	if (format) {
-		va_start(ap, format);
-		vfprintf(stderr, format, ap);
-		va_end(ap);
-	}
-
-	fatal_exit((rzip_control*)control);
+	exit(1);
 }
 
 void setup_overhead(rzip_control *control)
@@ -178,7 +150,7 @@ void round_to_page(i64 *size)
 		*size = PAGE_SIZE;
 }
 
-void get_rand(rzip_control *control, uchar *buf, int len)
+bool get_rand(rzip_control *control, uchar *buf, int len)
 {
 	int fd, i;
 
@@ -188,25 +160,19 @@ void get_rand(rzip_control *control, uchar *buf, int len)
 			buf[i] = (uchar)random();
 	} else {
 		if (unlikely(read(fd, buf, len) != len))
-			fatal(control, "Failed to read fd in get_rand\n");
+			fatal_return(("Failed to read fd in get_rand\n"), false);
 		if (unlikely(close(fd)))
-			fatal(control, "Failed to close fd in get_rand\n");
+			fatal_return(("Failed to close fd in get_rand\n"), false);
 	}
-}
-
-void read_config(rzip_control *control)
+	return true;
+}bool read_config(rzip_control *control)
 {
 	/* check for lrzip.conf in ., $HOME/.lrzip and /etc/lrzip */
-	char *HOME, *homeconf;
+	char *HOME, homeconf[255];
 	char *parametervalue;
 	char *parameter;
-	char *line;
+	char line[255];
 	FILE *fp;
-
-	line = malloc(255);
-	homeconf = malloc(255);
-	if (line == NULL || homeconf == NULL)
-		fatal(control, "Fatal Memory Error in read_config");
 
 	fp = fopen("lrzip.conf", "r");
 	if (fp)
@@ -219,15 +185,13 @@ void read_config(rzip_control *control)
 	if (fp == NULL) {
 		HOME=getenv("HOME");
 		if (HOME) {
-			strcpy(homeconf, HOME);
-			strcat(homeconf,"/.lrzip/lrzip.conf");
+			snprintf(homeconf, sizeof(homeconf), "%s/.lrzip/lrzip.conf", HOME);
 			fp = fopen(homeconf, "r");
 			if (fp)
 				fprintf(control->msgout, "Using configuration file %s\n", homeconf);
 		}
 	}
-	if (fp == NULL)
-		goto out;
+	if (fp == NULL) return true;
 
 	/* if we get here, we have a file. read until no more. */
 
@@ -257,11 +221,11 @@ void read_config(rzip_control *control)
 		} else if (isparameter(parameter, "compressionlevel")) {
 			control->compression_level = atoi(parametervalue);
 			if ( control->compression_level < 1 || control->compression_level > 9 )
-				failure(control, "CONF.FILE error. Compression Level must between 1 and 9");
+				failure_return(("CONF.FILE error. Compression Level must between 1 and 9"), false);
 		} else if (isparameter(parameter, "compressionmethod")) {
 			/* valid are rzip, gzip, bzip2, lzo, lzma (default), and zpaq */
 			if (control->flags & FLAG_NOT_LZMA)
-				failure(control, "CONF.FILE error. Can only specify one compression method");
+				failure_return(("CONF.FILE error. Can only specify one compression method"), false);
 			if (isparameter(parametervalue, "bzip2"))
 				control->flags |= FLAG_BZIP2_COMPRESS;
 			else if (isparameter(parametervalue, "gzip"))
@@ -273,7 +237,7 @@ void read_config(rzip_control *control)
 			else if (isparameter(parametervalue, "zpaq"))
 				control->flags |= FLAG_ZPAQ_COMPRESS;
 			else if (!isparameter(parametervalue, "lzma")) /* oops, not lzma! */
-				failure(control, "CONF.FILE error. Invalid compression method %s specified\n",parametervalue);
+				failure_return(("CONF.FILE error. Invalid compression method %s specified\n",parametervalue), false);
 		} else if (isparameter(parameter, "lzotest")) {
 			/* default is yes */
 			if (isparameter(parametervalue, "no"))
@@ -289,13 +253,13 @@ void read_config(rzip_control *control)
 		} else if (isparameter(parameter, "outputdirectory")) {
 			control->outdir = malloc(strlen(parametervalue) + 2);
 			if (!control->outdir)
-				fatal(control, "Fatal Memory Error in read_config");
+				fatal_return(("Fatal Memory Error in read_config"), false);
 			strcpy(control->outdir, parametervalue);
 			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
 				strcat(control->outdir, "/");
 		} else if (isparameter(parameter,"verbosity")) {
 			if (control->flags & FLAG_VERBOSE)
-				failure(control, "CONF.FILE error. Verbosity already defined.");
+				failure_return(("CONF.FILE error. Verbosity already defined."), false);
 			if (isparameter(parametervalue, "yes"))
 				control->flags |= FLAG_VERBOSITY;
 			else if (isparameter(parametervalue,"max"))
@@ -309,7 +273,7 @@ void read_config(rzip_control *control)
 		} else if (isparameter(parameter,"nice")) {
 			control->nice_val = atoi(parametervalue);
 			if (control->nice_val < -20 || control->nice_val > 19)
-				failure(control, "CONF.FILE error. Nice must be between -20 and 19");
+				failure_return(("CONF.FILE error. Nice must be between -20 and 19"), false);
 		} else if (isparameter(parameter, "keepbroken")) {
 			if (isparameter(parametervalue, "yes" ))
 				control->flags |= FLAG_KEEP_BROKEN;
@@ -324,7 +288,7 @@ void read_config(rzip_control *control)
 		} else if (isparameter(parameter, "tmpdir")) {
 			control->tmpdir = realloc(NULL, strlen(parametervalue) + 2);
 			if (!control->tmpdir)
-				fatal(control, "Fatal Memory Error in read_config");
+				fatal_return(("Fatal Memory Error in read_config"), false);
 			strcpy(control->tmpdir, parametervalue);
 			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
 				strcat(control->tmpdir, "/");
@@ -338,11 +302,7 @@ void read_config(rzip_control *control)
 	}
 
 	if (unlikely(fclose(fp)))
-		fatal(control, "Failed to fclose fp in read_config\n");
-out:
-	/* clean up */
-	free(line);
-	free(homeconf);
+		fatal_return(("Failed to fclose fp in read_config\n"), false);
 
 /*	fprintf(stderr, "\nWindow = %d \
 		\nCompression Level = %d \
@@ -350,6 +310,7 @@ out:
 		\nOutput Directory = %s \
 		\nFlags = %d\n", control->window,control->compression_level, control->threshold, control->outdir, control->flags);
 */
+	return true;
 }
 
 static void xor128 (void *pa, const void *pb)
@@ -380,7 +341,7 @@ static void lrz_keygen(const rzip_control *control, const uchar *salt, uchar *ke
 	munlock(buf, sizeof(buf));
 }
 
-void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt)
+bool lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt)
 {
 	/* Encryption requires CBC_LEN blocks so we can use ciphertext
 	* stealing to not have to pad the block */
@@ -388,6 +349,7 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 	uchar tmp0[CBC_LEN], tmp1[CBC_LEN];
 	aes_context aes_ctx;
 	i64 N, M;
+	bool ret = false;
 
 	/* Generate unique key and IV for each block of data based on salt */
 	mlock(&aes_ctx, sizeof(aes_ctx));
@@ -402,7 +364,7 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 	if (encrypt == LRZ_ENCRYPT) {
 		print_maxverbose("Encrypting data        \n");
 		if (unlikely(aes_setkey_enc(&aes_ctx, key, 128)))
-			failure(control, "Failed to aes_setkey_enc in lrz_crypt\n");
+			failure_goto(("Failed to aes_setkey_enc in lrz_crypt\n"), error);
 		aes_crypt_cbc(&aes_ctx, AES_ENCRYPT, N, iv, buf, buf);
 		
 		if (M) {
@@ -415,7 +377,7 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 		}
 	} else {
 		if (unlikely(aes_setkey_dec(&aes_ctx, key, 128)))
-			failure(control, "Failed to aes_setkey_dec in lrz_crypt\n");
+			failure_goto(("Failed to aes_setkey_dec in lrz_crypt\n"), error);
 		print_maxverbose("Decrypting data        \n");
 		if (M) {
 			aes_crypt_cbc(&aes_ctx, AES_DECRYPT, N - CBC_LEN,
@@ -435,12 +397,15 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 				      iv, buf, buf);
 	}
 
+	ret = true;
+error:
 	memset(&aes_ctx, 0, sizeof(aes_ctx));
 	memset(iv, 0, HASH_LEN);
 	memset(key, 0, HASH_LEN);
 	munlock(&aes_ctx, sizeof(aes_ctx));
 	munlock(iv, HASH_LEN);
 	munlock(key, HASH_LEN);
+	return ret;
 }
 
 void lrz_stretch(rzip_control *control)

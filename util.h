@@ -20,33 +20,85 @@
 #define LRZIP_UTIL_H
 
 #include "lrzip_private.h"
+#include <stdarg.h>
 
 void register_infile(rzip_control *control, const char *name, char delete);
 void register_outfile(rzip_control *control, const char *name, char delete);
 void unlink_files(rzip_control *control);
 void register_outputfile(rzip_control *control, FILE *f);
-void fatal(const rzip_control *control, const char *format, ...);
-void failure(const rzip_control *control, const char *format, ...);
+void fatal_exit(rzip_control *control);
+/* Failure when there is likely to be a meaningful error in perror */
+static inline void fatal(const rzip_control *control, unsigned int line, const char *file, const char *format, ...)
+{
+	va_list ap;
+
+	va_start(ap, format);
+	if (!control->log_cb) {
+		vfprintf(stderr, format, ap);
+		perror(NULL);
+	} else
+		control->log_cb(control->log_data, line, file, format, ap);
+	va_end(ap);
+	if (!control->library_mode)
+		fatal_exit((rzip_control*)control);
+}
+#ifdef fatal
+# undef fatal
+#endif
+#define fatal(stuff...) fatal(control, __LINE__, __FILE__, stuff)
+#define fatal_return(stuff, ...) do { \
+	fatal stuff; \
+	return __VA_ARGS__; \
+} while (0)
+#define fatal_goto(stuff, label) do { \
+	fatal stuff; \
+	goto label; \
+} while (0)
+static inline void failure(const rzip_control *control, unsigned int line, const char *file, const char *format, ...)
+{
+	va_list ap;
+
+	va_start(ap, format);
+	if (!control->log_cb)
+		vfprintf(stderr, format, ap);
+	else
+		control->log_cb(control->log_data, line, file, format, ap);
+	va_end(ap);
+	if (!control->library_mode)
+		fatal_exit((rzip_control*)control);
+}
+#ifdef failure
+# undef failure
+#endif
+#define failure(stuff...) failure(control, __LINE__, __FILE__, stuff)
+#define failure_return(stuff, ...) do { \
+	failure stuff; \
+	return __VA_ARGS__; \
+} while (0)
+#define failure_goto(stuff, label) do { \
+	failure stuff; \
+	goto label; \
+} while (0)
 void setup_overhead(rzip_control *control);
 void setup_ram(rzip_control *control);
 void round_to_page(i64 *size);
-void get_rand(rzip_control *control, uchar *buf, int len);
-void read_config(rzip_control *control);
+bool get_rand(rzip_control *control, uchar *buf, int len);
+bool read_config(rzip_control *control);
 void lrz_stretch(rzip_control *control);
 void lrz_stretch2(rzip_control *control);
-void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt);
+bool lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt);
 
 #define LRZ_DECRYPT	(0)
 #define LRZ_ENCRYPT	(1)
 
-static inline void lrz_encrypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt)
+static inline bool lrz_encrypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt)
 {
-	lrz_crypt(control, buf, len, salt, LRZ_ENCRYPT);
+	return lrz_crypt(control, buf, len, salt, LRZ_ENCRYPT);
 }
 
-static inline void lrz_decrypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt)
+static inline bool lrz_decrypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt)
 {
-	lrz_crypt(control, buf, len, salt, LRZ_DECRYPT);
+	return lrz_crypt(control, buf, len, salt, LRZ_DECRYPT);
 }
 
 #endif
