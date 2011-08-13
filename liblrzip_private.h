@@ -9,12 +9,14 @@
 struct Lrzip
 {
 	Lrzip_Mode mode;
+	unsigned int flags;
 	rzip_control *control;
 
-	char *outfile;
-
 	/* bucket allocation is used here to avoid frequent calls to realloc */
-	char **infiles;
+	char **infilenames;
+	size_t infilename_idx;
+	size_t infilename_buckets;
+	FILE **infiles;
 	size_t infile_idx;
 	size_t infile_buckets;
 };
