@@ -31,6 +31,14 @@
 typedef struct Lrzip Lrzip;
 
 typedef enum {
+	LRZIP_LOG_LEVEL_ERROR = 0,
+	LRZIP_LOG_LEVEL_INFO,
+	LRZIP_LOG_LEVEL_PROGRESS,
+	LRZIP_LOG_LEVEL_VERBOSE,
+	LRZIP_LOG_LEVEL_DEBUG
+} Lrzip_Log_Level;
+
+typedef enum {
 	LRZIP_MODE_NONE = 0,
 	LRZIP_MODE_INFO,
 	LRZIP_MODE_TEST,

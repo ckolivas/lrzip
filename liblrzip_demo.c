@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
 	lr = lrzip_new(LRZIP_MODE_NONE);
 	assert(lr);
 	lrzip_config_env(lr);
-	lrzip_log_level_set(lr, 2);
+	lrzip_log_level_set(lr, LRZIP_LOG_LEVEL_PROGRESS);
 	while ((c = getopt(argc, argv, "bcdDefghHiklL:nN:o:O:p:qS:tTUvVw:z?")) != -1) {
 		switch (c) {
 		case 'b':
