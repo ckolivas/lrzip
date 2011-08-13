@@ -35,7 +35,7 @@ static bool liblrzip_setup_flags(Lrzip *lr)
 	lr->control->flags |= FLAG_##X##_COMPRESS; \
 	break
 
-	
+
 	switch (lr->mode) {
 	case LRZIP_MODE_DECOMPRESS:
 		lr->control->flags |= FLAG_DECOMPRESS;
@@ -257,13 +257,13 @@ bool lrzip_file_add(Lrzip *lr, FILE *file)
 	}
 
 	lr->infiles[lr->infile_idx++] = file;
-	return true;	
+	return true;
 }
 
 bool lrzip_file_del(Lrzip *lr, FILE *file)
 {
 	size_t x;
-	
+
 	if ((!lr) || (!file)) return false;
 	if (!lr->infile_buckets) return true;
 
@@ -313,7 +313,7 @@ bool lrzip_filename_add(Lrzip *lr, const char *file)
 bool lrzip_filename_del(Lrzip *lr, const char *file)
 {
 	size_t x;
-	
+
 	if ((!lr) || (!file) || (!file[0])) return false;
 	if (!lr->infilename_buckets) return true;
 

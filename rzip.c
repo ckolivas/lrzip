@@ -725,7 +725,7 @@ static bool mmap_stdin(rzip_control *control, uchar *buf, struct rzip_state *st)
 				buf = (uchar *)mremap(buf, st->chunk_size, total, 0);
 				st->mmap_size = st->chunk_size = total;
 			} else {
-				/* Empty file */ 
+				/* Empty file */
 				buf = (uchar *)mremap(buf, st->chunk_size, control->page_size, 0);
 				st->mmap_size = control->page_size;
 				st->chunk_size = 0;

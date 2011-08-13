@@ -1148,7 +1148,7 @@ bool compress_file(rzip_control *control)
 		control->fd_out = fd_out;
 		if (!STDIN)
 			if (unlikely(!preserve_perms(control, fd_in, fd_out))) goto error;
-	} else 
+	} else
 		if (unlikely(!open_tmpoutbuf(control))) goto error;
 
 	/* Write zeroes to header at beginning of file */

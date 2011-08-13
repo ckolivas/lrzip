@@ -981,7 +981,7 @@ bool close_streamout_threads(rzip_control *control)
 			free(threads);
 			return false;
 		}
-			
+
 		if (++close_thread == control->threads)
 			close_thread = 0;
 	}
@@ -1283,7 +1283,7 @@ static bool rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, 
 	if (unlikely(write_buf(control, head, SALT_LEN)))
 		failure_goto(("Failed to write_buf head in rewrite_encrypted\n"), error);
 	if (unlikely(read_buf(control, sinfo->fd, buf, 25)))
-	
+
 		failure_goto(("Failed to read_buf buf in rewrite_encrypted\n"), error);
 
 	if (unlikely(!lrz_encrypt(control, buf, 25, head))) goto error;
@@ -1314,7 +1314,7 @@ static void *compthread(void *data)
 	int write_len;
 
 	/* Make sure this thread doesn't already exist */
-	
+
 	free(data);
 	cti = &cthread[i];
 	ctis = cti->sinfo;
@@ -1501,7 +1501,7 @@ static bool clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 		unlock_mutex(control, &cthread[i].mutex);
 		return false;
 	}
-	
+
 
 	if (newbuf) {
 		/* The stream buffer has been given to the thread, allocate a

@@ -365,7 +365,7 @@ bool lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 		if (unlikely(aes_setkey_enc(&aes_ctx, key, 128)))
 			failure_goto(("Failed to aes_setkey_enc in lrz_crypt\n"), error);
 		aes_crypt_cbc(&aes_ctx, AES_ENCRYPT, N, iv, buf, buf);
-		
+
 		if (M) {
 			memset(tmp0, 0, CBC_LEN);
 			memcpy(tmp0, buf + N, M);
