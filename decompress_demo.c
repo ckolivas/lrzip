@@ -31,12 +31,11 @@ int main(int argc, char *argv[])
 	lr = lrzip_new(LRZIP_MODE_DECOMPRESS);
 	assert(lr);
 	lrzip_config_env(lr);
-	assert(lrzip_file_add(lr, argv[1]));
-	if (argc == 2) {
-		lrzip_outfile_set(lr, suffix_me(argv[1]));
-	}
+	assert(lrzip_filename_add(lr, argv[1]));
+	if (argc == 2)
+		lrzip_outfilename_set(lr, suffix_me(argv[1]));
 	else
-		lrzip_outfile_set(lr, argv[2]);
+		lrzip_outfilename_set(lr, argv[2]);
 	assert(lrzip_run(lr));
 	return 0;
 }

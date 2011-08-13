@@ -70,9 +70,12 @@ if STATIC
   lrzip_LDFLAGS = -all-static
 endif
 
-noinst_PROGRAMS = decompress_demo
+noinst_PROGRAMS = decompress_demo liblrzip_demo
 decompress_demo_SOURCES = decompress_demo.c
 decompress_demo_LDADD = liblrzip.la
+
+liblrzip_demo_SOURCES = liblrzip_demo.c
+liblrzip_demo_LDADD = liblrzip.la
 
 dist_doc_DATA = \
   AUTHORS \
