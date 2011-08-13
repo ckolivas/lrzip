@@ -52,7 +52,6 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include "lrzip_private.h"
-#include "liblrzip.h"
 #include "util.h"
 #include "sha4.h"
 #include "aes.h"

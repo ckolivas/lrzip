@@ -54,7 +54,6 @@
 #include "md5.h"
 #include "stream.h"
 #include "util.h"
-#include "liblrzip.h"
 #include "lrzip.h"
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
@@ -712,7 +711,7 @@ static bool mmap_stdin(rzip_control *control, uchar *buf, struct rzip_state *st)
 	total = 0;
 	while (len > 0) {
 		ret = MIN(len, one_g);
-		ret = read(0, offset_buf, (size_t)ret);
+		ret = read(fileno(control->inFILE), offset_buf, (size_t)ret);
 		if (unlikely(ret < 0))
 			fatal_return(("Failed to read in mmap_stdin\n"), false);
 		total += ret;
@@ -806,7 +805,6 @@ bool rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	 * If file size < compression window, can't do
 	 */
 	struct timeval current, start, last;
-	uchar md5_resblock[MD5_DIGEST_SIZE];
 	i64 len = 0, last_chunk = 0;
 	int pass = 0, passes, j;
 	struct rzip_state *st;
@@ -1066,20 +1064,20 @@ retry:
 
 	if (!NO_MD5) {
 		/* Temporary workaround till someone fixes apple md5 */
-		md5_finish_ctx(&control->ctx, md5_resblock);
+		md5_finish_ctx(&control->ctx, control->md5_resblock);
 		if (HASH_CHECK || MAX_VERBOSE) {
 			print_output("MD5: ");
 			for (j = 0; j < MD5_DIGEST_SIZE; j++)
-				print_output("%02x", md5_resblock[j] & 0xFF);
+				print_output("%02x", control->md5_resblock[j] & 0xFF);
 			print_output("\n");
 		}
 		/* When encrypting data, we encrypt the MD5 value as well */
 		if (ENCRYPT)
-			if (unlikely(!lrz_encrypt(control, md5_resblock, MD5_DIGEST_SIZE, control->salt_pass))) {
+			if (unlikely(!lrz_encrypt(control, control->md5_resblock, MD5_DIGEST_SIZE, control->salt_pass))) {
 				free(st);
 				return false;
 			}
-		if (unlikely(write_1g(control, md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE)) {
+		if (unlikely(write_1g(control, control->md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE)) {
 			free(st);
 			fatal_return(("Failed to write md5 in rzip_fd\n"), false);
 		}
@@ -1122,6 +1120,6 @@ void rzip_control_free(rzip_control *control)
    if (!control) return;
 
    free(control->tmpdir);
-   free(control->suffix);
+   if (control->suffix && control->suffix[0]) free(control->suffix);
    free(control);
 }

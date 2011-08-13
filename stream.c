@@ -60,7 +60,6 @@
 
 #include "util.h"
 #include "zpipe.h"
-#include "liblrzip.h"
 #include "lrzip.h"
 
 
@@ -865,7 +864,7 @@ static inline int read_val(rzip_control *control, int f, i64 *v, int len)
 	return ret;
 }
 
-static int fd_seekto(struct stream_info *sinfo, i64 spos, i64 pos)
+static int fd_seekto(rzip_control *control, struct stream_info *sinfo, i64 spos, i64 pos)
 {
 	if (unlikely(lseek(sinfo->fd, spos, SEEK_SET) != spos)) {
 		print_err("Failed to seek to %lld in stream\n", pos);
@@ -889,7 +888,7 @@ static int seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
 		return 0;
 	}
 
-	return fd_seekto(sinfo, spos, pos);
+	return fd_seekto(control, sinfo, spos, pos);
 }
 
 static int read_seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
@@ -907,7 +906,7 @@ static int read_seekto(rzip_control *control, struct stream_info *sinfo, i64 pos
 		return 0;
 	}
 
-	return fd_seekto(sinfo, spos, pos);
+	return fd_seekto(control, sinfo, spos, pos);
 }
 
 static i64 get_seek(rzip_control *control, int fd)

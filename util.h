@@ -28,7 +28,7 @@ void unlink_files(rzip_control *control);
 void register_outputfile(rzip_control *control, FILE *f);
 void fatal_exit(rzip_control *control);
 /* Failure when there is likely to be a meaningful error in perror */
-static inline void fatal(const rzip_control *control, unsigned int line, const char *file, const char *format, ...)
+static inline void fatal(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)
 {
 	va_list ap;
 
@@ -37,7 +37,7 @@ static inline void fatal(const rzip_control *control, unsigned int line, const c
 		vfprintf(stderr, format, ap);
 		perror(NULL);
 	} else
-		control->log_cb(control->log_data, line, file, format, ap);
+		control->log_cb(control->log_data, 0, line, file, func, format, ap);
 	va_end(ap);
 	if (!control->library_mode)
 		fatal_exit((rzip_control*)control);
@@ -45,7 +45,7 @@ static inline void fatal(const rzip_control *control, unsigned int line, const c
 #ifdef fatal
 # undef fatal
 #endif
-#define fatal(stuff...) fatal(control, __LINE__, __FILE__, stuff)
+#define fatal(stuff...) fatal(control, __LINE__, __FILE__, __func__, stuff)
 #define fatal_return(stuff, ...) do { \
 	fatal stuff; \
 	return __VA_ARGS__; \
@@ -54,7 +54,7 @@ static inline void fatal(const rzip_control *control, unsigned int line, const c
 	fatal stuff; \
 	goto label; \
 } while (0)
-static inline void failure(const rzip_control *control, unsigned int line, const char *file, const char *format, ...)
+static inline void failure(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)
 {
 	va_list ap;
 
@@ -62,7 +62,7 @@ static inline void failure(const rzip_control *control, unsigned int line, const
 	if (!control->log_cb)
 		vfprintf(stderr, format, ap);
 	else
-		control->log_cb(control->log_data, line, file, format, ap);
+		control->log_cb(control->log_data, 0, line, file, func, format, ap);
 	va_end(ap);
 	if (!control->library_mode)
 		fatal_exit((rzip_control*)control);
@@ -70,7 +70,7 @@ static inline void failure(const rzip_control *control, unsigned int line, const
 #ifdef failure
 # undef failure
 #endif
-#define failure(stuff...) failure(control, __LINE__, __FILE__, stuff)
+#define failure(stuff...) failure(control, __LINE__, __FILE__, __func__, stuff)
 #define failure_return(stuff, ...) do { \
 	failure stuff; \
 	return __VA_ARGS__; \

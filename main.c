@@ -49,7 +49,6 @@
 # include <arpa/inet.h>
 #endif
 
-#include "liblrzip.h"
 #include "rzip.h"
 #include "lrzip.h"
 #include "util.h"
@@ -284,6 +283,7 @@ int main(int argc, char *argv[])
 			if (unlikely(STDOUT))
 				failure("Cannot specify an output filename when outputting to stdout\n");
 			control->outname = optarg;
+			free(control->suffix);
 			control->suffix = "";
 			break;
 		case 'O':
@@ -311,6 +311,7 @@ int main(int argc, char *argv[])
 				failure("Specified output filename already, can't specify an extension.\n");
 			if (unlikely(STDOUT))
 				failure("Cannot specify a filename suffix when outputting to stdout\n");
+			free(control->suffix);
 			control->suffix = optarg;
 			break;
 		case 't':
@@ -410,6 +411,7 @@ int main(int argc, char *argv[])
 
 		if (control->outname && (strcmp(control->outname, "-") == 0)) {
 			control->flags |= FLAG_STDOUT;
+			control->outFILE = stdout;
 			control->msgout = stderr;
 			register_outputfile(control, control->msgout);
 		}
@@ -419,6 +421,7 @@ int main(int argc, char *argv[])
 		if (!control->outname && STDIN) {
 			control->flags |= FLAG_STDOUT;
 			control->msgout = stderr;
+			control->outFILE = stdout;
 			register_outputfile(control, control->msgout);
 		}
 
@@ -426,6 +429,7 @@ int main(int argc, char *argv[])
 			control->msgout = stdout;
 			register_outputfile(control, control->msgout);
 		}
+		if (STDIN) control->inFILE = stdin;
 		/* Implement signal handler only once flags are set */
 		handler.sa_handler = &sighandler;
 		sigaction(SIGTERM, &handler, 0);

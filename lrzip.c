@@ -52,7 +52,6 @@
 #include "runzip.h"
 #include "util.h"
 #include "stream.h"
-#include "liblrzip.h" /* flag defines */
 
 #define MAGIC_LEN (24)
 
@@ -319,14 +318,14 @@ static bool fwrite_stdout(rzip_control *control, void *buf, i64 len)
 			ret = one_g;
 		else
 			ret = len;
-		ret = fwrite(offset_buf, 1, ret, stdout);
+		ret = fwrite(offset_buf, 1, ret, control->outFILE);
 		if (unlikely(ret <= 0))
 			fatal_return(("Failed to fwrite in fwrite_stdout\n"), false);
 		len -= ret;
 		offset_buf += ret;
 		total += ret;
 	}
-	fflush(stdout);
+	fflush(control->outFILE);
 	return true;
 }
 
@@ -375,10 +374,10 @@ bool dump_tmpoutfile(rzip_control *control, int fd_out)
 	rewind(tmpoutfp);
 
 	if (!TEST_ONLY) {
-		print_verbose("Dumping temporary file to stdout.\n");
+		print_verbose("Dumping temporary file to control->outFILE.\n");
 		while ((tmpchar = fgetc(tmpoutfp)) != EOF)
 			putchar(tmpchar);
-		fflush(stdout);
+		fflush(control->outFILE);
 		rewind(tmpoutfp);
 	}
 
@@ -564,7 +563,7 @@ static bool get_hash(rzip_control *control, int make_hash)
 	mlock(control->hash, HASH_LEN);
 
 	if (control->pass_cb) {
-		control->pass_cb(control->pass_data, passphrase, PASS_LEN);
+		control->pass_cb(control->pass_data, passphrase, PASS_LEN - SALT_LEN);
 		if (!passphrase[0]) {
 			fatal("Supplied password was null!");
 			munlock(passphrase, PASS_LEN);
@@ -574,6 +573,7 @@ static bool get_hash(rzip_control *control, int make_hash)
 			release_hashes(control);
 			return false;
 		}
+		control->salt_pass_len = strlen(passphrase) + SALT_LEN;
 	} else {
 		/* Disable stdin echo to screen */
 		tcgetattr(fileno(stdin), &termios_p);
@@ -1194,6 +1194,7 @@ bool initialize_control(rzip_control *control)
 
 	memset(control, 0, sizeof(rzip_control));
 	control->msgout = stderr;
+	control->msgerr = stderr;
 	register_outputfile(control, control->msgout);
 	control->flags = FLAG_SHOW_PROGRESS | FLAG_KEEP_FILES | FLAG_THRESHOLD;
 	control->suffix = strdup(".lrz");

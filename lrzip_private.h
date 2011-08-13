@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #ifdef HAVE_STRING_H
 # include <string.h>
 #endif
@@ -50,6 +51,10 @@
 extern "C"
 # endif
 void *alloca (size_t);
+#endif
+
+#ifndef MD5_DIGEST_SIZE
+# define MD5_DIGEST_SIZE 16
 #endif
 
 #define free(X) do { free((X)); (X) = NULL; } while (0)
@@ -262,31 +267,6 @@ typedef struct md5_ctx md5_ctx;
 #define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
 #define ENCRYPT		(control->flags & FLAG_ENCRYPT)
 
-#define print_output(format, args...)	do {\
-	fprintf(control->msgout, format, ##args);	\
-	fflush(control->msgout);	\
-} while (0)
-
-#define print_progress(format, args...)	do {\
-	if (SHOW_PROGRESS)	\
-		print_output(format, ##args);	\
-} while (0)
-
-#define print_verbose(format, args...)	do {\
-	if (VERBOSE)	\
-		print_output(format, ##args);	\
-} while (0)
-
-#define print_maxverbose(format, args...)	do {\
-	if (MAX_VERBOSE)	\
-		print_output(format, ##args);	\
-} while (0)
-
-
-#define print_err(format, args...)	do {\
-	fprintf(stderr, format, ##args);	\
-} while (0)
-
 
 /* Structure to save state of computation between the single steps.  */
 struct md5_ctx
@@ -303,8 +283,10 @@ struct md5_ctx
 
 struct rzip_control {
 	char *infile;
+	FILE *inFILE; // if a FILE is being read from
 	char *outname;
 	char *outfile;
+	FILE *outFILE; // if a FILE is being written to
 	char *outdir;
 	char *tmpdir; // when stdin, stdout, or test used
 	uchar *tmp_outbuf; // Temporary file storage for stdout
@@ -318,6 +300,7 @@ struct rzip_control {
 	i64 in_len;
 	i64 in_maxlen;
 	FILE *msgout; //stream for output messages
+	FILE *msgerr; //stream for output errors
 	char *suffix;
 	uchar compression_level;
 	i64 overhead; // compressor overhead
@@ -349,6 +332,7 @@ struct rzip_control {
 	unsigned char eof;
 	unsigned char magic_written;
 	md5_ctx ctx;
+	uchar md5_resblock[MD5_DIGEST_SIZE];
 	i64 md5_read; // How far into the file the md5 has done so far
 	const char *util_infile;
 	char delete_infile;
@@ -356,7 +340,8 @@ struct rzip_control {
 	char delete_outfile;
 	FILE *outputfile;
 	char library_mode : 1;
-	void (*log_cb)(void *, unsigned int, const char *, const char *, va_list);
+	int log_level;
+	void (*log_cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *func, const char *format, va_list);
 	void *log_data;
 };
 
@@ -387,4 +372,60 @@ struct stream_info {
 	int chunks;
 	char chunk_bytes;
 };
+
+static inline void print_stuff(const rzip_control *control, int level, unsigned int line, const char *file, const char *func, const char *format, ...)
+{
+	va_list ap;
+	if (control->library_mode && control->log_cb && (control->log_level >= level)) {
+		va_start(ap, format);
+		control->log_cb(control->log_data, level, line, file, func, format, ap);
+		va_end(ap);
+	} else if (control->msgout) {
+		va_start(ap, format);
+		vfprintf(control->msgout, format, ap);
+		fflush(control->msgout);
+		va_end(ap);
+	}
+}
+
+static inline void print_err(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)
+{
+	va_list ap;
+	if (control->library_mode && control->log_cb && (control->log_level >= 0)) {
+		va_start(ap, format);
+		control->log_cb(control->log_data, 0, line, file, func, format, ap);
+		va_end(ap);
+	} else if (control->msgerr) {
+		va_start(ap, format);
+		vfprintf(control->msgerr, format, ap);
+		va_end(ap);
+	}
+}
+
+#define print_stuff(level, format, args...) do {\
+	print_stuff(control, level, __LINE__, __FILE__, __func__, format, ##args); \
+} while (0)
+
+#define print_output(format, args...)	do {\
+	print_stuff(1, format, ##args); \
+} while (0)
+
+#define print_progress(format, args...)	do {\
+	if (SHOW_PROGRESS)	\
+		print_stuff(2, format, ##args); \
+} while (0)
+
+#define print_verbose(format, args...)	do {\
+	if (VERBOSE)	\
+		print_stuff(3, format, ##args); \
+} while (0)
+
+#define print_maxverbose(format, args...)	do {\
+	if (MAX_VERBOSE)	\
+		print_stuff(4, format, ##args); \
+} while (0)
+
+#define print_err(format, args...) do {\
+	print_err(control, __LINE__, __FILE__, __func__, format, ##args); \
+} while (0)
 #endif

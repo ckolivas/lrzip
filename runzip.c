@@ -45,7 +45,6 @@
 #include "stream.h"
 #include "util.h"
 #include "lrzip.h"
-#include "liblrzip.h"
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
 
@@ -364,7 +363,6 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
  */
 i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 expected_size)
 {
-	uchar md5_resblock[MD5_DIGEST_SIZE];
 	uchar md5_stored[MD5_DIGEST_SIZE];
 	struct timeval start,end;
 	i64 total = 0, u;
@@ -395,7 +393,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 	if (!NO_MD5) {
 		int i,j;
 
-		md5_finish_ctx (&control->ctx, md5_resblock);
+		md5_finish_ctx (&control->ctx, control->md5_resblock);
 		if (HAS_MD5) {
 			i64 fdinend = seekto_fdinend(control);
 
@@ -409,13 +407,13 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 			if (ENCRYPT)
 				if (unlikely(!lrz_decrypt(control, md5_stored, MD5_DIGEST_SIZE, control->salt_pass))) return -1;
 			for (i = 0; i < MD5_DIGEST_SIZE; i++)
-				if (md5_stored[i] != md5_resblock[i]) {
+				if (md5_stored[i] != control->md5_resblock[i]) {
 					print_output("MD5 CHECK FAILED.\nStored:");
 					for (j = 0; j < MD5_DIGEST_SIZE; j++)
 						print_output("%02x", md5_stored[j] & 0xFF);
 					print_output("\nOutput file:");
 					for (j = 0; j < MD5_DIGEST_SIZE; j++)
-						print_output("%02x", md5_resblock[j] & 0xFF);
+						print_output("%02x", control->md5_resblock[j] & 0xFF);
 					failure_return(("\n"), -1);
 				}
 		}
@@ -423,7 +421,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 		if (HASH_CHECK || MAX_VERBOSE) {
 			print_output("MD5: ");
 			for (i = 0; i < MD5_DIGEST_SIZE; i++)
-				print_output("%02x", md5_resblock[i] & 0xFF);
+				print_output("%02x", control->md5_resblock[i] & 0xFF);
 			print_output("\n");
 		}
 
@@ -433,22 +431,22 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 
 			if (TMP_OUTBUF)
 				close_tmpoutbuf(control);
-			memcpy(md5_stored, md5_resblock, MD5_DIGEST_SIZE);
+			memcpy(md5_stored, control->md5_resblock, MD5_DIGEST_SIZE);
 			if (unlikely(seekto_fdhist(control, 0) == -1))
 				fatal_return(("Failed to seekto_fdhist in runzip_fd\n"), -1);
 			if (unlikely((md5_fstream = fdopen(fd_hist, "r")) == NULL))
 				fatal_return(("Failed to fdopen fd_hist in runzip_fd\n"), -1);
-			if (unlikely(md5_stream(md5_fstream, md5_resblock)))
+			if (unlikely(md5_stream(md5_fstream, control->md5_resblock)))
 				fatal_return(("Failed to md5_stream in runzip_fd\n"), -1);
 			/* We don't close the file here as it's closed in main */
 			for (i = 0; i < MD5_DIGEST_SIZE; i++)
-				if (md5_stored[i] != md5_resblock[i]) {
+				if (md5_stored[i] != control->md5_resblock[i]) {
 					print_output("MD5 CHECK FAILED.\nStored:");
 					for (j = 0; j < MD5_DIGEST_SIZE; j++)
 						print_output("%02x", md5_stored[j] & 0xFF);
 					print_output("\nOutput file:");
 					for (j = 0; j < MD5_DIGEST_SIZE; j++)
-						print_output("%02x", md5_resblock[j] & 0xFF);
+						print_output("%02x", control->md5_resblock[j] & 0xFF);
 					failure_return(("\n"), -1);
 				}
 			print_output("MD5 integrity of written file matches archive\n");
