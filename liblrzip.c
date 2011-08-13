@@ -517,3 +517,11 @@ void lrzip_pass_cb_set(Lrzip *lr, Lrzip_Password_Cb cb, void *data)
 	lr->control->pass_cb = (void*)cb;
 	lr->control->pass_data = data;
 }
+
+void lrzip_info_cb_set(Lrzip *lr, Lrzip_Info_Cb cb, void *data)
+{
+	if (!lr) return;
+	lr->control->info_cb = (void*)cb;
+	lr->control->info_data = data;
+}
+

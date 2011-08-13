@@ -61,6 +61,7 @@ typedef enum {
 	LRZIP_FLAG_ENCRYPT = (1 << 6)
 } Lrzip_Flag;
 
+typedef void (*Lrzip_Info_Cb)(void *data, int pct, int chunk_pct);
 typedef void (*Lrzip_Log_Cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *format, va_list args);
 typedef void (*Lrzip_Password_Cb)(void *, char **, size_t);
 
@@ -108,5 +109,6 @@ FILE *lrzip_log_stdout_get(Lrzip *lr);
 void lrzip_log_stderr_set(Lrzip *lr, FILE *err);
 FILE *lrzip_log_stderr_get(Lrzip *lr);
 void lrzip_pass_cb_set(Lrzip *lr, Lrzip_Password_Cb cb, void *data);
+void lrzip_info_cb_set(Lrzip *lr, Lrzip_Info_Cb cb, void *data);
 #endif
 

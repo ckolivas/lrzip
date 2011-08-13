@@ -345,6 +345,8 @@ struct rzip_control {
 	FILE *outputfile;
 	char library_mode : 1;
 	int log_level;
+	void (*info_cb)(void *data, int pct, int chunk_pct);
+	void *info_data;
 	void (*log_cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *func, const char *format, va_list);
 	void *log_data;
 };
