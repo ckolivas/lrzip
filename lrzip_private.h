@@ -337,6 +337,10 @@ struct rzip_control {
 	const char *util_infile;
 	char delete_infile;
 	const char *util_outfile;
+#define STREAM_BUCKET_SIZE 20
+	size_t sinfo_buckets;
+	size_t sinfo_idx;
+	struct stream_info **sinfo_queue;
 	char delete_outfile;
 	FILE *outputfile;
 	char library_mode : 1;

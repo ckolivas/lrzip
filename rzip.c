@@ -1117,9 +1117,18 @@ retry:
 
 void rzip_control_free(rzip_control *control)
 {
-   if (!control) return;
+	size_t x;
+	if (!control) return;
 
-   free(control->tmpdir);
-   if (control->suffix && control->suffix[0]) free(control->suffix);
-   free(control);
+	free(control->tmpdir);
+	free(control->outname);
+	free(control->outdir);
+	if (control->suffix && control->suffix[0]) free(control->suffix);
+
+	for (x = 0; x < control->sinfo_idx; x++) {
+		free(control->sinfo_queue[x]->s);
+		free(control->sinfo_queue[x]);
+	}
+	free(control->sinfo_queue);
+	free(control);
 }

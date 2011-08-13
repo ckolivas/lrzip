@@ -1797,11 +1797,28 @@ int close_stream_out(rzip_control *control, void *ss)
 		for (i = 0; i < sinfo->num_streams; i++)
 			rewrite_encrypted(control, sinfo, sinfo->s[i].last_headofs);
 	}
+	if (control->library_mode) {
+		if (!control->sinfo_buckets) {
+			/* no streams added */
+			control->sinfo_queue = calloc(STREAM_BUCKET_SIZE + 1, sizeof(void*));
+			if (!control->sinfo_queue) return -1;
+			control->sinfo_buckets++;
+		} else if (control->sinfo_idx == STREAM_BUCKET_SIZE * control->sinfo_buckets + 1) {
+			/* all buckets full, create new bucket */
+			void *tmp;
 
+			tmp = realloc(control->sinfo_queue, (++control->sinfo_buckets * STREAM_BUCKET_SIZE + 1) * sizeof(void*));
+			if (!tmp) return -1;
+			control->sinfo_queue = tmp;
+			memset(control->sinfo_queue + control->sinfo_idx, 0, ((control->sinfo_buckets * STREAM_BUCKET_SIZE + 1) - control->sinfo_idx) * sizeof(void*));
+		}
+		control->sinfo_queue[control->sinfo_idx++] = sinfo;
+	}
 #if 0
-	/* These cannot be freed because their values are read after the next
-	 * stream has started so they're not properly freed and just dropped on
-	 * program exit! FIXME */
+	/* These cannot be freed immediately because their values are read after the next
+	 * stream has started. Instead (in library mode), they are stored and only freed
+	 * after the entire operation has completed.
+	 */
 	free(sinfo->s);
 	free(sinfo);
 #endif
