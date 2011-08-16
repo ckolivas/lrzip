@@ -22,7 +22,7 @@
 static void liblrzip_index_update(size_t x, size_t *idx, void **queue)
 {
 	for (; x < *idx; x++)
-		queue[x] = queue[x] + 1;
+		queue[x] = queue[x + 1];
 	(*idx)--;
 }
 
