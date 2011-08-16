@@ -277,6 +277,15 @@ bool lrzip_file_del(Lrzip *lr, FILE *file)
 	return true;
 }
 
+FILE *lrzip_file_pop(Lrzip *lr)
+{
+	FILE *ret;
+	if ((!lr) || (!lr->infile_buckets)) return NULL;
+	ret = lr->infiles[0];
+	lrzip_file_del(lr, ret);
+	return ret;
+}
+
 void lrzip_files_clear(Lrzip *lr)
 {
 	if ((!lr) || (!lr->infile_buckets)) return;
@@ -326,6 +335,15 @@ bool lrzip_filename_del(Lrzip *lr, const char *file)
 	/* update index */
 	liblrzip_index_update(x, &lr->infilename_idx, (void**)lr->infilenames);
 	return true;
+}
+
+const char *lrzip_filename_pop(Lrzip *lr)
+{
+	static char buf[4096];
+	if ((!lr) || (!lr->infilename_buckets)) return NULL;
+	strcat(buf, lr->infilenames[0]);
+	lrzip_filename_del(lr, buf);
+	return &buf[0];
 }
 
 void lrzip_filenames_clear(Lrzip *lr)
