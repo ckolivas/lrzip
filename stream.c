@@ -63,7 +63,7 @@
 #include "lrzip.h"
 
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__FreeBSD__)
 # define fmemopen(s, len, modes) fake_fmemopen(control, (s), (len), (modes))
 # define open_memstream(bufloc, sizeloc) fake_open_memstream(control, (bufloc), (sizeloc))
 # define memstream_update_buffer fake_open_memstream_update_buffer
