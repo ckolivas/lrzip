@@ -19,6 +19,23 @@
 #include "lrzip.h"
 #include "rzip.h"
 
+#ifdef __APPLE__
+# define fmemopen(s, len, modes) fake_fmemopen((s), (len), (modes))
+static FILE *fake_fmemopen(void *buf, size_t buflen, const char *mode)
+{
+	FILE *in;
+
+	in = tmpfile();
+	if (!in) return NULL;
+	if (fwrite(buf, buflen, 1, in) != 1) {
+		fclose(in);
+		return NULL;
+	}
+	rewind(in);
+        return in;
+}
+#endif
+
 static void liblrzip_index_update(size_t x, size_t *idx, void **queue)
 {
 	for (; x < *idx; x++)
@@ -543,3 +560,81 @@ void lrzip_info_cb_set(Lrzip *lr, Lrzip_Info_Cb cb, void *data)
 	lr->control->info_data = data;
 }
 
+bool lrzip_compress_full(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, Lrzip_Mode mode, int compress_level)
+{
+	Lrzip *lr;
+	FILE *s, *d;
+	struct stat st;
+	int fd;
+
+	if ((!dest) || (!dest_len) || (!source) || (!source_len) || (mode < LRZIP_MODE_COMPRESS_NONE)) return false;
+
+	lrzip_init();
+	if (!mode) mode = LRZIP_MODE_COMPRESS_LZMA;
+	lr = lrzip_new(mode);
+	if (!lr) return false;
+	lrzip_config_env(lr);
+
+	s = fmemopen((void*)source, source_len, "r");
+	d = tmpfile();
+	if ((!s) || (!d)) goto error;
+
+	if (!lrzip_file_add(lr, s)) goto error;
+	lrzip_outfile_set(lr, d);
+	if (!lrzip_compression_level_set(lr, compress_level)) goto error;
+	if (!lrzip_run(lr)) goto error;
+
+	fd = fileno(d);
+	if (fstat(fd, &st)) goto error;
+	*dest_len = st.st_size;
+	fread(dest, sizeof(char), st.st_size, d);
+	if (ferror(d)) goto error;
+	fclose(s);
+	fclose(d);
+	return true;
+
+error:
+	if (s) fclose(s);
+	if (d) fclose(d);
+	lrzip_free(lr);
+	return false;
+}
+
+
+bool lrzip_decompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{
+	Lrzip *lr;
+	FILE *s, *d;
+	struct stat st;
+	int fd;
+
+	if ((!dest) || (!dest_len) || (!source) || (!source_len)) return false;
+
+	lrzip_init();
+	lr = lrzip_new(LRZIP_MODE_DECOMPRESS);
+	if (!lr) return false;
+	lrzip_config_env(lr);
+
+	s = fmemopen((void*)source, source_len, "r");
+	d = tmpfile();
+	if ((!s) || (!d)) goto error;
+
+	if (!lrzip_file_add(lr, s)) goto error;
+	lrzip_outfile_set(lr, d);
+	if (!lrzip_run(lr)) goto error;
+
+	fd = fileno(d);
+	if (fstat(fd, &st)) goto error;
+	*dest_len = st.st_size;
+	fread(dest, sizeof(char), st.st_size, d);
+	if (ferror(d)) goto error;
+	fclose(s);
+	fclose(d);
+	return true;
+
+error:
+	if (s) fclose(s);
+	if (d) fclose(d);
+	lrzip_free(lr);
+	return false;
+}

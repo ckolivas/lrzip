@@ -112,5 +112,43 @@ void lrzip_log_stderr_set(Lrzip *lr, FILE *err);
 FILE *lrzip_log_stderr_get(Lrzip *lr);
 void lrzip_pass_cb_set(Lrzip *lr, Lrzip_Password_Cb cb, void *data);
 void lrzip_info_cb_set(Lrzip *lr, Lrzip_Info_Cb cb, void *data);
+bool lrzip_decompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len);
+bool lrzip_compress_full(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, Lrzip_Mode mode, int compress_level);
+
+static inline bool lrzip_compress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_LZMA, 7); }
+
+static inline bool lrzip_lcompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_LZO, 7); }
+
+static inline bool lrzip_gcompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_ZLIB, 7); }
+
+static inline bool lrzip_zcompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_ZPAQ, 7); }
+
+static inline bool lrzip_bcompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_BZIP2, 7); }
+
+static inline bool lrzip_rcompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_NONE, 7); }
+
+static inline bool lrzip_compress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_LZMA, compress_level); }
+
+static inline bool lrzip_lcompress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_LZO, compress_level); }
+
+static inline bool lrzip_gcompress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_ZLIB, compress_level); }
+
+static inline bool lrzip_zcompress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_ZPAQ, compress_level); }
+
+static inline bool lrzip_bcompress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_BZIP2, compress_level); }
+
+static inline bool lrzip_rcompress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_NONE, compress_level); }
 #endif
 
