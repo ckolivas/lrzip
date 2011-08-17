@@ -19,7 +19,7 @@
 #include "lrzip.h"
 #include "rzip.h"
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__FreeBSD__)
 # define fmemopen(s, len, modes) fake_fmemopen((s), (len), (modes))
 static FILE *fake_fmemopen(void *buf, size_t buflen, const char *mode)
 {
