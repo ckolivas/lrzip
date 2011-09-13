@@ -26,7 +26,8 @@ static FILE *fake_fmemopen(void *buf, size_t buflen, const char *mode)
 	FILE *in;
 
 	in = tmpfile();
-	if (!in) return NULL;
+	if (!in)
+		return NULL;
 	if (fwrite(buf, buflen, 1, in) != 1) {
 		fclose(in);
 		return NULL;
@@ -45,7 +46,8 @@ static void liblrzip_index_update(size_t x, size_t *idx, void **queue)
 
 static bool liblrzip_setup_flags(Lrzip *lr)
 {
-	if (!lr) return false;
+	if (!lr)
+		return false;
 #define MODE_CHECK(X) \
 	case LRZIP_MODE_COMPRESS_##X: \
 	lr->control->flags ^= FLAG_NOT_LZMA; \
@@ -132,7 +134,8 @@ void lrzip_free(Lrzip *lr)
 {
 	size_t x;
 
-	if ((!lr) || (!lr->infilename_buckets)) return;
+	if ((!lr) || (!lr->infilename_buckets))
+		return;
 	rzip_control_free(lr->control);
 	for (x = 0; x < lr->infilename_idx; x++)
 		free(lr->infilenames[x]);
@@ -146,10 +149,13 @@ Lrzip *lrzip_new(Lrzip_Mode mode)
 	Lrzip *lr;
 
 	lr = calloc(1, sizeof(Lrzip));
-	if (!lr) return NULL;
+	if (!lr)
+		return NULL;
 	lr->control = calloc(1, sizeof(rzip_control));
-	if (!lr->control) goto error;
-	if (!initialize_control(lr->control)) goto error;
+	if (!lr->control)
+		goto error;
+	if (!initialize_control(lr->control))
+		goto error;
 	lr->mode = mode;
 	lr->control->library_mode = 1;
 	return lr;
@@ -160,106 +166,124 @@ error:
 
 Lrzip_Mode lrzip_mode_get(Lrzip *lr)
 {
-	if (!lr) return LRZIP_MODE_NONE;
+	if (!lr)
+		return LRZIP_MODE_NONE;
 	return lr->mode;
 }
 
 bool lrzip_mode_set(Lrzip *lr, Lrzip_Mode mode)
 {
-	if ((!lr) || (mode > LRZIP_MODE_COMPRESS_ZPAQ)) return false;
+	if ((!lr) || (mode > LRZIP_MODE_COMPRESS_ZPAQ))
+		return false;
 	lr->mode = mode;
 	return true;
 }
 
 bool lrzip_compression_level_set(Lrzip *lr, unsigned int level)
 {
-	if ((!lr) || (!level) || (level > 9)) return false;
+	if ((!lr) || (!level) || (level > 9))
+		return false;
 	lr->control->compression_level = level;
 	return true;
 }
 
 unsigned int lrzip_compression_level_get(Lrzip *lr)
 {
-	if (!lr) return 0;
+	if (!lr)
+		return 0;
 	return lr->control->compression_level;
 }
 
 void lrzip_flags_set(Lrzip *lr, unsigned int flags)
 {
-	if (!lr) return;
+	if (!lr)
+		return;
 	lr->flags = flags;
 }
 
 unsigned int lrzip_flags_get(Lrzip *lr)
 {
-	if (!lr) return 0;
+	if (!lr)
+		return 0;
 	return lr->flags;
 }
 
 void lrzip_nice_set(Lrzip *lr, int nice)
 {
-	if ((!lr) || (nice < -19) || (nice > 20)) return;
+	if ((!lr) || (nice < -19) || (nice > 20))
+		return;
 	lr->control->nice_val = nice;
 }
 
 int lrzip_nice_get(Lrzip *lr)
 {
-	if (!lr) return 0;
+	if (!lr)
+		return 0;
 	return lr->control->nice_val;
 }
 
 void lrzip_threads_set(Lrzip *lr, unsigned int threads)
 {
-	if ((!lr) || (!threads)) return;
+	if ((!lr) || (!threads))
+		return;
 	lr->control->threads = threads;
 }
 
 unsigned int lrzip_threads_get(Lrzip *lr)
 {
-	if (!lr) return 0;
+	if (!lr)
+		return 0;
 	return lr->control->threads;
 }
 
 void lrzip_compression_window_max_set(Lrzip *lr, int64_t size)
 {
-	if (!lr) return;
+	if (!lr)
+		return;
 	lr->control->window = size;
 }
 
 int64_t lrzip_compression_window_max_get(Lrzip *lr)
 {
-	if (!lr) return -1;
+	if (!lr)
+		return -1;
 	return lr->control->window;
 }
 
 unsigned int lrzip_files_count(Lrzip *lr)
 {
-	if (!lr) return 0;
+	if (!lr)
+		return 0;
 	return lr->infile_idx;
 }
 
 unsigned int lrzip_filenames_count(Lrzip *lr)
 {
-	if (!lr) return 0;
+	if (!lr)
+		return 0;
 	return lr->infilename_idx;
 }
 
 FILE **lrzip_files_get(Lrzip *lr)
 {
-	if (!lr) return NULL;
+	if (!lr)
+		return NULL;
 	return lr->infiles;
 }
 
 char **lrzip_filenames_get(Lrzip *lr)
 {
-	if (!lr) return NULL;
+	if (!lr)
+		return NULL;
 	return lr->infilenames;
 }
 
 bool lrzip_file_add(Lrzip *lr, FILE *file)
 {
-	if ((!lr) || (!file)) return false;
-	if (lr->infilenames) return false;
+	if ((!lr) || (!file))
+		return false;
+	if (lr->infilenames)
+		return false;
 	if (!lr->infile_buckets) {
 		/* no files added */
 		lr->infiles = calloc(INFILE_BUCKET_SIZE + 1, sizeof(void*));
@@ -269,7 +293,8 @@ bool lrzip_file_add(Lrzip *lr, FILE *file)
 		FILE **tmp;
 
 		tmp = realloc(lr->infiles, (++lr->infile_buckets * INFILE_BUCKET_SIZE + 1) * sizeof(void*));
-		if (!tmp) return false;
+		if (!tmp)
+			return false;
 		lr->infiles = tmp;
 	}
 
@@ -281,12 +306,16 @@ bool lrzip_file_del(Lrzip *lr, FILE *file)
 {
 	size_t x;
 
-	if ((!lr) || (!file)) return false;
-	if (!lr->infile_buckets) return true;
+	if ((!lr) || (!file))
+		return false;
+	if (!lr->infile_buckets)
+		return true;
 
 	for (x = 0; x <= lr->infile_idx + 1; x++) {
-		if (!lr->infiles[x]) return true; /* not found */
-		if (lr->infiles[x] != file) continue; /* not a match */
+		if (!lr->infiles[x])
+			return true; /* not found */
+		if (lr->infiles[x] != file)
+			continue; /* not a match */
 		break;
 	}
 	/* update index */
@@ -297,7 +326,8 @@ bool lrzip_file_del(Lrzip *lr, FILE *file)
 FILE *lrzip_file_pop(Lrzip *lr)
 {
 	FILE *ret;
-	if ((!lr) || (!lr->infile_buckets)) return NULL;
+	if ((!lr) || (!lr->infile_buckets))
+		return NULL;
 	ret = lr->infiles[0];
 	lrzip_file_del(lr, ret);
 	return ret;
@@ -305,7 +335,8 @@ FILE *lrzip_file_pop(Lrzip *lr)
 
 void lrzip_files_clear(Lrzip *lr)
 {
-	if ((!lr) || (!lr->infile_buckets)) return;
+	if ((!lr) || (!lr->infile_buckets))
+		return;
 	free(lr->infiles);
 	lr->infiles = NULL;
 }
@@ -314,10 +345,14 @@ bool lrzip_filename_add(Lrzip *lr, const char *file)
 {
 	struct stat st;
 
-	if ((!lr) || (!file) || (!file[0]) || (!strcmp(file, "-"))) return false;
-	if (lr->infiles) return false;
-	if (stat(file, &st)) return false;
-	if (S_ISDIR(st.st_mode)) return false;
+	if ((!lr) || (!file) || (!file[0]) || (!strcmp(file, "-")))
+		return false;
+	if (lr->infiles)
+		return false;
+	if (stat(file, &st))
+		return false;
+	if (S_ISDIR(st.st_mode))
+		return false;
 
 	if (!lr->infilename_buckets) {
 		/* no files added */
@@ -328,7 +363,8 @@ bool lrzip_filename_add(Lrzip *lr, const char *file)
 		char **tmp;
 
 		tmp = realloc(lr->infilenames, (++lr->infilename_buckets * INFILE_BUCKET_SIZE + 1) * sizeof(void*));
-		if (!tmp) return false;
+		if (!tmp)
+			return false;
 		lr->infilenames = tmp;
 	}
 
@@ -340,12 +376,16 @@ bool lrzip_filename_del(Lrzip *lr, const char *file)
 {
 	size_t x;
 
-	if ((!lr) || (!file) || (!file[0])) return false;
-	if (!lr->infilename_buckets) return true;
+	if ((!lr) || (!file) || (!file[0]))
+		return false;
+	if (!lr->infilename_buckets)
+		return true;
 
 	for (x = 0; x <= lr->infilename_idx + 1; x++) {
-		if (!lr->infilenames[x]) return true; /* not found */
-		if (strcmp(lr->infilenames[x], file)) continue; /* not a match */
+		if (!lr->infilenames[x])
+			return true; /* not found */
+		if (strcmp(lr->infilenames[x], file))
+			continue; /* not a match */
 		free(lr->infilenames[x]);
 		break;
 	}
@@ -357,7 +397,8 @@ bool lrzip_filename_del(Lrzip *lr, const char *file)
 const char *lrzip_filename_pop(Lrzip *lr)
 {
 	static char buf[4096];
-	if ((!lr) || (!lr->infilename_buckets)) return NULL;
+	if ((!lr) || (!lr->infilename_buckets))
+		return NULL;
 	strcat(buf, lr->infilenames[0]);
 	lrzip_filename_del(lr, buf);
 	return &buf[0];
@@ -366,7 +407,8 @@ const char *lrzip_filename_pop(Lrzip *lr)
 void lrzip_filenames_clear(Lrzip *lr)
 {
 	size_t x;
-	if ((!lr) || (!lr->infilename_buckets)) return;
+	if ((!lr) || (!lr->infilename_buckets))
+		return;
 	for (x = 0; x < lr->infilename_idx; x++)
 		free(lr->infilenames[x]);
 	free(lr->infilenames);
@@ -375,14 +417,16 @@ void lrzip_filenames_clear(Lrzip *lr)
 
 void lrzip_suffix_set(Lrzip *lr, const char *suffix)
 {
-	if ((!lr) || (!suffix) || (!suffix[0])) return;
+	if ((!lr) || (!suffix) || (!suffix[0]))
+		return;
 	free(lr->control->suffix);
 	lr->control->suffix = strdup(suffix);
 }
 
 const char *lrzip_suffix_get(Lrzip *lr)
 {
-	if (!lr) return NULL;
+	if (!lr)
+		return NULL;
 	return lr->control->suffix;
 }
 
@@ -391,7 +435,8 @@ void lrzip_outdir_set(Lrzip *lr, const char *dir)
 	const char *slash;
 	char *buf;
 	size_t len;
-	if ((!lr) || (!dir) || (!dir[0])) return;
+	if ((!lr) || (!dir) || (!dir[0]))
+		return;
 	free(lr->control->outdir);
 	slash = strrchr(dir, '/');
 	if (slash && (slash[1] == 0)) {
@@ -400,7 +445,8 @@ void lrzip_outdir_set(Lrzip *lr, const char *dir)
 	}
 	len = strlen(dir);
 	buf = malloc(len + 2);
-	if (!buf) return;
+	if (!buf)
+		return;
 	memcpy(buf, dir, len);
 	buf[len] = '/';
 	buf[len + 1] = 0;
@@ -409,41 +455,50 @@ void lrzip_outdir_set(Lrzip *lr, const char *dir)
 
 const char *lrzip_outdir_get(Lrzip *lr)
 {
-	if (!lr) return NULL;
+	if (!lr)
+		return NULL;
 	return lr->control->outdir;
 }
 
 void lrzip_outfile_set(Lrzip *lr, FILE *file)
 {
-	if ((!lr) || (file && (file == stderr))) return;
-	if (lr->control->outname) return;
+	if ((!lr) || (file && (file == stderr)))
+		return;
+	if (lr->control->outname)
+		return;
 	lr->control->outFILE = file;
 }
 
 FILE *lrzip_outfile_get(Lrzip *lr)
 {
-	if (!lr) return NULL;
+	if (!lr)
+		return NULL;
 	return lr->control->outFILE;
 }
 
 void lrzip_outfilename_set(Lrzip *lr, const char *file)
 {
-	if ((!lr) || (file && (!file[0]))) return;
-	if (lr->control->outFILE) return;
-	if (lr->control->outname && file && (!strcmp(lr->control->outname, file))) return;
+	if ((!lr) || (file && (!file[0])))
+		return;
+	if (lr->control->outFILE)
+		return;
+	if (lr->control->outname && file && (!strcmp(lr->control->outname, file)))
+		return;
 	free(lr->control->outname);
 	lr->control->outname = file ? strdup(file) : NULL;
 }
 
 const char *lrzip_outfilename_get(Lrzip *lr)
 {
-	if (!lr) return NULL;
+	if (!lr)
+		return NULL;
 	return lr->control->outname;
 }
 
 const unsigned char *lrzip_md5digest_get(Lrzip *lr)
 {
-	if (!lr) return NULL;
+	if (!lr)
+		return NULL;
 	return lr->control->md5_resblock;
 }
 
@@ -454,10 +509,12 @@ bool lrzip_run(Lrzip *lr)
 	double seconds,total_time; // for timers
 	int hours,minutes;
 
-	if (!liblrzip_setup_flags(lr)) return false;
+	if (!liblrzip_setup_flags(lr))
+		return false;
 	control = lr->control;
 
-	if ((!lr->infile_idx) && (!lr->infilename_idx)) return false;
+	if ((!lr->infile_idx) && (!lr->infilename_idx))
+		return false;
 	if (lr->control->outFILE) {
 		if (lr->control->outFILE == lr->control->msgout)
 			lr->control->msgout = stderr;
@@ -485,10 +542,13 @@ bool lrzip_run(Lrzip *lr)
 	}
 
 	if (DECOMPRESS || TEST_ONLY) {
-		if (!decompress_file(lr->control)) return false;
+		if (!decompress_file(lr->control))
+			return false;
 	} else if (INFO) {
-		if (!get_fileinfo(lr->control)) return false;
-	} else if (!compress_file(lr->control)) return false;
+		if (!get_fileinfo(lr->control))
+			return false;
+	} else if (!compress_file(lr->control))
+		return false;
 
 	/* compute total time */
 	gettimeofday(&end_time, NULL);
@@ -505,57 +565,66 @@ bool lrzip_run(Lrzip *lr)
 
 void lrzip_log_level_set(Lrzip *lr, int level)
 {
-	if (!lr) return;
+	if (!lr)
+		return;
 	lr->control->log_level = level;
 }
 
 int lrzip_log_level_get(Lrzip *lr)
 {
-	if (!lr) return 0;
+	if (!lr)
+		return 0;
 	return lr->control->log_level;
 }
 
 void lrzip_log_cb_set(Lrzip *lr, Lrzip_Log_Cb cb, void *log_data)
 {
-	if (!lr) return;
+	if (!lr)
+		return;
 	lr->control->log_cb = (void*)cb;
 	lr->control->log_data = log_data;
 }
 
 void lrzip_log_stdout_set(Lrzip *lr, FILE *out)
 {
-	if (!lr) return;
+	if (!lr)
+		return;
 	lr->control->msgout = out;
 }
 
 FILE *lrzip_log_stdout_get(Lrzip *lr)
 {
-	if (!lr) return NULL;
+	if (!lr)
+		return NULL;
 	return lr->control->msgout;
 }
 
 void lrzip_log_stderr_set(Lrzip *lr, FILE *err)
 {
-	if (!lr) return;
+	if (!lr)
+		return;
 	lr->control->msgerr = err;
 }
 
 FILE *lrzip_log_stderr_get(Lrzip *lr)
 {
-	if (!lr) return NULL;
+	if (!lr)
+		return NULL;
 	return lr->control->msgerr;
 }
 
 void lrzip_pass_cb_set(Lrzip *lr, Lrzip_Password_Cb cb, void *data)
 {
-	if (!lr) return;
+	if (!lr)
+		return;
 	lr->control->pass_cb = (void*)cb;
 	lr->control->pass_data = data;
 }
 
 void lrzip_info_cb_set(Lrzip *lr, Lrzip_Info_Cb cb, void *data)
 {
-	if (!lr) return;
+	if (!lr)
+		return;
 	lr->control->info_cb = (void*)cb;
 	lr->control->info_data = data;
 }
@@ -567,25 +636,32 @@ bool lrzip_compress_full(void *dest, unsigned long *dest_len, const void *source
 	struct stat st;
 	int fd;
 
-	if ((!dest) || (!dest_len) || (!source) || (!source_len) || (mode < LRZIP_MODE_COMPRESS_NONE)) return false;
+	if ((!dest) || (!dest_len) || (!source) || (!source_len) || (mode < LRZIP_MODE_COMPRESS_NONE))
+		return false;
 
 	lrzip_init();
 	if (!mode) mode = LRZIP_MODE_COMPRESS_LZMA;
 	lr = lrzip_new(mode);
-	if (!lr) return false;
+	if (!lr)
+		return false;
 	lrzip_config_env(lr);
 
 	s = fmemopen((void*)source, source_len, "r");
 	d = tmpfile();
-	if ((!s) || (!d)) goto error;
+	if ((!s) || (!d))
+		goto error;
 
-	if (!lrzip_file_add(lr, s)) goto error;
+	if (!lrzip_file_add(lr, s))
+		goto error;
 	lrzip_outfile_set(lr, d);
-	if (!lrzip_compression_level_set(lr, compress_level)) goto error;
-	if (!lrzip_run(lr)) goto error;
+	if (!lrzip_compression_level_set(lr, compress_level))
+		goto error;
+	if (!lrzip_run(lr))
+		goto error;
 
 	fd = fileno(d);
-	if (fstat(fd, &st)) goto error;
+	if (fstat(fd, &st))
+		goto error;
 	*dest_len = st.st_size;
 	if (unlikely(fread(dest, sizeof(char), st.st_size, d) != st.st_size))
 		goto error;
@@ -610,23 +686,29 @@ bool lrzip_decompress(void *dest, unsigned long *dest_len, const void *source, u
 	struct stat st;
 	int fd;
 
-	if ((!dest) || (!dest_len) || (!source) || (!source_len)) return false;
+	if ((!dest) || (!dest_len) || (!source) || (!source_len))
+		return false;
 
 	lrzip_init();
 	lr = lrzip_new(LRZIP_MODE_DECOMPRESS);
-	if (!lr) return false;
+	if (!lr)
+		return false;
 	lrzip_config_env(lr);
 
 	s = fmemopen((void*)source, source_len, "r");
 	d = tmpfile();
-	if ((!s) || (!d)) goto error;
+	if ((!s) || (!d))
+		goto error;
 
-	if (!lrzip_file_add(lr, s)) goto error;
+	if (!lrzip_file_add(lr, s))
+		goto error;
 	lrzip_outfile_set(lr, d);
-	if (!lrzip_run(lr)) goto error;
+	if (!lrzip_run(lr))
+		goto error;
 
 	fd = fileno(d);
-	if (fstat(fd, &st)) goto error;
+	if (fstat(fd, &st))
+		goto error;
 	*dest_len = st.st_size;
 	if (unlikely(fread(dest, sizeof(char), st.st_size, d) != st.st_size))
 		goto error;
