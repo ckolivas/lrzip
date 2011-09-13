@@ -1,18 +1,19 @@
 /* Alloc.h -- Memory allocation functions
-2008-03-13
-Igor Pavlov
-Public domain */
+2009-02-07 : Igor Pavlov : Public domain */
 
 #ifndef __COMMON_ALLOC_H
 #define __COMMON_ALLOC_H
 
 #include <stddef.h>
 
-#ifdef _WIN32
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void *MyAlloc(size_t size);
 void MyFree(void *address);
 
+#ifdef _WIN32
 
 void SetLargePageSize();
 
@@ -23,15 +24,15 @@ void BigFree(void *address);
 
 #else
 
-#include <stdlib.h> /* malloc */
+#define MidAlloc(size) MyAlloc(size)
+#define MidFree(address) MyFree(address)
+#define BigAlloc(size) MyAlloc(size)
+#define BigFree(address) MyFree(address)
 
-#define MyAlloc(size) malloc(size)
-#define MyFree(address) free(address)
-#define MidAlloc(size) malloc(size)
-#define MidFree(address) free(address)
-#define BigAlloc(size) malloc(size)
-#define BigFree(address) free(address)
+#endif
 
+#ifdef __cplusplus
+}
 #endif
 
 #endif

@@ -11,25 +11,26 @@ endif
 noinst_LTLIBRARIES = liblzma.la
 liblzma_la_SOURCES = \
   $(ASM_S) \
-		Alloc.h \
-		basetyps.h \
-		LzFind.h \
-		LzFindMt.h \
-		LzHash.h \
-		LzmaDec.h \
-		LzmaEnc.h \
-		LzmaLib.h \
-		MyGuidDef.h \
-		MyWindows.h \
-		Threads.h \
-		Types.h \
-		windows.h \
-  Threads.c \
-  LzFind.c \
-  LzFindMt.c \
-  LzmaDec.c \
-  LzmaEnc.c \
-  LzmaLib.c
+	LzmaDec.h \
+	LzmaEnc.h \
+	LzFind.c \
+	LzFind.h \
+	LzFindMt.c \
+	LzFindMt.h \
+	LzmaDec.c \
+	LzmaEnc.c \
+	LzmaLib.c \
+	LzmaLib.h \
+	Alloc.c \
+	Alloc.h \
+	Threads.c \
+	Threads.h \
+	Types.h \
+	LzHash.h \
+	windows.h \
+	basetyps.h \
+	MyWindows.h \
+	MyGuidDef.h
 liblzma_so_LIBS = $(ASM_LIBS)
 
 liblzma_so_CFLAGS = \

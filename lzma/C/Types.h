@@ -46,6 +46,7 @@ typedef int SRes;
 typedef DWORD WRes;
 #else
 typedef int WRes;
+typedef void * HANDLE;
 #endif
 
 #ifndef RINOK

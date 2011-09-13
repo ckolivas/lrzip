@@ -1,5 +1,5 @@
 /* LzFindMt.c -- multithreaded Match finder for LZ algorithms
-2009-05-26 : Igor Pavlov : Public domain */
+2009-09-20 : Igor Pavlov : Public domain */
 
 #include "LzHash.h"
 
@@ -58,7 +58,7 @@ void MtSync_StopWriting(CMtSync *p)
     p->csWasEntered = False;
   }
   Semaphore_Release1(&p->freeSemaphore);
-
+ 
   Event_Wait(&p->wasStopped);
 
   while (myNumBlocks++ != p->numProcessedBlocks)
@@ -108,12 +108,12 @@ static SRes MtSync_Create2(CMtSync *p, unsigned (MY_STD_CALL *startAddress)(void
   RINOK_THREAD(AutoResetEvent_CreateNotSignaled(&p->canStart));
   RINOK_THREAD(AutoResetEvent_CreateNotSignaled(&p->wasStarted));
   RINOK_THREAD(AutoResetEvent_CreateNotSignaled(&p->wasStopped));
-
+  
   RINOK_THREAD(Semaphore_Create(&p->freeSemaphore, numBlocks, numBlocks));
   RINOK_THREAD(Semaphore_Create(&p->filledSemaphore, 0, numBlocks));
 
   p->needStart = True;
-
+  
   RINOK_THREAD(Thread_Create(&p->thread, startAddress, obj));
   p->wasCreated = True;
   return SZ_OK;
@@ -385,7 +385,7 @@ void BtFillBlock(CMatchFinderMt *p, UInt32 globalBlockIndex)
     CriticalSection_Enter(&sync->cs);
     sync->csWasEntered = True;
   }
-
+  
   BtGetMatches(p, p->btBuf + (globalBlockIndex & kMtBtNumBlocksMask) * kMtBtBlockSize);
 
   if (p->pos > kMtMaxValForNormalize - kMtBtBlockSize)
@@ -561,7 +561,7 @@ UInt32 * MixMatches2(CMatchFinderMt *p, UInt32 matchMinPos, UInt32 *distances)
   const Byte *cur = p->pointerToCurPos;
   UInt32 lzPos = p->lzPos;
   MT_HASH2_CALC
-
+      
   curMatch2 = hash[hash2Value];
   hash[hash2Value] = lzPos;
 
@@ -584,7 +584,7 @@ UInt32 * MixMatches3(CMatchFinderMt *p, UInt32 matchMinPos, UInt32 *distances)
 
   curMatch2 = hash[                hash2Value];
   curMatch3 = hash[kFix3HashSize + hash3Value];
-
+  
   hash[                hash2Value] =
   hash[kFix3HashSize + hash3Value] =
     lzPos;
@@ -616,11 +616,11 @@ UInt32 *MixMatches4(CMatchFinderMt *p, UInt32 matchMinPos, UInt32 *distances)
   const Byte *cur = p->pointerToCurPos;
   UInt32 lzPos = p->lzPos;
   MT_HASH4_CALC
-
+      
   curMatch2 = hash[                hash2Value];
   curMatch3 = hash[kFix3HashSize + hash3Value];
   curMatch4 = hash[kFix4HashSize + hash4Value];
-
+  
   hash[                hash2Value] =
   hash[kFix3HashSize + hash3Value] =
   hash[kFix4HashSize + hash4Value] =
@@ -711,47 +711,47 @@ UInt32 MatchFinderMt_GetMatches(CMatchFinderMt *p, UInt32 *distances)
   return len;
 }
 
-#define SKIP_HEADER2  do { GET_NEXT_BLOCK_IF_REQUIRED
-#define SKIP_HEADER(n) SKIP_HEADER2 if (p->btNumAvailBytes-- >= (n)) { const Byte *cur = p->pointerToCurPos; UInt32 *hash = p->hash;
-#define SKIP_FOOTER } INCREASE_LZ_POS p->btBufPos += p->btBuf[p->btBufPos] + 1; } while (--num != 0);
+#define SKIP_HEADER2_MT  do { GET_NEXT_BLOCK_IF_REQUIRED
+#define SKIP_HEADER_MT(n) SKIP_HEADER2_MT if (p->btNumAvailBytes-- >= (n)) { const Byte *cur = p->pointerToCurPos; UInt32 *hash = p->hash;
+#define SKIP_FOOTER_MT } INCREASE_LZ_POS p->btBufPos += p->btBuf[p->btBufPos] + 1; } while (--num != 0);
 
 void MatchFinderMt0_Skip(CMatchFinderMt *p, UInt32 num)
 {
-  SKIP_HEADER2 { p->btNumAvailBytes--;
-  SKIP_FOOTER
+  SKIP_HEADER2_MT { p->btNumAvailBytes--;
+  SKIP_FOOTER_MT
 }
 
 void MatchFinderMt2_Skip(CMatchFinderMt *p, UInt32 num)
 {
-  SKIP_HEADER(2)
+  SKIP_HEADER_MT(2)
       UInt32 hash2Value;
       MT_HASH2_CALC
       hash[hash2Value] = p->lzPos;
-  SKIP_FOOTER
+  SKIP_FOOTER_MT
 }
 
 void MatchFinderMt3_Skip(CMatchFinderMt *p, UInt32 num)
 {
-  SKIP_HEADER(3)
+  SKIP_HEADER_MT(3)
       UInt32 hash2Value, hash3Value;
       MT_HASH3_CALC
       hash[kFix3HashSize + hash3Value] =
       hash[                hash2Value] =
         p->lzPos;
-  SKIP_FOOTER
+  SKIP_FOOTER_MT
 }
 
 /*
 void MatchFinderMt4_Skip(CMatchFinderMt *p, UInt32 num)
 {
-  SKIP_HEADER(4)
+  SKIP_HEADER_MT(4)
       UInt32 hash2Value, hash3Value, hash4Value;
       MT_HASH4_CALC
       hash[kFix4HashSize + hash4Value] =
       hash[kFix3HashSize + hash3Value] =
       hash[                hash2Value] =
         p->lzPos;
-  SKIP_FOOTER
+  SKIP_FOOTER_MT
 }
 */
 
