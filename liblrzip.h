@@ -63,7 +63,7 @@ typedef enum {
 
 typedef void (*Lrzip_Info_Cb)(void *data, int pct, int chunk_pct);
 typedef void (*Lrzip_Log_Cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *format, va_list args);
-typedef void (*Lrzip_Password_Cb)(void *, char **, size_t);
+typedef void (*Lrzip_Password_Cb)(void *, char *, size_t);
 
 bool lrzip_init(void);
 void lrzip_config_env(Lrzip *lr);

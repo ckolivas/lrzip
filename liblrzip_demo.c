@@ -91,7 +91,7 @@ static int get_pass(char *s, size_t slen)
 	return len;
 }
 
-static void pass_cb(void *data __UNUSED__, char **pass_string, size_t pass_len)
+static void pass_cb(void *data __UNUSED__, char *pass_string, size_t pass_len)
 {
 	int len;
 	struct termios termios_p;
@@ -101,7 +101,7 @@ static void pass_cb(void *data __UNUSED__, char **pass_string, size_t pass_len)
 	tcsetattr(fileno(stdin), 0, &termios_p);
 
 	printf("Enter passphrase: ");
-	len = get_pass(*pass_string, pass_len);
+	len = get_pass(pass_string, pass_len);
 	printf("\n");
 
 	if (len < 1) exit(1);
