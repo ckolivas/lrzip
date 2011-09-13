@@ -32,7 +32,7 @@ static FILE *fake_fmemopen(void *buf, size_t buflen, const char *mode)
 		return NULL;
 	}
 	rewind(in);
-        return in;
+	return in;
 }
 #endif
 
@@ -180,8 +180,8 @@ bool lrzip_compression_level_set(Lrzip *lr, unsigned int level)
 
 unsigned int lrzip_compression_level_get(Lrzip *lr)
 {
-   if (!lr) return 0;
-   return lr->control->compression_level;
+	if (!lr) return 0;
+	return lr->control->compression_level;
 }
 
 void lrzip_flags_set(Lrzip *lr, unsigned int flags)
@@ -493,7 +493,7 @@ bool lrzip_run(Lrzip *lr)
 	/* compute total time */
 	gettimeofday(&end_time, NULL);
 	total_time = (end_time.tv_sec + (double)end_time.tv_usec / 1000000) -
-		      (start_time.tv_sec + (double)start_time.tv_usec / 1000000);
+	             (start_time.tv_sec + (double)start_time.tv_usec / 1000000);
 	hours = (int)total_time / 3600;
 	minutes = (int)(total_time / 60) % 60;
 	seconds = total_time - hours * 3600 - minutes * 60;

@@ -110,7 +110,8 @@ static void pass_cb(void *data __UNUSED__, char *pass_string, size_t pass_len)
 	tcsetattr(fileno(stdin), 0, &termios_p);
 }
 
-static void mode_check(Lrzip *lr, Lrzip_Mode mode) {
+static void mode_check(Lrzip *lr, Lrzip_Mode mode)
+{
 	Lrzip_Mode current = lrzip_mode_get(lr);
 	if (current && (current != mode))
 		failure("Can only use one of -l, -b, -g, -z or -n\n");
@@ -320,7 +321,7 @@ int main(int argc, char *argv[])
 	if (get_hash) {
 		const unsigned char *digest = lrzip_md5digest_get(lr);
 		for (x = 0; x < 16; x++)
-				fprintf(stdout, "%02x", digest[x] & 0xFF);
+			fprintf(stdout, "%02x", digest[x] & 0xFF);
 	}
 	lrzip_free(lr);
 	return 0;
