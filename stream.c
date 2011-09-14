@@ -902,7 +902,7 @@ static i64 get_seek(rzip_control *control, int fd)
 	return ret;
 }
 
-static i64 get_readseek(rzip_control *control, int fd)
+i64 get_readseek(rzip_control *control, int fd)
 {
 	i64 ret;
 
@@ -1115,12 +1115,16 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 	if (control->major_version == 0 && control->minor_version > 5) {
 		/* Read in flag that tells us if there are more chunks after
 		 * this. Ignored if we know the final file size */
+		print_maxverbose("Reading eof flag at %lld\n", get_readseek(control, f));
 		if (unlikely(read_u8(control, f, &control->eof))) {
 			print_err("Failed to read eof flag in open_stream_in\n");
 			goto failed;
 		}
+		print_maxverbose("EOF: %d\n", control->eof);
+
 		/* Read in the expected chunk size */
 		if (!ENCRYPT) {
+			print_maxverbose("Reading expected chunksize at %lld\n", get_readseek(control, f));
 			if (unlikely(read_val(control, f, &sinfo->size, sinfo->chunk_bytes))) {
 				print_err("Failed to read in chunk size in open_stream_in\n");
 				goto failed;
@@ -1164,6 +1168,7 @@ again:
 		} else {
 			int read_len;
 
+			print_maxverbose("Reading stream %d header at %lld\n", i, get_readseek(control, f));
 			if ((control->major_version == 0 && control->minor_version < 6) ||
 				ENCRYPT)
 					read_len = 8;
@@ -1337,11 +1342,14 @@ retry:
 			flush_tmpoutbuf(control);
 		}
 
+		print_maxverbose("Writing initial chunk bytes value %d at %lld\n",
+				 ctis->chunk_bytes, get_seek(control, ctis->fd));
 		/* Write chunk bytes of this block */
 		write_u8(control, ctis->chunk_bytes);
 
 		/* Write whether this is the last chunk, followed by the size
 		 * of this chunk */
+		print_maxverbose("Writing EOF flag as %d\n", control->eof);
 		write_u8(control, control->eof);
 		if (!ENCRYPT)
 			write_val(control, ctis->size, ctis->chunk_bytes);
@@ -1349,6 +1357,7 @@ retry:
 		/* First chunk of this stream, write headers */
 		ctis->initial_pos = get_seek(control, ctis->fd);
 
+		print_maxverbose("Writing initial header at %lld\n", ctis->initial_pos);
 		for (j = 0; j < ctis->num_streams; j++) {
 			/* If encrypting, we leave SALT_LEN room to write in salt
 			* later */
@@ -1366,6 +1375,8 @@ retry:
 		}
 	}
 
+	print_maxverbose("Compthread %ld seeking to %lld to store length %d\n", i, ctis->s[cti->streamno].last_head, write_len);
+
 	if (unlikely(seekto(control, ctis, ctis->s[cti->streamno].last_head)))
 		fatal("Failed to seekto in compthread %d\n", i);
 
@@ -1376,6 +1387,9 @@ retry:
 		rewrite_encrypted(control, ctis, ctis->s[cti->streamno].last_head - 17);
 
 	ctis->s[cti->streamno].last_head = ctis->cur_pos + 1 + (write_len * 2) + (ENCRYPT ? SALT_LEN : 0);
+
+	print_maxverbose("Compthread %ld seeking to %lld to write header\n", i, ctis->cur_pos);
+
 	if (unlikely(seekto(control, ctis, ctis->cur_pos)))
 		fatal("Failed to seekto cur_pos in compthread %d\n", i);
 
@@ -1403,6 +1417,9 @@ retry:
 		lrz_encrypt(control, cti->s_buf, padded_len, cti->salt);
 		ctis->cur_pos += SALT_LEN;
 	}
+
+	print_maxverbose("Compthread %ld writing data at %lld\n", i, ctis->cur_pos);
+
 	if (unlikely(write_buf(control, cti->s_buf, padded_len)))
 		fatal("Failed to write_buf s_buf in compthread %d\n", i);
 
@@ -1565,6 +1582,7 @@ fill_another:
 	} else {
 		int read_len;
 
+		print_maxverbose("Reading ucomp header at %lld\n", get_readseek(control, sinfo->fd));
 		if ((control->major_version == 0 && control->minor_version < 6) || ENCRYPT)
 			read_len = 8;
 		else

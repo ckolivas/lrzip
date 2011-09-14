@@ -271,6 +271,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	else if (control->major_version == 0 && control->minor_version == 4)
 		chunk_bytes = 8;
 	else {
+		print_maxverbose("Reading chunk_bytes at %lld\n", get_readseek(control, fd_in));
 		/* Read in the stored chunk byte width from the file */
 		if (unlikely(read_1g(control, fd_in, &chunk_bytes, 1) != 1))
 			fatal("Failed to read chunk_bytes size in runzip_chunk\n");
