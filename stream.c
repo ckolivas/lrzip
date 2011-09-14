@@ -1182,6 +1182,8 @@ again:
 				goto failed;
 			header_length = 1 + (read_len * 3);
 		}
+		sinfo->total_read += header_length;
+
 		if (ENCRYPT)
 			decrypt_header(control, enc_head, &c, &v1, &v2, &sinfo->s[i].last_head);
 
@@ -1543,7 +1545,7 @@ retry:
 /* fill a buffer from a stream - return -1 on failure */
 static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int streamno)
 {
-	i64 u_len, c_len, last_head, padded_len;
+	i64 u_len, c_len, last_head, padded_len, header_length;
 	uchar enc_head[25 + SALT_LEN], blocksalt[SALT_LEN];
 	struct stream *s = &sinfo->s[streamno];
 	stream_thread_struct *st;
@@ -1579,6 +1581,7 @@ fill_another:
 		c_len = c_len32;
 		u_len = u_len32;
 		last_head = last_head32;
+		header_length = 13;
 	} else {
 		int read_len;
 
@@ -1593,7 +1596,9 @@ fill_another:
 			return -1;
 		if (unlikely(read_val(control, sinfo->fd, &last_head, read_len)))
 			return -1;
+		header_length = 1 + (read_len * 3);
 	}
+	sinfo->total_read += header_length;
 
 	if (ENCRYPT) {
 		decrypt_header(control, enc_head, &c_type, &c_len, &u_len, &last_head);
@@ -1605,6 +1610,7 @@ fill_another:
 	last_head = le64toh(last_head);
 
 	padded_len = MAX(c_len, MIN_SIZE);
+	sinfo->total_read += padded_len;
 	fsync(control->fd_out);
 
 	s_buf = malloc(MAX(u_len, MIN_SIZE));
@@ -1762,10 +1768,16 @@ int close_stream_out(rzip_control *control, void *ss)
 }
 
 /* close down an input stream */
-int close_stream_in(void *ss)
+int close_stream_in(rzip_control *control, void *ss)
 {
 	struct stream_info *sinfo = ss;
 	int i;
+
+	print_maxverbose("Closing stream at %lld, want to seek to %lld\n",
+			 get_readseek(control, control->fd_in),
+			 sinfo->initial_pos + sinfo->total_read);
+	if (unlikely(read_seekto(control, sinfo, sinfo->total_read)))
+		return -1;
 
 	for (i = 0; i < sinfo->num_streams; i++)
 		free(sinfo->s[i].buf);

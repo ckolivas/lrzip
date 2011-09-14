@@ -321,7 +321,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 		print_maxverbose("Checksum for block: 0x%08x\n", cksum);
 	}
 
-	if (unlikely(close_stream_in(ss)))
+	if (unlikely(close_stream_in(control, ss)))
 		fatal("Failed to close stream!\n");
 
 	return total;
