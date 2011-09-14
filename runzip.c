@@ -285,6 +285,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	else if (control->major_version == 0 && control->minor_version == 4)
 		chunk_bytes = 8;
 	else {
+		print_maxverbose("Reading chunk_bytes at %lld\n", get_readseek(control, fd_in));
 		/* Read in the stored chunk byte width from the file */
 		if (unlikely(read_1g(control, fd_in, &chunk_bytes, 1) != 1))
 			fatal_return(("Failed to read chunk_bytes size in runzip_chunk\n"), -1);
@@ -352,8 +353,8 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 		print_maxverbose("Checksum for block: 0x%08x\n", cksum);
 	}
 
-	if (unlikely(close_stream_in(ss)))
-		fatal_return(("Failed to close stream!\n"), -1);
+	if (unlikely(close_stream_in(control, ss)))
+		fatal("Failed to close stream!\n");
 
 	return total;
 }

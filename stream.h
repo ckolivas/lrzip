@@ -28,15 +28,16 @@ bool create_pthread(pthread_t  *thread, pthread_attr_t *attr,
 bool join_pthread(pthread_t th, void **thread_return);
 ssize_t write_1g(rzip_control *control, void *buf, i64 len);
 ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len);
-bool prepare_streamout_threads(rzip_control *control);
-bool close_streamout_threads(rzip_control *control);
+i64 get_readseek(rzip_control *control, int fd);
+void prepare_streamout_threads(rzip_control *control);
+void close_streamout_threads(rzip_control *control);
 void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_limit, char cbytes);
 void *open_stream_in(rzip_control *control, int f, int n, char cbytes);
 bool flush_buffer(rzip_control *control, struct stream_info *sinfo, int stream);
 int write_stream(rzip_control *control, void *ss, int streamno, uchar *p, i64 len);
 i64 read_stream(rzip_control *control, void *ss, int streamno, uchar *p, i64 len);
 int close_stream_out(rzip_control *control, void *ss);
-int close_stream_in(void *ss);
+int close_stream_in(rzip_control *control, void *ss);
 ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret);
 
 #endif

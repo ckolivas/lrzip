@@ -921,7 +921,7 @@ static i64 get_seek(rzip_control *control, int fd)
 	return ret;
 }
 
-static i64 get_readseek(rzip_control *control, int fd)
+i64 get_readseek(rzip_control *control, int fd)
 {
 	i64 ret;
 
@@ -1159,12 +1159,16 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 	if (control->major_version == 0 && control->minor_version > 5) {
 		/* Read in flag that tells us if there are more chunks after
 		 * this. Ignored if we know the final file size */
+		print_maxverbose("Reading eof flag at %lld\n", get_readseek(control, f));
 		if (unlikely(read_u8(control, f, &control->eof))) {
 			print_err("Failed to read eof flag in open_stream_in\n");
 			goto failed;
 		}
+		print_maxverbose("EOF: %d\n", control->eof);
+
 		/* Read in the expected chunk size */
 		if (!ENCRYPT) {
+			print_maxverbose("Reading expected chunksize at %lld\n", get_readseek(control, f));
 			if (unlikely(read_val(control, f, &sinfo->size, sinfo->chunk_bytes))) {
 				print_err("Failed to read in chunk size in open_stream_in\n");
 				goto failed;
@@ -1209,6 +1213,7 @@ again:
 		} else {
 			int read_len;
 
+			print_maxverbose("Reading stream %d header at %lld\n", i, get_readseek(control, f));
 			if ((control->major_version == 0 && control->minor_version < 6) ||
 				ENCRYPT)
 					read_len = 8;
@@ -1222,6 +1227,8 @@ again:
 				goto failed;
 			header_length = 1 + (read_len * 3);
 		}
+		sinfo->total_read += header_length;
+
 		if (ENCRYPT)
 			if (unlikely(!decrypt_header(control, enc_head, &c, &v1, &v2, &sinfo->s[i].last_head))) goto failed;
 
@@ -1388,11 +1395,14 @@ retry:
 			if (unlikely(!flush_tmpoutbuf(control))) goto error;
 		}
 
+		print_maxverbose("Writing initial chunk bytes value %d at %lld\n",
+				 ctis->chunk_bytes, get_seek(control, ctis->fd));
 		/* Write chunk bytes of this block */
 		write_u8(control, ctis->chunk_bytes);
 
 		/* Write whether this is the last chunk, followed by the size
 		 * of this chunk */
+		print_maxverbose("Writing EOF flag as %d\n", control->eof);
 		write_u8(control, control->eof);
 		if (!ENCRYPT)
 			write_val(control, ctis->size, ctis->chunk_bytes);
@@ -1401,6 +1411,7 @@ retry:
 		ctis->initial_pos = get_seek(control, ctis->fd);
 		if (unlikely(ctis->initial_pos == -1)) goto error;
 
+		print_maxverbose("Writing initial header at %lld\n", ctis->initial_pos);
 		for (j = 0; j < ctis->num_streams; j++) {
 			/* If encrypting, we leave SALT_LEN room to write in salt
 			* later */
@@ -1418,6 +1429,8 @@ retry:
 		}
 	}
 
+	print_maxverbose("Compthread %ld seeking to %lld to store length %d\n", i, ctis->s[cti->streamno].last_head, write_len);
+
 	if (unlikely(seekto(control, ctis, ctis->s[cti->streamno].last_head)))
 		fatal_goto(("Failed to seekto in compthread %d\n", i), error);
 
@@ -1428,6 +1441,9 @@ retry:
 		rewrite_encrypted(control, ctis, ctis->s[cti->streamno].last_head - 17);
 
 	ctis->s[cti->streamno].last_head = ctis->cur_pos + 1 + (write_len * 2) + (ENCRYPT ? SALT_LEN : 0);
+
+	print_maxverbose("Compthread %ld seeking to %lld to write header\n", i, ctis->cur_pos);
+
 	if (unlikely(seekto(control, ctis, ctis->cur_pos)))
 		fatal_goto(("Failed to seekto cur_pos in compthread %d\n", i), error);
 
@@ -1455,6 +1471,9 @@ retry:
 		if (unlikely(!lrz_encrypt(control, cti->s_buf, padded_len, cti->salt))) goto error;
 		ctis->cur_pos += SALT_LEN;
 	}
+
+	print_maxverbose("Compthread %ld writing data at %lld\n", i, ctis->cur_pos);
+
 	if (unlikely(write_buf(control, cti->s_buf, padded_len)))
 		fatal_goto(("Failed to write_buf s_buf in compthread %d\n", i), error);
 
@@ -1588,7 +1607,7 @@ retry:
 /* fill a buffer from a stream - return -1 on failure */
 static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int streamno)
 {
-	i64 u_len, c_len, last_head, padded_len;
+	i64 u_len, c_len, last_head, padded_len, header_length;
 	uchar enc_head[25 + SALT_LEN], blocksalt[SALT_LEN];
 	struct stream *s = &sinfo->s[streamno];
 	stream_thread_struct *st;
@@ -1624,9 +1643,11 @@ fill_another:
 		c_len = c_len32;
 		u_len = u_len32;
 		last_head = last_head32;
+		header_length = 13;
 	} else {
 		int read_len;
 
+		print_maxverbose("Reading ucomp header at %lld\n", get_readseek(control, sinfo->fd));
 		if ((control->major_version == 0 && control->minor_version < 6) || ENCRYPT)
 			read_len = 8;
 		else
@@ -1637,7 +1658,9 @@ fill_another:
 			return -1;
 		if (unlikely(read_val(control, sinfo->fd, &last_head, read_len)))
 			return -1;
+		header_length = 1 + (read_len * 3);
 	}
+	sinfo->total_read += header_length;
 
 	if (ENCRYPT) {
 		if (unlikely(!decrypt_header(control, enc_head, &c_type, &c_len, &u_len, &last_head))) return -1;
@@ -1649,6 +1672,7 @@ fill_another:
 	last_head = le64toh(last_head);
 
 	padded_len = MAX(c_len, MIN_SIZE);
+	sinfo->total_read += padded_len;
 	fsync(control->fd_out);
 
 	s_buf = malloc(MAX(u_len, MIN_SIZE));
@@ -1826,10 +1850,16 @@ int close_stream_out(rzip_control *control, void *ss)
 }
 
 /* close down an input stream */
-int close_stream_in(void *ss)
+int close_stream_in(rzip_control *control, void *ss)
 {
 	struct stream_info *sinfo = ss;
 	int i;
+
+	print_maxverbose("Closing stream at %lld, want to seek to %lld\n",
+			 get_readseek(control, control->fd_in),
+			 sinfo->initial_pos + sinfo->total_read);
+	if (unlikely(read_seekto(control, sinfo, sinfo->total_read)))
+		return -1;
 
 	for (i = 0; i < sinfo->num_streams; i++)
 		free(sinfo->s[i].buf);

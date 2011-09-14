@@ -244,7 +244,7 @@ A. It has been tested on gcc, ekopath and the intel compiler successfully
 previously. Whether the commercial compilers help or not, I could not tell you.
 
 Q. What codebase are you basing this on?
-A. rzip v2.1 and lzma sdk907, but it should be possible to stay in sync with
+A. rzip v2.1 and lzma sdk920, but it should be possible to stay in sync with
 each of these in the future.
 
 Q. Do we really need yet another compression format?
