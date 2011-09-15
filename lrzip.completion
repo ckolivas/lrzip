@@ -1,0 +1,119 @@
+#-*- mode: shell-script;-*-
+# Inputs:
+#   $1 -- name of the command whose arguments are being completed
+#   $2 -- word being completed
+#   $3 -- word preceding the word being completed
+#   $COMP_LINE  -- current command line
+#   $COMP_PONT  -- cursor position
+#   $COMP_WORDS -- array containing individual words in the current
+#                  command line
+#   $COMP_CWORD -- index into ${COMP_WORDS} of the word containing the
+#                  current cursor position
+# Output:
+#   COMPREPLY array variable contains possible completions
+#
+# Copyright (C) 2011 Fernando Auil <troesmix@gmail.com>
+# Author: Fernando Auil <troesmix@gmail.com>
+# Last revision: 25Jun2011
+
+have lrzip &&
+_lrzip()
+{
+local cpu_count win_size
+local general_opts output_opts compress_opts level_opts options special special2
+
+# Get the CPU count.
+cpu_count=$(grep -c ^processor /proc/cpuinfo)
+
+# This is aproximately the heuristical window size (in MB) for the
+# non-STDIN case (which is more conservative?).
+win_size=$(awk '/MemTotal/{print$2}' /proc/meminfo)
+win_size=$((win_size >> 17))
+
+general_opts='-c -d -e -h -? -H -i -q -t -v -vv -V'
+output_opts='-D -f -k -o -O -S'
+compress_opts='-b -g -l -n -z'
+level_opts='-L -N -p -T -U -w'
+
+COMPREPLY=()
+cur=${COMP_WORDS[COMP_CWORD]}
+prev=${COMP_WORDS[COMP_CWORD-1]}
+
+	for (( i=0; i < ${#COMP_WORDS[@]}-1; i++ )); do
+		if [[ ${COMP_WORDS[i]} == @(-b|-g|-l|-n|-z) ]]; then
+			special=${COMP_WORDS[i]}
+		elif [[ ${COMP_WORDS[i]} == @(-U) ]]; then
+			special2=${COMP_WORDS[i]}
+		fi
+	done
+
+	if [ -n "$special" ]; then
+		unset compress_opts
+	fi
+
+	if [ -n "$special2" ]; then
+		level_opts='-L -N -p -T -U'
+	fi
+
+options="$general_opts $output_opts $level_opts $compress_opts"
+
+case "$prev" in
+
+-L)
+COMPREPLY=( $(compgen -W "$(seq 9)" -- $cur) )
+return 0
+;;
+
+-N)
+COMPREPLY=( $(compgen -W "$(seq -20 19)" -- $cur) )
+return 0
+;;
+
+-S)
+COMPREPLY=( $(compgen -W ".lrz" -- $cur) )
+return 0
+;;
+
+-p)
+COMPREPLY=( $(compgen -W "$cpu_count" -- $cur) )
+return 0
+;;
+
+-w)
+COMPREPLY=( $(compgen -W "$win_size" -- $cur) )
+return 0
+;;
+
+# Dirnames options.
+-O)
+_filedir -d
+return 0
+;;
+
+# Filenames options.
+-o)
+#_longopt $filenames
+_filedir
+return 0
+;;
+
+# Exit options.
+-h|-\?|-V)
+COMPREPLY=()
+return 0
+;;
+
+esac
+
+if [[ "$cur" = -* ]]; then
+	COMPREPLY=( $(compgen -W "$options" -- $cur) )
+	return 0
+else
+	_filedir
+	return 0
+fi
+}
+
+[ "$have" ] && complete -F _lrzip $filenames lrzip
+
+:
