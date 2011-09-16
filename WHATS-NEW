@@ -1,3 +1,12 @@
+lrzip-0.607
+
+A rare case of not being able to decompress archives was fixed.
+The lzma library was updated to version 920.
+A bash completion script for lrzip was added.
+More debugging info was added in maximum verbose mode.
+Less messages occur without verbose mode.
+FreeBSD and posix compilation fixes were committed.
+
 lrzip-0.606
 
 lrzuntar, which broke last version leaving behind an untarred .tar file, is

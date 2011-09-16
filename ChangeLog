@@ -1,4 +1,13 @@
 lrzip ChangeLog
+SEPTEMBER 2011, version 0.607 Con Kolivas
+* Updated lzma library to version 920.
+* Fixed a rare unable-to-decompress corner case.
+* Added lrzip completion script.
+* Updated makefile to more portable posix version.
+* Hopefully fixed compilation on FreeBSD not supporting memopen.
+* Added lots more debugging information about offsets in max verbose mode.
+* Removed error and warning messages that are spammy or harmless.
+
 MAY 2011, version 0.606 Con Kolivas
 * lrzuntar broke as lrzip doesn't automatically use stdout now, so use lrzcat
 in the lrztar script instead.
