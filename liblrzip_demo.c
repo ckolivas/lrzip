@@ -11,10 +11,10 @@
 #ifdef HAVE_ERRNO_H
 # include <errno.h>
 #else
+extern int errno;
+#endif
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
-#endif
-extern int errno;
 #endif
 #include <termios.h>
 #include <liblrzip.h>

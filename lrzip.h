@@ -25,7 +25,7 @@ inline i64 get_ram(rzip_control *control);
 i64 nloops(i64 seconds, uchar *b1, uchar *b2);
 bool write_magic(rzip_control *control);
 bool read_magic(rzip_control *control, int fd_in, i64 *expected_size);
-void preserve_perms(rzip_control *control, int fd_in, int fd_out);
+bool preserve_perms(rzip_control *control, int fd_in, int fd_out);
 int open_tmpoutfile(rzip_control *control);
 bool dump_tmpoutfile(rzip_control *control, int fd_out);
 int open_tmpinfile(rzip_control *control);

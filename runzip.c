@@ -314,7 +314,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 			case 0:
 				u = unzip_literal(control, ss, len, &cksum);
 				if (unlikely(u == -1)) {
-					close_stream_in(ss);
+					close_stream_in(control, ss);
 					return -1;
 				}
 				total += u;
@@ -323,7 +323,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 			default:
 				u = unzip_match(control, ss, len, &cksum, chunk_bytes);
 				if (unlikely(u == -1)) {
-					close_stream_in(ss);
+					close_stream_in(control, ss);
 					return -1;
 				}
 				total += u;
@@ -343,11 +343,11 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	if (!HAS_MD5) {
 		good_cksum = read_u32(control, ss, 0, &err);
 		if (unlikely(err)) {
-			close_stream_in(ss);
+			close_stream_in(control, ss);
 			return -1;
 		}
 		if (unlikely(good_cksum != cksum)) {
-			close_stream_in(ss);
+			close_stream_in(control, ss);
 			failure_return(("Bad checksum: 0x%08x - expected: 0x%08x\n", cksum, good_cksum), -1);
 		}
 		print_maxverbose("Checksum for block: 0x%08x\n", cksum);

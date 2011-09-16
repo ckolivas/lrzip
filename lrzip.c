@@ -276,6 +276,7 @@ bool preserve_perms(rzip_control *control, int fd_in, int fd_out)
 	/* chown fail is not fatal_return(( */
 	if (unlikely(fchown(fd_out, st.st_uid, st.st_gid)))
 		print_verbose("Warning, unable to set owner on %s\n", control->outfile);
+	return true;
 }
 
 /* Open a temporary outputfile to emulate stdout */
