@@ -26,7 +26,7 @@ SUBDIRS = lzma man doc
 AM_CFLAGS = -I. -I lzma/C -DNDEBUG
 AM_CXXFLAGS = $(AM_CFLAGS)
 
-lrztardir = @bindir@
+lrztardir = $(bindir)
 lrztar_SCRIPTS = lrztar
 
 noinst_LTLIBRARIES = libtmplrzip.la
@@ -92,19 +92,19 @@ EXTRA_DIST = \
 		description-pak \
 		autogen.sh \
 		INSTALL \
-		lrzip.completion \
+		bash_completion.d/lrzip \
 		$(dist_doc_DATA)
 
-install-data-hook:
-	test -d /etc/bash_completion.d && @INSTALL_DATA@ lrzip.completion /etc/bash_completion.d/lrzip
+completiondir = $(DESTDIR)/$(sysconfdir)/bash_completion.d
+completion_DATA = @top_srcdir@/bash_completion.d/lrzip
 
 install-exec-hook:
-	$(LN_S) -f lrzip$(EXEEXT) $(DESTDIR)@bindir@/lrunzip$(EXEEXT)
-	$(LN_S) -f lrzip$(EXEEXT) $(DESTDIR)@bindir@/lrzcat$(EXEEXT)
-	$(LN_S) -f lrztar$(EXEEXT) $(DESTDIR)@bindir@/lrzuntar$(EXEEXT)
+	$(LN_S) -f lrzip$(EXEEXT) $(DESTDIR)$(bindir)/lrunzip$(EXEEXT)
+	$(LN_S) -f lrzip$(EXEEXT) $(DESTDIR)$(bindir)/lrzcat$(EXEEXT)
+	$(LN_S) -f lrztar$(EXEEXT) $(DESTDIR)$(bindir)/lrzuntar$(EXEEXT)
 
 
 uninstall-local:
-	rm -f @bindir@/lrunzip
-	rm -f @bindir@/lrzcat
-	rm -f @bindir@/lrzuntar
+	rm -f $(bindir)/lrunzip
+	rm -f $(bindir)/lrzcat
+	rm -f $(bindir)/lrzuntar
