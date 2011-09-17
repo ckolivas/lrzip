@@ -34,6 +34,7 @@ libtmplrzip_la_SOURCES = \
   zpipe.cpp \
   zpipe.h \
   lrzip_private.h \
+  liblrzip_private.h \
   liblrzip.h \
   lrzip.c \
   lrzip.h \
