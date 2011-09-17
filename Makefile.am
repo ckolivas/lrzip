@@ -75,7 +75,7 @@ EXTRA_DIST = \
 		bash_completion.d/lrzip \
 		$(dist_doc_DATA)
 
-completiondir = $(DESTDIR)/$(sysconfdir)/bash_completion.d
+completiondir = $(sysconfdir)/bash_completion.d
 completion_DATA = @top_srcdir@/bash_completion.d/lrzip
 
 install-exec-hook:
