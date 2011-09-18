@@ -180,13 +180,9 @@ static inline void remap_high_sb(rzip_control *control, i64 p)
  * it, and a 64k mmap block that slides up and down as is required for any
  * offsets outside the range of the lower one. This is much slower than mmap
  * but makes it possible to have unlimited sized compression windows. */
-static uchar *get_sb(rzip_control *control, i64 p)
+static uchar *sliding_get_sb(rzip_control *control, i64 p)
 {
-	i64 low_end = sb.offset_low + sb.size_low;
-
-	if (unlikely(sb.offset_search > low_end))
-		remap_low_sb(control);
-	if (p >= sb.offset_low && p < low_end)
+	if (p >= sb.offset_low && p < sb.offset_low + sb.size_low)
 		return (sb.buf_low + p - sb.offset_low);
 	if (p >= sb.offset_high && p < (sb.offset_high + sb.size_high))
 		return (sb.buf_high + (p - sb.offset_high));
@@ -194,6 +190,34 @@ static uchar *get_sb(rzip_control *control, i64 p)
 	remap_high_sb(control, p);
 	return (sb.buf_high + (p - sb.offset_high));
 }
+
+static uchar *single_get_sb(rzip_control *control, i64 p)
+{
+	return (sb.buf_low + p);
+}
+
+/* We use a pointer to the function we actually want to use and only enable
+ * the sliding mmap version if we need sliding mmap functionality as this is
+ * a hot function during the rzip phase */
+static uchar *(*get_sb)(rzip_control *control, i64 p);
+
+static void sliding_mcpy(rzip_control *control, unsigned char *buf, i64 offset, i64 len)
+{
+	i64 i;
+
+	for (i = 0; i < len; i++)
+		memcpy(buf + i, sliding_get_sb(control, offset + i), 1);
+}
+
+static void single_mcpy(rzip_control *control, unsigned char *buf, i64 offset, i64 len)
+{
+	memcpy(buf, sb.buf_low + offset, len);
+}
+
+/* Since the sliding get_sb only allows us to access one byte at a time, we
+ * do the same as we did with get_sb with the memcpy since one memcpy is much
+ * faster than numerous memcpys 1 byte at a time */
+static void (*do_mcpy)(rzip_control *control, unsigned char *buf, i64 offset, i64 len);
 
 /* All put_u8/u32/vchars go to stream 0 */
 static inline void put_u8(rzip_control *control, void *ss, uchar b)
@@ -249,14 +273,10 @@ static int write_sbstream(rzip_control *control, void *ss, int stream, i64 p, i6
 	struct stream_info *sinfo = ss;
 
 	while (len) {
-		i64 n, i;
+		i64 n = MIN(sinfo->bufsize - sinfo->s[stream].buflen, len);
 
-		n = MIN(sinfo->bufsize - sinfo->s[stream].buflen, len);
+		do_mcpy(control, sinfo->s[stream].buf + sinfo->s[stream].buflen, p, n);
 
-		for (i = 0; i < n; i++) {
-			memcpy(sinfo->s[stream].buf + sinfo->s[stream].buflen + i,
-			       get_sb(control, p + i), 1);
-		}
 		sinfo->s[stream].buflen += n;
 		p += n;
 		len -= n;
@@ -566,6 +586,8 @@ static void hash_search(rzip_control *control, struct rzip_state *st, double pct
 
 		p++;
 		sb.offset_search = p;
+		if (unlikely(sb.offset_search > sb.offset_low + sb.size_low))
+			remap_low_sb(control);
 		t = next_tag(control, st, p, t);
 
 		/* Don't look for a match if there are no tags with
@@ -617,13 +639,12 @@ static void hash_search(rzip_control *control, struct rzip_state *st, double pct
 		}
 
 		if (p > (i64)cksum_limit) {
-			i64 i, n = MIN(st->chunk_size - p, control->page_size);
+			i64 n = MIN(st->chunk_size - p, control->page_size);
 			uchar *ckbuf = malloc(n);
 
 			if (unlikely(!ckbuf))
 				fatal("Failed to malloc ckbuf in hash_search\n");
-			for (i = 0; i < n; i++)
-				memcpy(ckbuf + i, get_sb(control, cksum_limit + i), 1);
+			do_mcpy(control, ckbuf, cksum_limit, n);
 			st->cksum = CrcUpdate(st->cksum, ckbuf, n);
 			if (!NO_MD5)
 				md5_process_bytes(ckbuf, n, &control->ctx);
@@ -639,13 +660,12 @@ static void hash_search(rzip_control *control, struct rzip_state *st, double pct
 		put_literal(control, st, st->last_match, st->chunk_size);
 
 	if (st->chunk_size > cksum_limit) {
-		i64 i, n = st->chunk_size - cksum_limit;
+		i64 n = st->chunk_size - cksum_limit;
 		uchar *ckbuf = malloc(n);
 
 		if (unlikely(!ckbuf))
 			fatal("Failed to malloc ckbuf in hash_search\n");
-		for (i = 0; i < n; i++)
-			memcpy(ckbuf + i, get_sb(control, cksum_limit + i), 1);
+		do_mcpy(control, ckbuf, cksum_limit, n);
 		st->cksum = CrcUpdate(st->cksum, ckbuf, n);
 		if (!NO_MD5)
 			md5_process_bytes(ckbuf, n, &control->ctx);
@@ -856,6 +876,8 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	gettimeofday(&start, NULL);
 
 	prepare_streamout_threads(control);
+	get_sb = single_get_sb;
+	do_mcpy = single_mcpy;
 
 	while (!pass || len > 0 || (STDIN && !st->stdin_eof)) {
 		double pct_base, pct_multiple;
@@ -900,8 +922,11 @@ retry:
 					fatal("Unable to mmap any ram\n");
 				goto retry;
 			}
-			if (st->mmap_size < st->chunk_size)
+			if (st->mmap_size < st->chunk_size) {
 				print_maxverbose("Enabling sliding mmap mode and using mmap of %lld bytes with window of %lld bytes\n", st->mmap_size, st->chunk_size);
+				get_sb = &sliding_get_sb;
+				do_mcpy = &sliding_mcpy;
+			}
 		}
 		print_maxverbose("Succeeded in testing %lld sized mmap for rzip pre-processing\n", st->mmap_size);
 
