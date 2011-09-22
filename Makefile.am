@@ -72,11 +72,7 @@ EXTRA_DIST = \
 		description-pak \
 		autogen.sh \
 		INSTALL \
-		bash_completion.d/lrzip \
 		$(dist_doc_DATA)
-
-completiondir = $(sysconfdir)/bash_completion.d
-completion_DATA = @top_srcdir@/bash_completion.d/lrzip
 
 install-exec-hook:
 	$(LN_S) -f lrzip$(EXEEXT) $(DESTDIR)$(bindir)/lrunzip$(EXEEXT)
