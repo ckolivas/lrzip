@@ -1,3 +1,10 @@
+lrzip-0.608
+
+Faster rzip stage through use of a selective get_sb function.
+The bash completion script is no longer installed by default to not conflict
+with distribution bash completion packages.
+More compilation fixes for non-linux platforms.
+
 lrzip-0.607
 
 A rare case of not being able to decompress archives was fixed.

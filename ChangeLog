@@ -1,4 +1,17 @@
 lrzip ChangeLog
+SEPTEMBER 2011, version 0.608 Con Kolivas
+* get_sb only allows accessing one byte at a time, yet we don't need that
+functionality when sliding mmap is not in use. Use different versions of the
+function and the larger memcpys depending on whether sliding mmap is in use or
+not. This affords a substantial speedup in the rzip phase of files not requiring
+sliding mmap.
+* A small optimisation of moving the check for remapping the low buffer also
+speeds up the sliding mmap version slightly.
+* Installation of the included bash completion script was disabled to avoid
+conflict with distribution bash completion packages.
+* Minor cleanup of sha4.h
+* Make mremap use the fake mremap on all platforms not linux.
+
 SEPTEMBER 2011, version 0.607 Con Kolivas
 * Updated lzma library to version 920.
 * Fixed a rare unable-to-decompress corner case.
