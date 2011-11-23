@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: lrzip
+Description: lrzip compression library
+Version: @VERSION@
+Libs: -L${libdir} -llrzip
+Libs.private: @LIBS@
