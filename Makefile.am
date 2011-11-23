@@ -89,7 +89,11 @@ dist_doc_DATA = \
   TODO \
   WHATS-NEW
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = lrzip.pc
+
 EXTRA_DIST = \
+		lrzip.pc.in \
 		lrztar \
 		description-pak \
 		autogen.sh \
