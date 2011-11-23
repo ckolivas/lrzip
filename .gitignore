@@ -3,7 +3,7 @@
 *.lo
 config.*
 Makefile
-*.in
+Makefile.in
 .deps
 .libs
 *.la
