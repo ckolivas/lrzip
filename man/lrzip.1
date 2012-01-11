@@ -86,7 +86,7 @@ However the file written to disk may be corrupted for other reasons to do with
 other userspace problems such as faulty library versions, drivers, hardware
 failure and so on. Enabling this option will make lrzip perform an md5 hash
 check on the file that's written to disk. When the archive has the md5 value
-stored in it, it is compared to this. Otherwise it is compard to the value
+stored in it, it is compared to this. Otherwise it is compared to the value
 calculated during decompression. This offers an extra guarantee that the file
 written is the same as the original archived.
 .IP
@@ -115,7 +115,7 @@ This shows the md5 hash value calculated on compressing or decompressing an
 lrzip archive. By default all compression has the md5 value calculated and
 stored in all archives since version 0.560. On decompression, when an md5
 value has been found, it will be calculated and used for integrity checking.
-If the md5 value is not stored in the archive, it will not be calcuated unless
+If the md5 value is not stored in the archive, it will not be calculated unless
 explicitly specified with this option, or check integrity (see below) has been
 requested.
 .IP
