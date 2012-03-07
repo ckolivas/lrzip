@@ -45,7 +45,7 @@ static inline void fatal(const rzip_control *control, unsigned int line, const c
 #ifdef fatal
 # undef fatal
 #endif
-#define fatal(stuff...) fatal(control, __LINE__, __FILE__, __func__, stuff)
+#define fatal(...) fatal(control, __LINE__, __FILE__, __func__, __VA_ARGS__)
 #define fatal_return(stuff, ...) do { \
 	fatal stuff; \
 	return __VA_ARGS__; \
@@ -70,7 +70,7 @@ static inline void failure(const rzip_control *control, unsigned int line, const
 #ifdef failure
 # undef failure
 #endif
-#define failure(stuff...) failure(control, __LINE__, __FILE__, __func__, stuff)
+#define failure(...) failure(control, __LINE__, __FILE__, __func__, __VA_ARGS__)
 #define failure_return(stuff, ...) do { \
 	failure stuff; \
 	return __VA_ARGS__; \
