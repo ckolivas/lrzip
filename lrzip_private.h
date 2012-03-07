@@ -359,7 +359,7 @@ struct rzip_control {
 	struct stream_info **sinfo_queue;
 	char delete_outfile;
 	FILE *outputfile;
-	char library_mode : 1;
+	char library_mode;
 	int log_level;
 	void (*info_cb)(void *data, int pct, int chunk_pct);
 	void *info_data;
@@ -429,30 +429,30 @@ static inline void print_err(const rzip_control *control, unsigned int line, con
 	}
 }
 
-#define print_stuff(level, format, args...) do {\
-	print_stuff(control, level, __LINE__, __FILE__, __func__, format, ##args); \
+#define print_stuff(level, ...) do {\
+	print_stuff(control, level, __LINE__, __FILE__, __func__, __VA_ARGS__); \
 } while (0)
 
-#define print_output(format, args...)	do {\
-	print_stuff(1, format, ##args); \
+#define print_output(...)	do {\
+	print_stuff(1, __VA_ARGS__); \
 } while (0)
 
-#define print_progress(format, args...)	do {\
+#define print_progress(...)	do {\
 	if (SHOW_PROGRESS)	\
-		print_stuff(2, format, ##args); \
+		print_stuff(2, __VA_ARGS__); \
 } while (0)
 
-#define print_verbose(format, args...)	do {\
+#define print_verbose(...)	do {\
 	if (VERBOSE)	\
-		print_stuff(3, format, ##args); \
+		print_stuff(3, __VA_ARGS__); \
 } while (0)
 
-#define print_maxverbose(format, args...)	do {\
+#define print_maxverbose(...)	do {\
 	if (MAX_VERBOSE)	\
-		print_stuff(4, format, ##args); \
+		print_stuff(4, __VA_ARGS__); \
 } while (0)
 
-#define print_err(format, args...) do {\
-	print_err(control, __LINE__, __FILE__, __func__, format, ##args); \
+#define print_err(...) do {\
+	print_err(control, __LINE__, __FILE__, __func__, __VA_ARGS__); \
 } while (0)
 #endif

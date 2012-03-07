@@ -19,8 +19,8 @@ extern int errno;
 #include <termios.h>
 #include <Lrzip.h>
 
-#define failure(format, args...) do { \
-	fprintf(stderr, format, ##args); \
+#define failure(...) do { \
+	fprintf(stderr, __VA_ARGS__); \
 	exit(1); \
 } while (0)
 
