@@ -166,7 +166,10 @@ static inline bool remap_high_sb(rzip_control *control, struct sliding_buffer *s
  * the beginning of the block which slides up once the hash search moves beyond
  * it, and a 64k mmap block that slides up and down as is required for any
  * offsets outside the range of the lower one. This is much slower than mmap
- * but makes it possible to have unlimited sized compression windows. */
+ * but makes it possible to have unlimited sized compression windows.
+ * We use a pointer to the function we actually want to use and only enable
+ * the sliding mmap version if we need sliding mmap functionality as this is
+ * a hot function during the rzip phase */
 static uchar *sliding_get_sb(rzip_control *control, struct sliding_buffer *sb, i64 p)
 {
 	if (p >= sb->offset_low && p < sb->offset_low + sb->size_low)
@@ -183,25 +186,30 @@ static uchar *single_get_sb(__maybe_unused rzip_control *control, struct sliding
 	return (sb->buf_low + p);
 }
 
-/* We use a pointer to the function we actually want to use and only enable
- * the sliding mmap version if we need sliding mmap functionality as this is
- * a hot function during the rzip phase */
-static void sliding_mcpy(rzip_control *control, unsigned char *buf, i64 offset, i64 len)
-{
-	i64 i;
-
-	for (i = 0; i < len; i++)
-		memcpy(buf + i, sliding_get_sb(control, &control->sb, offset + i), 1);
-}
-
+/* Since the sliding get_sb only allows us to access one byte at a time, we
+ * do the same as we did with get_sb with the memcpy since one memcpy is much
+ * faster than numerous memcpys 1 byte at a time */
 static void single_mcpy(__maybe_unused rzip_control *control, unsigned char *buf, i64 offset, i64 len)
 {
 	memcpy(buf, control->sb.buf_low + offset, len);
 }
 
-/* Since the sliding get_sb only allows us to access one byte at a time, we
- * do the same as we did with get_sb with the memcpy since one memcpy is much
- * faster than numerous memcpys 1 byte at a time */
+static void sliding_mcpy(rzip_control *control, unsigned char *buf, i64 offset, i64 len)
+{
+	struct sliding_buffer *sb = &control->sb;
+	i64 i;
+
+	/* See if we fit in the low buffer first and use the faster function
+	 * where possible */
+	if (offset >= sb->offset_low && offset + len < sb->offset_low + sb->size_low) {
+		single_mcpy(control, buf, offset, len);
+		return;
+	}
+
+	/* We have no choice but to go fine-grained since we will be paging */
+	for (i = 0; i < len; i++)
+		memcpy(buf + i, sliding_get_sb(control, &control->sb, offset + i), 1);
+}
 
 /* All put_u8/u32/vchars go to stream 0 */
 static inline bool put_u8(rzip_control *control, void *ss, uchar b)
