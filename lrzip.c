@@ -73,7 +73,7 @@ static i64 fdout_seekto(rzip_control *control, i64 pos)
 
 #ifdef __APPLE__
 # include <sys/sysctl.h>
-inline i64 get_ram(void)
+i64 get_ram(void)
 {
 	int mib[2];
 	size_t len;
@@ -89,7 +89,7 @@ inline i64 get_ram(void)
 	return ramsize;
 }
 #else /* __APPLE__ */
-inline i64 get_ram(rzip_control *control)
+i64 get_ram(rzip_control *control)
 {
 	i64 ramsize;
 	FILE *meminfo;
@@ -504,7 +504,7 @@ static bool open_tmpinbuf(rzip_control *control)
 	return true;
 }
 
-inline void clear_tmpinbuf(rzip_control *control)
+void clear_tmpinbuf(rzip_control *control)
 {
 	control->in_len = control->in_ofs = 0;
 }

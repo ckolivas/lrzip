@@ -52,7 +52,9 @@ AC_PROG_LN_S
 AC_SUBST(SHELL)
 AC_SYS_LARGEFILE
 AC_FUNC_ALLOCA
-
+AC_PROG_CC_C99
+AS_IF([test "x$ac_cv_prog_cc_c99" = "xno"], 
+	AC_MSG_ERROR([C compiler does not support C99], 1))
 AC_CHECK_PROG([HAVE_POD2MAN], [pod2man], [yes])
 AS_IF([test "$HAVE_POD2MAN" != "yes"],
 	AC_MSG_FAILURE([pod2man is needed to generate manual from POD]))
