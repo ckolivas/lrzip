@@ -20,6 +20,8 @@
 #ifndef LRZIP_PRIV_H
 #define LRZIP_PRIV_H
 
+#include "config.h"
+
 #define NUM_STREAMS 2
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
@@ -117,6 +119,7 @@ extern int errno;
 
 #define likely(x)	__builtin_expect(!!(x), 1)
 #define unlikely(x)	__builtin_expect(!!(x), 0)
+#define __maybe_unused	__attribute__((unused))
 
 typedef long long int i64;
 typedef uint32_t u32;

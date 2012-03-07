@@ -17,6 +17,8 @@
 #include "LzFindMt.h"
 #endif
 
+#include "lrzip.h"
+
 #ifdef SHOW_STAT
 static int ttt = 0;
 #endif
@@ -2156,7 +2158,7 @@ static SRes LzmaEnc_Encode2(CLzmaEnc *p, ICompressProgress *progress)
   SRes res = SZ_OK;
 
   #ifndef _7ZIP_ST
-  Byte allocaDummy[0x300];
+  __maybe_unused Byte allocaDummy[0x300];
   int i = 0;
   for (i = 0; i < 16; i++)
     allocaDummy[i] = (Byte)i;
