@@ -140,6 +140,7 @@ fi
 AM_CONDITIONAL([USE_ASM], [test "x$ASM" != "xyes" -a "x$ASM" != "xno"])
 AC_SUBST([ASM_OBJ])
 AC_SUBST([ASM_CMD])
+EFL_CHECK_DOXYGEN([build_doc="yes"], [build_doc="no"])
 
 AC_CONFIG_FILES([
 Makefile
@@ -162,6 +163,8 @@ echo "Configuration Options Summary:"
 echo
 echo "  ASM.(32 bit only)..: $ASM"
 echo "  Static binary......: $static"
+echo
+echo "Documentation..........: ${build_doc}"
 echo
 echo "Compilation............: make (or gmake)"
 echo "  CPPFLAGS.............: $CPPFLAGS"

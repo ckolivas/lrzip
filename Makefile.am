@@ -105,3 +105,12 @@ uninstall-local:
 	rm -f $(bindir)/lrunzip
 	rm -f $(bindir)/lrzcat
 	rm -f $(bindir)/lrzuntar
+
+.PHONY: doc
+
+# Documentation
+
+doc: all
+	@echo "entering doc/"
+	$(MAKE) -C doc doc
+
