@@ -57,12 +57,12 @@
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
 
-static rzip_control controlstaticvariablehaha, *control;
+static rzip_control base_control, local_control, *control;
 
 static void usage(void)
 {
 	print_output("lrzip version %s\n", PACKAGE_VERSION);
-	print_output("Copyright (C) Con Kolivas 2006-2011\n");
+	print_output("Copyright (C) Con Kolivas 2006-2012\n");
 	print_output("Based on rzip ");
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
 	print_output("Usage: lrzip [options] <file...>\n");
@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
 	extern int optind;
 	char *eptr; /* for environment */
 
-        control = &controlstaticvariablehaha;
+        control = &base_control;
 
 	initialize_control(control);
 
@@ -466,12 +466,13 @@ int main(int argc, char *argv[])
 		if (unlikely(STDIN && ENCRYPT))
 			failure("Unable to work from STDIN while reading password\n");
 
+		memcpy(&local_control, &base_control, sizeof(rzip_control));
 		if (DECOMPRESS || TEST_ONLY)
-			decompress_file(control);
+			decompress_file(&local_control);
 		else if (INFO)
-			get_fileinfo(control);
+			get_fileinfo(&local_control);
 		else
-			compress_file(control);
+			compress_file(&local_control);
 
 		/* compute total time */
 		gettimeofday(&end_time, NULL);
