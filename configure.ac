@@ -80,7 +80,7 @@ AC_ARG_ENABLE([static-bin],
 	)
 AM_CONDITIONAL([STATIC], [test "x$static" = "xyes"])
 
-AC_ARG_ENABLE([debug-build],
+AC_ARG_ENABLE([debug],
 	[AC_HELP_STRING([--enable-debug],[Build debugging code in @<:@default=no@:>@])],
 	[debugbuild=$enableval]
 	)

@@ -117,8 +117,13 @@ extern char *sys_errlist[];
 extern int errno;
 #endif
 
+#ifdef DEBUG_BUILD
 #define likely(x)	__builtin_expect(!!(x), 1)
 #define unlikely(x)	__builtin_expect(!!(x), 0)
+#else
+#define likely(x)	(x)) {}; if (true
+#define unlikely(x)	(x)) {}; if (false
+#endif
 #define __maybe_unused	__attribute__((unused))
 
 typedef long long int i64;
