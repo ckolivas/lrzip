@@ -57,7 +57,8 @@ libtmplrzip_la_LIBADD = lzma/C/liblzma.la
 
 lib_LTLIBRARIES = liblrzip.la
 liblrzip_la_SOURCES = \
-  liblrzip.c
+  liblrzip.c \
+  liblrzip_private.h
 nodist_EXTRA_liblrzip_la_SOURCES = dummy.cxx
 liblrzip_la_LIBADD = libtmplrzip.la
 
