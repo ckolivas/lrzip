@@ -26,6 +26,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <stdarg.h>
 #ifdef HAVE_STRING_H
 # include <string.h>
 #endif
@@ -33,6 +35,38 @@
 #ifdef HAVE_MALLOC_H
 # include <malloc.h>
 #endif
+
+#ifdef HAVE_ALLOCA_H
+# include <alloca.h>
+#elif defined __GNUC__
+# define alloca __builtin_alloca
+#elif defined _AIX
+# define alloca __alloca
+#elif defined _MSC_VER
+# include <malloc.h>
+# define alloca _alloca
+#else
+# include <stddef.h>
+# ifdef  __cplusplus
+extern "C"
+# endif
+void *alloca (size_t);
+#endif
+
+#ifndef MD5_DIGEST_SIZE
+# define MD5_DIGEST_SIZE 16
+#endif
+
+#define free(X) do { free((X)); (X) = NULL; } while (0)
+
+#ifndef strdupa
+# define strdupa(str) strcpy(alloca(strlen(str) + 1), str)
+#endif
+
+#ifndef strndupa
+# define strndupa(str, len) strncpy(alloca(len + 1), str, len)
+#endif
+
 
 #ifndef uchar
 #define uchar unsigned char
@@ -176,9 +210,61 @@ typedef struct md5_ctx md5_ctx;
 #define SALT_LEN 8
 #define CBC_LEN 16
 
-#define print_err(format, args...)	do {\
-	fprintf(stderr, format, ##args);	\
-} while (0)
+#define one_g (1000 * 1024 * 1024)
+
+#if defined(NOTHREAD) || !defined(_SC_NPROCESSORS_ONLN)
+# define PROCESSORS (1)
+#else
+# define PROCESSORS (sysconf(_SC_NPROCESSORS_ONLN))
+#endif
+
+#ifdef _SC_PAGE_SIZE
+# define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
+#else
+# define PAGE_SIZE (4096)
+#endif
+
+/* Determine how many times to hash the password when encrypting, based on
+ * the date such that we increase the number of loops according to Moore's
+ * law relative to when the data is encrypted. It is then stored as a two
+ * byte value in the header */
+#define MOORE 1.835          // world constant  [TIMES per YEAR]
+#define ARBITRARY  1000000   // number of sha2 calls per one second in 2011
+#define T_ZERO 1293840000    // seconds since epoch in 2011
+
+#define SECONDS_IN_A_YEAR (365*86400)
+#define MOORE_TIMES_PER_SECOND pow (MOORE, 1.0 / SECONDS_IN_A_YEAR)
+#define ARBITRARY_AT_EPOCH (ARBITRARY * pow (MOORE_TIMES_PER_SECOND, -T_ZERO))
+
+#define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
+#define FLAG_NOT_LZMA (FLAG_NO_COMPRESS | FLAG_LZO_COMPRESS | FLAG_BZIP2_COMPRESS | FLAG_ZLIB_COMPRESS | FLAG_ZPAQ_COMPRESS)
+#define LZMA_COMPRESS	(!(control->flags & FLAG_NOT_LZMA))
+
+#define SHOW_PROGRESS	(control->flags & FLAG_SHOW_PROGRESS)
+#define KEEP_FILES	(control->flags & FLAG_KEEP_FILES)
+#define TEST_ONLY	(control->flags & FLAG_TEST_ONLY)
+#define FORCE_REPLACE	(control->flags & FLAG_FORCE_REPLACE)
+#define DECOMPRESS	(control->flags & FLAG_DECOMPRESS)
+#define NO_COMPRESS	(control->flags & FLAG_NO_COMPRESS)
+#define LZO_COMPRESS	(control->flags & FLAG_LZO_COMPRESS)
+#define BZIP2_COMPRESS	(control->flags & FLAG_BZIP2_COMPRESS)
+#define ZLIB_COMPRESS	(control->flags & FLAG_ZLIB_COMPRESS)
+#define ZPAQ_COMPRESS	(control->flags & FLAG_ZPAQ_COMPRESS)
+#define VERBOSE		(control->flags & FLAG_VERBOSE)
+#define VERBOSITY	(control->flags & FLAG_VERBOSITY)
+#define MAX_VERBOSE	(control->flags & FLAG_VERBOSITY_MAX)
+#define STDIN		(control->flags & FLAG_STDIN)
+#define STDOUT		(control->flags & FLAG_STDOUT)
+#define INFO		(control->flags & FLAG_INFO)
+#define UNLIMITED	(control->flags & FLAG_UNLIMITED)
+#define HASH_CHECK	(control->flags & FLAG_HASH)
+#define HAS_MD5		(control->flags & FLAG_MD5)
+#define CHECK_FILE	(control->flags & FLAG_CHECK)
+#define KEEP_BROKEN	(control->flags & FLAG_KEEP_BROKEN)
+#define LZO_TEST	(control->flags & FLAG_THRESHOLD)
+#define TMP_OUTBUF	(control->flags & FLAG_TMP_OUTBUF)
+#define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
+#define ENCRYPT		(control->flags & FLAG_ENCRYPT)
 
 
 /* Structure to save state of computation between the single steps.  */
@@ -196,8 +282,10 @@ struct md5_ctx
 
 struct rzip_control {
 	char *infile;
+	FILE *inFILE; // if a FILE is being read from
 	char *outname;
 	char *outfile;
+	FILE *outFILE; // if a FILE is being written to
 	char *outdir;
 	char *tmpdir; // when stdin, stdout, or test used
 	uchar *tmp_outbuf; // Temporary file storage for stdout
@@ -211,7 +299,8 @@ struct rzip_control {
 	i64 in_len;
 	i64 in_maxlen;
 	FILE *msgout; //stream for output messages
-	const char *suffix;
+	FILE *msgerr; //stream for output errors
+	char *suffix;
 	uchar compression_level;
 	i64 overhead; // compressor overhead
 	i64 usable_ram; // the most ram we'll try to use on one activity
@@ -233,6 +322,8 @@ struct rzip_control {
 	int fd_hist;
 	i64 encloops;
 	i64 secs;
+	void (*pass_cb)(void *, char *, size_t); /* callback to get password in lib */
+	void *pass_data;
 	uchar salt[SALT_LEN];
 	uchar *salt_pass;
 	int salt_pass_len;
@@ -240,7 +331,23 @@ struct rzip_control {
 	unsigned char eof;
 	unsigned char magic_written;
 	md5_ctx ctx;
+	uchar md5_resblock[MD5_DIGEST_SIZE];
 	i64 md5_read; // How far into the file the md5 has done so far
+	const char *util_infile;
+	char delete_infile;
+	const char *util_outfile;
+#define STREAM_BUCKET_SIZE 20
+	size_t sinfo_buckets;
+	size_t sinfo_idx;
+	struct stream_info **sinfo_queue;
+	char delete_outfile;
+	FILE *outputfile;
+	char library_mode : 1;
+	int log_level;
+	void (*info_cb)(void *data, int pct, int chunk_pct);
+	void *info_data;
+	void (*log_cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *func, const char *format, va_list);
+	void *log_data;
 };
 
 struct stream {
@@ -271,4 +378,60 @@ struct stream_info {
 	int chunks;
 	char chunk_bytes;
 };
+
+static inline void print_stuff(const rzip_control *control, int level, unsigned int line, const char *file, const char *func, const char *format, ...)
+{
+	va_list ap;
+	if (control->library_mode && control->log_cb && (control->log_level >= level)) {
+		va_start(ap, format);
+		control->log_cb(control->log_data, level, line, file, func, format, ap);
+		va_end(ap);
+	} else if (control->msgout) {
+		va_start(ap, format);
+		vfprintf(control->msgout, format, ap);
+		fflush(control->msgout);
+		va_end(ap);
+	}
+}
+
+static inline void print_err(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)
+{
+	va_list ap;
+	if (control->library_mode && control->log_cb && (control->log_level >= 0)) {
+		va_start(ap, format);
+		control->log_cb(control->log_data, 0, line, file, func, format, ap);
+		va_end(ap);
+	} else if (control->msgerr) {
+		va_start(ap, format);
+		vfprintf(control->msgerr, format, ap);
+		va_end(ap);
+	}
+}
+
+#define print_stuff(level, format, args...) do {\
+	print_stuff(control, level, __LINE__, __FILE__, __func__, format, ##args); \
+} while (0)
+
+#define print_output(format, args...)	do {\
+	print_stuff(1, format, ##args); \
+} while (0)
+
+#define print_progress(format, args...)	do {\
+	if (SHOW_PROGRESS)	\
+		print_stuff(2, format, ##args); \
+} while (0)
+
+#define print_verbose(format, args...)	do {\
+	if (VERBOSE)	\
+		print_stuff(3, format, ##args); \
+} while (0)
+
+#define print_maxverbose(format, args...)	do {\
+	if (MAX_VERBOSE)	\
+		print_stuff(4, format, ##args); \
+} while (0)
+
+#define print_err(format, args...) do {\
+	print_err(control, __LINE__, __FILE__, __func__, format, ##args); \
+} while (0)
 #endif

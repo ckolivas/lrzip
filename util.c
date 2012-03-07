@@ -52,45 +52,45 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include "lrzip_private.h"
-#include "liblrzip.h"
 #include "util.h"
 #include "sha4.h"
 #include "aes.h"
+#ifdef HAVE_CTYPE_H
+# include <ctype.h>
+#endif
 
-static const char *infile = NULL;
-static char delete_infile = 0;
-static const char *outfile = NULL;
-static char delete_outfile = 0;
-static FILE *outputfile = NULL;
+/* Macros for testing parameters */
+#define isparameter( parmstring, value )	(!strcasecmp( parmstring, value ))
+#define iscaseparameter( parmvalue, value )	(!strcmp( parmvalue, value ))
 
-void register_infile(const char *name, char delete)
+void register_infile(rzip_control *control, const char *name, char delete)
 {
-	infile = name;
-	delete_infile = delete;
+	control->util_infile = name;
+	control->delete_infile = delete;
 }
 
-void register_outfile(const char *name, char delete)
+void register_outfile(rzip_control *control, const char *name, char delete)
 {
-	outfile = name;
-	delete_outfile = delete;
+	control->util_outfile = name;
+	control->delete_outfile = delete;
 }
 
-void register_outputfile(FILE *f)
+void register_outputfile(rzip_control *control, FILE *f)
 {
-	outputfile = f;
+	control->outputfile = f;
 }
 
-void unlink_files(void)
+void unlink_files(rzip_control *control)
 {
 	/* Delete temporary files generated for testing or faking stdio */
-	if (outfile && delete_outfile)
-		unlink(outfile);
+	if (control->util_outfile && control->delete_outfile)
+		unlink(control->util_outfile);
 
-	if (infile && delete_infile)
-		unlink(infile);
+	if (control->util_infile && control->delete_infile)
+		unlink(control->util_infile);
 }
 
-static void fatal_exit(void)
+void fatal_exit(rzip_control *control)
 {
 	struct termios termios_p;
 
@@ -99,38 +99,47 @@ static void fatal_exit(void)
 	termios_p.c_lflag |= ECHO;
 	tcsetattr(fileno(stdin), 0, &termios_p);
 
-	unlink_files();
-	fprintf(outputfile, "Fatal error - exiting\n");
-	fflush(outputfile);
+	unlink_files(control);
+	fprintf(control->outputfile, "Fatal error - exiting\n");
+	fflush(control->outputfile);
 	exit(1);
 }
 
-/* Failure when there is likely to be a meaningful error in perror */
-void fatal(const char *format, ...)
+void setup_overhead(rzip_control *control)
 {
-	va_list ap;
+	/* Work out the compression overhead per compression thread for the
+	 * compression back-ends that need a lot of ram */
+	if (LZMA_COMPRESS) {
+		int level = control->compression_level * 7 / 9 ? : 1;
+		i64 dictsize = (level <= 5 ? (1 << (level * 2 + 14)) :
+				(level == 6 ? (1 << 25) : (1 << 26)));
 
-	if (format) {
-		va_start(ap, format);
-		vfprintf(stderr, format, ap);
-		va_end(ap);
-	}
-
-	perror(NULL);
-	fatal_exit();
+		control->overhead = (dictsize * 23 / 2) + (4 * 1024 * 1024);
+	} else if (ZPAQ_COMPRESS)
+		control->overhead = 112 * 1024 * 1024;
 }
 
-void failure(const char *format, ...)
+void setup_ram(rzip_control *control)
 {
-	va_list ap;
-
-	if (format) {
-		va_start(ap, format);
-		vfprintf(stderr, format, ap);
-		va_end(ap);
-	}
-
-	fatal_exit();
+	/* Use less ram when using STDOUT to store the temporary output file. */
+	if (STDOUT && ((STDIN && DECOMPRESS) || !(DECOMPRESS || TEST_ONLY)))
+		control->maxram = control->ramsize * 2 / 9;
+	else
+		control->maxram = control->ramsize / 3;
+	if (BITS32) {
+		/* Decrease usable ram size on 32 bits due to kernel /
+		 * userspace split. Cannot allocate larger than a 1
+		 * gigabyte chunk due to 32 bit signed long being
+		 * used in alloc, and at most 3GB can be malloced, and
+		 * 2/3 of that makes for a total of 2GB to be split
+		 * into thirds.
+		 */
+		control->usable_ram = MAX(control->ramsize - 900000000ll, 900000000ll);
+		control->maxram = MIN(control->maxram, control->usable_ram);
+		control->maxram = MIN(control->maxram, one_g * 2 / 3);
+	} else
+		control->usable_ram = control->maxram;
+	round_to_page(&control->maxram);
 }
 
 void round_to_page(i64 *size)
@@ -140,7 +149,7 @@ void round_to_page(i64 *size)
 		*size = PAGE_SIZE;
 }
 
-void get_rand(uchar *buf, int len)
+bool get_rand(rzip_control *control, uchar *buf, int len)
 {
 	int fd, i;
 
@@ -150,10 +159,157 @@ void get_rand(uchar *buf, int len)
 			buf[i] = (uchar)random();
 	} else {
 		if (unlikely(read(fd, buf, len) != len))
-			fatal("Failed to read fd in get_rand\n");
+			fatal_return(("Failed to read fd in get_rand\n"), false);
 		if (unlikely(close(fd)))
-			fatal("Failed to close fd in get_rand\n");
+			fatal_return(("Failed to close fd in get_rand\n"), false);
 	}
+	return true;
+}bool read_config(rzip_control *control)
+{
+	/* check for lrzip.conf in ., $HOME/.lrzip and /etc/lrzip */
+	char *HOME, homeconf[255];
+	char *parametervalue;
+	char *parameter;
+	char line[255];
+	FILE *fp;
+
+	fp = fopen("lrzip.conf", "r");
+	if (fp)
+		fprintf(control->msgout, "Using configuration file ./lrzip.conf\n");
+	if (fp == NULL) {
+		fp = fopen("/etc/lrzip/lrzip.conf", "r");
+		if (fp)
+			fprintf(control->msgout, "Using configuration file /etc/lrzip/lrzip.conf\n");
+	}
+	if (fp == NULL) {
+		HOME=getenv("HOME");
+		if (HOME) {
+			snprintf(homeconf, sizeof(homeconf), "%s/.lrzip/lrzip.conf", HOME);
+			fp = fopen(homeconf, "r");
+			if (fp)
+				fprintf(control->msgout, "Using configuration file %s\n", homeconf);
+		}
+	}
+	if (fp == NULL) return true;
+
+	/* if we get here, we have a file. read until no more. */
+
+	while ((fgets(line, 255, fp)) != NULL) {
+		if (strlen(line))
+			line[strlen(line) - 1] = '\0';
+		parameter = strtok(line, " =");
+		if (parameter == NULL)
+			continue;
+		/* skip if whitespace or # */
+		if (isspace(*parameter))
+			continue;
+		if (*parameter == '#')
+			continue;
+
+		parametervalue = strtok(NULL, " =");
+		if (parametervalue == NULL)
+			continue;
+
+		/* have valid parameter line, now assign to control */
+
+		if (isparameter(parameter, "window"))
+			control->window = atoi(parametervalue);
+		else if (isparameter(parameter, "unlimited")) {
+			if (isparameter(parametervalue, "yes"))
+				control->flags |= FLAG_UNLIMITED;
+		} else if (isparameter(parameter, "compressionlevel")) {
+			control->compression_level = atoi(parametervalue);
+			if ( control->compression_level < 1 || control->compression_level > 9 )
+				failure_return(("CONF.FILE error. Compression Level must between 1 and 9"), false);
+		} else if (isparameter(parameter, "compressionmethod")) {
+			/* valid are rzip, gzip, bzip2, lzo, lzma (default), and zpaq */
+			if (control->flags & FLAG_NOT_LZMA)
+				failure_return(("CONF.FILE error. Can only specify one compression method"), false);
+			if (isparameter(parametervalue, "bzip2"))
+				control->flags |= FLAG_BZIP2_COMPRESS;
+			else if (isparameter(parametervalue, "gzip"))
+				control->flags |= FLAG_ZLIB_COMPRESS;
+			else if (isparameter(parametervalue, "lzo"))
+				control->flags |= FLAG_LZO_COMPRESS;
+			else if (isparameter(parametervalue, "rzip"))
+				control->flags |= FLAG_NO_COMPRESS;
+			else if (isparameter(parametervalue, "zpaq"))
+				control->flags |= FLAG_ZPAQ_COMPRESS;
+			else if (!isparameter(parametervalue, "lzma")) /* oops, not lzma! */
+				failure_return(("CONF.FILE error. Invalid compression method %s specified\n",parametervalue), false);
+		} else if (isparameter(parameter, "lzotest")) {
+			/* default is yes */
+			if (isparameter(parametervalue, "no"))
+				control->flags &= ~FLAG_THRESHOLD;
+		} else if (isparameter(parameter, "hashcheck")) {
+			if (isparameter(parametervalue, "yes")) {
+				control->flags |= FLAG_CHECK;
+				control->flags |= FLAG_HASH;
+			}
+		} else if (isparameter(parameter, "showhash")) {
+			if (isparameter(parametervalue, "yes"))
+				control->flags |= FLAG_HASH;
+		} else if (isparameter(parameter, "outputdirectory")) {
+			control->outdir = malloc(strlen(parametervalue) + 2);
+			if (!control->outdir)
+				fatal_return(("Fatal Memory Error in read_config"), false);
+			strcpy(control->outdir, parametervalue);
+			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
+				strcat(control->outdir, "/");
+		} else if (isparameter(parameter,"verbosity")) {
+			if (control->flags & FLAG_VERBOSE)
+				failure_return(("CONF.FILE error. Verbosity already defined."), false);
+			if (isparameter(parametervalue, "yes"))
+				control->flags |= FLAG_VERBOSITY;
+			else if (isparameter(parametervalue,"max"))
+				control->flags |= FLAG_VERBOSITY_MAX;
+			else /* oops, unrecognized value */
+				print_err("lrzip.conf: Unrecognized verbosity value %s. Ignored.\n", parametervalue);
+		} else if (isparameter(parameter, "showprogress")) {
+			/* Yes by default */
+			if (isparameter(parametervalue, "NO"))
+				control->flags &= ~FLAG_SHOW_PROGRESS;
+		} else if (isparameter(parameter,"nice")) {
+			control->nice_val = atoi(parametervalue);
+			if (control->nice_val < -20 || control->nice_val > 19)
+				failure_return(("CONF.FILE error. Nice must be between -20 and 19"), false);
+		} else if (isparameter(parameter, "keepbroken")) {
+			if (isparameter(parametervalue, "yes" ))
+				control->flags |= FLAG_KEEP_BROKEN;
+		} else if (iscaseparameter(parameter, "DELETEFILES")) {
+			/* delete files must be case sensitive */
+			if (iscaseparameter(parametervalue, "YES"))
+				control->flags &= ~FLAG_KEEP_FILES;
+		} else if (iscaseparameter(parameter, "REPLACEFILE")) {
+			/* replace lrzip file must be case sensitive */
+			if (iscaseparameter(parametervalue, "YES"))
+				control->flags |= FLAG_FORCE_REPLACE;
+		} else if (isparameter(parameter, "tmpdir")) {
+			control->tmpdir = realloc(NULL, strlen(parametervalue) + 2);
+			if (!control->tmpdir)
+				fatal_return(("Fatal Memory Error in read_config"), false);
+			strcpy(control->tmpdir, parametervalue);
+			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
+				strcat(control->tmpdir, "/");
+		} else if (isparameter(parameter, "encrypt")) {
+			if (isparameter(parameter, "YES"))
+				control->flags |= FLAG_ENCRYPT;
+		} else
+			/* oops, we have an invalid parameter, display */
+			print_err("lrzip.conf: Unrecognized parameter value, %s = %s. Continuing.\n",\
+				       parameter, parametervalue);
+	}
+
+	if (unlikely(fclose(fp)))
+		fatal_return(("Failed to fclose fp in read_config\n"), false);
+
+/*	fprintf(stderr, "\nWindow = %d \
+		\nCompression Level = %d \
+		\nThreshold = %1.2f \
+		\nOutput Directory = %s \
+		\nFlags = %d\n", control->window,control->compression_level, control->threshold, control->outdir, control->flags);
+*/
+	return true;
 }
 
 static void xor128 (void *pa, const void *pb)
@@ -184,7 +340,7 @@ static void lrz_keygen(const rzip_control *control, const uchar *salt, uchar *ke
 	munlock(buf, sizeof(buf));
 }
 
-void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt)
+bool lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt)
 {
 	/* Encryption requires CBC_LEN blocks so we can use ciphertext
 	* stealing to not have to pad the block */
@@ -192,6 +348,7 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 	uchar tmp0[CBC_LEN], tmp1[CBC_LEN];
 	aes_context aes_ctx;
 	i64 N, M;
+	bool ret = false;
 
 	/* Generate unique key and IV for each block of data based on salt */
 	mlock(&aes_ctx, sizeof(aes_ctx));
@@ -206,9 +363,9 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 	if (encrypt == LRZ_ENCRYPT) {
 		print_maxverbose("Encrypting data        \n");
 		if (unlikely(aes_setkey_enc(&aes_ctx, key, 128)))
-			failure("Failed to aes_setkey_enc in lrz_crypt\n");
+			failure_goto(("Failed to aes_setkey_enc in lrz_crypt\n"), error);
 		aes_crypt_cbc(&aes_ctx, AES_ENCRYPT, N, iv, buf, buf);
-		
+
 		if (M) {
 			memset(tmp0, 0, CBC_LEN);
 			memcpy(tmp0, buf + N, M);
@@ -219,7 +376,7 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 		}
 	} else {
 		if (unlikely(aes_setkey_dec(&aes_ctx, key, 128)))
-			failure("Failed to aes_setkey_dec in lrz_crypt\n");
+			failure_goto(("Failed to aes_setkey_dec in lrz_crypt\n"), error);
 		print_maxverbose("Decrypting data        \n");
 		if (M) {
 			aes_crypt_cbc(&aes_ctx, AES_DECRYPT, N - CBC_LEN,
@@ -239,12 +396,15 @@ void lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 				      iv, buf, buf);
 	}
 
+	ret = true;
+error:
 	memset(&aes_ctx, 0, sizeof(aes_ctx));
 	memset(iv, 0, HASH_LEN);
 	memset(key, 0, HASH_LEN);
 	munlock(&aes_ctx, sizeof(aes_ctx));
 	munlock(iv, HASH_LEN);
 	munlock(key, HASH_LEN);
+	return ret;
 }
 
 void lrz_stretch(rzip_control *control)

@@ -20,54 +20,135 @@
 #ifndef LIBLRZIP_H
 #define LIBLRZIP_H
 
-#define FLAG_VERBOSE (FLAG_VERBOSITY | FLAG_VERBOSITY_MAX)
-#define FLAG_NOT_LZMA (FLAG_NO_COMPRESS | FLAG_LZO_COMPRESS | FLAG_BZIP2_COMPRESS | FLAG_ZLIB_COMPRESS | FLAG_ZPAQ_COMPRESS)
-#define LZMA_COMPRESS	(!(control->flags & FLAG_NOT_LZMA))
-
-#define SHOW_PROGRESS	(control->flags & FLAG_SHOW_PROGRESS)
-#define KEEP_FILES	(control->flags & FLAG_KEEP_FILES)
-#define TEST_ONLY	(control->flags & FLAG_TEST_ONLY)
-#define FORCE_REPLACE	(control->flags & FLAG_FORCE_REPLACE)
-#define DECOMPRESS	(control->flags & FLAG_DECOMPRESS)
-#define NO_COMPRESS	(control->flags & FLAG_NO_COMPRESS)
-#define LZO_COMPRESS	(control->flags & FLAG_LZO_COMPRESS)
-#define BZIP2_COMPRESS	(control->flags & FLAG_BZIP2_COMPRESS)
-#define ZLIB_COMPRESS	(control->flags & FLAG_ZLIB_COMPRESS)
-#define ZPAQ_COMPRESS	(control->flags & FLAG_ZPAQ_COMPRESS)
-#define VERBOSE		(control->flags & FLAG_VERBOSE)
-#define VERBOSITY	(control->flags & FLAG_VERBOSITY)
-#define MAX_VERBOSE	(control->flags & FLAG_VERBOSITY_MAX)
-#define STDIN		(control->flags & FLAG_STDIN)
-#define STDOUT		(control->flags & FLAG_STDOUT)
-#define INFO		(control->flags & FLAG_INFO)
-#define UNLIMITED	(control->flags & FLAG_UNLIMITED)
-#define HASH_CHECK	(control->flags & FLAG_HASH)
-#define HAS_MD5		(control->flags & FLAG_MD5)
-#define CHECK_FILE	(control->flags & FLAG_CHECK)
-#define KEEP_BROKEN	(control->flags & FLAG_KEEP_BROKEN)
-#define LZO_TEST	(control->flags & FLAG_THRESHOLD)
-#define TMP_OUTBUF	(control->flags & FLAG_TMP_OUTBUF)
-#define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
-#define ENCRYPT		(control->flags & FLAG_ENCRYPT)
-
-#define print_output(format, args...)	do {\
-	fprintf(control->msgout, format, ##args);	\
-	fflush(control->msgout);	\
-} while (0)
-
-#define print_progress(format, args...)	do {\
-	if (SHOW_PROGRESS)	\
-		print_output(format, ##args);	\
-} while (0)
-
-#define print_verbose(format, args...)	do {\
-	if (VERBOSE)	\
-		print_output(format, ##args);	\
-} while (0)
-
-#define print_maxverbose(format, args...)	do {\
-	if (MAX_VERBOSE)	\
-		print_output(format, ##args);	\
-} while (0)
-
+#include <stdbool.h>
+#include <stdio.h>
+#ifdef _WIN32
+# include <stddef.h>
+#else
+# include <inttypes.h>
 #endif
+
+typedef struct Lrzip Lrzip;
+
+typedef enum {
+	LRZIP_LOG_LEVEL_ERROR = 0,
+	LRZIP_LOG_LEVEL_INFO,
+	LRZIP_LOG_LEVEL_PROGRESS,
+	LRZIP_LOG_LEVEL_VERBOSE,
+	LRZIP_LOG_LEVEL_DEBUG
+} Lrzip_Log_Level;
+
+typedef enum {
+	LRZIP_MODE_NONE = 0,
+	LRZIP_MODE_INFO,
+	LRZIP_MODE_TEST,
+	LRZIP_MODE_DECOMPRESS,
+	LRZIP_MODE_COMPRESS_NONE,
+	LRZIP_MODE_COMPRESS_LZO,
+	LRZIP_MODE_COMPRESS_ZLIB,
+	LRZIP_MODE_COMPRESS_BZIP2,
+	LRZIP_MODE_COMPRESS_LZMA,
+	LRZIP_MODE_COMPRESS_ZPAQ
+} Lrzip_Mode;
+
+typedef enum {
+	LRZIP_FLAG_REMOVE_SOURCE = (1 << 0),
+	LRZIP_FLAG_REMOVE_DESTINATION = (1 << 1),
+	LRZIP_FLAG_KEEP_BROKEN = (1 << 2),
+	LRZIP_FLAG_VERIFY = (1 << 3),
+	LRZIP_FLAG_DISABLE_LZO_CHECK = (1 << 4),
+	LRZIP_FLAG_UNLIMITED_RAM = (1 << 5),
+	LRZIP_FLAG_ENCRYPT = (1 << 6)
+} Lrzip_Flag;
+
+typedef void (*Lrzip_Info_Cb)(void *data, int pct, int chunk_pct);
+typedef void (*Lrzip_Log_Cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *format, va_list args);
+typedef void (*Lrzip_Password_Cb)(void *, char *, size_t);
+
+bool lrzip_init(void);
+void lrzip_config_env(Lrzip *lr);
+void lrzip_free(Lrzip *lr);
+Lrzip *lrzip_new(Lrzip_Mode mode);
+Lrzip_Mode lrzip_mode_get(Lrzip *lr);
+bool lrzip_mode_set(Lrzip *lr, Lrzip_Mode mode);
+bool lrzip_compression_level_set(Lrzip *lr, unsigned int level);
+unsigned int lrzip_compression_level_get(Lrzip *lr);
+void lrzip_flags_set(Lrzip *lr, unsigned int flags);
+unsigned int lrzip_flags_get(Lrzip *lr);
+void lrzip_nice_set(Lrzip *lr, int nice);
+int lrzip_nice_get(Lrzip *lr);
+void lrzip_threads_set(Lrzip *lr, unsigned int threads);
+unsigned int lrzip_threads_get(Lrzip *lr);
+void lrzip_compression_window_max_set(Lrzip *lr, int64_t size);
+int64_t lrzip_compression_window_max_get(Lrzip *lr);
+unsigned int lrzip_files_count(Lrzip *lr);
+unsigned int lrzip_filenames_count(Lrzip *lr);
+FILE **lrzip_files_get(Lrzip *lr);
+char **lrzip_filenames_get(Lrzip *lr);
+bool lrzip_file_add(Lrzip *lr, FILE *file);
+bool lrzip_file_del(Lrzip *lr, FILE *file);
+FILE *lrzip_file_pop(Lrzip *lr);
+void lrzip_files_clear(Lrzip *lr);
+bool lrzip_filename_add(Lrzip *lr, const char *file);
+bool lrzip_filename_del(Lrzip *lr, const char *file);
+const char *lrzip_filename_pop(Lrzip *lr);
+void lrzip_filenames_clear(Lrzip *lr);
+void lrzip_suffix_set(Lrzip *lr, const char *suffix);
+const char *lrzip_suffix_get(Lrzip *lr);
+void lrzip_outdir_set(Lrzip *lr, const char *dir);
+const char *lrzip_outdir_get(Lrzip *lr);
+void lrzip_outfile_set(Lrzip *lr, FILE *file);
+FILE *lrzip_outfile_get(Lrzip *lr);
+void lrzip_outfilename_set(Lrzip *lr, const char *file);
+const char *lrzip_outfilename_get(Lrzip *lr);
+const unsigned char *lrzip_md5digest_get(Lrzip *lr);
+bool lrzip_run(Lrzip *lr);
+void lrzip_log_level_set(Lrzip *lr, int level);
+int lrzip_log_level_get(Lrzip *lr);
+void lrzip_log_cb_set(Lrzip *lr, Lrzip_Log_Cb cb, void *log_data);
+void lrzip_log_stdout_set(Lrzip *lr, FILE *out);
+FILE *lrzip_log_stdout_get(Lrzip *lr);
+void lrzip_log_stderr_set(Lrzip *lr, FILE *err);
+FILE *lrzip_log_stderr_get(Lrzip *lr);
+void lrzip_pass_cb_set(Lrzip *lr, Lrzip_Password_Cb cb, void *data);
+void lrzip_info_cb_set(Lrzip *lr, Lrzip_Info_Cb cb, void *data);
+bool lrzip_decompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len);
+bool lrzip_compress_full(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, Lrzip_Mode mode, int compress_level);
+
+static inline bool lrzip_compress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_LZMA, 7); }
+
+static inline bool lrzip_lcompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_LZO, 7); }
+
+static inline bool lrzip_gcompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_ZLIB, 7); }
+
+static inline bool lrzip_zcompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_ZPAQ, 7); }
+
+static inline bool lrzip_bcompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_BZIP2, 7); }
+
+static inline bool lrzip_rcompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_NONE, 7); }
+
+static inline bool lrzip_compress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_LZMA, compress_level); }
+
+static inline bool lrzip_lcompress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_LZO, compress_level); }
+
+static inline bool lrzip_gcompress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_ZLIB, compress_level); }
+
+static inline bool lrzip_zcompress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_ZPAQ, compress_level); }
+
+static inline bool lrzip_bcompress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_BZIP2, compress_level); }
+
+static inline bool lrzip_rcompress2(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, int compress_level)
+{ return lrzip_compress_full(dest, dest_len, source, source_len, LRZIP_MODE_COMPRESS_NONE, compress_level); }
+#endif
+
