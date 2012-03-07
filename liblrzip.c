@@ -663,7 +663,7 @@ bool lrzip_compress_full(void *dest, unsigned long *dest_len, const void *source
 	if (fstat(fd, &st))
 		goto error;
 	*dest_len = st.st_size;
-	if (unlikely(fread(dest, sizeof(char), st.st_size, d) != st.st_size))
+	if (unlikely((i64)fread(dest, sizeof(char), st.st_size, d) != st.st_size))
 		goto error;
 	if (unlikely(ferror(d)))
 		goto error;
@@ -710,7 +710,7 @@ bool lrzip_decompress(void *dest, unsigned long *dest_len, const void *source, u
 	if (fstat(fd, &st))
 		goto error;
 	*dest_len = st.st_size;
-	if (unlikely(fread(dest, sizeof(char), st.st_size, d) != st.st_size))
+	if (unlikely((i64)fread(dest, sizeof(char), st.st_size, d) != st.st_size))
 		goto error;
 	if (unlikely(ferror(d)))
 		goto error;
