@@ -60,7 +60,7 @@ AS_IF([test "$HAVE_POD2MAN" != "yes"],
 	AC_MSG_FAILURE([pod2man is needed to generate manual from POD]))
 
 
-AC_ARG_ENABLE(
+ AC_ARG_ENABLE(
 		asm,
 		[AC_HELP_STRING([--enable-asm],[Enable native Assembly code])],
 		ASM=$enableval,
@@ -79,14 +79,6 @@ AC_ARG_ENABLE([static-bin],
 	[static=$enableval]
 	)
 AM_CONDITIONAL([STATIC], [test "x$static" = "xyes"])
-
-AC_ARG_ENABLE([debug-build],
-	[AC_HELP_STRING([--enable-debug],[Build debugging code in @<:@default=no@:>@])],
-	[debugbuild=$enableval]
-	)
-if test x"$debugbuild" = xyes; then
-	AC_DEFINE(DEBUG_BUILD, 1, [ ])
-fi
 
 AC_CHECK_HEADERS(fcntl.h sys/time.h unistd.h sys/mman.h)
 AC_CHECK_HEADERS(ctype.h errno.h sys/resource.h)
