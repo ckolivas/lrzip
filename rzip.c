@@ -203,7 +203,7 @@ static void sliding_mcpy(rzip_control *control, unsigned char *buf, i64 offset, 
 	/* See if we fit in the low buffer first and use the faster function
 	 * where possible */
 	if (offset >= sb->offset_low && offset + len < sb->offset_low + sb->size_low) {
-		single_mcpy(control, buf, offset, len);
+		single_mcpy(control, buf, offset - sb->offset_low, len);
 		return;
 	}
 
