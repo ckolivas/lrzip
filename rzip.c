@@ -190,7 +190,7 @@ static uchar *single_get_sb(__maybe_unused rzip_control *control, struct sliding
 /* Since the sliding get_sb only allows us to access one byte at a time, we
  * do the same as we did with get_sb with the memcpy since one memcpy is much
  * faster than numerous memcpys 1 byte at a time */
-static void single_mcpy(__maybe_unused rzip_control *control, unsigned char *buf, i64 offset, i64 len)
+static void single_mcpy(rzip_control *control, unsigned char *buf, i64 offset, i64 len)
 {
 	memcpy(buf, control->sb.buf_low + offset, len);
 }
@@ -198,16 +198,19 @@ static void single_mcpy(__maybe_unused rzip_control *control, unsigned char *buf
 static void sliding_mcpy(rzip_control *control, unsigned char *buf, i64 offset, i64 len)
 {
 	struct sliding_buffer *sb = &control->sb;
-	i64 i;
+	i64 i, offdiff = offset - sb->offset_low;
 
 	/* See if we fit in the low buffer first and use the faster function
 	 * where possible */
-	if (offset >= sb->offset_low && offset + len < sb->offset_low + sb->size_low) {
-		single_mcpy(control, buf, offset - sb->offset_low, len);
-		return;
+	if (offdiff >= 0 && offdiff < sb->size_low) {
+		i64 minlen = MIN(len, sb->size_low - offdiff);
+
+		memcpy(buf, control->sb.buf_low + offdiff, minlen);
+		len -= minlen;
 	}
 
-	/* We have no choice but to go fine-grained since we will be paging */
+	/* We have no choice but to go fine-grained if there's any len left
+	 * since we will be paging */
 	for (i = 0; i < len; i++)
 		memcpy(buf + i, sliding_get_sb(control, &control->sb, offset + i), 1);
 }
