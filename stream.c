@@ -1,6 +1,6 @@
 /*
    Copyright (C) 2011 Serge Belyshev
-   Copyright (C) 2006-2011 Con Kolivas
+   Copyright (C) 2006-2012 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
@@ -180,7 +180,8 @@ static inline FILE *fake_fmemopen(rzip_control *control, void *buf, size_t bufle
 		return NULL;
 	}
 	rewind(in);
-        return in;
+
+	return in;
 }
 
 static inline FILE *fake_open_memstream(rzip_control *control, char **buf, size_t *length)
@@ -191,7 +192,7 @@ static inline FILE *fake_open_memstream(rzip_control *control, char **buf, size_
 		failure_return(("NULL parameter to fake_open_memstream"), NULL);
 	out = tmpfile();
 	if (unlikely(!out))
-	        return NULL;
+		return NULL;
 	return out;
 }
 
@@ -693,9 +694,11 @@ ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
 		/* The data won't fit in a temporary output buffer so we have
 		 * to fall back to temporary files. */
 		print_verbose("Unable to decompress entirely in ram, will use physical files\n");
-		if (unlikely(!write_fdout(control, control->tmp_outbuf, control->out_len))) return -1;
+		if (unlikely(!write_fdout(control, control->tmp_outbuf, control->out_len)))
+			return -1;
 		close_tmpoutbuf(control);
-		if (unlikely(!write_fdout(control, offset_buf, ret))) return -1;
+		if (unlikely(!write_fdout(control, offset_buf, ret)))
+			return -1;
 		return ret;
 	}
 	memcpy(control->tmp_outbuf + control->out_ofs, offset_buf, ret);
@@ -754,13 +757,16 @@ ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
 		/* We're decompressing from STDIN */
 		if (unlikely(control->in_ofs + len > control->in_maxlen)) {
 			/* We're unable to fit it all into the temp buffer */
-			if (unlikely(!write_fdin(control))) return -1;
-			if (unlikely(!read_tmpinfile(control, control->fd_in))) return -1;
+			if (unlikely(!write_fdin(control)))
+				return -1;
+			if (unlikely(!read_tmpinfile(control, control->fd_in)))
+				return -1;
 			close_tmpinbuf(control);
 			goto read_fd;
 		}
 		if (control->in_ofs + len > control->in_len)
-			if (unlikely(!read_fdin(control, control->in_ofs + len - control->in_len))) return false;
+			if (unlikely(!read_fdin(control, control->in_ofs + len - control->in_len)))
+				return false;
 		memcpy(buf, control->tmp_inbuf + control->in_ofs, len);
 		control->in_ofs += len;
 		return len;
@@ -897,7 +903,8 @@ static int read_seekto(rzip_control *control, struct stream_info *sinfo, i64 pos
 
 	if (TMP_INBUF) {
 		if (spos > control->in_len)
-			if (unlikely(!read_fdin(control, spos - control->in_len))) return -1;
+			if (unlikely(!read_fdin(control, spos - control->in_len)))
+				return -1;
 		control->in_ofs = spos;
 		if (unlikely(spos < 0)) {
 			print_err("Trying to seek to %lld outside tmp inbuf in read_seekto\n", spos);
@@ -1106,7 +1113,8 @@ static bool decrypt_header(rzip_control *control, uchar *head, uchar *c_type,
 	memcpy(buf + 9, u_len, 8);
 	memcpy(buf + 17, last_head, 8);
 
-	if (unlikely(!lrz_decrypt(control, buf, 25, head))) return false;
+	if (unlikely(!lrz_decrypt(control, buf, 25, head)))
+		return false;
 
 	memcpy(c_type, buf, 1);
 	memcpy(c_len, buf + 1, 8);
@@ -1279,7 +1287,8 @@ static bool rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, 
 	i64 cur_ofs;
 
 	cur_ofs = get_seek(control, sinfo->fd) - sinfo->initial_pos;
-	if (unlikely(cur_ofs == -1)) return false;
+	if (unlikely(cur_ofs == -1))
+		return false;
 	head = malloc(25 + SALT_LEN);
 	if (unlikely(!head))
 		fatal_return(("Failed to malloc head in rewrite_encrypted\n"), false);
@@ -1663,7 +1672,8 @@ fill_another:
 	sinfo->total_read += header_length;
 
 	if (ENCRYPT) {
-		if (unlikely(!decrypt_header(control, enc_head, &c_type, &c_len, &u_len, &last_head))) return -1;
+		if (unlikely(!decrypt_header(control, enc_head, &c_type, &c_len, &u_len, &last_head)))
+			return -1;
 		if (unlikely(read_buf(control, sinfo->fd, blocksalt, SALT_LEN)))
 			return -1;
 	}
@@ -1684,7 +1694,8 @@ fill_another:
 		return -1;
 
 	if (ENCRYPT)
-		if (unlikely(!lrz_decrypt(control, s_buf, padded_len, blocksalt))) return -1;
+		if (unlikely(!lrz_decrypt(control, s_buf, padded_len, blocksalt)))
+			return -1;
 
 	ucthread[s->uthread_no].s_buf = s_buf;
 	ucthread[s->uthread_no].c_len = c_len;
@@ -1727,7 +1738,8 @@ out:
 	unlock_mutex(control, &output_lock);
 
 	/* join_pthread here will make it wait till the data is ready */
-	if (unlikely(!join_pthread(control, threads[s->unext_thread], NULL))) return -1;
+	if (unlikely(!join_pthread(control, threads[s->unext_thread], NULL)))
+		return -1;
 	ucthread[s->unext_thread].busy = 0;
 
 	print_maxverbose("Taking decompressed data from thread %ld\n", s->unext_thread);
@@ -1759,7 +1771,8 @@ int write_stream(rzip_control *control, void *ss, int streamno, uchar *p, i64 le
 
 		/* Flush the buffer every sinfo->bufsize into one thread */
 		if (sinfo->s[streamno].buflen == sinfo->bufsize)
-			if (unlikely(!flush_buffer(control, sinfo, streamno))) return -1;
+			if (unlikely(!flush_buffer(control, sinfo, streamno)))
+				return -1;
 	}
 	return 0;
 }
@@ -1803,7 +1816,8 @@ int close_stream_out(rzip_control *control, void *ss)
 
 	for (i = 0; i < sinfo->num_streams; i++) {
 		if (sinfo->s[i].buflen)
-			if (unlikely(!clear_buffer(control, sinfo, i, 0))) return -1;
+			if (unlikely(!clear_buffer(control, sinfo, i, 0)))
+				return -1;
 	}
 
 	if (ENCRYPT) {
@@ -1825,14 +1839,16 @@ int close_stream_out(rzip_control *control, void *ss)
 		if (!control->sinfo_buckets) {
 			/* no streams added */
 			control->sinfo_queue = calloc(STREAM_BUCKET_SIZE + 1, sizeof(void*));
-			if (!control->sinfo_queue) return -1;
+			if (!control->sinfo_queue)
+				return -1;
 			control->sinfo_buckets++;
 		} else if (control->sinfo_idx == STREAM_BUCKET_SIZE * control->sinfo_buckets + 1) {
 			/* all buckets full, create new bucket */
 			void *tmp;
 
 			tmp = realloc(control->sinfo_queue, (++control->sinfo_buckets * STREAM_BUCKET_SIZE + 1) * sizeof(void*));
-			if (!tmp) return -1;
+			if (!tmp)
+				return -1;
 			control->sinfo_queue = tmp;
 			memset(control->sinfo_queue + control->sinfo_idx, 0, ((control->sinfo_buckets * STREAM_BUCKET_SIZE + 1) - control->sinfo_idx) * sizeof(void*));
 		}

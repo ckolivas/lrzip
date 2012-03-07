@@ -1,6 +1,6 @@
 /*
    Copyright (C) 2011 Serge Belyshev
-   Copyright (C) 2006-2011 Con Kolivas
+   Copyright (C) 2006-2012 Con Kolivas
    Copyright (C) 2008, 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
@@ -190,7 +190,8 @@ bool get_rand(rzip_control *control, uchar *buf, int len)
 				fprintf(control->msgout, "Using configuration file %s\n", homeconf);
 		}
 	}
-	if (fp == NULL) return true;
+	if (fp == NULL)
+		return true;
 
 	/* if we get here, we have a file. read until no more. */
 

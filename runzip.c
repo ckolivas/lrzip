@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2011 Con Kolivas
+   Copyright (C) 2006-2012 Con Kolivas
    Copyright (C) 1998-2003 Andrew Tridgell
 
    This program is free software; you can redistribute it and/or modify
@@ -146,7 +146,8 @@ static i64 read_header(rzip_control *control, void *ss, uchar *head)
 	if (control->major_version == 0 && control->minor_version == 4)
 		chunk_bytes = 8;
 	*head = read_u8(control, ss, 0, &err);
-	if (err) return -1;
+	if (err)
+		return -1;
 	return read_vchars(control, ss, 0, chunk_bytes);
 }
 
@@ -209,7 +210,8 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 
 	/* Note the offset is in a different format v0.40+ */
 	offset = read_vchars(control, ss, 0, chunk_bytes);
-	if (unlikely(offset == -1)) return -1;
+	if (unlikely(offset == -1))
+		return -1;
 	if (unlikely(seekto_fdhist(control, cur_pos - offset) == -1))
 		fatal_return(("Seek failed by %d from %d on history file in unzip_match\n",
 		      offset, cur_pos), -1);
@@ -309,7 +311,8 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 
 	while ((len = read_header(control, ss, &head)) || head) {
 		i64 u;
-		if (unlikely(len == -1)) return -1;
+		if (unlikely(len == -1))
+			return -1;
 		switch (head) {
 			case 0:
 				u = unzip_literal(control, ss, len, &cksum);
@@ -374,16 +377,20 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 
 	do {
 		u = runzip_chunk(control, fd_in, expected_size, total);
-		if (unlikely(u == -1)) return -1;
+		if (unlikely(u == -1))
+			return -1;
 		total += u;
 		if (TMP_OUTBUF)
-			{ if (unlikely(!flush_tmpoutbuf(control))) return -1; }
+			{ if (unlikely(!flush_tmpoutbuf(control)))
+			return -1; }
 		else if (STDOUT)
-			{ if (unlikely(!dump_tmpoutfile(control, fd_out))) return -1; }
+			{ if (unlikely(!dump_tmpoutfile(control, fd_out)))
+			return -1; }
 		if (TMP_INBUF)
 			clear_tmpinbuf(control);
 		else if (STDIN)
-			if (unlikely(!clear_tmpinfile(control))) return -1;
+			if (unlikely(!clear_tmpinfile(control)))
+				return -1;
 	} while (total < expected_size || (!expected_size && !control->eof));
 
 	gettimeofday(&end,NULL);
@@ -406,7 +413,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 			if (unlikely(read_1g(control, fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 				fatal_return(("Failed to read md5 data in runzip_fd\n"), -1);
 			if (ENCRYPT)
-				if (unlikely(!lrz_decrypt(control, md5_stored, MD5_DIGEST_SIZE, control->salt_pass))) return -1;
+				if (unlikely(!lrz_decrypt(control, md5_stored, MD5_DIGEST_SIZE, control->salt_pass)))
+					return -1;
 			for (i = 0; i < MD5_DIGEST_SIZE; i++)
 				if (md5_stored[i] != control->md5_resblock[i]) {
 					print_output("MD5 CHECK FAILED.\nStored:");

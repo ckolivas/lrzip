@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2011 Con Kolivas
+   Copyright (C) 2006-2012 Con Kolivas
    Copyright (C) 1998 Andrew Tridgell
 
    Modified to use flat hash, memory limit and variable hash culling
@@ -177,7 +177,8 @@ static uchar *sliding_get_sb(rzip_control *control, struct sliding_buffer *sb, i
 	if (p >= sb->offset_high && p < (sb->offset_high + sb->size_high))
 		return (sb->buf_high + (p - sb->offset_high));
 	/* p is not within the low or high buffer range */
-	if (unlikely(!remap_high_sb(control, &control->sb, p))) return NULL;
+	if (unlikely(!remap_high_sb(control, &control->sb, p)))
+		return NULL;
 	return (sb->buf_high + (p - sb->offset_high));
 }
 
@@ -238,8 +239,10 @@ static inline bool put_vchars(rzip_control *control, void *ss, i64 s, int length
 
 static bool put_header(rzip_control *control, void *ss, uchar head, i64 len)
 {
-	if (unlikely(!put_u8(control, ss, head))) return false;
-	if (unlikely(!put_vchars(control, ss, len, 2))) return false;
+	if (unlikely(!put_u8(control, ss, head)))
+		return false;
+	if (unlikely(!put_vchars(control, ss, len, 2)))
+		return false;
 	return true;
 }
 
@@ -252,8 +255,10 @@ static bool put_match(rzip_control *control, struct rzip_state *st, i64 p, i64 o
 			n = 0xFFFF;
 
 		ofs = (p - offset);
-		if (unlikely(!put_header(control, st->ss, 1, n))) return false;
-		if (unlikely(!put_vchars(control, st->ss, ofs, st->chunk_bytes))) return false;
+		if (unlikely(!put_header(control, st->ss, 1, n)))
+			return false;
+		if (unlikely(!put_vchars(control, st->ss, ofs, st->chunk_bytes)))
+			return false;
 
 		st->stats.matches++;
 		st->stats.match_bytes += n;
@@ -279,7 +284,8 @@ static int write_sbstream(rzip_control *control, void *ss, int stream, i64 p, i6
 		len -= n;
 
 		if (sinfo->s[stream].buflen == sinfo->bufsize)
-			if (unlikely(!flush_buffer(control, sinfo, stream))) return -1;
+			if (unlikely(!flush_buffer(control, sinfo, stream)))
+				return -1;
 	}
 	return 0;
 }
@@ -294,7 +300,8 @@ static bool put_literal(rzip_control *control, struct rzip_state *st, i64 last, 
 		st->stats.literals++;
 		st->stats.literal_bytes += len;
 
-		if (unlikely(!put_header(control, st->ss, 0, len))) return false;
+		if (unlikely(!put_header(control, st->ss, 0, len)))
+			return false;
 
 		if (unlikely(len && write_sbstream(control, st->ss, 1, last, len)))
 			fatal_return(("Failed to write_stream in put_literal\n"), false);
@@ -425,10 +432,12 @@ static inline tag next_tag(rzip_control *control, struct rzip_state *st, i64 p, 
 	uchar *u;
 
 	u = control->get_sb(control, &control->sb, p - 1);
-	if (unlikely(!u)) return -1;
+	if (unlikely(!u))
+		return -1;
 	t ^= st->hash_index[*u];
 	u = control->get_sb(control, &control->sb, p + MINIMUM_MATCH - 1);
-	if (unlikely(!u)) return -1;
+	if (unlikely(!u))
+		return -1;
 	t ^= st->hash_index[*u];
 	return t;
 }
@@ -441,7 +450,8 @@ static inline tag full_tag(rzip_control *control, struct rzip_state *st, i64 p)
 
 	for (i = 0; i < MINIMUM_MATCH; i++) {
 		u = control->get_sb(control, &control->sb, p + i);
-		if (unlikely(!u)) return -1;
+		if (unlikely(!u))
+			return -1;
 		ret ^= st->hash_index[*u];
 	}
 	return ret;
@@ -589,7 +599,8 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 
 	if (likely(end > 0)) {
 		t = full_tag(control, st, p);
-		if (unlikely(t == -1)) return false;
+		if (unlikely(t == -1))
+			return false;
 	}
 
 	while (p < end) {
@@ -600,7 +611,8 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 		if (unlikely(sb->offset_search > sb->offset_low + sb->size_low))
 			remap_low_sb(control, &control->sb);
 		t = next_tag(control, st, p, t);
-		if (unlikely(t == -1)) return false;
+		if (unlikely(t == -1))
+			return false;
 
 		/* Don't look for a match if there are no tags with
 		   this number of bits in the hash table. */
@@ -627,13 +639,16 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 		if ((current.len >= GREAT_MATCH || p >= current.p + MINIMUM_MATCH)
 		    && current.len >= MINIMUM_MATCH) {
 			if (st->last_match < current.p)
-				if (unlikely(!put_literal(control, st, st->last_match, current.p))) return false;
-			if (unlikely(!put_match(control, st, current.p, current.ofs, current.len))) return false;
+				if (unlikely(!put_literal(control, st, st->last_match, current.p)))
+					return false;
+			if (unlikely(!put_match(control, st, current.p, current.ofs, current.len)))
+				return false;
 			st->last_match = current.p + current.len;
 			current.p = p = st->last_match;
 			current.len = 0;
 			t = full_tag(control, st, p);
-			if (unlikely(t == -1)) return false;
+			if (unlikely(t == -1))
+				return false;
 		}
 
 		if (unlikely(p % 128 == 0)) {
@@ -689,8 +704,10 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 		free(ckbuf);
 	}
 
-	if (unlikely(!put_literal(control, st, 0, 0))) return false;
-	if (unlikely(!put_u32(control, st->ss, st->cksum))) return false;
+	if (unlikely(!put_literal(control, st, 0, 0)))
+		return false;
+	if (unlikely(!put_u32(control, st->ss, st->cksum)))
+		return false;
 	return true;
 }
 
@@ -782,7 +799,8 @@ static bool rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, 
 {
 	struct sliding_buffer *sb = &control->sb;
 
-	if (unlikely(!init_sliding_mmap(control, st, fd_in, offset))) return false;
+	if (unlikely(!init_sliding_mmap(control, st, fd_in, offset)))
+		return false;
 
 	st->ss = open_stream_out(control, fd_out, NUM_STREAMS, st->chunk_size, st->chunk_bytes);
 	if (unlikely(!st->ss))
@@ -1137,7 +1155,8 @@ retry:
 void rzip_control_free(rzip_control *control)
 {
 	size_t x;
-	if (!control) return;
+	if (!control)
+		return;
 
 	free(control->tmpdir);
 	free(control->outname);

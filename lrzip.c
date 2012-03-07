@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2011 Con Kolivas
+   Copyright (C) 2006-2012 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -258,7 +258,8 @@ bool read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 	if (unlikely(read(fd_in, magic, 24) != 24))
 		fatal_return(("Failed to read magic header\n"), false);
 
-	if (unlikely(!get_magic(control, magic))) return false;
+	if (unlikely(!get_magic(control, magic)))
+		return false;
 	*expected_size = control->st_size;
 	return true;
 }
@@ -350,9 +351,11 @@ bool flush_tmpoutbuf(rzip_control *control)
 	if (!TEST_ONLY) {
 		print_maxverbose("Dumping buffer to physical file.\n");
 		if (STDOUT) {
-			if (unlikely(!fwrite_stdout(control, control->tmp_outbuf, control->out_len))) return false;
+			if (unlikely(!fwrite_stdout(control, control->tmp_outbuf, control->out_len)))
+				return false;
 		} else {
-			if (unlikely(!write_fdout(control, control->tmp_outbuf, control->out_len))) return false;
+			if (unlikely(!write_fdout(control, control->tmp_outbuf, control->out_len)))
+				return false;
 		}
 	}
 	control->out_relofs += control->out_len;
@@ -679,12 +682,14 @@ bool decompress_file(rzip_control *control)
 
 	if (STDIN) {
 		fd_in = open_tmpinfile(control);
-		if (unlikely(fd_in == -1)) return false;
+		if (unlikely(fd_in == -1))
+			return false;
 		read_tmpinmagic(control);
 		if (ENCRYPT)
 			failure_return(("Cannot decompress encrypted file from STDIN\n"), false);
 		expected_size = control->st_size;
-		if (unlikely(!open_tmpinbuf(control))) return false;
+		if (unlikely(!open_tmpinbuf(control)))
+			return false;
 	} else {
 		fd_in = open(infilecopy, O_RDONLY);
 		if (unlikely(fd_in == -1)) {
@@ -712,7 +717,8 @@ bool decompress_file(rzip_control *control)
 
 		/* Can't copy permissions from STDIN */
 		if (!STDIN)
-			if (unlikely(!preserve_perms(control, fd_in, fd_out))) return false;
+			if (unlikely(!preserve_perms(control, fd_in, fd_out)))
+				return false;
 	} else {
 		fd_out = open_tmpoutfile(control);
 		if (unlikely(fd_out == -1))
@@ -725,10 +731,12 @@ bool decompress_file(rzip_control *control)
 			fatal_return(("Failed to unlink tmpfile: %s\n", control->outfile), false);
 	}
 
-	if (unlikely(!open_tmpoutbuf(control))) return false;
+	if (unlikely(!open_tmpoutbuf(control)))
+		return false;
 
 	if (!STDIN)
-		if (unlikely(!read_magic(control, fd_in, &expected_size))) return false;
+		if (unlikely(!read_magic(control, fd_in, &expected_size)))
+			return false;
 
 	if (!STDOUT) {
 		/* Check if there's enough free space on the device chosen to fit the
@@ -755,14 +763,17 @@ bool decompress_file(rzip_control *control)
 	print_verbose("being used for integrity testing.\n");
 
 	if (ENCRYPT)
-		if (unlikely(!get_hash(control, 0))) return false;
+		if (unlikely(!get_hash(control, 0)))
+			return false;
 
 	print_progress("Decompressing...\n");
 
-	if (unlikely(runzip_fd(control, fd_in, fd_out, fd_hist, expected_size) < 0)) return false;
+	if (unlikely(runzip_fd(control, fd_in, fd_out, fd_hist, expected_size) < 0))
+		return false;
 
 	if (STDOUT && !TMP_OUTBUF)
-		if (unlikely(!dump_tmpoutfile(control, fd_out))) return false;
+		if (unlikely(!dump_tmpoutfile(control, fd_out)))
+			return false;
 
 	/* if we get here, no fatal_return(( errors during decompression */
 	print_progress("\r");
@@ -940,7 +951,8 @@ next_chunk:
 
 		if (unlikely(lseek(fd_in, stream_head[stream] + ofs, SEEK_SET)) == -1)
 			fatal_goto(("Failed to seek to header data in get_fileinfo\n"), error);
-		if (unlikely(!get_header_info(control, fd_in, &ctype, &c_len, &u_len, &last_head, chunk_byte))) return false;
+		if (unlikely(!get_header_info(control, fd_in, &ctype, &c_len, &u_len, &last_head, chunk_byte)))
+			return false;
 
 		print_verbose("Stream: %d\n", stream);
 		print_maxverbose("Offset: %lld\n", ofs);
@@ -953,7 +965,8 @@ next_chunk:
 			if (unlikely(head_off = lseek(fd_in, last_head + ofs, SEEK_SET)) == -1)
 				fatal_goto(("Failed to seek to header data in get_fileinfo\n"), error);
 			if (unlikely(!get_header_info(control, fd_in, &ctype, &c_len, &u_len,
-					&last_head, chunk_byte))) return false;
+					&last_head, chunk_byte)))
+				return false;
 			if (unlikely(last_head < 0 || c_len < 0 || u_len < 0))
 				failure_goto(("Entry negative, likely corrupted archive.\n"), error);
 			print_verbose("%d\t", block);
@@ -1080,7 +1093,8 @@ bool compress_file(rzip_control *control)
 	if (MD5_RELIABLE)
 		control->flags |= FLAG_MD5;
 	if (ENCRYPT)
-		if (unlikely(!get_hash(control, 1))) return false;
+		if (unlikely(!get_hash(control, 1)))
+			return false;
 	memset(header, 0, sizeof(header));
 
 	if (!STDIN) {
@@ -1200,7 +1214,8 @@ bool initialize_control(rzip_control *control)
 	control->suffix = strdup(".lrz");
 	control->compression_level = 7;
 	control->ramsize = get_ram(control);
-	if (unlikely(control->ramsize == -1)) return false;
+	if (unlikely(control->ramsize == -1))
+		return false;
 	/* for testing single CPU */
 	control->threads = PROCESSORS;	/* get CPUs for LZMA */
 	control->page_size = PAGE_SIZE;
@@ -1213,7 +1228,8 @@ bool initialize_control(rzip_control *control)
 		fatal_return(("Failed to gettimeofday in main\n"), false);
 	control->secs = tv.tv_sec;
 	control->encloops = nloops(control->secs, control->salt, control->salt + 1);
-	if (unlikely(!get_rand(control, control->salt + 2, 6))) return false;
+	if (unlikely(!get_rand(control, control->salt + 2, 6)))
+		return false;
 
 	/* Get Temp Dir */
 	eptr = getenv("TMP");
