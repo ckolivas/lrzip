@@ -2,7 +2,7 @@
 # include "config.h"
 #endif
 #include <lrzip_private.h>
-#include <liblrzip.h>
+#include <Lrzip.h>
 
 #define INFILE_BUCKET_SIZE 10
 

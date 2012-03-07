@@ -17,7 +17,7 @@ extern int errno;
 # include <unistd.h>
 #endif
 #include <termios.h>
-#include <liblrzip.h>
+#include <Lrzip.h>
 
 #define failure(format, args...) do { \
 	fprintf(stderr, format, ##args); \

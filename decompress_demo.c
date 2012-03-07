@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include <liblrzip.h>
+#include <Lrzip.h>
 
 static const char *suffix_me(const char *file)
 {

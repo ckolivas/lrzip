@@ -46,10 +46,10 @@ extern "C" {
  provide, especially once the files are larger than 100MB. The advantage can
  be chosen to be either size (much smaller than bzip2) or speed (much faster
  than bzip2).
- * @link liblrzip.h LRZIP API @endlink
+ * @link Lrzip.h LRZIP API @endlink
  */
 
-/** @file liblrzip.h */
+/** @file Lrzip.h */
 
 /**
  * @typedef Lrzip
