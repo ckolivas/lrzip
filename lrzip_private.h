@@ -283,6 +283,20 @@ struct md5_ctx
 	uint32_t buffer[32];
 };
 
+struct sliding_buffer {
+	uchar *buf_low;	/* The low window buffer */
+	uchar *buf_high;/* "" high "" */
+	i64 orig_offset;/* Where the original buffer started */
+	i64 offset_low;	/* What the current offset the low buffer has */
+	i64 offset_high;/* "" high buffer "" */
+	i64 offset_search;/* Where the search is up to */
+	i64 orig_size;	/* How big the full buffer would be */
+	i64 size_low;	/* How big the low buffer is */
+	i64 size_high;	/* "" high "" */
+	i64 high_length;/* How big the high buffer should be */
+	int fd;		/* The fd of the mmap */
+};
+
 struct rzip_control {
 	char *infile;
 	FILE *inFILE; // if a FILE is being read from
@@ -351,6 +365,10 @@ struct rzip_control {
 	void *info_data;
 	void (*log_cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *func, const char *format, va_list);
 	void *log_data;
+
+	struct sliding_buffer sb;
+	uchar *(*get_sb)(rzip_control *control, struct sliding_buffer *sb, i64 p);
+	void (*do_mcpy)(rzip_control *control, unsigned char *buf, i64 offset, i64 len);
 };
 
 struct stream {

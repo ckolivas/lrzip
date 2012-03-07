@@ -127,50 +127,36 @@ struct rzip_state {
 	} stats;
 };
 
-struct sliding_buffer {
-	uchar *buf_low;	/* The low window buffer */
-	uchar *buf_high;/* "" high "" */
-	i64 orig_offset;/* Where the original buffer started */
-	i64 offset_low;	/* What the current offset the low buffer has */
-	i64 offset_high;/* "" high buffer "" */
-	i64 offset_search;/* Where the search is up to */
-	i64 orig_size;	/* How big the full buffer would be */
-	i64 size_low;	/* How big the low buffer is */
-	i64 size_high;	/* "" high "" */
-	i64 high_length;/* How big the high buffer should be */
-	int fd;		/* The fd of the mmap */
-} sb;	/* Sliding buffer */
-
-static bool remap_low_sb(rzip_control *control)
+static bool remap_low_sb(rzip_control *control, struct sliding_buffer *sb)
 {
 	i64 new_offset;
 
-	new_offset = sb.offset_search;
+	new_offset = sb->offset_search;
 	round_to_page(&new_offset);
 	print_maxverbose("Sliding main buffer to offset %lld\n", new_offset);
-	if (unlikely(munmap(sb.buf_low, sb.size_low)))
+	if (unlikely(munmap(sb->buf_low, sb->size_low)))
 		fatal_return(("Failed to munmap in remap_low_sb\n"), false);
-	if (new_offset + sb.size_low > sb.orig_size)
-		sb.size_low = sb.orig_size - new_offset;
-	sb.offset_low = new_offset;
-	sb.buf_low = (uchar *)mmap(sb.buf_low, sb.size_low, PROT_READ, MAP_SHARED, sb.fd, sb.orig_offset + sb.offset_low);
-	if (unlikely(sb.buf_low == MAP_FAILED))
+	if (new_offset + sb->size_low > sb->orig_size)
+		sb->size_low = sb->orig_size - new_offset;
+	sb->offset_low = new_offset;
+	sb->buf_low = (uchar *)mmap(sb->buf_low, sb->size_low, PROT_READ, MAP_SHARED, sb->fd, sb->orig_offset + sb->offset_low);
+	if (unlikely(sb->buf_low == MAP_FAILED))
 		fatal_return(("Failed to re mmap in remap_low_sb\n"), false);
 	return true;
 }
 
-static inline bool remap_high_sb(rzip_control *control, i64 p)
+static inline bool remap_high_sb(rzip_control *control, struct sliding_buffer *sb, i64 p)
 {
-	if (unlikely(munmap(sb.buf_high, sb.size_high)))
+	if (unlikely(munmap(sb->buf_high, sb->size_high)))
 		fatal_return(("Failed to munmap in remap_high_sb\n"), false);
-	sb.size_high = sb.high_length; /* In case we shrunk it when we hit the end of the file */
-	sb.offset_high = p;
+	sb->size_high = sb->high_length; /* In case we shrunk it when we hit the end of the file */
+	sb->offset_high = p;
 	/* Make sure offset is rounded to page size of total offset */
-	sb.offset_high -= (sb.offset_high + sb.orig_offset) % control->page_size;
-	if (unlikely(sb.offset_high + sb.size_high > sb.orig_size))
-		sb.size_high = sb.orig_size - sb.offset_high;
-	sb.buf_high = (uchar *)mmap(sb.buf_high, sb.size_high, PROT_READ, MAP_SHARED, sb.fd, sb.orig_offset + sb.offset_high);
-	if (unlikely(sb.buf_high == MAP_FAILED))
+	sb->offset_high -= (sb->offset_high + sb->orig_offset) % control->page_size;
+	if (unlikely(sb->offset_high + sb->size_high > sb->orig_size))
+		sb->size_high = sb->orig_size - sb->offset_high;
+	sb->buf_high = (uchar *)mmap(sb->buf_high, sb->size_high, PROT_READ, MAP_SHARED, sb->fd, sb->orig_offset + sb->offset_high);
+	if (unlikely(sb->buf_high == MAP_FAILED))
 		fatal_return(("Failed to re mmap in remap_high_sb\n"), false);
 	return true;
 }
@@ -181,44 +167,41 @@ static inline bool remap_high_sb(rzip_control *control, i64 p)
  * it, and a 64k mmap block that slides up and down as is required for any
  * offsets outside the range of the lower one. This is much slower than mmap
  * but makes it possible to have unlimited sized compression windows. */
-static uchar *sliding_get_sb(rzip_control *control, i64 p)
+static uchar *sliding_get_sb(rzip_control *control, struct sliding_buffer *sb, i64 p)
 {
-	if (p >= sb.offset_low && p < sb.offset_low + sb.size_low)
-		return (sb.buf_low + p - sb.offset_low);
-	if (p >= sb.offset_high && p < (sb.offset_high + sb.size_high))
-		return (sb.buf_high + (p - sb.offset_high));
+	if (p >= sb->offset_low && p < sb->offset_low + sb->size_low)
+		return (sb->buf_low + p - sb->offset_low);
+	if (p >= sb->offset_high && p < (sb->offset_high + sb->size_high))
+		return (sb->buf_high + (p - sb->offset_high));
 	/* p is not within the low or high buffer range */
-	if (unlikely(!remap_high_sb(control, p))) return NULL;
-	return (sb.buf_high + (p - sb.offset_high));
+	if (unlikely(!remap_high_sb(control, &control->sb, p))) return NULL;
+	return (sb->buf_high + (p - sb->offset_high));
 }
 
-static uchar *single_get_sb(rzip_control *control, i64 p)
+static uchar *single_get_sb(__maybe_unused rzip_control *control, struct sliding_buffer *sb, i64 p)
 {
-	return (sb.buf_low + p);
+	return (sb->buf_low + p);
 }
 
 /* We use a pointer to the function we actually want to use and only enable
  * the sliding mmap version if we need sliding mmap functionality as this is
  * a hot function during the rzip phase */
-static uchar *(*get_sb)(rzip_control *control, i64 p);
-
 static void sliding_mcpy(rzip_control *control, unsigned char *buf, i64 offset, i64 len)
 {
 	i64 i;
 
 	for (i = 0; i < len; i++)
-		memcpy(buf + i, sliding_get_sb(control, offset + i), 1);
+		memcpy(buf + i, sliding_get_sb(control, &control->sb, offset + i), 1);
 }
 
-static void single_mcpy(rzip_control *control, unsigned char *buf, i64 offset, i64 len)
+static void single_mcpy(__maybe_unused rzip_control *control, unsigned char *buf, i64 offset, i64 len)
 {
-	memcpy(buf, sb.buf_low + offset, len);
+	memcpy(buf, control->sb.buf_low + offset, len);
 }
 
 /* Since the sliding get_sb only allows us to access one byte at a time, we
  * do the same as we did with get_sb with the memcpy since one memcpy is much
  * faster than numerous memcpys 1 byte at a time */
-static void (*do_mcpy)(rzip_control *control, unsigned char *buf, i64 offset, i64 len);
 
 /* All put_u8/u32/vchars go to stream 0 */
 static inline bool put_u8(rzip_control *control, void *ss, uchar b)
@@ -281,7 +264,7 @@ static int write_sbstream(rzip_control *control, void *ss, int stream, i64 p, i6
 	while (len) {
 		i64 n = MIN(sinfo->bufsize - sinfo->s[stream].buflen, len);
 
-		do_mcpy(control, sinfo->s[stream].buf + sinfo->s[stream].buflen, p, n);
+		control->do_mcpy(control, sinfo->s[stream].buf + sinfo->s[stream].buflen, p, n);
 
 		sinfo->s[stream].buflen += n;
 		p += n;
@@ -433,10 +416,10 @@ static inline tag next_tag(rzip_control *control, struct rzip_state *st, i64 p, 
 {
 	uchar *u;
 
-	u = get_sb(control, p - 1);
+	u = control->get_sb(control, &control->sb, p - 1);
 	if (unlikely(!u)) return -1;
 	t ^= st->hash_index[*u];
-	u = get_sb(control, p + MINIMUM_MATCH - 1);
+	u = control->get_sb(control, &control->sb, p + MINIMUM_MATCH - 1);
 	if (unlikely(!u)) return -1;
 	t ^= st->hash_index[*u];
 	return t;
@@ -449,7 +432,7 @@ static inline tag full_tag(rzip_control *control, struct rzip_state *st, i64 p)
 	uchar *u;
 
 	for (i = 0; i < MINIMUM_MATCH; i++) {
-		u = get_sb(control, p + i);
+		u = control->get_sb(control, &control->sb, p + i);
 		if (unlikely(!u)) return -1;
 		ret ^= st->hash_index[*u];
 	}
@@ -465,7 +448,7 @@ static inline i64 match_len(rzip_control *control, struct rzip_state *st, i64 p0
 	if (op >= p0)
 		return 0;
 
-	while ((*get_sb(control, p) == *get_sb(control, op)) && (p < end)) {
+	while ((*control->get_sb(control, &control->sb, p) == *control->get_sb(control, &control->sb, op)) && (p < end)) {
 		p++;
 		op++;
 	}
@@ -478,7 +461,7 @@ static inline i64 match_len(rzip_control *control, struct rzip_state *st, i64 p0
 	if (end < st->last_match)
 		end = st->last_match;
 
-	while (p > end && op > 0 && *get_sb(control, op - 1) == *get_sb(control, p - 1)) {
+	while (p > end && op > 0 && *control->get_sb(control, &control->sb, op - 1) == *control->get_sb(control, &control->sb, p - 1)) {
 		op--;
 		p--;
 	}
@@ -554,6 +537,7 @@ static void show_distrib(rzip_control *control, struct rzip_state *st)
 
 static bool hash_search(rzip_control *control, struct rzip_state *st, double pct_base, double pct_multiple)
 {
+	struct sliding_buffer *sb = &control->sb;
 	int lastpct = 0, last_chunkpct = 0;
 	i64 cksum_limit = 0, p, end;
 	tag t = 0;
@@ -604,9 +588,9 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 		i64 reverse, mlen, offset = 0;
 
 		p++;
-		sb.offset_search = p;
-		if (unlikely(sb.offset_search > sb.offset_low + sb.size_low))
-			remap_low_sb(control);
+		sb->offset_search = p;
+		if (unlikely(sb->offset_search > sb->offset_low + sb->size_low))
+			remap_low_sb(control, &control->sb);
 		t = next_tag(control, st, p, t);
 		if (unlikely(t == -1)) return false;
 
@@ -668,7 +652,7 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 
 			if (unlikely(!ckbuf))
 				fatal_return(("Failed to malloc ckbuf in hash_search\n"), false);
-			do_mcpy(control, ckbuf, cksum_limit, n);
+			control->do_mcpy(control, ckbuf, cksum_limit, n);
 			st->cksum = CrcUpdate(st->cksum, ckbuf, n);
 			if (!NO_MD5)
 				md5_process_bytes(ckbuf, n, &control->ctx);
@@ -689,7 +673,7 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 
 		if (unlikely(!ckbuf))
 			fatal_return(("Failed to malloc ckbuf in hash_search\n"), false);
-		do_mcpy(control, ckbuf, cksum_limit, n);
+		control->do_mcpy(control, ckbuf, cksum_limit, n);
 		st->cksum = CrcUpdate(st->cksum, ckbuf, n);
 		if (!NO_MD5)
 			md5_process_bytes(ckbuf, n, &control->ctx);
@@ -761,23 +745,25 @@ static bool mmap_stdin(rzip_control *control, uchar *buf, struct rzip_state *st)
 
 static bool init_sliding_mmap(rzip_control *control, struct rzip_state *st, int fd_in, i64 offset)
 {
+	struct sliding_buffer *sb = &control->sb;
+
 	/* Initialise the high buffer */
 	if (!STDIN) {
-		sb.high_length = 65536;
+		sb->high_length = 65536;
 		/* Round up to the next biggest page size */
-		if (sb.high_length % control->page_size)
-			sb.high_length += control->page_size - (sb.high_length % control->page_size);
-		sb.buf_high = (uchar *)mmap(NULL, sb.high_length, PROT_READ, MAP_SHARED, fd_in, offset);
-		if (unlikely(sb.buf_high == MAP_FAILED))
+		if (sb->high_length % control->page_size)
+			sb->high_length += control->page_size - (sb->high_length % control->page_size);
+		sb->buf_high = (uchar *)mmap(NULL, sb->high_length, PROT_READ, MAP_SHARED, fd_in, offset);
+		if (unlikely(sb->buf_high == MAP_FAILED))
 			fatal_return(("Unable to mmap buf_high in init_sliding_mmap\n"), false);
-		sb.size_high = sb.high_length;
-		sb.offset_high = 0;
+		sb->size_high = sb->high_length;
+		sb->offset_high = 0;
 	}
-	sb.offset_low = 0;
-	sb.offset_search = 0;
-	sb.size_low = st->mmap_size;
-	sb.orig_size = st->chunk_size;
-	sb.fd = fd_in;
+	sb->offset_low = 0;
+	sb->offset_search = 0;
+	sb->size_low = st->mmap_size;
+	sb->orig_size = st->chunk_size;
+	sb->fd = fd_in;
 	return true;
 }
 
@@ -786,6 +772,8 @@ static bool init_sliding_mmap(rzip_control *control, struct rzip_state *st, int 
 static bool rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, int fd_out, i64 offset,
 		       double pct_base, double pct_multiple)
 {
+	struct sliding_buffer *sb = &control->sb;
+
 	if (unlikely(!init_sliding_mmap(control, st, fd_in, offset))) return false;
 
 	st->ss = open_stream_out(control, fd_out, NUM_STREAMS, st->chunk_size, st->chunk_bytes);
@@ -799,12 +787,12 @@ static bool rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, 
 	}
 
 	/* unmap buffer before closing and reallocating streams */
-	if (unlikely(munmap(sb.buf_low, sb.size_low))) {
+	if (unlikely(munmap(sb->buf_low, sb->size_low))) {
 		close_stream_out(control, st->ss);
 		fatal_return(("Failed to munmap in rzip_chunk\n"), false);
 	}
 	if (!STDIN) {
-		if (unlikely(munmap(sb.buf_high, sb.size_high))) {
+		if (unlikely(munmap(sb->buf_high, sb->size_high))) {
 			close_stream_out(control, st->ss);
 			fatal_return(("Failed to munmap in rzip_chunk\n"), false);
 		}
@@ -818,6 +806,8 @@ static bool rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, 
 /* compress a whole file chunks at a time */
 bool rzip_fd(rzip_control *control, int fd_in, int fd_out)
 {
+	struct sliding_buffer *sb = &control->sb;
+
 	/* add timers for ETA estimates
 	 * Base it off the file size and number of iterations required
 	 * depending on compression window size
@@ -918,8 +908,8 @@ bool rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	gettimeofday(&start, NULL);
 
 	prepare_streamout_threads(control);
-	get_sb = single_get_sb;
-	do_mcpy = single_mcpy;
+	control->get_sb = single_get_sb;
+	control->do_mcpy = single_mcpy;
 
 	while (!pass || len > 0 || (STDIN && !st->stdin_eof)) {
 		double pct_base, pct_multiple;
@@ -939,9 +929,9 @@ bool rzip_fd(rzip_control *control, int fd_in, int fd_out)
 retry:
 		if (STDIN) {
 			/* NOTE the buf is saved here for STDIN mode */
-			sb.buf_low = mmap(NULL, st->mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+			sb->buf_low = mmap(NULL, st->mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 			/* Better to shrink the window to the largest size that works than fail */
-			if (sb.buf_low == MAP_FAILED) {
+			if (sb->buf_low == MAP_FAILED) {
 				if (unlikely(errno != ENOMEM)) {
 					close_streamout_threads(control);
 					free(st->hash_table);
@@ -959,7 +949,7 @@ retry:
 				goto retry;
 			}
 			st->chunk_size = st->mmap_size;
-			if (unlikely(!mmap_stdin(control, sb.buf_low, st))) {
+			if (unlikely(!mmap_stdin(control, sb->buf_low, st))) {
 				close_streamout_threads(control);
 				free(st->hash_table);
 				free(st);
@@ -967,8 +957,8 @@ retry:
 			}
 		} else {
 			/* NOTE The buf is saved here for !STDIN mode */
-			sb.buf_low = (uchar *)mmap(sb.buf_low, st->mmap_size, PROT_READ, MAP_SHARED, fd_in, offset);
-			if (sb.buf_low == MAP_FAILED) {
+			sb->buf_low = (uchar *)mmap(sb->buf_low, st->mmap_size, PROT_READ, MAP_SHARED, fd_in, offset);
+			if (sb->buf_low == MAP_FAILED) {
 				if (unlikely(errno != ENOMEM)) {
 					close_streamout_threads(control);
 					free(st->hash_table);
@@ -987,8 +977,8 @@ retry:
 			}
 			if (st->mmap_size < st->chunk_size) {
 				print_maxverbose("Enabling sliding mmap mode and using mmap of %lld bytes with window of %lld bytes\n", st->mmap_size, st->chunk_size);
-				get_sb = &sliding_get_sb;
-				do_mcpy = &sliding_mcpy;
+				control->get_sb = &sliding_get_sb;
+				control->do_mcpy = &sliding_mcpy;
 			}
 		}
 		print_maxverbose("Succeeded in testing %lld sized mmap for rzip pre-processing\n", st->mmap_size);
@@ -1004,7 +994,7 @@ retry:
 				print_verbose("Will take %d passes\n", passes);
 		}
 
-		sb.orig_offset = offset;
+		sb->orig_offset = offset;
 		print_maxverbose("Chunk size: %lld\n", st->chunk_size);
 
 		/* Determine the chunk byte width to write to the file
