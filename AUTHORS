@@ -16,7 +16,7 @@ Jukka Laurila for newer Darwin support
 George Makrydakis for lrztar, lrzuntar
 Jari Aalto for documentation and typos and git help
 Jon Tibble for nasm tests & Solaris support
-Michael Blumenkrantz for updated autotools
+Michael Blumenkrantz for updated autotools and liblrzip!
 Serge Belyshev for encryption help and code
 Ulrich Drepper for MD5 implementation
 PolarSSL authors for sha512 + aes128 implementation

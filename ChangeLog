@@ -1,4 +1,19 @@
 lrzip ChangeLog
+MARCH 2012, version 0.610 Con Kolivas, Michael Blumenkrantz
+* Implement complete set of liblrzip libraries, documentation and example uses
+with support for simple lrzip_compress() and lrzip_decompress() or complete
+fine-grained control over all compression and decompression options.
+* Use as much of the low buffer as possible with a single memcopy before going
+fine grained byte by byte.
+* Preserve the compressed time on decompression where suitable.
+* Store a copy of the control struct to be reused on subsequent files to prevent
+variables being modified in the control struct on the first file that corrupt
+compression/decompression of the 2nd file.
+* Explicitly select C99 to avoid certain warnings.
+* Generic modifications to silence -Wextra warnings.
+* Fix typos.
+
+
 SEPTEMBER 2011, version 0.608 Con Kolivas
 * get_sb only allows accessing one byte at a time, yet we don't need that
 functionality when sliding mmap is not in use. Use different versions of the

@@ -1,3 +1,17 @@
+lrzip-0.610
+
+The new liblrzip library allows you to add lrzip compression and decompression
+to other applications with either simple lrzip_compress and lrzip_decompress
+functions or fine control over all the options with low level functions.
+Faster rzip stage when files are large enough to require the sliding mmap
+feature (usually >1/3 of ram) and in unlimited mode.
+A bug where multiple files being compressed or decompressed from the one
+command line could have gotten corrupted was fixed.
+Modification date of the decompressed file is now set to that of the lrzip
+archive (support for storing the original file's date would require modifying
+the archive format again).
+Compilation warning fixes.
+
 lrzip-0.608
 
 Faster rzip stage through use of a selective get_sb function.
