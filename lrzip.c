@@ -46,6 +46,7 @@
 # include <arpa/inet.h>
 #endif
 #include <math.h>
+#include <utime.h>
 
 #include "md5.h"
 #include "rzip.h"
@@ -265,7 +266,7 @@ bool read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 }
 
 /* preserve ownership and permissions where possible */
-bool preserve_perms(rzip_control *control, int fd_in, int fd_out)
+static bool preserve_perms(rzip_control *control, int fd_in, int fd_out)
 {
 	struct stat st;
 
@@ -277,6 +278,21 @@ bool preserve_perms(rzip_control *control, int fd_in, int fd_out)
 	/* chown fail is not fatal_return(( */
 	if (unlikely(fchown(fd_out, st.st_uid, st.st_gid)))
 		print_verbose("Warning, unable to set owner on %s\n", control->outfile);
+	return true;
+}
+
+static bool preserve_times(rzip_control *control, int fd_in)
+{
+	struct utimbuf times;
+	struct stat st;
+
+	if (unlikely(fstat(fd_in, &st)))
+		fatal_return(("Failed to fstat input file\n"), false);
+	times.actime = 0;
+	times.modtime = st.st_mtime;
+	if (unlikely(utime(control->outfile, &times)))
+		print_verbose("Warning, unable to set time on %s\n", control->outfile);
+
 	return true;
 }
 
@@ -788,6 +804,9 @@ bool decompress_file(rzip_control *control)
 
 	if (unlikely(close(fd_hist) || close(fd_out)))
 		fatal_return(("Failed to close files\n"), false);
+
+	if (unlikely(!STDIN && !STDOUT && !TEST_ONLY && !preserve_times(control, fd_in)))
+		return false;
 
 	close(fd_in);
 
