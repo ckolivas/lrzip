@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Copyright (C) George Makrydakis 2009, 2010, 2011
-# Copyright (C) Con Kolivas 2011
+# Copyright (C) George Makrydakis 2009-2011
+# Copyright (C) Con Kolivas 2011-2012
 
 # A bash wrapper for Con Kolivas' excellent lrzip utility. For the time
 # being, lrzip does not like pipes, so we had to do this. It is kind of
@@ -31,7 +31,7 @@ lrzuntar [lrzip options] <directory.tar.lrz> will extract directory \
 from directory.tar.lrz
 lrz[un]tar -h will display this help message
 lrzip -h will display lrzip options"
-    local p="${@:1:$(($#-1))}" s="${!#}" vopt=("lrz") \
+    local p=( "${@:1:$(($#-1))}" ) s="${!#}" vopt=("lrz") \
         v_w=0 v_S=0 v_D=0 v_p=0 v_q=0 v_L=0 \
         v_n=0 v_l=0 v_b=0 v_g=0 v_z=0 v_U=0 \
         v_T=0 v_N=0 v_v=0 v_f=0 v_d=0 v_h=0 \
@@ -49,27 +49,31 @@ lrzip -h will display lrzip options"
         [ $x == S ] && vopt[${#vopt[@]}]="$OPTARG"
     done
     [[ $(basename "$0") == lrzuntar ]] \
-        && { v_d=1; p="-d $p"; }
+        && { v_d=1; p=( -d "${p[@]}"); }
     { ! (($#)) || ((v_h)); } && {
         printf "%s\n" "$hv"
         return
     }
     [[ ${s%/*} != $s ]] && i="${s%/*}/" || i="./"
     ((v_d)) && {
-        i+="$(basename "$s")"
+        s="${s%/}"
+        i+="${s##*/}"
         [[ -e $i ]] || {
             printf "lrztar: file does not exist: %s\n" "$i"
             return 1
         }
-        lrzcat $p "$i" | tar x
+        lrzcat "${p[@]}" "$i" | tar x
         x=$?
     } || {
-        ((v_o)) || p="$p -o $(basename "$s").tar.${vopt[v_S]}"
+        ((v_o)) || {
+		s="${s%/}";
+		p+=( -o "${s##*/}.tar.${vopt[v_S]}");
+	}
         [[ -d $s ]] || {
             printf "lrztar: directory does not exist: %s\n" "$s"
             return 1
         }
-        tar c "$s" | lrzip $p
+        tar c "$s" | lrzip "${p[@]}"
         x=$?
     }
     ! ((x)) && ((v_D)) && rm -rf "$s" &> /dev/null
