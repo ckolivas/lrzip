@@ -12,6 +12,8 @@ compression/decompression of the 2nd file.
 * Explicitly select C99 to avoid certain warnings.
 * Generic modifications to silence -Wextra warnings.
 * Fix typos.
+* Use an array of parameters in lrztar to allow working with directories with
+spaces in their names.
 
 
 SEPTEMBER 2011, version 0.608 Con Kolivas

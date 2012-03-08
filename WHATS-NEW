@@ -11,6 +11,7 @@ Modification date of the decompressed file is now set to that of the lrzip
 archive (support for storing the original file's date would require modifying
 the archive format again).
 Compilation warning fixes.
+Make lrztar work with directories with spaces in their names.
 
 lrzip-0.608
 
