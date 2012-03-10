@@ -170,8 +170,10 @@ static inline bool remap_high_sb(rzip_control *control, struct sliding_buffer *s
  * We use a pointer to the function we actually want to use and only enable
  * the sliding mmap version if we need sliding mmap functionality as this is
  * a hot function during the rzip phase */
-static uchar *sliding_get_sb(rzip_control *control, struct sliding_buffer *sb, i64 p)
+static uchar *sliding_get_sb(rzip_control *control, i64 p)
 {
+	struct sliding_buffer *sb = &control->sb;
+
 	if (p >= sb->offset_low && p < sb->offset_low + sb->size_low)
 		return (sb->buf_low + p - sb->offset_low);
 	if (p >= sb->offset_high && p < (sb->offset_high + sb->size_high))
@@ -182,9 +184,9 @@ static uchar *sliding_get_sb(rzip_control *control, struct sliding_buffer *sb, i
 	return (sb->buf_high + (p - sb->offset_high));
 }
 
-static uchar *single_get_sb(__maybe_unused rzip_control *control, struct sliding_buffer *sb, i64 p)
+static uchar *single_get_sb(__maybe_unused rzip_control *control, i64 p)
 {
-	return (sb->buf_low + p);
+	return (control->sb.buf_low + p);
 }
 
 /* Since the sliding get_sb only allows us to access one byte at a time, we
@@ -212,7 +214,7 @@ static void sliding_mcpy(rzip_control *control, unsigned char *buf, i64 offset, 
 	/* We have no choice but to go fine-grained if there's any len left
 	 * since we will be paging */
 	for (i = 0; i < len; i++)
-		memcpy(buf + i, sliding_get_sb(control, &control->sb, offset + i), 1);
+		memcpy(buf + i, sliding_get_sb(control, offset + i), 1);
 }
 
 /* All put_u8/u32/vchars go to stream 0 */
@@ -434,11 +436,11 @@ static inline tag next_tag(rzip_control *control, struct rzip_state *st, i64 p, 
 {
 	uchar *u;
 
-	u = control->get_sb(control, &control->sb, p - 1);
+	u = control->get_sb(control, p - 1);
 	if (unlikely(!u))
 		return -1;
 	t ^= st->hash_index[*u];
-	u = control->get_sb(control, &control->sb, p + MINIMUM_MATCH - 1);
+	u = control->get_sb(control, p + MINIMUM_MATCH - 1);
 	if (unlikely(!u))
 		return -1;
 	t ^= st->hash_index[*u];
@@ -452,7 +454,7 @@ static inline tag full_tag(rzip_control *control, struct rzip_state *st, i64 p)
 	uchar *u;
 
 	for (i = 0; i < MINIMUM_MATCH; i++) {
-		u = control->get_sb(control, &control->sb, p + i);
+		u = control->get_sb(control, p + i);
 		if (unlikely(!u))
 			return -1;
 		ret ^= st->hash_index[*u];
@@ -469,7 +471,7 @@ static inline i64 match_len(rzip_control *control, struct rzip_state *st, i64 p0
 	if (op >= p0)
 		return 0;
 
-	while ((*control->get_sb(control, &control->sb, p) == *control->get_sb(control, &control->sb, op)) && (p < end)) {
+	while ((*control->get_sb(control, p) == *control->get_sb(control, op)) && (p < end)) {
 		p++;
 		op++;
 	}
@@ -482,7 +484,7 @@ static inline i64 match_len(rzip_control *control, struct rzip_state *st, i64 p0
 	if (end < st->last_match)
 		end = st->last_match;
 
-	while (p > end && op > 0 && *control->get_sb(control, &control->sb, op - 1) == *control->get_sb(control, &control->sb, p - 1)) {
+	while (p > end && op > 0 && *control->get_sb(control, op - 1) == *control->get_sb(control, p - 1)) {
 		op--;
 		p--;
 	}

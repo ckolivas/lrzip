@@ -367,7 +367,7 @@ struct rzip_control {
 	void *log_data;
 
 	struct sliding_buffer sb;
-	uchar *(*get_sb)(rzip_control *control, struct sliding_buffer *sb, i64 p);
+	uchar *(*get_sb)(rzip_control *control, i64 p);
 	void (*do_mcpy)(rzip_control *control, unsigned char *buf, i64 offset, i64 len);
 };
 
