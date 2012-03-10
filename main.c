@@ -189,6 +189,7 @@ int main(int argc, char *argv[])
 	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
+	bool lrzcat = false;
 	int c, i;
 	int hours,minutes;
 	extern int optind;
@@ -200,8 +201,10 @@ int main(int argc, char *argv[])
 
 	if (strstr(argv[0], "lrunzip"))
 		control->flags |= FLAG_DECOMPRESS;
-	else if (strstr(argv[0], "lrzcat"))
+	else if (strstr(argv[0], "lrzcat")) {
 		control->flags |= FLAG_DECOMPRESS | FLAG_STDOUT;
+		lrzcat = true;
+	}
 
 	/* generate crc table */
 	CrcGenerateTable();
@@ -409,17 +412,17 @@ int main(int argc, char *argv[])
 		if (INFO && STDIN)
 			failure("Will not get file info from STDIN\n");
 
-		if (control->outname && (strcmp(control->outname, "-") == 0)) {
-			control->flags |= FLAG_STDOUT;
-			control->outFILE = stdout;
-			control->msgout = stderr;
-			register_outputfile(control, control->msgout);
+		if ((control->outname && (strcmp(control->outname, "-") == 0)) ||
+			/* If no output filename is specified, and we're using
+			 * stdin, use stdout */
+			(!control->outname && STDIN) || lrzcat ) {
+				control->flags |= FLAG_STDOUT;
+				control->outFILE = stdout;
+				control->msgout = stderr;
+				register_outputfile(control, control->msgout);
 		}
 
-		/* If no output filename is specified, and we're using stdin,
-		 * use stdout */
-		if (!control->outname && STDIN) {
-			control->flags |= FLAG_STDOUT;
+		if (lrzcat) {
 			control->msgout = stderr;
 			control->outFILE = stdout;
 			register_outputfile(control, control->msgout);
@@ -429,7 +432,9 @@ int main(int argc, char *argv[])
 			control->msgout = stdout;
 			register_outputfile(control, control->msgout);
 		}
-		if (STDIN) control->inFILE = stdin;
+
+		if (STDIN)
+			control->inFILE = stdin;
 		/* Implement signal handler only once flags are set */
 		handler.sa_handler = &sighandler;
 		sigaction(SIGTERM, &handler, 0);
