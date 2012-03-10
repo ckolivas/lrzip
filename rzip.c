@@ -314,9 +314,9 @@ static bool put_literal(rzip_control *control, struct rzip_state *st, i64 last, 
 }
 
 /* Could give false positive on offset 0.  Who cares. */
-static int empty_hash(struct rzip_state *st, i64 h)
+static inline bool empty_hash(struct hash_entry *he)
 {
-	return !st->hash_table[h].offset && !st->hash_table[h].t;
+	return !he->offset && !he->t;
 }
 
 static i64 primary_hash(struct rzip_state *st, tag t)
@@ -330,18 +330,18 @@ static inline tag increase_mask(tag tag_mask)
 	return (tag_mask << 1) | 1;
 }
 
-static int minimum_bitness(struct rzip_state *st, tag t)
+static bool minimum_bitness(struct rzip_state *st, tag t)
 {
 	tag better_than_min = increase_mask(st->minimum_tag_mask);
 
 	if ((t & better_than_min) != better_than_min)
-		return 1;
-	return 0;
+		return true;
+	return false;
 }
 
 /* Is a going to be cleaned before b?  ie. does a have fewer low bits
  * set than b? */
-static int lesser_bitness(tag a, tag b)
+static inline bool lesser_bitness(tag a, tag b)
 {
 	a ^= 0xffffffffffffffff;
 	b ^= 0xffffffffffffffff;
@@ -355,12 +355,14 @@ static void insert_hash(struct rzip_state *st, tag t, i64 offset)
 	i64 h, victim_h = 0, round = 0;
 	/* If we need to kill one, this will be it. */
 	static i64 victim_round = 0;
+	struct hash_entry *he;
 
 	h = primary_hash(st, t);
-	while (!empty_hash(st, h)) {
+	he = &st->hash_table[h];
+	while (!empty_hash(he)) {
 		/* If this due for cleaning anyway, just replace it:
 		   rehashing might move it behind tag_clean_ptr. */
-		if (minimum_bitness(st, st->hash_table[h].t)) {
+		if (minimum_bitness(st, he->t)) {
 			st->hash_count--;
 			break;
 		}
@@ -368,15 +370,15 @@ static void insert_hash(struct rzip_state *st, tag t, i64 offset)
 		   jump over it: it will be cleaned before us, and
 		   noone would then find us in the hash table.  Rehash
 		   it, then take its place. */
-		if (lesser_bitness(st->hash_table[h].t, t)) {
-			insert_hash(st, st->hash_table[h].t,
-				    st->hash_table[h].offset);
+		if (lesser_bitness(he->t, t)) {
+			insert_hash(st, he->t,
+				    he->offset);
 			break;
 		}
 
 		/* If we have lots of identical patterns, we end up
 		   with lots of the same hash number.  Discard random. */
-		if (st->hash_table[h].t == t) {
+		if (he->t == t) {
 			if (round == victim_round)
 				victim_h = h;
 			if (++round == st->level->max_chain_len) {
@@ -391,16 +393,18 @@ static void insert_hash(struct rzip_state *st, tag t, i64 offset)
 
 		h++;
 		h &= ((1 << st->hash_bits) - 1);
+		he = &st->hash_table[h];
 	}
 
-	st->hash_table[h].t = t;
-	st->hash_table[h].offset = offset;
+	he->t = t;
+	he->offset = offset;
 }
 
 /* Eliminate one hash entry with minimum number of lower bits set.
    Returns tag requirement for any new entries. */
 static tag clean_one_from_hash(rzip_control *control, struct rzip_state *st)
 {
+	struct hash_entry *he;
 	tag better_than_min;
 
 again:
@@ -409,12 +413,12 @@ again:
 		print_maxverbose("Starting sweep for mask %u\n", (unsigned int)st->minimum_tag_mask);
 
 	for (; st->tag_clean_ptr < (1U << st->hash_bits); st->tag_clean_ptr++) {
-		if (empty_hash(st, st->tag_clean_ptr))
+		he = &st->hash_table[st->tag_clean_ptr];
+		if (empty_hash(he))
 			continue;
-		if ((st->hash_table[st->tag_clean_ptr].t & better_than_min)
-		    != better_than_min) {
-			st->hash_table[st->tag_clean_ptr].offset = 0;
-			st->hash_table[st->tag_clean_ptr].t = 0;
+		if ((he->t & better_than_min) != better_than_min) {
+			he->offset = 0;
+			he->t = 0;
 			st->hash_count--;
 			return better_than_min;
 		}
@@ -495,6 +499,7 @@ static inline i64 match_len(rzip_control *control, struct rzip_state *st, i64 p0
 static i64 find_best_match(rzip_control *control, struct rzip_state *st, tag t, i64 p, i64 end,
 			   i64 *offset, i64 *reverse)
 {
+	struct hash_entry *he;
 	i64 length = 0;
 	i64 rev;
 	i64 h;
@@ -505,11 +510,12 @@ static i64 find_best_match(rzip_control *control, struct rzip_state *st, tag t, 
 	/* Could optimise: if lesser goodness, can stop search.  But
 	 * chains are usually short anyway. */
 	h = primary_hash(st, t);
-	while (!empty_hash(st, h)) {
+	he = &st->hash_table[h];
+	while (!empty_hash(he)) {
 		i64 mlen;
 
-		if (t == st->hash_table[h].t) {
-			mlen = match_len(control, st, p, st->hash_table[h].offset, end,
+		if (t == he->t) {
+			mlen = match_len(control, st, p, he->offset, end,
 					 &rev);
 
 			if (mlen)
@@ -519,13 +525,14 @@ static i64 find_best_match(rzip_control *control, struct rzip_state *st, tag t, 
 
 			if (mlen >= length) {
 				length = mlen;
-				(*offset) = st->hash_table[h].offset - rev;
+				(*offset) = he->offset - rev;
 				(*reverse) = rev;
 			}
 		}
 
 		h++;
 		h &= ((1 << st->hash_bits) - 1);
+		he = &st->hash_table[h];
 	}
 
 	return length;
@@ -533,15 +540,17 @@ static i64 find_best_match(rzip_control *control, struct rzip_state *st, tag t, 
 
 static void show_distrib(rzip_control *control, struct rzip_state *st)
 {
+	struct hash_entry *he;
 	i64 primary = 0;
 	i64 total = 0;
 	i64 i;
 
 	for (i = 0; i < (1U << st->hash_bits); i++) {
-		if (empty_hash(st, i))
+		he = &st->hash_table[i];
+		if (empty_hash(he))
 			continue;
 		total++;
-		if (primary_hash(st, st->hash_table[i].t) == i)
+		if (primary_hash(st, he->t) == i)
 			primary++;
 	}
 
