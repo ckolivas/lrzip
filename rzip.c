@@ -433,19 +433,14 @@ again:
 	goto again;
 }
 
-static inline tag next_tag(rzip_control *control, struct rzip_state *st, i64 p, tag t)
+static inline void next_tag(rzip_control *control, struct rzip_state *st, i64 p, tag *t)
 {
 	uchar *u;
 
 	u = control->get_sb(control, p - 1);
-	if (unlikely(!u))
-		return -1;
-	t ^= st->hash_index[*u];
+	*t ^= st->hash_index[*u];
 	u = control->get_sb(control, p + MINIMUM_MATCH - 1);
-	if (unlikely(!u))
-		return -1;
-	t ^= st->hash_index[*u];
-	return t;
+	*t ^= st->hash_index[*u];
 }
 
 static inline tag full_tag(rzip_control *control, struct rzip_state *st, i64 p)
@@ -618,9 +613,7 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 		sb->offset_search = p;
 		if (unlikely(sb->offset_search > sb->offset_low + sb->size_low))
 			remap_low_sb(control, &control->sb);
-		t = next_tag(control, st, p, t);
-		if (unlikely(t == -1))
-			return false;
+		next_tag(control, st, p, &t);
 
 		/* Don't look for a match if there are no tags with
 		   this number of bits in the hash table. */
