@@ -462,14 +462,14 @@ static inline i64 match_len(rzip_control *control, struct rzip_state *st, i64 p0
 			    i64 *rev)
 {
 	uchar *(*csb)(rzip_control *, i64);
-	i64 p, len = 0;
+	i64 p, len;
 
 	if (op >= p0)
-		return len;
+		return 0;
 
 	p = p0;
 	csb = control->get_sb;
-	while ((*csb(control, p) == *csb(control, op)) && (p < end)) {
+	while (p < end && (*csb(control, p) == *csb(control, op))) {
 		p++;
 		op++;
 	}
