@@ -343,13 +343,9 @@ static int minimum_bitness(struct rzip_state *st, tag t)
  * set than b? */
 static int lesser_bitness(tag a, tag b)
 {
-	tag mask;
-
-	for (mask = 0; mask != (tag) - 1; mask = ((mask << 1) | 1)) {
-		if ((a & b & mask) != mask)
-			break;
-	}
-	return ((a & mask) < (b & mask));
+	a ^= 0xffffffffffffffff;
+	b ^= 0xffffffffffffffff;
+	return (ffsll(a) < ffsll(b));
 }
 
 /* If hash bucket is taken, we spill into next bucket(s).  Secondary hashing
