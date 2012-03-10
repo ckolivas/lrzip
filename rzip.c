@@ -318,7 +318,7 @@ static bool put_literal(rzip_control *control, struct rzip_state *st, i64 last, 
 /* Could give false positive on offset 0.  Who cares. */
 static inline bool empty_hash(struct hash_entry *he)
 {
-	return !he->offset && !he->t;
+	return !(he->offset | he->t);
 }
 
 static i64 primary_hash(struct rzip_state *st, tag t)
