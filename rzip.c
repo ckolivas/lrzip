@@ -466,33 +466,30 @@ static inline tag full_tag(rzip_control *control, struct rzip_state *st, i64 p)
 static inline i64 match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op, i64 end,
 			    i64 *rev)
 {
-	i64 p = p0;
-	i64 len = 0;
+	uchar *(*csb)(rzip_control *, i64);
+	i64 p, len = 0;
 
 	if (op >= p0)
-		return 0;
+		return len;
 
-	while ((*control->get_sb(control, p) == *control->get_sb(control, op)) && (p < end)) {
+	p = p0;
+	csb = control->get_sb;
+	while ((*csb(control, p) == *csb(control, op)) && (p < end)) {
 		p++;
 		op++;
 	}
 	len = p - p0;
-
 	p = p0;
 	op -= len;
 
-	end = 0;
-	if (end < st->last_match)
-		end = st->last_match;
+	end = MAX(0, st->last_match);
 
-	while (p > end && op > 0 && *control->get_sb(control, op - 1) == *control->get_sb(control, p - 1)) {
+	while (p > end && op > 0 && *csb(control, op - 1) == *csb(control, p - 1)) {
 		op--;
 		p--;
 	}
 
-	(*rev) = p0 - p;
-	len += p0 - p;
-
+	len += *rev = p0 - p;
 	if (len < MINIMUM_MATCH)
 		return 0;
 
