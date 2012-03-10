@@ -385,6 +385,7 @@ static void insert_hash(struct rzip_state *st, tag t, i64 offset)
 				victim_h = h;
 			if (++round == st->level->max_chain_len) {
 				h = victim_h;
+				he = &st->hash_table[h];
 				st->hash_count--;
 				victim_round++;
 				if (victim_round == st->level->max_chain_len)
