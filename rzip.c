@@ -556,6 +556,28 @@ static void show_distrib(rzip_control *control, struct rzip_state *st)
 		     primary * 100.0 / (total ? : 1));
 }
 
+/* Perform all checksumming in a separate thread to speed up the hash search. */
+static void *cksumthread(void *data)
+{
+	rzip_control *control = (rzip_control *)data;
+
+	pthread_detach(pthread_self());
+
+	*control->checksum.cksum = CrcUpdate(*control->checksum.cksum, control->checksum.buf, control->checksum.len);
+	if (!NO_MD5)
+		md5_process_bytes(control->checksum.buf, control->checksum.len, &control->ctx);
+	free(control->checksum.buf);
+	unlock_mutex(control, &control->cksumlock);
+	return NULL;
+}
+
+static void cksum_update(rzip_control *control)
+{
+	pthread_t thread;
+
+	create_pthread(control, &thread, NULL, cksumthread, control);
+}
+
 static bool hash_search(rzip_control *control, struct rzip_state *st, double pct_base, double pct_multiple)
 {
 	struct sliding_buffer *sb = &control->sb;
@@ -670,18 +692,20 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 			}
 		}
 
-		if (p > (i64)cksum_limit) {
-			i64 n = MIN(st->chunk_size - p, control->page_size);
-			uchar *ckbuf = malloc(n);
-
-			if (unlikely(!ckbuf))
+		if (p > cksum_limit) {
+			/* We lock the mutex here and unlock it in the
+			 * cksumthread. This lock protects all the data in
+			 * control->checksum.
+			 */
+			lock_mutex(control, &control->cksumlock);
+			control->checksum.len = MIN(st->chunk_size - p, control->page_size);
+			control->checksum.buf = malloc(control->checksum.len);
+			if (unlikely(!control->checksum.buf))
 				fatal_return(("Failed to malloc ckbuf in hash_search\n"), false);
-			control->do_mcpy(control, ckbuf, cksum_limit, n);
-			st->cksum = CrcUpdate(st->cksum, ckbuf, n);
-			if (!NO_MD5)
-				md5_process_bytes(ckbuf, n, &control->ctx);
-			cksum_limit += n;
-			free(ckbuf);
+			control->do_mcpy(control, control->checksum.buf, cksum_limit, control->checksum.len);
+			control->checksum.cksum = &st->cksum;
+			cksum_update(control);
+			cksum_limit += control->checksum.len;
 		}
 	}
 
@@ -692,18 +716,18 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 		put_literal(control, st, st->last_match, st->chunk_size);
 
 	if (st->chunk_size > cksum_limit) {
-		i64 n = st->chunk_size - cksum_limit;
-		uchar *ckbuf = malloc(n);
-
-		if (unlikely(!ckbuf))
+		lock_mutex(control, &control->cksumlock);
+		control->checksum.len = st->chunk_size - cksum_limit;
+		control->checksum.buf = malloc(control->checksum.len);
+		if (unlikely(!control->checksum.buf))
 			fatal_return(("Failed to malloc ckbuf in hash_search\n"), false);
-		control->do_mcpy(control, ckbuf, cksum_limit, n);
-		st->cksum = CrcUpdate(st->cksum, ckbuf, n);
-		if (!NO_MD5)
-			md5_process_bytes(ckbuf, n, &control->ctx);
-		cksum_limit += n;
-		free(ckbuf);
+		control->do_mcpy(control, control->checksum.buf, cksum_limit, control->checksum.len);
+		control->checksum.cksum = &st->cksum;
+		cksum_update(control);
+		cksum_limit += control->checksum.len;
 	}
+
+	wait_mutex(control, &control->cksumlock);
 
 	if (unlikely(!put_literal(control, st, 0, 0)))
 		return false;
@@ -851,7 +875,8 @@ bool rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	i64 free_space;
 
 	if (!NO_MD5)
-		md5_init_ctx (&control->ctx);
+		md5_init_ctx(&control->ctx);
+	init_mutex(control, &control->cksumlock);
 
 	st = calloc(sizeof(*st), 1);
 	if (unlikely(!st))

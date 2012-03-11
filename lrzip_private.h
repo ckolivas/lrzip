@@ -297,6 +297,12 @@ struct sliding_buffer {
 	int fd;		/* The fd of the mmap */
 };
 
+struct checksum {
+	uint32_t *cksum;
+	uchar *buf;
+	i64 len;
+};
+
 struct rzip_control {
 	char *infile;
 	FILE *inFILE; // if a FILE is being read from
@@ -347,9 +353,13 @@ struct rzip_control {
 	uchar *hash;
 	unsigned char eof;
 	unsigned char magic_written;
+
+	pthread_mutex_t cksumlock;
 	md5_ctx ctx;
 	uchar md5_resblock[MD5_DIGEST_SIZE];
 	i64 md5_read; // How far into the file the md5 has done so far
+	struct checksum checksum;
+
 	const char *util_infile;
 	char delete_infile;
 	const char *util_outfile;

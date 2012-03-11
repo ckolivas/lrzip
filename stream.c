@@ -104,25 +104,36 @@ static pthread_mutex_t output_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t output_cond = PTHREAD_COND_INITIALIZER;
 static pthread_t *threads;
 
-static bool init_mutex(rzip_control *control, pthread_mutex_t *mutex)
+bool init_mutex(rzip_control *control, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_mutex_init(mutex, NULL)))
 		fatal_return(("pthread_mutex_init failed"), false);
 	return true;
 }
 
-static bool unlock_mutex(rzip_control *control, pthread_mutex_t *mutex)
+bool unlock_mutex(rzip_control *control, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_mutex_unlock(mutex)))
 		fatal_return(("pthread_mutex_unlock failed"), false);
 	return true;
 }
 
-static bool lock_mutex(rzip_control *control, pthread_mutex_t *mutex)
+bool lock_mutex(rzip_control *control, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_mutex_lock(mutex)))
 		fatal_return(("pthread_mutex_lock failed"), false);
 	return true;
+}
+
+/* Lock and unlock a mutex */
+bool wait_mutex(rzip_control *control, pthread_mutex_t *mutex)
+{
+	bool ret;
+
+	ret = lock_mutex(control, mutex);
+	if (likely(ret))
+		ret = unlock_mutex(control, mutex);
+	return ret;
 }
 
 static bool cond_wait(rzip_control *control, pthread_cond_t *cond, pthread_mutex_t *mutex)
