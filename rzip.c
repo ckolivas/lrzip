@@ -635,6 +635,25 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 		sb->offset_search = p;
 		if (unlikely(sb->offset_search > sb->offset_low + sb->size_low))
 			remap_low_sb(control, &control->sb);
+
+		if (unlikely(p % 128 == 0)) {
+			int pct, chunk_pct;
+
+			pct = pct_base + (pct_multiple * (100.0 * p) /
+			      (st->chunk_size ? : 1));
+			chunk_pct = p / ((end / 100) ? : 1);
+			if (pct != lastpct || chunk_pct != last_chunkpct) {
+				if (!STDIN || st->stdin_eof)
+					print_progress("Total: %2d%%  ", pct);
+				print_progress("Chunk: %2d%%\r", chunk_pct);
+				if (control->info_cb)
+					control->info_cb(control->info_data,
+						(!STDIN || st->stdin_eof) ? pct : -1, chunk_pct);
+				lastpct = pct;
+				last_chunkpct = chunk_pct;
+			}
+		}
+
 		next_tag(control, st, p, &t);
 
 		/* Don't look for a match if there are no tags with
@@ -672,24 +691,6 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 			t = full_tag(control, st, p);
 			if (unlikely(t == -1))
 				return false;
-		}
-
-		if (unlikely(p % 128 == 0)) {
-			int pct, chunk_pct;
-
-			pct = pct_base + (pct_multiple * (100.0 * p) /
-			      (st->chunk_size ? : 1));
-			chunk_pct = p / ((end / 100) ? : 1);
-			if (pct != lastpct || chunk_pct != last_chunkpct) {
-				if (!STDIN || st->stdin_eof)
-					print_progress("Total: %2d%%  ", pct);
-				print_progress("Chunk: %2d%%\r", chunk_pct);
-				if (control->info_cb)
-					control->info_cb(control->info_data,
-						(!STDIN || st->stdin_eof) ? pct : -1, chunk_pct);
-				lastpct = pct;
-				last_chunkpct = chunk_pct;
-			}
 		}
 
 		if (p > cksum_limit) {
