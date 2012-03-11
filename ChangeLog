@@ -1,4 +1,22 @@
 lrzip ChangeLog
+MARCH 2012, version 0.611 Con Kolivas.
+* Move the update counter to earlier in the hash_search so it still updates even
+when there are not matches.
+* Perform all checksumming in a separate thread to speed up the hash search in
+the rzip phase.
+* Optimise the hot function empty_hash.
+* Micro-optimise the hot next_tag function.
+* Micro-optimise the match_len function.
+* Pass one less variable to the get_sb function as an optimisation.
+* Cache the hash_entry value passing one less variable to hash_empty as a
+micro-optimisation.
+* Use ffsl for a faster lesser_bitness function.
+* Prevent lrzuntar from automatically overwriting existing directories without
+the -f option being specified.
+* Calling lrzip via lrzcat would fail as the proper parameters weren't being
+passed to the control structure. Fix.
+
+
 MARCH 2012, version 0.610 Con Kolivas, Michael Blumenkrantz
 * Implement complete set of liblrzip libraries, documentation and example uses
 with support for simple lrzip_compress() and lrzip_decompress() or complete

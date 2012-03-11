@@ -1,3 +1,13 @@
+lrzip-0.611
+
+lrzcat and lrzuntar have been fixed.
+The update counter will continue to update even when there is nothing being
+matched (like a file full of zeroes).
+Numerous optimisations in the rzip stage speeds up the faster compression modes
+noticeably.
+Checksumming is done in a separate thread during rzip compression for more
+compression speed improvements.
+
 lrzip-0.610
 
 The new liblrzip library allows you to add lrzip compression and decompression
