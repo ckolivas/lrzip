@@ -722,12 +722,13 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 		if (unlikely(!control->checksum.buf))
 			fatal_return(("Failed to malloc ckbuf in hash_search\n"), false);
 		control->do_mcpy(control, control->checksum.buf, cksum_limit, control->checksum.len);
-		control->checksum.cksum = &st->cksum;
-		cksum_update(control);
-		cksum_limit += control->checksum.len;
-	}
-
-	wait_mutex(control, &control->cksumlock);
+		st->cksum = CrcUpdate(st->cksum, control->checksum.buf, control->checksum.len);
+		if (!NO_MD5)
+			md5_process_bytes(control->checksum.buf, control->checksum.len, &control->ctx);
+		free(control->checksum.buf);
+		unlock_mutex(control, &control->cksumlock);
+	} else
+		wait_mutex(control, &control->cksumlock);
 
 	if (unlikely(!put_literal(control, st, 0, 0)))
 		return false;
