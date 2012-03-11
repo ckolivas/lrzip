@@ -121,8 +121,7 @@ Q. I want the absolute maximum compression I can possibly get, what do I do?
 A. Try the command line options "-Uzp 1 -L 9". This uses all available ram and
 ZPAQ compression, and even uses a compression window larger than you have ram.
 The -p 1 option disables multithreading which improves compression but at the
-expense of speed. Expect serious swapping to occur if your file is larger than
-your ram and for it to take many times longer.
+expense of speed. Expect it to take many times longer.
 
 Q. I want the absolute fastest decent compression I can possibly get.
 A. Try the command line option -l. This will use the  lzo backend compression,
@@ -237,7 +236,7 @@ not as much.
 
 Q. What CFLAGS should I use?
 A. With a recent enough compiler (gcc>4) setting both CFLAGS and CXXFLAGS to
-	-O3 -march=native -fomit-frame-pointer
+	-O2 -march=native -fomit-frame-pointer
 
 Q. What compiler does this work with?
 A. It has been tested on gcc, ekopath and the intel compiler successfully
@@ -291,10 +290,6 @@ speeds up. There's also a jump in the percentage at the end?
 A. Yes, that's the nature of the compression/decompression mechanism. The jump
 is because the rzip preparation makes the amount of data much smaller than the
 compression backend (lzma) needs to compress.
-
-Q. The percentage counter doesn't always get to 100%.
-A. It's quite hard to predict during the rzip phase how long it will take as
-lots of redundant data will not count towards the percentage.
 
 Q. Tell me about patented compression algorithms, GPL, lawyers and copyright.
 A. No
@@ -351,10 +346,10 @@ Jukka Laurila for Darwin support. Thanks to George Makrydakis for lrztar.
 Thanks to Ulrich Drepper for his md5 implementation. Thanks to Michael
 Blumenkrantz for new configuration tools. Thanks to the PolarSSL authors for
 encryption code. Thanks to Serge Belyshev for extensive help, advice, and
-patches to implement encryption.
+patches to implement encryption. Michael Blumenkrantz also for liblrzip.
 
 Con Kolivas <kernel@kolivas.org>
-Sat, 7 May 2011
+Sat, 11 March 2011
 
 Also documented by
 Peter Hyman <pete@peterhyman.com>
