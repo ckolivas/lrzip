@@ -1,5 +1,11 @@
 MAINTAINERCLEANFILES = Makefile.in
 
+AM_CFLAGS = \
+  -DCOMPRESS_MF_MT \
+  -D_REENTRANT \
+  -I@top_builddir@ \
+  -I@top_srcdir@
+
 ASM_LIBS =
 ASM_S =
 if USE_ASM
@@ -32,11 +38,6 @@ liblzma_la_SOURCES = \
 	MyWindows.h \
 	MyGuidDef.h
 liblzma_so_LIBS = $(ASM_LIBS)
-
-liblzma_so_CFLAGS = \
-  -DCOMPRESS_MF_MT \
-  -D_REENTRANT \
-  -I@top_builddir@
 
 7zCrcT8U.o: @top_srcdir@/lzma/ASM/x86/7zCrcT8U.s
 	@ASM_CMD@ -o 7zCrcT8U.o @top_srcdir@/lzma/ASM/x86/7zCrcT8U.s

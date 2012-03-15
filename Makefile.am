@@ -35,7 +35,6 @@ libtmplrzip_la_SOURCES = \
   zpipe.h \
   lrzip_private.h \
   liblrzip_private.h \
-  Lrzip.h \
   lrzip.c \
   lrzip.h \
   rzip.h \
@@ -91,6 +90,9 @@ dist_doc_DATA = \
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = lrzip.pc
+
+lrzip_HEADERS = Lrzip.h
+lrzipdir = $(includedir)
 
 EXTRA_DIST = \
 		lrzip.pc.in \
