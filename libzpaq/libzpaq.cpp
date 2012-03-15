@@ -15,6 +15,7 @@ conforming to the ZPAQ level 2 standard. See http://mattmahoney.net/zpaq/
 */
 
 #include "libzpaq.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -57,6 +58,10 @@ void Writer::write(const char* buf, int n) {
     put(U8(buf[i]));
 }
 
+void error(const char* msg) {
+  fprintf(stderr, "zpipe error: %s\n", msg);
+  exit(1);
+}
 ///////////////////////// allocx //////////////////////
 
 // Allocate newsize > 0 bytes of executable memory and update

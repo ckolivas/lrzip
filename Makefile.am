@@ -51,7 +51,9 @@ libtmplrzip_la_SOURCES = \
   aes.c \
   aes.h \
   sha4.c \
-  sha4.h
+  sha4.h \
+  libzpaq/libzpaq.cpp \
+  libzpaq/libzpaq.h
 libtmplrzip_la_LIBADD = lzma/C/liblzma.la
 
 
