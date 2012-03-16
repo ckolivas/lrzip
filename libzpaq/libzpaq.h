@@ -469,4 +469,11 @@ extern "C" void zpaq_compress(uchar *c_buf, long long *c_len, uchar *s_buf, long
 	compress (&bufR, &bufW, level);
 }
 
+extern "C" void zpaq_decompress(uchar *s_buf, long long *d_len, uchar *c_buf, long long c_len) {
+	bufRead bufR(c_buf, &c_len);
+	bufWrite bufW(s_buf, d_len);
+
+	decompress(&bufR, &bufW);
+}
+
 #endif  // LIBZPAQ_H

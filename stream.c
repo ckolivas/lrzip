@@ -538,7 +538,36 @@ out_free:
 
   try to decompress a buffer. Return 0 on success and -1 on failure.
 */
+static int zpaq_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread, long thread)
+{
+	i64 dlen = ucthread->u_len;
+	uchar *c_buf;
+	int ret = 0;
 
+	c_buf = ucthread->s_buf;
+	ucthread->s_buf = malloc(dlen);
+	if (unlikely(!ucthread->s_buf)) {
+		print_err("Failed to allocate %ld bytes for decompression\n", dlen);
+		ret = -1;
+		goto out;
+	}
+
+	dlen = 0;
+	zpaq_decompress(ucthread->s_buf, &dlen, c_buf, ucthread->c_len);
+
+	if (unlikely(dlen != ucthread->u_len)) {
+		print_err("Inconsistent length after decompression. Got %ld bytes, expected %lld\n", dlen, ucthread->u_len);
+		ret = -1;
+	}
+
+	free(c_buf);
+out:
+	if (ret == -1)
+		ucthread->s_buf = c_buf;
+	return ret;
+}
+
+#if 0
 static int zpaq_decompress_buf(rzip_control *control, struct uncomp_thread *ucthread, long thread)
 {
 	uchar *c_buf = NULL;
@@ -578,6 +607,7 @@ static int zpaq_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 
 	return 0;
 }
+#endif
 
 static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread)
 {

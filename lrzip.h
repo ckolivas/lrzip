@@ -43,4 +43,5 @@ bool clear_tmpinfile(rzip_control *control);
 void close_tmpinbuf(rzip_control *control);
 bool initialize_control(rzip_control *control);
 extern void zpaq_compress(uchar *c_buf, long long *c_len, uchar *s_buf, long long s_len, int level);
+extern void zpaq_decompress(uchar *s_buf, long long *d_len, uchar *c_buf, long long c_len);
 #endif
