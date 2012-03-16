@@ -438,4 +438,35 @@ void compress(Reader* in, Writer* out, int level);
 
 }  // namespace libzpaq
 
+typedef unsigned char uchar;
+
+struct bufRead: public libzpaq::Reader {
+	uchar *s_buf;
+	long long *s_len;
+	bufRead(uchar *buf_, long long *n_): s_buf(buf_), s_len(n_) {}
+	int get() {
+		if (*s_len > 0) {
+			(*s_len)--;
+			return ((int)(uchar)*s_buf++);
+		}
+		return -1;
+	} // read and return byte 0..255, or -1 at EOF
+};
+
+struct bufWrite: public libzpaq::Writer {
+	uchar *c_buf;
+	long long *c_len;
+	bufWrite(uchar *buf_, long long *n_): c_buf(buf_), c_len(n_) {}
+	void put(int c) {
+		c_buf[(*c_len)++] = (uchar)c;
+	}
+};
+
+extern "C" void zpaq_compress(uchar *c_buf, long long *c_len, uchar *s_buf, long long s_len, int level) {
+	bufRead bufR(s_buf, &s_len);
+	bufWrite bufW(c_buf, c_len);
+
+	compress (&bufR, &bufW, level);
+}
+
 #endif  // LIBZPAQ_H

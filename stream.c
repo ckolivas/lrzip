@@ -241,6 +241,35 @@ static inline int fake_open_memstream_update_buffer(FILE *fp, uchar **buf, size_
 
 static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthread, long thread)
 {
+	i64 c_len = 0;
+	uchar *c_buf;
+
+	c_buf = malloc(cthread->s_len + control->page_size);
+	if (!c_buf) {
+		print_err("Unable to allocate c_buf in zpaq_compress_buf\n");
+		return -1;
+	}
+
+	zpaq_compress(c_buf, &c_len, cthread->s_buf, cthread->s_len, control->compression_level / 4 + 1);
+
+	if (unlikely(c_len >= cthread->c_len)) {
+		print_maxverbose("Incompressible block\n");
+		/* Incompressible, leave as CTYPE_NONE */
+		free(c_buf);
+		return 0;
+	}
+
+	cthread->c_len = c_len;
+	free(cthread->s_buf);
+	cthread->s_buf = c_buf;
+	cthread->c_type = CTYPE_ZPAQ;
+	return 0;
+}
+
+
+#if 0
+static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthread, long thread)
+{
 	uchar *c_buf = NULL;
 	size_t dlen = 0;
 	FILE *in, *out;
@@ -285,6 +314,7 @@ static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthr
 	cthread->c_type = CTYPE_ZPAQ;
 	return 0;
 }
+#endif
 
 static int bzip2_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
