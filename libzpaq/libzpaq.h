@@ -31,6 +31,7 @@ comprises the reference decoder for the ZPAQ level 2 standard.
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 namespace libzpaq {
 
@@ -444,6 +445,7 @@ struct bufRead: public libzpaq::Reader {
 	uchar *s_buf;
 	long long *s_len;
 	bufRead(uchar *buf_, long long *n_): s_buf(buf_), s_len(n_) {}
+
 	int get() {
 		if (*s_len > 0) {
 			(*s_len)--;
@@ -451,6 +453,22 @@ struct bufRead: public libzpaq::Reader {
 		}
 		return -1;
 	} // read and return byte 0..255, or -1 at EOF
+
+	int read(char *buf, int n) {
+		int diff;
+
+		if (*s_len < 1)
+			return -1;
+
+		if (n > *s_len)
+			diff = *s_len;
+		else
+			diff = *s_len - n;
+
+		*s_len -= diff;
+		memcpy(buf, s_buf, diff);
+		return diff;
+	}
 };
 
 struct bufWrite: public libzpaq::Writer {
