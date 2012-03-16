@@ -54,22 +54,11 @@
 # include <arpa/inet.h>
 #endif
 
-
 /* LZMA C Wrapper */
 #include "lzma/C/LzmaLib.h"
 
 #include "util.h"
 #include "lrzip.h"
-
-
-#if defined(__APPLE__) || defined(__FreeBSD__)
-# define fmemopen(s, len, modes) fake_fmemopen(control, (s), (len), (modes))
-# define open_memstream(bufloc, sizeloc) fake_open_memstream(control, (bufloc), (sizeloc))
-# define memstream_update_buffer fake_open_memstream_update_buffer
-# define mremap fake_mremap
-#else
-# define memstream_update_buffer(A, B, C) (0)
-#endif
 
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
@@ -175,58 +164,6 @@ bool join_pthread(rzip_control *control, pthread_t th, void **thread_return)
  * but move body to the end since it's a work function
 */
 static int lzo_compresses(rzip_control *control, uchar *s_buf, i64 s_len);
-
-static inline FILE *fake_fmemopen(rzip_control *control, void *buf, size_t buflen, char *mode)
-{
-	FILE *in;
-
-	if (unlikely(strcmp(mode, "r")))
-		failure_return(("fake_fmemopen only supports mode \"r\"."), NULL);
-	in = tmpfile();
-	if (unlikely(!in))
-		return NULL;
-	if (unlikely(fwrite(buf, buflen, 1, in) != 1)) {
-		fclose(in);
-		return NULL;
-	}
-	rewind(in);
-
-	return in;
-}
-
-static inline FILE *fake_open_memstream(rzip_control *control, char **buf, size_t *length)
-{
-	FILE *out;
-
-	if (unlikely(buf == NULL || length == NULL))
-		failure_return(("NULL parameter to fake_open_memstream"), NULL);
-	out = tmpfile();
-	if (unlikely(!out))
-		return NULL;
-	return out;
-}
-
-static inline int fake_open_memstream_update_buffer(FILE *fp, uchar **buf, size_t *length)
-{
-	long original_pos = ftell(fp);
-
-	if (unlikely(fseek(fp, 0, SEEK_END)))
-		return -1;
-	*length = ftell(fp);
-	rewind(fp);
-	*buf = (uchar *)malloc(*length);
-	if (unlikely(!*buf))
-		return -1;
-	if (unlikely(fread(*buf, *length, 1, fp) != 1)) {
-		free(*buf);
-		return -1;
-	}
-	if (unlikely(fseek(fp, original_pos, SEEK_SET))) {
-		free(*buf);
-		return -1;
-	}
-	return 0;
-}
 
 /*
   ***** COMPRESSION FUNCTIONS *****

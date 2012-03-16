@@ -747,6 +747,10 @@ static void init_hash_indexes(struct rzip_state *st)
 		st->hash_index[i] = ((random() << 16) ^ random());
 }
 
+#if defined(__APPLE__) || defined(__FreeBSD__)
+# define mremap fake_mremap
+#endif
+
 static inline void *fake_mremap(void *old_address, size_t old_size, size_t new_size, int flags __UNUSED__)
 {
 	munmap(old_address, old_size);
