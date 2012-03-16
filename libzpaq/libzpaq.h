@@ -455,19 +455,14 @@ struct bufRead: public libzpaq::Reader {
 	} // read and return byte 0..255, or -1 at EOF
 
 	int read(char *buf, int n) {
-		int diff;
-
-		if (*s_len < 1)
-			return -1;
-
 		if (n > *s_len)
-			diff = *s_len;
-		else
-			diff = *s_len - n;
+			n = *s_len;
 
-		*s_len -= diff;
-		memcpy(buf, s_buf, diff);
-		return diff;
+		if (n > 0) {
+			*s_len -= n;
+			memcpy(buf, s_buf, n);
+		}
+		return n;
 	}
 };
 
@@ -475,8 +470,14 @@ struct bufWrite: public libzpaq::Writer {
 	uchar *c_buf;
 	long long *c_len;
 	bufWrite(uchar *buf_, long long *n_): c_buf(buf_), c_len(n_) {}
+
 	void put(int c) {
 		c_buf[(*c_len)++] = (uchar)c;
+	}
+
+	void write(const char *buf, int n) {
+		memcpy(c_buf + *c_len, buf, n);
+		*c_len += n;
 	}
 };
 
