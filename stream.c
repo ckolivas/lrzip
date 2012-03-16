@@ -59,7 +59,6 @@
 #include "lzma/C/LzmaLib.h"
 
 #include "util.h"
-#include "zpipe.h"
 #include "lrzip.h"
 
 
@@ -265,56 +264,6 @@ static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthr
 	cthread->c_type = CTYPE_ZPAQ;
 	return 0;
 }
-
-
-#if 0
-static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthread, long thread)
-{
-	uchar *c_buf = NULL;
-	size_t dlen = 0;
-	FILE *in, *out;
-
-	if (!lzo_compresses(control, cthread->s_buf, cthread->s_len))
-		return 0;
-
-	in = fmemopen(cthread->s_buf, cthread->s_len, "r");
-	if (unlikely(!in)) {
-		print_err("Failed to fmemopen in zpaq_compress_buf\n");
-		return -1;
-	}
-	out = open_memstream((char **)&c_buf, &dlen);
-	if (unlikely(!out)) {
-		fclose(in);
-		print_maxverbose("Failed to open_memstream in zpaq_compress_buf\n");
-		return -1;
-	}
-
-	zpipe_compress(in, out, control->msgout, cthread->s_len,
-		       (int)(SHOW_PROGRESS), thread);
-
-	if (unlikely(memstream_update_buffer(out, &c_buf, &dlen))) {
-		fclose(in);
-		fclose(out);
-	        fatal_return(("Failed to memstream_update_buffer in zpaq_compress_buf"), -1);
-	}
-
-	fclose(in);
-	fclose(out);
-
-	if (unlikely((i64)dlen >= cthread->c_len)) {
-		print_maxverbose("Incompressible block\n");
-		/* Incompressible, leave as CTYPE_NONE */
-		free(c_buf);
-		return 0;
-	}
-
-	cthread->c_len = dlen;
-	free(cthread->s_buf);
-	cthread->s_buf = c_buf;
-	cthread->c_type = CTYPE_ZPAQ;
-	return 0;
-}
-#endif
 
 static int bzip2_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
@@ -566,48 +515,6 @@ out:
 		ucthread->s_buf = c_buf;
 	return ret;
 }
-
-#if 0
-static int zpaq_decompress_buf(rzip_control *control, struct uncomp_thread *ucthread, long thread)
-{
-	uchar *c_buf = NULL;
-	size_t dlen = 0;
-	FILE *in, *out;
-
-	in = fmemopen(ucthread->s_buf, ucthread->u_len, "r");
-	if (unlikely(!in)) {
-		print_err("Failed to fmemopen in zpaq_decompress_buf\n");
-		return -1;
-	}
-	out = open_memstream((char **)&c_buf, &dlen);
-	if (unlikely(!out)) {
-		print_err("Failed to open_memstream in zpaq_decompress_buf\n");
-		fclose(in);
-		return -1;
-	}
-
-	zpipe_decompress(in, out, control->msgout, ucthread->u_len, (int)(SHOW_PROGRESS), thread);
-
-	if (unlikely(memstream_update_buffer(out, &c_buf, &dlen))) {
-		fclose(in);
-		fclose(out);
-	        fatal_return(("Failed to memstream_update_buffer in zpaq_decompress_buf"), -1);
-	}
-
-	fclose(in);
-	fclose(out);
-
-	if (unlikely((i64)dlen != ucthread->u_len)) {
-		print_err("Inconsistent length after decompression. Got %lld bytes, expected %lld\n", (i64)dlen, ucthread->u_len);
-		return -1;
-	}
-
-	free(ucthread->s_buf);
-	ucthread->s_buf = c_buf;
-
-	return 0;
-}
-#endif
 
 static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread)
 {

@@ -31,8 +31,6 @@ lrztar_SCRIPTS = lrztar
 
 noinst_LTLIBRARIES = libtmplrzip.la
 libtmplrzip_la_SOURCES = \
-  zpipe.cpp \
-  zpipe.h \
   lrzip_private.h \
   liblrzip_private.h \
   lrzip.c \
@@ -53,6 +51,7 @@ libtmplrzip_la_SOURCES = \
   sha4.h \
   libzpaq/libzpaq.cpp \
   libzpaq/libzpaq.h
+
 libtmplrzip_la_LIBADD = lzma/C/liblzma.la
 
 
