@@ -470,7 +470,7 @@ struct bufRead: public libzpaq::Reader {
 			if (pct / 10 != *last_pct / 10) {
 				int i;
 
-				fprintf(msgout, "\r\t\t\t\tZPAQ\t");
+				fprintf(msgout, "\r\t\t\tZPAQ\t");
 				for (i = 0; i < thread; i++)
 					fprintf(msgout, "\t");
 				fprintf(msgout, "%ld:%i%%  \r",
