@@ -191,7 +191,8 @@ static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthr
 
 	c_len = 0;
 
-	zpaq_compress(c_buf, &c_len, cthread->s_buf, cthread->s_len, control->compression_level / 4 + 1);
+	zpaq_compress(c_buf, &c_len, cthread->s_buf, cthread->s_len, control->compression_level / 4 + 1,
+		      control->msgout, SHOW_PROGRESS ? true: false, thread);
 
 	if (unlikely(c_len >= cthread->c_len)) {
 		print_maxverbose("Incompressible block\n");
@@ -444,7 +445,8 @@ static int zpaq_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 	}
 
 	dlen = 0;
-	zpaq_decompress(ucthread->s_buf, &dlen, c_buf, ucthread->c_len);
+	zpaq_decompress(ucthread->s_buf, &dlen, c_buf, ucthread->c_len,
+			control->msgout, SHOW_PROGRESS ? true: false, thread);
 
 	if (unlikely(dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %ld bytes, expected %lld\n", dlen, ucthread->u_len);

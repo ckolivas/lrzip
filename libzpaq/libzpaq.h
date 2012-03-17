@@ -441,6 +441,7 @@ void compress(Reader* in, Writer* out, int level);
 
 /////////////////////////// lrzip functions //////////////////
 
+#include <stdio.h>
 #ifndef uchar
 #define uchar unsigned char
 #endif
@@ -453,9 +454,32 @@ typedef long long int i64;
 struct bufRead: public libzpaq::Reader {
 	uchar *s_buf;
 	i64 *s_len;
-	bufRead(uchar *buf_, i64 *n_): s_buf(buf_), s_len(n_) {}
+	i64 total_len;
+	int *last_pct;
+	bool progress;
+	long thread;
+	FILE *msgout;
+
+	bufRead(uchar *buf_, i64 *n_, i64 total_len_, int *last_pct_, bool progress_, long thread_, FILE *msgout_):
+		s_buf(buf_), s_len(n_), total_len(total_len_), last_pct(last_pct_), progress(progress_), thread(thread_), msgout(msgout_) {}
 
 	int get() {
+		if (progress && !(*s_len % 128)) {
+			int pct = (total_len - *s_len) * 100 / total_len;
+
+			if (pct / 10 != *last_pct / 10) {
+				int i;
+
+				fprintf(msgout, "\r\t\t\t\tZPAQ\t");
+				for (i = 0; i < thread; i++)
+					fprintf(msgout, "\t");
+				fprintf(msgout, "%ld: %i%% \r",
+					thread + 1, pct);
+				fflush(msgout);
+				*last_pct = pct;
+			}
+		}
+
 		if (likely(*s_len > 0)) {
 			(*s_len)--;
 			return ((int)(uchar)*s_buf++);
@@ -490,15 +514,25 @@ struct bufWrite: public libzpaq::Writer {
 	}
 };
 
-extern "C" void zpaq_compress(uchar *c_buf, i64 *c_len, uchar *s_buf, i64 s_len, int level) {
-	bufRead bufR(s_buf, &s_len);
+extern "C" void zpaq_compress(uchar *c_buf, i64 *c_len, uchar *s_buf, i64 s_len, int level,
+			      FILE *msgout, bool progress, long thread)
+{
+	i64 total_len = s_len;
+	int last_pct = 100;
+
+	bufRead bufR(s_buf, &s_len, total_len, &last_pct, progress, thread, msgout);
 	bufWrite bufW(c_buf, c_len);
 
 	compress (&bufR, &bufW, level);
 }
 
-extern "C" void zpaq_decompress(uchar *s_buf, i64 *d_len, uchar *c_buf, i64 c_len) {
-	bufRead bufR(c_buf, &c_len);
+extern "C" void zpaq_decompress(uchar *s_buf, i64 *d_len, uchar *c_buf, i64 c_len,
+				FILE *msgout, bool progress, long thread)
+{
+	i64 total_len = c_len;
+	int last_pct = 100;
+
+	bufRead bufR(c_buf, &c_len, total_len, &last_pct, progress, thread, msgout);
 	bufWrite bufW(s_buf, d_len);
 
 	decompress(&bufR, &bufW);
