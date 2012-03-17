@@ -1,3 +1,12 @@
+lrzip-0.612
+
+Updated to a new zpaq library back end which is faster and now supports three
+different compression levels, which will be activated at lrzip levels -L 1+, 4+
+and 8+. This significantly increases the maximum compression available by lrzip
+with -L 9.
+The include file Lrzip.h used by liblrzip is now properly installed into
+$prefix/include.
+
 lrzip-0.611
 
 lrzcat and lrzuntar have been fixed.

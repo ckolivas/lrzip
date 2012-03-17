@@ -14,25 +14,24 @@ backend.
 linux-2.6.37.tar
 
 These are benchmarks performed on a 3GHz quad core Intel Core2 with 8GB ram
-using lrzip v0.570 on an SSD drive.
+using lrzip v0.612 on an SSD drive.
 
 Compression	Size		Percentage	Compress	Decompress
 None		430612480	100
 7z		63636839	14.8		2m28s		0m6.6s
 xz		63291156	14.7		4m02s		0m8.7
-lrzip		64474279	14.9		1m27s		0m7.6s
-lrzip -z	51464086	12.0		3m43s		4m11s
-lrzip -l	132833903	30.8		0m23s		0m6.5s
-lrzip -g	86976639	20.2		0m26s		0m6.6s
-lrzip -b	72433191	16.8		0m30s		0m9.6s
+lrzip		64561485	14.9		1m12s		0m4.3s
+lrzip -z	51588423	12.0		2m02s		2m08s
+lrzip -l	137515997	31.9		0m14s		0m2.7s
+lrzip -g	86142459	20.0		0m17s		0m3.0s
+lrzip -b	72103197	16.7		0m21s		0m6.5s
 bzip2		74060625	17.2		0m48s		0m12.8s
 gzip		94512561	21.9		0m17s		0m4.0s
 
 
 These results are interesting to note the compression of lrzip by default is
 about the same as 7z, but it's significantly faster thanks to its heavily
-multithreaded nature. Decompression is only slightly slower because of the 2
-stages in decompression. Zpaq offers by far the best compression but at the cost
+multithreaded nature. Zpaq offers by far the best compression but at the cost
 of extra time. However with the heavily threaded nature of lrzip, it's not a lot
 longer given how much better its compression is. It's actually faster than xz
 on compression on a quad core machine.
@@ -134,4 +133,4 @@ Or, to make things easier, just use the default settings all the time and be
 happy as lzma gives good results. :D
 
 Con Kolivas
-Fri, 25 Feb 2011
+Fri, 17 Mar 2011

@@ -1,4 +1,27 @@
 lrzip ChangeLog
+
+MARCH 2012, version 0.612 Con Kolivas
+* Minor formatting improvement to delete misaligned %.
+* Implement progress counter on zpaq compress/decompress per thread within the
+Reader function.
+* Add some lrzip style defines and optimisations to the lrzip functions in
+libzpaq.h
+* Re-instantiate the lzo compresses test for zpaq compression.
+* Remove redundant code.
+* Delete now-unused zpipe code.
+* Implement virtual write support for bufWrite to speed up zpaq support and
+simplify the virtual read function for bufRead.
+* Add virtual read() support to the bufRead class to speed up encoding/decoding
+via the zpaq library.
+* Use libzpaq backend for decompression.
+* Move zpaq compression to new libzpaq library back end.
+* Merge branch 'master' into zpaq
+* Add minimal libzpaq compilation support.
+* Move to libzpaq directory.
+* Import libzapq files.
+* Fix Lrzip.h not being installed into include directory and make distcheck
+failing.
+
 MARCH 2012, version 0.611 Con Kolivas.
 * Move the update counter to earlier in the hash_search so it still updates even
 when there are not matches.
