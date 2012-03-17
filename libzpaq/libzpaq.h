@@ -439,15 +439,24 @@ void compress(Reader* in, Writer* out, int level);
 
 }  // namespace libzpaq
 
-typedef unsigned char uchar;
+/////////////////////////// lrzip functions //////////////////
+
+#ifndef uchar
+#define uchar unsigned char
+#endif
+#define likely(x)	__builtin_expect(!!(x), 1)
+#define unlikely(x)	__builtin_expect(!!(x), 0)
+#define __maybe_unused	__attribute__((unused))
+
+typedef long long int i64;
 
 struct bufRead: public libzpaq::Reader {
 	uchar *s_buf;
-	long long *s_len;
-	bufRead(uchar *buf_, long long *n_): s_buf(buf_), s_len(n_) {}
+	i64 *s_len;
+	bufRead(uchar *buf_, i64 *n_): s_buf(buf_), s_len(n_) {}
 
 	int get() {
-		if (*s_len > 0) {
+		if (likely(*s_len > 0)) {
 			(*s_len)--;
 			return ((int)(uchar)*s_buf++);
 		}
@@ -455,10 +464,10 @@ struct bufRead: public libzpaq::Reader {
 	} // read and return byte 0..255, or -1 at EOF
 
 	int read(char *buf, int n) {
-		if (n > *s_len)
+		if (unlikely(n > *s_len))
 			n = *s_len;
 
-		if (n > 0) {
+		if (likely(n > 0)) {
 			*s_len -= n;
 			memcpy(buf, s_buf, n);
 		}
@@ -468,8 +477,8 @@ struct bufRead: public libzpaq::Reader {
 
 struct bufWrite: public libzpaq::Writer {
 	uchar *c_buf;
-	long long *c_len;
-	bufWrite(uchar *buf_, long long *n_): c_buf(buf_), c_len(n_) {}
+	i64 *c_len;
+	bufWrite(uchar *buf_, i64 *n_): c_buf(buf_), c_len(n_) {}
 
 	void put(int c) {
 		c_buf[(*c_len)++] = (uchar)c;
@@ -481,14 +490,14 @@ struct bufWrite: public libzpaq::Writer {
 	}
 };
 
-extern "C" void zpaq_compress(uchar *c_buf, long long *c_len, uchar *s_buf, long long s_len, int level) {
+extern "C" void zpaq_compress(uchar *c_buf, i64 *c_len, uchar *s_buf, i64 s_len, int level) {
 	bufRead bufR(s_buf, &s_len);
 	bufWrite bufW(c_buf, c_len);
 
 	compress (&bufR, &bufW, level);
 }
 
-extern "C" void zpaq_decompress(uchar *s_buf, long long *d_len, uchar *c_buf, long long c_len) {
+extern "C" void zpaq_decompress(uchar *s_buf, i64 *d_len, uchar *c_buf, i64 c_len) {
 	bufRead bufR(c_buf, &c_len);
 	bufWrite bufW(s_buf, d_len);
 
