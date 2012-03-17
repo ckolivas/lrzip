@@ -473,7 +473,7 @@ struct bufRead: public libzpaq::Reader {
 				fprintf(msgout, "\r\t\t\t\tZPAQ\t");
 				for (i = 0; i < thread; i++)
 					fprintf(msgout, "\t");
-				fprintf(msgout, "%ld: %i%%   \r",
+				fprintf(msgout, "%ld:%i%%  \r",
 					thread + 1, pct);
 				fflush(msgout);
 				*last_pct = pct;
