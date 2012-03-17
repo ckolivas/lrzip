@@ -96,7 +96,7 @@ system and some basic working software on it. The default options on the
 
 10GB Virtual image:
 
-These benchmarks were done on the quad core with version 0.561
+These benchmarks were done on the quad core with version 0.612
 
 Compression	Size		Percentage	Compress Time	Decompress Time
 None		10737418240	100.0
@@ -108,17 +108,18 @@ lrzip		1372218189	 12.8		10m23s		2m53s
 lrzip -U	1095735108	 10.2		08m44s		2m45s
 lrzip -l	1831894161	 17.1		04m53s		2m37s
 lrzip -lU	1414959433	 13.2		04m48s		2m38s
-lrzip -zU	1067075961	  9.9		69m36s		69m35s
+lrzip -zU	1067169419	  9.9		39m32s		39m46s
 
 
 At this end of the spectrum things really start to heat up. The compression
 advantage is massive, with the lzo backend even giving much better results than
 7z, and over a ridiculously short time. The improvements in version 0.530 in
 scalability with multiple CPUs has a huge impact on compression time here,
-with zpaq almost being as fast on quad core as xz is, yet producing a file
+with zpaq almost being faster on quad core than xz is, yet producing a file
 less than half the size.
+
 What appears to be a big disappointment is actually zpaq here which takes more
-than 6 times longer than lzma for a measly .3% improvement. The reason is that
+than 4 times longer than r/lzma for a measly .3% improvement. The reason is that
 most of the advantage here is achieved by the rzip first stage since there's a
 lot of redundant space over huge distances on a virtual image. The -U option
 which works the memory subsystem rather hard making noticeable impact on the
