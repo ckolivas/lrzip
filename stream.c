@@ -450,7 +450,10 @@ static int zpaq_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 
 	if (unlikely(dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %ld bytes, expected %lld\n", dlen, ucthread->u_len);
-		ret = -1;
+		if (KEEP_BROKEN)
+			print_err("Keeping broken file as requested\n");
+		else
+			ret = -1;
 	}
 
 	free(c_buf);
@@ -477,15 +480,22 @@ static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_
 	bzerr = BZ2_bzBuffToBuffDecompress((char*)ucthread->s_buf, &dlen, (char*)c_buf, ucthread->c_len, 0, 0);
 	if (unlikely(bzerr != BZ_OK)) {
 		print_err("Failed to decompress buffer - bzerr=%d\n", bzerr);
-		free(ucthread->s_buf);
-		ucthread->s_buf = c_buf;
-		ret = -1;
-		goto out;
+		if (KEEP_BROKEN)
+			print_err("Keeping broken file as requested\n");
+		else {
+			free(ucthread->s_buf);
+			ucthread->s_buf = c_buf;
+			ret = -1;
+			goto out;
+		}
 	}
 
 	if (unlikely(dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %d bytes, expected %lld\n", dlen, ucthread->u_len);
-		ret = -1;
+		if (KEEP_BROKEN)
+			print_err("Keeping broken file as requested\n");
+		else
+			ret = -1;
 	}
 
 	free(c_buf);
@@ -512,15 +522,22 @@ static int gzip_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 	gzerr = uncompress(ucthread->s_buf, &dlen, c_buf, ucthread->c_len);
 	if (unlikely(gzerr != Z_OK)) {
 		print_err("Failed to decompress buffer - gzerr=%d\n", gzerr);
-		free(ucthread->s_buf);
-		ucthread->s_buf = c_buf;
-		ret = -1;
-		goto out;
+		if (KEEP_BROKEN)
+			print_err("Keeping broken file as requested\n");
+		else {
+			free(ucthread->s_buf);
+			ucthread->s_buf = c_buf;
+			ret = -1;
+			goto out;
+		}
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %ld bytes, expected %lld\n", dlen, ucthread->u_len);
-		ret = -1;
+		if (KEEP_BROKEN)
+			print_err("Keeping broken file as requested\n");
+		else
+			ret = -1;
 	}
 
 	free(c_buf);
@@ -550,15 +567,22 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 	lzmaerr = LzmaUncompress(ucthread->s_buf, &dlen, c_buf, &c_len, control->lzma_properties, 5);
 	if (unlikely(lzmaerr)) {
 		print_err("Failed to decompress buffer - lzmaerr=%d\n", lzmaerr);
-		free(ucthread->s_buf);
-		ucthread->s_buf = c_buf;
-		ret = -1;
-		goto out;
+		if (KEEP_BROKEN)
+			print_err("Keeping broken file as requested\n");
+		else {
+			free(ucthread->s_buf);
+			ucthread->s_buf = c_buf;
+			ret = -1;
+			goto out;
+		}
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %lld bytes, expected %lld\n", (i64)dlen, ucthread->u_len);
-		ret = -1;
+		if (KEEP_BROKEN)
+			print_err("Keeping broken file as requested\n");
+		else
+			ret = -1;
 	}
 
 	free(c_buf);
@@ -584,16 +608,23 @@ static int lzo_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_th
 
 	lzerr = lzo1x_decompress((uchar*)c_buf, ucthread->c_len, (uchar*)ucthread->s_buf, &dlen, NULL);
 	if (unlikely(lzerr != LZO_E_OK)) {
-		print_err("Failed to decompress buffer - lzerr=%d\n", lzerr);
-		free(ucthread->s_buf);
-		ucthread->s_buf = c_buf;
-		ret = -1;
-		goto out;
+		if (KEEP_BROKEN)
+			print_err("Keeping broken file as requested\n");
+		else {
+			print_err("Failed to decompress buffer - lzerr=%d\n", lzerr);
+			free(ucthread->s_buf);
+			ucthread->s_buf = c_buf;
+			ret = -1;
+			goto out;
+		}
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %lu bytes, expected %lld\n", (unsigned long)dlen, ucthread->u_len);
-		ret = -1;
+		if (KEEP_BROKEN)
+			print_err("Keeping broken file as requested\n");
+		else
+			ret = -1;
 	}
 
 	free(c_buf);
