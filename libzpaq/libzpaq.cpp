@@ -76,7 +76,7 @@ void allocx(U8* &p, int &n, int newsize) {
 #else
   if (p || n) {
     if (p)
-#ifdef unix
+#ifndef _WIN32
       munmap(p, n);
 #else // Windows
       VirtualFree(p, 0, MEM_RELEASE);
