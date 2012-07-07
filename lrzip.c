@@ -74,7 +74,7 @@ static i64 fdout_seekto(rzip_control *control, i64 pos)
 
 #ifdef __APPLE__
 # include <sys/sysctl.h>
-i64 get_ram(void)
+i64 get_ram(rzip_control *control)
 {
 	int mib[2];
 	size_t len;
