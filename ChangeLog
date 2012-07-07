@@ -1,5 +1,24 @@
 lrzip ChangeLog
 
+JULY 2012, version 0.613 Con Kolivas, Serge Belyshev.
+* Fix other non-win32 compilation for libzpaq.
+* Fix libzpaq compilation on other non-win32 OSs.
+* Fix Types.h missing which breaks typedefs on macosx.
+* Cope with missing ffsll() on various platforms.
+* Fix get_ram compilation on osx.
+* Rename lrzip.h to lrzip_core.h to cope with case insensitive filesystems not
+working with Lrzip.h vs lrzip.h
+* Include test for pthread.h and include header in lrzip_private.h.
+* Use system extensions in configure.ac to allow to build on non-gnu-linux
+platforms.
+* Fix invalid free error when -o and -S are used together.
+* Use no back end compression for blocks smaller than 64 bytes to avoid issues
+to do with minimum buffer size and minimum match sizes of the rzip
+preprocessing.
+* Fix md5 calculaton on blocks larger then 2^32. Bug reproduced and debugged by
+Serge Belyshev. Patch by Paul Eggert.
+
+
 MARCH 2012, version 0.612 Con Kolivas
 * Minor formatting improvement to delete misaligned %.
 * Implement progress counter on zpaq compress/decompress per thread within the
@@ -21,6 +40,7 @@ via the zpaq library.
 * Import libzapq files.
 * Fix Lrzip.h not being installed into include directory and make distcheck
 failing.
+
 
 MARCH 2012, version 0.611 Con Kolivas.
 * Move the update counter to earlier in the hash_search so it still updates even

@@ -1,3 +1,12 @@
+lrzip-0.613
+
+Fixed the bug where massive files would show an incorrect md5 value on
+decompression - this was a bug from the md5 code upstream.
+Compressing ultra-small files to corrupt archives was fixed.
+Compilation on various other platforms was fixed.
+A crash with using -S was fixed.
+
+
 lrzip-0.612
 
 Updated to a new zpaq library back end which is faster and now supports three
