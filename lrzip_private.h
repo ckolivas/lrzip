@@ -30,6 +30,11 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdarg.h>
+
+#ifdef HAVE_PTHREAD_H
+# include <pthread.h>
+#endif
+
 #ifdef HAVE_STRING_H
 # include <string.h>
 #endif
