@@ -35,6 +35,7 @@ libtmplrzip_la_SOURCES = \
   liblrzip_private.h \
   lrzip.c \
   lrzip.h \
+  Lrzip.h \
   rzip.h \
   rzip.c \
   runzip.c \
