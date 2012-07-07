@@ -126,6 +126,23 @@ which works the memory subsystem rather hard making noticeable impact on the
 rest of the machine also does further wonders for the compression (virtually
 always) and even the times in this particular case.
 
+
+Finally testing the same 10GB image on a i7-3930K at 3.2GHz (12 thread CPU!)
+with 32GB of ram so the whole image fits in ram with a fast SSD:
+
+Compression	Size		Percentage	Compress Time	Decompress Time
+None		10737418240	100.0
+gzip		2772899756	 25.8		3m56s		2m15s
+pbzip2		2705814394	 25.2		1m41s		1m46s
+lrzip		1095337763	 10.2		2m54s		2m21s
+
+
+Note that with enough ram and CPU, lrzip is actually faster than gzip (which
+does compression in place) and comparable on decompression, despite a huge
+increase in compression. pbzip2 is faster than both but its compression is
+almost no better than gzip.
+
+
 This should help govern what compression you choose. Small files are nicely
 compressed with zpaq. Intermediate files are nicely compressed with lzma.
 Large files get excellent results even with lzo provided you have enough ram.
@@ -134,4 +151,4 @@ Or, to make things easier, just use the default settings all the time and be
 happy as lzma gives good results. :D
 
 Con Kolivas
-Fri, 17 Mar 2011
+Saturday, 7th July 2012
