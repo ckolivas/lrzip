@@ -1267,7 +1267,11 @@ static void *compthread(void *data)
 	 * of succeeding in allocating more ram */
 	fsync(ctis->fd);
 retry:
-	if (!NO_COMPRESS && cti->c_len) {
+	/* Very small buffers have issues to do with minimum amounts of ram
+	 * allocatable to a buffer combined with the MINIMUM_MATCH of rzip
+	 * being 31 bytes so don't bother trying to compress anything less
+	 * than 64 bytes. */
+	if (!NO_COMPRESS && cti->c_len >= 64) {
 		if (LZMA_COMPRESS)
 			ret = lzma_compress_buf(control, cti);
 		else if (LZO_COMPRESS)
