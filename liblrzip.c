@@ -33,7 +33,7 @@
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
 #include "util.h"
-#include "lrzip.h"
+#include "lrzip_core.h"
 #include "rzip.h"
 
 #if defined(__APPLE__) || defined(__FreeBSD__)

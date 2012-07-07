@@ -17,7 +17,7 @@
 #include "LzFindMt.h"
 #endif
 
-#include "lrzip.h"
+#include "lrzip_core.h"
 
 #ifdef SHOW_STAT
 static int ttt = 0;

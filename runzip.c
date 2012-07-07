@@ -44,7 +44,7 @@
 #include "runzip.h"
 #include "stream.h"
 #include "util.h"
-#include "lrzip.h"
+#include "lrzip_core.h"
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
 

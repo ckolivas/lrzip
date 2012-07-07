@@ -5,7 +5,7 @@
 
 #include "LzFindMt.h"
 
-#include "lrzip.h"
+#include "lrzip_core.h"
 
 void MtSync_Construct(CMtSync *p)
 {

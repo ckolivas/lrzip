@@ -50,7 +50,7 @@
 #endif
 
 #include "rzip.h"
-#include "lrzip.h"
+#include "lrzip_core.h"
 #include "util.h"
 #include "stream.h"
 

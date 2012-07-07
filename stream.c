@@ -58,7 +58,7 @@
 #include "lzma/C/LzmaLib.h"
 
 #include "util.h"
-#include "lrzip.h"
+#include "lrzip_core.h"
 
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
