@@ -126,6 +126,10 @@ extern int errno;
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #define __maybe_unused	__attribute__((unused))
 
+#if defined(__MINGW32__) || defined(__CYGWIN__) || defined(ANDROID) || defined(__APPLE__)
+# define ffsll __builtin_ffsll
+#endif
+
 typedef long long int i64;
 typedef uint32_t u32;
 
