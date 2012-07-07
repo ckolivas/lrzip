@@ -3,7 +3,7 @@
 #ifndef GUID_DEFINED
 #define GUID_DEFINED
 
-// #include "Types.h"
+#include "Types.h"
 typedef int HRes; // from Types.h
 
 typedef struct {
