@@ -286,7 +286,6 @@ int main(int argc, char *argv[])
 			if (unlikely(STDOUT))
 				failure("Cannot specify an output filename when outputting to stdout\n");
 			control->outname = optarg;
-			free(control->suffix);
 			control->suffix = "";
 			break;
 		case 'O':
@@ -314,7 +313,6 @@ int main(int argc, char *argv[])
 				failure("Specified output filename already, can't specify an extension.\n");
 			if (unlikely(STDOUT))
 				failure("Cannot specify a filename suffix when outputting to stdout\n");
-			free(control->suffix);
 			control->suffix = optarg;
 			break;
 		case 't':
