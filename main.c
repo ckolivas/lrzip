@@ -281,11 +281,13 @@ int main(int argc, char *argv[])
 				failure("Invalid nice value (must be -20..19)\n");
 			break;
 		case 'o':
-			if (control->outdir || control->suffix)
-				failure("Cannot have -o and -O or -S together\n");
+			if (control->outdir)
+				failure("Cannot have -o and -O together\n");
 			if (unlikely(STDOUT))
 				failure("Cannot specify an output filename when outputting to stdout\n");
 			control->outname = optarg;
+			free(control->suffix);
+			control->suffix = "";
 			break;
 		case 'O':
 			if (control->outname)	/* can't mix -o and -O */
