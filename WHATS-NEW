@@ -1,3 +1,8 @@
+lrzip-0.614
+
+Fixed lrztar not working.
+
+
 lrzip-0.613
 
 Fixed the bug where massive files would show an incorrect md5 value on

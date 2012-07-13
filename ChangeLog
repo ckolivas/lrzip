@@ -1,5 +1,9 @@
 lrzip ChangeLog
 
+JULY 2012, version 0.614 Con Kolivas
+* Fix lrztar failing due to incorrect fix for -S freeing segfault.
+
+
 JULY 2012, version 0.613 Con Kolivas, Serge Belyshev.
 * Fix other non-win32 compilation for libzpaq.
 * Fix libzpaq compilation on other non-win32 OSs.
