@@ -109,6 +109,8 @@ fi
 
 AC_C_INLINE
 
+AC_C_BIGENDIAN
+
 AC_CHECK_LIB(pthread, pthread_create, ,
         AC_MSG_ERROR([Could not find pthread library - please install libpthread]))
 AC_CHECK_LIB(m, sqrt, ,

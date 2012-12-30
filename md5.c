@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2011 Con Kolivas
+   Copyright (C) 2012 Con Kolivas
    Copyright (C) 1995-2011 Ulrich Drepper.
 
    Functions to compute MD5 message digest of files or memory blocks.
@@ -30,6 +30,7 @@
 
 #include <stddef.h>
 
+#include "lrzip_private.h"
 #include "md5.h"
 
 #if USE_UNLOCKED_IO

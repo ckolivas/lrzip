@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2011 Con Kolivas
+   Copyright (C) 2006-2012 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -58,6 +58,19 @@
 extern "C"
 # endif
 void *alloca (size_t);
+#endif
+
+#ifdef HAVE_ENDIAN_H
+# include <endian.h>
+#elif HAVE_SYS_ENDIAN_H
+# include <sys/endian.h>
+#endif
+#ifndef __BYTE_ORDER
+# ifdef WORDS_BIGENDIAN
+#  define __BYTE_ORDER __BIG_ENDIAN
+# else
+#  define __BYTE_ORDER __LITTLE_ENDIAN
+# endif
 #endif
 
 #ifndef MD5_DIGEST_SIZE
