@@ -605,10 +605,9 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 		/* 66% full at max. */
 		st->hash_limit = (1 << st->hash_bits) / 3 * 2;
 		st->hash_table = calloc(sizeof(st->hash_table[0]), (1 << st->hash_bits));
+		if (unlikely(!st->hash_table))
+			fatal_return(("Failed to allocate hash table in hash_search\n"), false);
 	}
-
-	if (unlikely(!st->hash_table))
-		fatal_return(("Failed to allocate hash table in hash_search\n"), false);
 
 	st->minimum_tag_mask = tag_mask;
 	st->tag_clean_ptr = 0;
