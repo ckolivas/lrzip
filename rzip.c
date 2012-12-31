@@ -115,7 +115,7 @@ struct rzip_state {
 	char chunk_bytes;
 	uint32_t cksum;
 	int fd_in, fd_out;
-	int stdin_eof;
+	char stdin_eof;
 	struct {
 		i64 inserts;
 		i64 literals;
