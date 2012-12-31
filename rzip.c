@@ -251,7 +251,8 @@ static bool put_header(rzip_control *control, void *ss, uchar head, i64 len)
 	return true;
 }
 
-static bool put_match(rzip_control *control, struct rzip_state *st, i64 p, i64 offset, i64 len)
+static inline bool put_match(rzip_control *control, struct rzip_state *st,
+			     i64 p, i64 offset, i64 len)
 {
 	do {
 		i64 ofs;
@@ -275,7 +276,8 @@ static bool put_match(rzip_control *control, struct rzip_state *st, i64 p, i64 o
 }
 
 /* write some data to a stream mmap encoded. Return -1 on failure */
-static int write_sbstream(rzip_control *control, void *ss, int stream, i64 p, i64 len)
+static inline int write_sbstream(rzip_control *control, void *ss, int stream,
+				 i64 p, i64 len)
 {
 	struct stream_info *sinfo = ss;
 
@@ -332,7 +334,7 @@ static inline tag increase_mask(tag tag_mask)
 	return (tag_mask << 1) | 1;
 }
 
-static bool minimum_bitness(struct rzip_state *st, tag t)
+static inline bool minimum_bitness(struct rzip_state *st, tag t)
 {
 	tag better_than_min = increase_mask(st->minimum_tag_mask);
 
@@ -405,7 +407,7 @@ static void insert_hash(struct rzip_state *st, tag t, i64 offset)
 
 /* Eliminate one hash entry with minimum number of lower bits set.
    Returns tag requirement for any new entries. */
-static tag clean_one_from_hash(rzip_control *control, struct rzip_state *st)
+static inline tag clean_one_from_hash(rzip_control *control, struct rzip_state *st)
 {
 	struct hash_entry *he;
 	tag better_than_min;
@@ -458,8 +460,9 @@ static inline tag full_tag(rzip_control *control, struct rzip_state *st, i64 p)
 	return ret;
 }
 
-static inline i64 match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op, i64 end,
-			    i64 *rev)
+static inline i64
+match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
+	  i64 end, i64 *rev)
 {
 	uchar *(*csb)(rzip_control *, i64);
 	i64 p, len;
@@ -491,8 +494,9 @@ static inline i64 match_len(rzip_control *control, struct rzip_state *st, i64 p0
 	return len;
 }
 
-static i64 find_best_match(rzip_control *control, struct rzip_state *st, tag t, i64 p, i64 end,
-			   i64 *offset, i64 *reverse)
+static inline i64
+find_best_match(rzip_control *control, struct rzip_state *st, tag t, i64 p,
+		i64 end, i64 *offset, i64 *reverse)
 {
 	struct hash_entry *he;
 	i64 length = 0;
@@ -571,14 +575,15 @@ static void *cksumthread(void *data)
 	return NULL;
 }
 
-static void cksum_update(rzip_control *control)
+static inline void cksum_update(rzip_control *control)
 {
 	pthread_t thread;
 
 	create_pthread(control, &thread, NULL, cksumthread, control);
 }
 
-static bool hash_search(rzip_control *control, struct rzip_state *st, double pct_base, double pct_multiple)
+static inline bool hash_search(rzip_control *control, struct rzip_state *st,
+			       double pct_base, double pct_multiple)
 {
 	struct sliding_buffer *sb = &control->sb;
 	int lastpct = 0, last_chunkpct = 0;
@@ -738,7 +743,7 @@ static bool hash_search(rzip_control *control, struct rzip_state *st, double pct
 }
 
 
-static void init_hash_indexes(struct rzip_state *st)
+static inline void init_hash_indexes(struct rzip_state *st)
 {
 	int i;
 
@@ -760,7 +765,8 @@ static inline void *fake_mremap(void *old_address, size_t old_size, size_t new_s
  * anonymous ram and reading stdin into it. It means the maximum ram
  * we can use will be less but we will already have determined this in
  * rzip_chunk */
-static bool mmap_stdin(rzip_control *control, uchar *buf, struct rzip_state *st)
+static inline bool mmap_stdin(rzip_control *control, uchar *buf,
+			      struct rzip_state *st)
 {
 	i64 len = st->chunk_size;
 	uchar *offset_buf = buf;
@@ -798,7 +804,9 @@ static bool mmap_stdin(rzip_control *control, uchar *buf, struct rzip_state *st)
 	return true;
 }
 
-static bool init_sliding_mmap(rzip_control *control, struct rzip_state *st, int fd_in, i64 offset)
+static inline bool
+init_sliding_mmap(rzip_control *control, struct rzip_state *st, int fd_in,
+		  i64 offset)
 {
 	struct sliding_buffer *sb = &control->sb;
 
@@ -824,8 +832,9 @@ static bool init_sliding_mmap(rzip_control *control, struct rzip_state *st, int 
 
 /* compress a chunk of an open file. Assumes that the file is able to
    be mmap'd and is seekable */
-static bool rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, int fd_out, i64 offset,
-		       double pct_base, double pct_multiple)
+static inline bool
+rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, int fd_out,
+	   i64 offset, double pct_base, double pct_multiple)
 {
 	struct sliding_buffer *sb = &control->sb;
 
