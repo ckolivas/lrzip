@@ -104,7 +104,7 @@ struct rzip_state {
 	struct level *level;
 	tag hash_index[256];
 	struct hash_entry *hash_table;
-	i64 hash_bits;
+	char hash_bits;
 	i64 hash_count;
 	i64 hash_limit;
 	tag minimum_tag_mask;
