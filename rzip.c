@@ -633,10 +633,9 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 	}
 
 	while (p < end) {
-		i64 reverse, mlen, offset = 0;
+		i64 reverse, mlen, offset;
 
-		p++;
-		sb->offset_search = p;
+		sb->offset_search = ++p;
 		if (unlikely(sb->offset_search > sb->offset_low + sb->size_low))
 			remap_low_sb(control, &control->sb);
 
@@ -665,6 +664,7 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 		if ((t & st->minimum_tag_mask) != st->minimum_tag_mask)
 			continue;
 
+		offset = 0;
 		mlen = find_best_match(control, st, t, p, end, &offset, &reverse);
 
 		/* Only insert occasionally into hash. */
