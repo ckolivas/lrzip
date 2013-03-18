@@ -173,14 +173,18 @@ static inline bool remap_high_sb(rzip_control *control, struct sliding_buffer *s
 static uchar *sliding_get_sb(rzip_control *control, i64 p)
 {
 	struct sliding_buffer *sb = &control->sb;
+	i64 sbo;
 
-	if (p >= sb->offset_low && p < sb->offset_low + sb->size_low)
-		return (sb->buf_low + p - sb->offset_low);
-	if (p >= sb->offset_high && p < (sb->offset_high + sb->size_high))
-		return (sb->buf_high + (p - sb->offset_high));
+	sbo = sb->offset_low;
+	if (p >= sbo && p < sbo + sb->size_low)
+		return (sb->buf_low + p - sbo);
+	sbo = sb->offset_high;
+	if (p >= sbo && p < (sbo + sb->size_high))
+		return (sb->buf_high + (p - sbo));
 	/* p is not within the low or high buffer range */
 	if (unlikely(!remap_high_sb(control, &control->sb, p)))
 		return NULL;
+	/* Use sb->offset_high directly since it will have changed */
 	return (sb->buf_high + (p - sb->offset_high));
 }
 
@@ -195,11 +199,16 @@ static uchar *single_get_sb(__maybe_unused rzip_control *control, i64 p)
 static inline i64 sliding_get_sb_range(rzip_control *control, i64 p)
 {
 	struct sliding_buffer *sb = &control->sb;
+	i64 sbo, sbs;
 
-	if (p >= sb->offset_low && p < sb->offset_low + sb->size_low)
-		return (sb->size_low - (p - sb->offset_low));
-	if (likely(p >= sb->offset_high && p < (sb->offset_high + sb->size_high)))
-		return (sb->size_high - (p - sb->offset_high));
+	sbo = sb->offset_low;
+	sbs = sb->size_low;
+	if (p >= sbo && p < sbo + sbs)
+		return (sbs - (p - sbo));
+	sbo = sb->offset_high;
+	sbs = sb->size_high;
+	if (likely(p >= sbo && p < (sbo + sbs)))
+		return (sbs - (p - sbo));
 
 	fatal_return(("sliding_get_sb_range: the pointer is out of range\n"), 0);
 }
