@@ -189,6 +189,22 @@ static uchar *single_get_sb(__maybe_unused rzip_control *control, i64 p)
 	return (control->sb.buf_low + p);
 }
 
+/* The length of continous range of the sliding buffer,
+ * starting from the offset P.
+ */
+static i64 sliding_get_sb_range(rzip_control *control, i64 p)
+{
+	struct sliding_buffer *sb = &control->sb;
+
+	if (p >= sb->offset_low && p < sb->offset_low + sb->size_low)
+		return (sb->size_low - (p - sb->offset_low));
+	if (p >= sb->offset_high && p < (sb->offset_high + sb->size_high))
+		return (sb->size_high - (p - sb->offset_high));
+
+	fatal("sliding_get_sb_range: the pointer is out of range\n");
+	return 0;
+}
+
 /* Since the sliding get_sb only allows us to access one byte at a time, we
  * do the same as we did with get_sb with the memcpy since one memcpy is much
  * faster than numerous memcpys 1 byte at a time */
@@ -199,22 +215,15 @@ static void single_mcpy(rzip_control *control, unsigned char *buf, i64 offset, i
 
 static void sliding_mcpy(rzip_control *control, unsigned char *buf, i64 offset, i64 len)
 {
-	struct sliding_buffer *sb = &control->sb;
-	i64 i, offdiff = offset - sb->offset_low;
+	i64 n = 0;
 
-	/* See if we fit in the low buffer first and use the faster function
-	 * where possible */
-	if (offdiff >= 0 && offdiff < sb->size_low) {
-		i64 minlen = MIN(len, sb->size_low - offdiff);
+	while (n < len) {
+		uchar *srcbuf = sliding_get_sb(control, offset + n);
+		i64 m = MIN(sliding_get_sb_range(control, offset + n), len - n);
 
-		memcpy(buf, control->sb.buf_low + offdiff, minlen);
-		len -= minlen;
+		memcpy(buf + n, srcbuf, m);
+		n += m;
 	}
-
-	/* We have no choice but to go fine-grained if there's any len left
-	 * since we will be paging */
-	for (i = 0; i < len; i++)
-		memcpy(buf + i, sliding_get_sb(control, offset + i), 1);
 }
 
 /* All put_u8/u32/vchars go to stream 0 */
