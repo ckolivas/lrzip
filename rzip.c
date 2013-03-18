@@ -192,17 +192,16 @@ static uchar *single_get_sb(__maybe_unused rzip_control *control, i64 p)
 /* The length of continous range of the sliding buffer,
  * starting from the offset P.
  */
-static i64 sliding_get_sb_range(rzip_control *control, i64 p)
+static inline i64 sliding_get_sb_range(rzip_control *control, i64 p)
 {
 	struct sliding_buffer *sb = &control->sb;
 
 	if (p >= sb->offset_low && p < sb->offset_low + sb->size_low)
 		return (sb->size_low - (p - sb->offset_low));
-	if (p >= sb->offset_high && p < (sb->offset_high + sb->size_high))
+	if (likely(p >= sb->offset_high && p < (sb->offset_high + sb->size_high)))
 		return (sb->size_high - (p - sb->offset_high));
 
-	fatal("sliding_get_sb_range: the pointer is out of range\n");
-	return 0;
+	fatal_return(("sliding_get_sb_range: the pointer is out of range\n"), 0);
 }
 
 /* Since the sliding get_sb only allows us to access one byte at a time, we
