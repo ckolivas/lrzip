@@ -774,8 +774,21 @@ static inline void init_hash_indexes(struct rzip_state *st)
 
 static inline void *fake_mremap(void *old_address, size_t old_size, size_t new_size, int flags __UNUSED__)
 {
-	munmap(old_address, old_size);
-	return mmap(old_address, new_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	if (new_size > old_size) {
+		fprintf(stderr, "fake_mremap: This should only be used to shrink things. I'm not bothering with this.\n");
+		exit(1);
+	} else {
+		/* new_size occupies N pages; old_size occupies M > N pages;
+		 we want to unmap the M - N pages at the end.
+		 note the idiom: ceiling(n/k) = (n+k-1) div k */
+		size_t kept_n = (new_size + PAGE_SIZE - 1) / PAGE_SIZE;
+		int ret = munmap(old_address + (kept_n * PAGE_SIZE), old_size - (kept_n * PAGE_SIZE));
+
+		if (ret < 0)
+			return MAP_FAILED;
+
+		return old_address;
+	}
 }
 
 /* stdin is not file backed so we have to emulate the mmap by mapping
