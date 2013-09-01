@@ -45,8 +45,6 @@
 #ifdef HAVE_ARPA_INET_H
 # include <arpa/inet.h>
 #endif
-# if __BYTE_ORDER == __BIG_ENDIAN
-#  define WORDS_BIGENDIAN 1
 
 /* We need to keep the namespace clean so define the MD5 function
    protected using leading __ .  */
@@ -57,14 +55,6 @@
 # define md5_read_ctx __md5_read_ctx
 # define md5_stream __md5_stream
 # define md5_buffer __md5_buffer
-#endif
-
-#ifdef WORDS_BIGENDIAN
-# define SWAP(n)                                                        \
-    (((n) << 24) | (((n) & 0xff00) << 8) | (((n) >> 8) & 0xff00) | ((n) >> 24))
-#else
-# define SWAP(n) (n)
-#endif
 
 #define BLOCKSIZE 32768
 #if BLOCKSIZE % 64 != 0
@@ -105,10 +95,10 @@ void *
 md5_read_ctx (const struct md5_ctx *ctx, void *resbuf)
 {
   char *r = resbuf;
-  set_uint32 (r + 0 * sizeof ctx->A, SWAP (ctx->A));
-  set_uint32 (r + 1 * sizeof ctx->B, SWAP (ctx->B));
-  set_uint32 (r + 2 * sizeof ctx->C, SWAP (ctx->C));
-  set_uint32 (r + 3 * sizeof ctx->D, SWAP (ctx->D));
+  set_uint32 (r + 0 * sizeof ctx->A, htole32 (ctx->A));
+  set_uint32 (r + 1 * sizeof ctx->B, htole32 (ctx->B));
+  set_uint32 (r + 2 * sizeof ctx->C, htole32 (ctx->C));
+  set_uint32 (r + 3 * sizeof ctx->D, htole32 (ctx->D));
 
   return resbuf;
 }
@@ -128,8 +118,8 @@ md5_finish_ctx (struct md5_ctx *ctx, void *resbuf)
     ++ctx->total[1];
 
   /* Put the 64-bit file length in *bits* at the end of the buffer.  */
-  ctx->buffer[size - 2] = SWAP (ctx->total[0] << 3);
-  ctx->buffer[size - 1] = SWAP ((ctx->total[1] << 3) | (ctx->total[0] >> 29));
+  ctx->buffer[size - 2] = htole32 (ctx->total[0] << 3);
+  ctx->buffer[size - 1] = htole32 ((ctx->total[1] << 3) | (ctx->total[0] >> 29));
 
   memcpy (&((char *) ctx->buffer)[bytes], fillbuf, (size - 2) * 4 - bytes);
 
@@ -351,7 +341,7 @@ md5_process_block (const void *buffer, size_t len, struct md5_ctx *ctx)
 #define OP(a, b, c, d, s, T)                                            \
       do                                                                \
         {                                                               \
-          a += FF (b, c, d) + (*cwp++ = SWAP (*words)) + T;             \
+          a += FF (b, c, d) + (*cwp++ = htole32 (*words)) + T;             \
           ++words;                                                      \
           CYCLIC (a, s);                                                \
           a += b;                                                       \
