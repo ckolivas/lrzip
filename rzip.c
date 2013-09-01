@@ -602,9 +602,9 @@ static inline void cksum_update(rzip_control *control)
 static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 			       double pct_base, double pct_multiple)
 {
+	i64 cksum_limit = 0, p, end, cksum_chunks, cksum_remains, i;
 	struct sliding_buffer *sb = &control->sb;
 	int lastpct = 0, last_chunkpct = 0;
-	i64 cksum_limit = 0, p, end;
 	tag t = 0;
 	struct {
 		i64 p;
@@ -738,15 +738,29 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 		put_literal(control, st, st->last_match, st->chunk_size);
 
 	if (st->chunk_size > cksum_limit) {
+		/* Compute checksum. If the entire chunk is longer than maxram,
+		 * do it "per-partes" */
 		lock_mutex(control, &control->cksumlock);
 		control->checksum.len = st->chunk_size - cksum_limit;
+		cksum_chunks = control->checksum.len / control->maxram;
+		cksum_remains = control->checksum.len % control->maxram;
+
 		control->checksum.buf = malloc(control->checksum.len);
 		if (unlikely(!control->checksum.buf))
-			fatal_return(("Failed to malloc ckbuf in hash_search\n"), false);
-		control->do_mcpy(control, control->checksum.buf, cksum_limit, control->checksum.len);
-		st->cksum = CrcUpdate(st->cksum, control->checksum.buf, control->checksum.len);
+			fatal_return(("Failed to malloc ckbuf in hash_search2\n"), false);
+
+		for (i = 0; i < cksum_chunks; i++) {
+			control->do_mcpy(control, control->checksum.buf, cksum_limit, control->maxram);
+			cksum_limit += control->maxram;
+			st->cksum = CrcUpdate(st->cksum, control->checksum.buf, control->maxram);
+			if (!NO_MD5)
+				md5_process_bytes(control->checksum.buf, control->maxram, &control->ctx);
+		}
+		/* Process end of the checksum buffer */
+		control->do_mcpy(control, control->checksum.buf, cksum_limit, cksum_remains);
+		st->cksum = CrcUpdate(st->cksum, control->checksum.buf, cksum_remains);
 		if (!NO_MD5)
-			md5_process_bytes(control->checksum.buf, control->checksum.len, &control->ctx);
+			md5_process_bytes(control->checksum.buf, cksum_remains, &control->ctx);
 		free(control->checksum.buf);
 		unlock_mutex(control, &control->cksumlock);
 	} else
