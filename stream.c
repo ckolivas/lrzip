@@ -304,6 +304,7 @@ static int gzip_compress_buf(rzip_control *control, struct compress_thread *cthr
 
 static int lzma_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
+	unsigned char lzma_properties[5]; /* lzma properties, encoded */
 	int lzma_level, lzma_ret;
 	size_t prop_size = 5; /* return value for lzma_properties */
 	uchar *c_buf;
@@ -325,10 +326,10 @@ retry:
 	}
 
 	/* with LZMA SDK 4.63, we pass compression level and threads only
-	 * and receive properties in control->lzma_properties */
+	 * and receive properties in lzma_properties */
 
 	lzma_ret = LzmaCompress(c_buf, &dlen, cthread->s_buf,
-		(size_t)cthread->s_len, control->lzma_properties, &prop_size,
+		(size_t)cthread->s_len, lzma_properties, &prop_size,
 				lzma_level,
 				0, /* dict size. set default, choose by level */
 				-1, -1, -1, -1, /* lc, lp, pb, fb */
@@ -374,6 +375,14 @@ retry:
 		free(c_buf);
 		return 0;
 	}
+
+	/* Make sure multiple threads don't race on writing lzma_properties */
+	lock_mutex(control, &control->control_lock);
+	if (!control->lzma_prop_set) {
+		memcpy(control->lzma_properties, lzma_properties, 5);
+		control->lzma_prop_set = true;
+	}
+	unlock_mutex(control, &control->control_lock);
 
 	cthread->c_len = dlen;
 	free(cthread->s_buf);
