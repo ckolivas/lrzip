@@ -35,7 +35,9 @@ Extras: when an lrzip tarball is used with -d, -O, it gets extracted:
  -O: <path2> will decompress a -d specified lrzip tarball to <path2> path.
  -f: will force overwrites.
 
-Final :
+Notice:
+ - The input argument is always last, all options and their arguments precede.
+ - The -O flag is an option flag, goes before: (-O <somedir> <input arg>).
  - You can use the remaining options of lrzip as they were.
  - lrzuntar is equivalent to lrztar [options] -d <filename>.
  - This script exists because of how lrzip behaves.
@@ -74,7 +76,6 @@ Final :
         i+="/${vopt[v_d]##*/}"
         i="${i%.tar.*}"
         ((v_O)) && {
-            s=""
             mkdir -p "${vopt[v_O]}" &> /dev/null
             for x in ${!p[@]};do
                 [ "${p[x]}"x == "-O"x ] && {
@@ -90,6 +91,7 @@ Final :
                     "$i"
             return 1
         }
+        ((v_f)) && mkdir -p "$i" &> /dev/null
         [ ! -z "$s" ] && {
             lrzcat ${p[@]// /\\ } "$s" | tar x -C "$i"
             x=$?
@@ -104,19 +106,26 @@ Final :
                 return 1
             }
         else
-            s="${s%/}"
-            p+=( -o "${s##*/}.tar.${vopt[v_S]}");
-            ! ((v_f)) && [[ -e ${s##*/}.tar.${vopt[v_S]} ]] && {
+            if ((v_O)); then
+                ((v_f)) && mkdir -p "${vopt[v_O]}" &> /dev/null
+                for x in ${!p[@]};do
+                    [ "${p[x]}"x == "-O"x ] && {
+                        p[x]=
+                        i="${p[$((x+1))]%/}"
+                        p[$((x+1))]=
+                        s="${!#}"
+                        break;
+                    }
+                done
+            fi
+            p+=( -o "$i/${s##*/}.tar.${vopt[v_S]}");
+            ! ((v_f)) && [[ -e $i/${s##*/}.tar.${vopt[v_S]} ]] && {
                 printf "lrztar: %s exists, aborting\n" \
-                       "${s##*/}.tar.${vopt[v_S]}"
+                       "$i/${s##*/}.tar.${vopt[v_S]}"
                 return 1
             }
         fi
-        [[ -d $s ]] || {
-            printf "lrztar: directory does not exist: %s\n" "$s"
-            return 1
-        }
-        ! ((v_f)) && [[ -e ${s##*/}.tar.${vopt[v_S]} ]] && {
+        ! ((v_f)) && [[ -e $i/${s##*/}.tar.${vopt[v_S]} ]] && {
             printf "lrztar: file %s exists, aborting\n" "$s.tar.lrz"
             return 1
         }
