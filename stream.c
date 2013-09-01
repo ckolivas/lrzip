@@ -1758,9 +1758,8 @@ int close_stream_out(rzip_control *control, void *ss)
 	int i;
 
 	for (i = 0; i < sinfo->num_streams; i++) {
-		if (sinfo->s[i].buflen)
-			if (unlikely(!clear_buffer(control, sinfo, i, 0)))
-				return -1;
+		if (unlikely(!clear_buffer(control, sinfo, i, 0)))
+			return -1;
 	}
 
 	if (ENCRYPT) {
