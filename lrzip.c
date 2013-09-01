@@ -136,12 +136,9 @@ i64 nloops(i64 seconds, uchar *b1, uchar *b2)
 
 bool write_magic(rzip_control *control)
 {
-	char magic[MAGIC_LEN];
-
-	memset(magic, 0, MAGIC_LEN);
-	strcpy(magic, "LRZI");
-	magic[4] = LRZIP_MAJOR_VERSION;
-	magic[5] = LRZIP_MINOR_VERSION;
+	char magic[MAGIC_LEN] = { 
+		'L', 'R', 'Z', 'I', LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION 
+	};
 
 	/* File size is stored as zero for streaming STDOUT blocks when the
 	 * file size is unknown. In encrypted files, the size is left unknown
