@@ -123,7 +123,7 @@ void setup_ram(rzip_control *control)
 {
 	/* Use less ram when using STDOUT to store the temporary output file. */
 	if (STDOUT && ((STDIN && DECOMPRESS) || !(DECOMPRESS || TEST_ONLY)))
-		control->maxram = control->ramsize * 2 / 9;
+		control->maxram = control->ramsize / 6;
 	else
 		control->maxram = control->ramsize / 3;
 	if (BITS32) {
