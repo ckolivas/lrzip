@@ -918,6 +918,7 @@ bool rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	double chunkmbs;
 	i64 free_space;
 
+	init_mutex(control, &control->control_lock);
 	if (!NO_MD5)
 		md5_init_ctx(&control->ctx);
 	init_mutex(control, &control->cksumlock);
