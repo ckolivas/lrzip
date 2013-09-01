@@ -381,6 +381,10 @@ retry:
 	if (!control->lzma_prop_set) {
 		memcpy(control->lzma_properties, lzma_properties, 5);
 		control->lzma_prop_set = true;
+		/* Reset the magic written flag so we write it again if we
+		 * get lzma properties and haven't written them yet. */
+		if (TMP_OUTBUF)
+			control->magic_written = 0;
 	}
 	unlock_mutex(control, &control->control_lock);
 
@@ -1334,9 +1338,13 @@ retry:
 		int j;
 
 		if (TMP_OUTBUF) {
+			lock_mutex(control, &control->control_lock);
 			if (!control->magic_written)
 				write_magic(control);
-			if (unlikely(!flush_tmpoutbuf(control))) goto error;
+			unlock_mutex(control, &control->control_lock);
+
+			if (unlikely(!flush_tmpoutbuf(control)))
+				goto error;
 		}
 
 		print_maxverbose("Writing initial chunk bytes value %d at %lld\n",
