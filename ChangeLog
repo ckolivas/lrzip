@@ -1,5 +1,41 @@
 lrzip ChangeLog
 
+SEPTEMBER 2013, version 0.615 Con Kolivas, George Makrydakis
+
+* Adjusting -O flag semantics, options help update.
+* Making -O flag operative for lrztar, whitespace path fix, lrzuntar fix, other
+minor.
+* Further tighten up ram restrictions with stdin/stdout to prevent running out
+of memory with all the buffers involved.
+* Massive files fail with -U due to trying to allocate the whole lot in ram
+while doing checksums. Do it piecemeal to avoid the problem. Patch and debugging
+courtesy of Adam Tkáč.
+* We have to run through the clear buffer function even for empty buffers or
+corrupt archives with empty match streams.
+* MD5 code uses little endian so remove arbitrary SWAP macro and explicitly use
+htole32.
+* Rewrite the magic if we receive lzma properties and have not yet written them
+yet during stdout operation.
+* Set the control lzma properties only once.
+* Add a control lock mutex for protecting certain control variables.
+* Fix stdin fake mremap creating null bytes on osx, patch courtesy of John
+Boyle.
+* Cache frequently used indirectly referenced variables in the sliding mmap
+code.
+* Micro-optimise sliding_get_sb_range.
+* A fix for a bug where large files containing the same non-zero bytes which
+requires a sliding window, courtesy of Serge Belyshev.
+* Put vchar should take a 64 bit integer and is used from more than one call
+site so uninline it.
+* Microoptimise in hash_search.
+* Inline rzip functions used from only one caller.
+* Check for successful calloc of hash table only after performing it.
+* stdin_eof is just a bool
+* hash_bits can only be up to 64 so use a char type.
+* Check endianness of build with autotools to enable md5 support on more
+platforms.
+
+
 JULY 2012, version 0.614 Con Kolivas
 * Fix lrztar failing due to incorrect fix for -S freeing segfault.
 

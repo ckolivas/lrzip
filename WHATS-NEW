@@ -1,3 +1,18 @@
+lrzip-0.615
+
+Fixed -O not working on lrztar.
+Made it less likely to run out of ram when working with STDIN/OUT.
+Fixed running out of ram when using -U on huge files.
+Fixed corrupt archives being generated from incompressible data.
+Fixed corrupt archives being generated from very small files.
+Fixed endianness on various platforms for MD5 calculation to work.
+Fixed rare corruption when compressing with lzma from STDIN.
+Fixed all blank data being generated when compressing from STDIN on OSX.
+Performance micro-optimisations.
+Fixed corrupt archive being generated when all the same non-zero bytes exist on
+large files.
+
+
 lrzip-0.614
 
 Fixed lrztar not working.
