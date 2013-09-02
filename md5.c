@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2012 Con Kolivas
+   Copyright (C) 2012-2013 Con Kolivas
    Copyright (C) 1995-2011 Ulrich Drepper.
 
    Functions to compute MD5 message digest of files or memory blocks.

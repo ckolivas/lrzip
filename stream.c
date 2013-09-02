@@ -1,6 +1,6 @@
 /*
    Copyright (C) 2011 Serge Belyshev
-   Copyright (C) 2006-2012 Con Kolivas
+   Copyright (C) 2006-2013 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
