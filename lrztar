@@ -91,7 +91,7 @@ Notice:
                     "$i"
             return 1
         }
-        ((v_f)) && mkdir -p "$i" &> /dev/null
+        mkdir -p "$i" &> /dev/null
         [ ! -z "$s" ] && {
             lrzcat ${p[@]// /\\ } "$s" | tar x -C "$i"
             x=$?
