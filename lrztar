@@ -118,6 +118,7 @@ Notice:
                     }
                 done
             fi
+            s="${s%/}"
             p+=( -o "$i/${s##*/}.tar.${vopt[v_S]}");
             ! ((v_f)) && [[ -e $i/${s##*/}.tar.${vopt[v_S]} ]] && {
                 printf "lrztar: %s exists, aborting\n" \
