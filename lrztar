@@ -70,12 +70,13 @@ Notice:
     }
     ((v_d)) && {
         [[ -e ${vopt[v_d]} ]] || {
-            printf "lrztar: file does not exist: %s\n" "${vopt[v_d]}"
+            printf "lrztar: file does not exist: %s\n" \
+                   "${vopt[v_d]}"
             return 1
         }
         i+="/${vopt[v_d]##*/}"
         i="${i%.tar.*}"
-        ((v_O)) && {
+        if ((v_O)); then
             for x in ${!p[@]};do
                 [ "${p[x]}"x == "-O"x ] && {
                     p[x]=
@@ -83,16 +84,17 @@ Notice:
                     break;
                 }
             done
-            i="${vopt[v_O]}"
-        }
-        ! ((v_f)) && [[ -d $i ]] && {
-            printf "lrztar: %s directory found, overwriting only with -f\n"\
-                    "$i"
-            return 1
-        }
-        if ((v_O)); then
+            i="${vopt[v_O]%/}"
+            x="${s##*/}"
+            if [[ $(shopt -s nullglob;
+                    shopt -s dotglob;
+                    echo "$i"/"${x%.tar.*}"/*) ]] && ! ((v_f)); then
+                printf "lrztar: %s exists, not empty, use -f.\n" \
+                       "$i"/"${x%.tar.*}"
+                return 1
+            fi
             if ! [[ -d $i ]]; then
-                printf "lrztar: %s output path does not exist.\n"\
+                printf "lrztar: %s output path does not exist.\n" \
                         "$i"
                 return 1
             fi
@@ -109,25 +111,19 @@ Notice:
     } || {
         if ((v_o)); then
             ! ((v_f)) && [[ -e ${vopt[$v_o]} ]] && {
-                printf "lrztar: %s exists, aborting\n" "${vopt[$v_o]}"
+                printf "lrztar: %s exists, use -f to overwrite.\n" \
+                       "${vopt[$v_o]}"
                 return 1
             }
         else
             if ((v_O)); then
                 if ! [[ -d ${vopt[v_O]} ]]; then
-                    printf "lrztar: %s output path does not exist.\n"\
-                            "${vopt[v_O]}"
-                    return 1
-                fi
-                if [[ $(shopt -s nullglob;
-                        shopt -s dotglob;
-                        echo "${vopt[v_O]}"/*) ]] && ! ((v_f)); then
-                    printf "lrztar: %s output path is not empty.\n"\
+                    printf "lrztar: %s output path does not exist.\n" \
                            "${vopt[v_O]}"
                     return 1
                 fi
                 for x in ${!p[@]};do
-                    [ "${p[x]}"x == "-O"x ] && {
+                    [[ ${p[x]} == "-O" ]] && {
                         p[x]=
                         i="${p[$((x+1))]%/}"
                         p[$((x+1))]=
@@ -137,15 +133,11 @@ Notice:
                 done
             fi
             s="${s%/}"
-            p+=( -o "$i/${s##*/}.tar.${vopt[v_S]}");
-            ! ((v_f)) && [[ -e $i/${s##*/}.tar.${vopt[v_S]} ]] && {
-                printf "lrztar: %s exists, aborting\n" \
-                       "$i/${s##*/}.tar.${vopt[v_S]}"
-                return 1
-            }
+            p+=(-o "$i/${s##*/}.tar.${vopt[v_S]}");
         fi
         ! ((v_f)) && [[ -e $i/${s##*/}.tar.${vopt[v_S]} ]] && {
-            printf "lrztar: file %s exists, aborting\n" "$s.tar.lrz"
+            printf "lrztar: %s exists, use -f to overwrite\n" \
+                   "$i/${s##*/}.tar.${vopt[v_S]}"
             return 1
         }
         tar c "$s" | lrzip ${p[@]// /\\ }
