@@ -78,7 +78,7 @@ Notice:
         i="${i%.tar.*}"
         if ((v_O)); then
             for x in ${!p[@]};do
-                [ "${p[x]}"x == "-O"x ] && {
+                [[ ${p[x]} == "-O" ]] && {
                     p[x]=
                     p[$((x+1))]=
                     break;
@@ -86,16 +86,14 @@ Notice:
             done
             i="${vopt[v_O]%/}"
             x="${s##*/}"
-            if [[ $(shopt -s nullglob;
-                    shopt -s dotglob;
-                    echo "$i"/"${x%.tar.*}"/*) ]] && ! ((v_f)); then
-                printf "lrztar: %s exists, not empty, use -f.\n" \
-                       "$i"/"${x%.tar.*}"
+            if [[ -d "$i/${x%.tar.*}" ]] && ! ((v_f)); then
+                printf "lrztar: %s exists, use -f.\n" \
+                       "$i/${x%.tar.*}"
                 return 1
             fi
             if ! [[ -d $i ]]; then
                 printf "lrztar: %s output path does not exist.\n" \
-                        "$i"
+                       "$i"
                 return 1
             fi
         else
