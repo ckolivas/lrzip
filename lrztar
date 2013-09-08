@@ -76,7 +76,6 @@ Notice:
         i+="/${vopt[v_d]##*/}"
         i="${i%.tar.*}"
         ((v_O)) && {
-            mkdir -p "${vopt[v_O]}" &> /dev/null
             for x in ${!p[@]};do
                 [ "${p[x]}"x == "-O"x ] && {
                     p[x]=
