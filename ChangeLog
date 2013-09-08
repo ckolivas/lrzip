@@ -1,5 +1,16 @@
 lrzip ChangeLog
 
+SEPTEMBER 2013, version 0.616 George Makrydakis
+
+* Making things more homogeneous in checks, some space removed.
+* Simplifying and refactoring logic, alignment edits, empty semantic rewire.
+* Target directories must always exist and -f should not create them.
+* Deferring output directory after -f check has taken place.
+* Preserve extraction semantics without resorting to tar stripping.
+* Making sure last forward slash is removed from input path.
+* Removing pointless forced overwrite point check.
+
+
 SEPTEMBER 2013, version 0.615 Con Kolivas, George Makrydakis
 
 * Adjusting -O flag semantics, options help update.
