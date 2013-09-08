@@ -91,7 +91,11 @@ Notice:
             return 1
         }
         if ((v_O)); then
-            mkdir -p "$i" &> /dev/null
+            if ! [[ -d $i ]]; then
+                printf "lrztar: %s output path does not exist.\n"\
+                        "$i"
+                return 1
+            fi
         else
             i="./"
         fi
@@ -110,7 +114,18 @@ Notice:
             }
         else
             if ((v_O)); then
-                ((v_f)) && mkdir -p "${vopt[v_O]}" &> /dev/null
+                if ! [[ -d ${vopt[v_O]} ]]; then
+                    printf "lrztar: %s output path does not exist.\n"\
+                            "${vopt[v_O]}"
+                    return 1
+                fi
+                if [[ $(shopt -s nullglob;
+                        shopt -s dotglob;
+                        echo "${vopt[v_O]}"/*) ]] && ! ((v_f)); then
+                    printf "lrztar: %s output path is not empty.\n"\
+                           "${vopt[v_O]}"
+                    return 1
+                fi
                 for x in ${!p[@]};do
                     [ "${p[x]}"x == "-O"x ] && {
                         p[x]=
