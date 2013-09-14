@@ -82,6 +82,7 @@ static inline void failure(const rzip_control *control, unsigned int line, const
 void setup_overhead(rzip_control *control);
 void setup_ram(rzip_control *control);
 void round_to_page(i64 *size);
+size_t round_up_page(rzip_control *control, size_t len);
 bool get_rand(rzip_control *control, uchar *buf, int len);
 bool read_config(rzip_control *control);
 void lrz_stretch(rzip_control *control);

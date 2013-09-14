@@ -149,6 +149,15 @@ void round_to_page(i64 *size)
 		*size = PAGE_SIZE;
 }
 
+size_t round_up_page(rzip_control *control, size_t len)
+{
+	int rem = len % control->page_size;
+
+	if (rem)
+		len += control->page_size - rem;
+	return len;
+}
+
 bool get_rand(rzip_control *control, uchar *buf, int len)
 {
 	int fd, i;
@@ -164,7 +173,9 @@ bool get_rand(rzip_control *control, uchar *buf, int len)
 			fatal_return(("Failed to close fd in get_rand\n"), false);
 	}
 	return true;
-}bool read_config(rzip_control *control)
+}
+
+bool read_config(rzip_control *control)
 {
 	/* check for lrzip.conf in ., $HOME/.lrzip and /etc/lrzip */
 	char *HOME, homeconf[255];
