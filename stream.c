@@ -211,7 +211,7 @@ static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthr
 
 static int bzip2_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
-	u32 dlen = cthread->s_len;
+	u32 dlen = round_up_page(control, cthread->s_len);
 	int bzip2_ret;
 	uchar *c_buf;
 
@@ -260,7 +260,7 @@ static int bzip2_compress_buf(rzip_control *control, struct compress_thread *cth
 
 static int gzip_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
-	unsigned long dlen = cthread->s_len;
+	unsigned long dlen = round_up_page(control, cthread->s_len);
 	uchar *c_buf;
 	int gzip_ret;
 
@@ -319,7 +319,7 @@ static int lzma_compress_buf(rzip_control *control, struct compress_thread *cthr
 
 	print_maxverbose("Starting lzma back end compression thread...\n");
 retry:
-	dlen = cthread->s_len;
+	dlen = round_up_page(control, cthread->s_len);
 	c_buf = malloc(dlen);
 	if (!c_buf) {
 		print_err("Unable to allocate c_buf in lzma_compress_buf\n");
@@ -399,7 +399,7 @@ retry:
 static int lzo_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
 	lzo_uint in_len = cthread->s_len;
-	lzo_uint dlen = in_len + in_len / 16 + 64 + 3;
+	lzo_uint dlen = round_up_page(control, in_len + in_len / 16 + 64 + 3);
 	lzo_bytep wrkmem;
 	uchar *c_buf;
 	int ret = -1;
@@ -446,7 +446,7 @@ out_free:
 */
 static int zpaq_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread, long thread)
 {
-	i64 dlen = ucthread->u_len;
+	i64 dlen = round_up_page(control, ucthread->u_len);
 	uchar *c_buf;
 	int ret = 0;
 
@@ -476,7 +476,7 @@ out:
 
 static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread)
 {
-	u32 dlen = ucthread->u_len;
+	u32 dlen = round_up_page(control, ucthread->u_len);
 	int ret = 0, bzerr;
 	uchar *c_buf;
 
@@ -511,7 +511,7 @@ out:
 
 static int gzip_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread)
 {
-	unsigned long dlen = ucthread->u_len;
+	unsigned long dlen = round_up_page(control, ucthread->u_len);
 	int ret = 0, gzerr;
 	uchar *c_buf;
 
@@ -546,7 +546,7 @@ out:
 
 static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucthread)
 {
-	size_t dlen = (size_t)ucthread->u_len;
+	size_t dlen = round_up_page(control, ucthread->u_len);
 	int ret = 0, lzmaerr;
 	uchar *c_buf;
 	SizeT c_len = ucthread->c_len;
@@ -584,7 +584,7 @@ out:
 
 static int lzo_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread)
 {
-	lzo_uint dlen = ucthread->u_len;
+	lzo_uint dlen = round_up_page(control, ucthread->u_len);
 	int ret = 0, lzerr;
 	uchar *c_buf;
 
