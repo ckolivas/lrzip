@@ -177,13 +177,14 @@ static int lzo_compresses(rzip_control *control, uchar *s_buf, i64 s_len);
 
 static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthread, long thread)
 {
+	i64 c_len, c_size;
 	uchar *c_buf;
-	i64 c_len;
 
 	if (!lzo_compresses(control, cthread->s_buf, cthread->s_len))
 		return 0;
 
-	c_buf = malloc(cthread->s_len + control->page_size);
+	c_size = round_up_page(control, cthread->s_len + 10000);
+	c_buf = malloc(c_size);
 	if (!c_buf) {
 		print_err("Unable to allocate c_buf in zpaq_compress_buf\n");
 		return -1;
