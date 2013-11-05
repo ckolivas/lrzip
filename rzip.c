@@ -745,7 +745,7 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 		cksum_chunks = control->checksum.len / control->maxram;
 		cksum_remains = control->checksum.len % control->maxram;
 
-		control->checksum.buf = malloc(control->checksum.len);
+		control->checksum.buf = malloc(control->maxram);
 		if (unlikely(!control->checksum.buf))
 			fatal_return(("Failed to malloc ckbuf in hash_search2\n"), false);
 
