@@ -84,7 +84,7 @@ dist_doc_DATA = \
   BUGS \
   ChangeLog \
   COPYING \
-  README \
+  README.md \
   README-NOT-BACKWARD-COMPATIBLE \
   TODO \
   WHATS-NEW
