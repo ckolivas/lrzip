@@ -446,12 +446,12 @@ out_free:
 */
 static int zpaq_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread, long thread)
 {
-	i64 dlen = round_up_page(control, ucthread->u_len);
+	i64 dlen = ucthread->u_len;
 	uchar *c_buf;
 	int ret = 0;
 
 	c_buf = ucthread->s_buf;
-	ucthread->s_buf = malloc(dlen);
+	ucthread->s_buf = malloc(round_up_page(control, dlen));
 	if (unlikely(!ucthread->s_buf)) {
 		print_err("Failed to allocate %ld bytes for decompression\n", dlen);
 		ret = -1;
@@ -476,12 +476,12 @@ out:
 
 static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread)
 {
-	u32 dlen = round_up_page(control, ucthread->u_len);
+	u32 dlen = ucthread->u_len;
 	int ret = 0, bzerr;
 	uchar *c_buf;
 
 	c_buf = ucthread->s_buf;
-	ucthread->s_buf = malloc(dlen);
+	ucthread->s_buf = malloc(round_up_page(control, dlen));
 	if (unlikely(!ucthread->s_buf)) {
 		print_err("Failed to allocate %d bytes for decompression\n", dlen);
 		ret = -1;
@@ -511,12 +511,12 @@ out:
 
 static int gzip_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread)
 {
-	unsigned long dlen = round_up_page(control, ucthread->u_len);
+	unsigned long dlen = ucthread->u_len;
 	int ret = 0, gzerr;
 	uchar *c_buf;
 
 	c_buf = ucthread->s_buf;
-	ucthread->s_buf = malloc(dlen);
+	ucthread->s_buf = malloc(round_up_page(control, dlen));
 	if (unlikely(!ucthread->s_buf)) {
 		print_err("Failed to allocate %ld bytes for decompression\n", dlen);
 		ret = -1;
@@ -546,13 +546,13 @@ out:
 
 static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucthread)
 {
-	size_t dlen = round_up_page(control, ucthread->u_len);
+	size_t dlen = ucthread->u_len;
 	int ret = 0, lzmaerr;
 	uchar *c_buf;
 	SizeT c_len = ucthread->c_len;
 
 	c_buf = ucthread->s_buf;
-	ucthread->s_buf = malloc(dlen);
+	ucthread->s_buf = malloc(round_up_page(control, dlen));
 	if (unlikely(!ucthread->s_buf)) {
 		print_err("Failed to allocate %lld bytes for decompression\n", (i64)dlen);
 		ret = -1;
@@ -584,12 +584,12 @@ out:
 
 static int lzo_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_thread *ucthread)
 {
-	lzo_uint dlen = round_up_page(control, ucthread->u_len);
+	lzo_uint dlen = ucthread->u_len;
 	int ret = 0, lzerr;
 	uchar *c_buf;
 
 	c_buf = ucthread->s_buf;
-	ucthread->s_buf = malloc(dlen);
+	ucthread->s_buf = malloc(round_up_page(control, dlen));
 	if (unlikely(!ucthread->s_buf)) {
 		print_err("Failed to allocate %lu bytes for decompression\n", (unsigned long)dlen);
 		ret = -1;
