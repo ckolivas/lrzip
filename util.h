@@ -20,6 +20,8 @@
 #define LRZIP_UTIL_H
 
 #include "lrzip_private.h"
+#include <errno.h>
+#include <semaphore.h>
 #include <stdarg.h>
 
 void register_infile(rzip_control *control, const char *name, char delete);
@@ -101,5 +103,118 @@ static inline bool lrz_decrypt(const rzip_control *control, uchar *buf, i64 len,
 {
 	return lrz_crypt(control, buf, len, salt, LRZ_DECRYPT);
 }
+
+/* ck specific unnamed semaphore implementations to cope with osx not
+ * implementing them. */
+#ifdef __APPLE__
+struct cksem {
+	int pipefd[2];
+};
+
+typedef struct cksem cksem_t;
+#else
+typedef sem_t cksem_t;
+#endif
+
+/* ck specific wrappers for true unnamed semaphore usage on platforms
+ * that support them and for apple which does not. We use a single byte across
+ * a pipe to emulate semaphore behaviour there. */
+#ifdef __APPLE__
+static inline void cksem_init(const rzip_control *control, cksem_t *cksem)
+{
+	int flags, fd, i;
+
+	if (pipe(cksem->pipefd) == -1)
+		fatal("Failed pipe errno=%d", errno);
+
+	/* Make the pipes FD_CLOEXEC to allow them to close should we call
+	 * execv on restart. */
+	for (i = 0; i < 2; i++) {
+		fd = cksem->pipefd[i];
+		flags = fcntl(fd, F_GETFD, 0);
+		flags |= FD_CLOEXEC;
+		if (fcntl(fd, F_SETFD, flags) == -1)
+			fatal("Failed to fcntl errno=%d", errno);
+	}
+}
+
+static inline void cksem_post(const rzip_control *control, cksem_t *cksem)
+{
+	const char buf = 1;
+	int ret;
+
+	ret = write(cksem->pipefd[1], &buf, 1);
+	if (unlikely(ret == 0))
+		fatal("Failed to write errno=%d" IN_FMT_FFL, errno, file, func, line);
+}
+
+static inline void cksem_wait(const rzip_control *control, cksem_t *cksem)
+{
+	char buf;
+	int ret;
+
+	ret = read(cksem->pipefd[0], &buf, 1);
+	if (unlikely(ret == 0))
+		fatal("Failed to read errno=%d" IN_FMT_FFL, errno, file, func, line);
+}
+
+static inline void cksem_destroy(cksem_t *cksem)
+{
+	close(cksem->pipefd[1]);
+	close(cksem->pipefd[0]);
+}
+
+/* Reset semaphore count back to zero */
+static inline void cksem_reset(const rzip_control *control, cksem_t *cksem)
+{
+	int ret, fd;
+	fd_set rd;
+	char buf;
+
+	fd = cksem->pipefd[0];
+	FD_ZERO(&rd);
+	FD_SET(fd, &rd);
+	do {
+		struct timeval timeout = {0, 0};
+
+		ret = select(fd + 1, &rd, NULL, NULL, &timeout);
+		if (ret > 0)
+			ret = read(fd, &buf, 1);
+	} while (ret > 0);
+}
+#else
+static inline void cksem_init(const rzip_control *control, cksem_t *cksem)
+{
+	int ret;
+	if ((ret = sem_init(cksem, 0, 0)))
+		fatal("Failed to sem_init ret=%d errno=%d", ret, errno);
+}
+
+static inline void cksem_post(const rzip_control *control, cksem_t *cksem)
+{
+	if (unlikely(sem_post(cksem)))
+		fatal("Failed to sem_post errno=%d cksem=0x%p", errno, cksem);
+}
+
+static inline void cksem_wait(const rzip_control *control, cksem_t *cksem)
+{
+	if (unlikely(sem_wait(cksem)))
+		fatal("Failed to sem_wait errno=%d cksem=0x%p", errno, cksem);
+}
+
+static inline void cksem_reset(cksem_t *cksem)
+{
+	int ret;
+
+	do
+		ret = sem_trywait(cksem);
+	while (!ret);
+}
+
+static inline void cksem_destroy(cksem_t *cksem)
+{
+	sem_destroy(cksem);
+}
+#endif
 
 #endif
