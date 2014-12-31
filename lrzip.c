@@ -1034,8 +1034,6 @@ next_chunk:
 done:
 	if (unlikely(ofs > infile_size))
 		failure_goto(("Offset greater than archive size, likely corrupted/truncated archive.\n"), error);
-	if (chunk_total > expected_size)
-		expected_size = chunk_total;
 	print_verbose("Rzip compression: %.1f%% %lld / %lld\n",
 			percentage (utotal, expected_size),
 			utotal, expected_size);
