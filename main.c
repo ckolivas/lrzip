@@ -434,6 +434,8 @@ int main(int argc, char *argv[])
 		if (STDIN)
 			control->inFILE = stdin;
 		/* Implement signal handler only once flags are set */
+		sigemptyset(&handler.sa_mask);
+		handler.sa_flags = 0;
 		handler.sa_handler = &sighandler;
 		sigaction(SIGTERM, &handler, 0);
 		sigaction(SIGINT, &handler, 0);
