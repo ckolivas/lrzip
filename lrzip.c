@@ -965,7 +965,7 @@ next_chunk:
 	while (stream < NUM_STREAMS) {
 		int block = 1;
 
-		if (unlikely(lseek(fd_in, stream_head[stream] + ofs, SEEK_SET)) == -1)
+		if (unlikely(lseek(fd_in, stream_head[stream] + ofs, SEEK_SET) == -1))
 			fatal_goto(("Failed to seek to header data in get_fileinfo\n"), error);
 		if (unlikely(!get_header_info(control, fd_in, &ctype, &c_len, &u_len, &last_head, chunk_byte)))
 			return false;
@@ -978,7 +978,7 @@ next_chunk:
 
 			if (unlikely(last_head + ofs > infile_size))
 				failure_goto(("Offset greater than archive size, likely corrupted/truncated archive.\n"), error);
-			if (unlikely(head_off = lseek(fd_in, last_head + ofs, SEEK_SET)) == -1)
+			if (unlikely(head_off = lseek(fd_in, last_head + ofs, SEEK_SET) == -1))
 				fatal_goto(("Failed to seek to header data in get_fileinfo\n"), error);
 			if (unlikely(!get_header_info(control, fd_in, &ctype, &c_len, &u_len,
 					&last_head, chunk_byte)))
@@ -1074,7 +1074,7 @@ done:
 		int i;
 
 		print_output("MD5 used for integrity testing\n");
-		if (unlikely(lseek(fd_in, -MD5_DIGEST_SIZE, SEEK_END)) == -1)
+		if (unlikely(lseek(fd_in, -MD5_DIGEST_SIZE, SEEK_END) == -1))
 			fatal_goto(("Failed to seek to md5 data in runzip_fd\n"), error);
 		if (unlikely(read(fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 			fatal_goto(("Failed to read md5 data in runzip_fd\n"), error);
