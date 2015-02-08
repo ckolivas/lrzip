@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2012 Con Kolivas
+   Copyright (C) 2012-2015 Con Kolivas
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -648,96 +648,94 @@ void lrzip_info_cb_set(Lrzip *lr, Lrzip_Info_Cb cb, void *data)
 
 bool lrzip_compress_full(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len, Lrzip_Mode mode, int compress_level)
 {
-	Lrzip *lr;
-	FILE *s, *d;
+	FILE *s = NULL, *d = NULL;
+	Lrzip *lr = NULL;
+	bool ret = false;
 	struct stat st;
 	int fd;
 
 	if ((!dest) || (!dest_len) || (!source) || (!source_len) || (mode < LRZIP_MODE_COMPRESS_NONE))
-		return false;
+		goto out;
 
 	lrzip_init();
 	if (!mode) mode = LRZIP_MODE_COMPRESS_LZMA;
 	lr = lrzip_new(mode);
 	if (!lr)
-		return false;
+		goto out;
 	lrzip_config_env(lr);
 
 	s = fmemopen((void*)source, source_len, "r");
 	d = tmpfile();
 	if ((!s) || (!d))
-		goto error;
+		goto out;
 
 	if (!lrzip_file_add(lr, s))
-		goto error;
+		goto out;
 	lrzip_outfile_set(lr, d);
 	if (!lrzip_compression_level_set(lr, compress_level))
-		goto error;
+		goto out;
 	if (!lrzip_run(lr))
-		goto error;
+		goto out;
 
 	fd = fileno(d);
 	if (fstat(fd, &st))
-		goto error;
+		goto out;
 	*dest_len = st.st_size;
 	if (unlikely((i64)fread(dest, sizeof(char), st.st_size, d) != st.st_size))
-		goto error;
+		goto out;
 	if (unlikely(ferror(d)))
-		goto error;
-	fclose(s);
-	fclose(d);
-	return true;
+		goto out;
+	ret = true;
 
-error:
+out:
 	if (s) fclose(s);
 	if (d) fclose(d);
 	lrzip_free(lr);
-	return false;
+	return ret;
 }
 
 
 bool lrzip_decompress(void *dest, unsigned long *dest_len, const void *source, unsigned long source_len)
 {
-	Lrzip *lr;
-	FILE *s, *d;
+	FILE *s = NULL, *d = NULL;
+	Lrzip *lr = NULL;
+	bool ret = false;
 	struct stat st;
 	int fd;
 
 	if ((!dest) || (!dest_len) || (!source) || (!source_len))
-		return false;
+		goto out;
 
 	lrzip_init();
 	lr = lrzip_new(LRZIP_MODE_DECOMPRESS);
 	if (!lr)
-		return false;
+		goto out;
 	lrzip_config_env(lr);
 
 	s = fmemopen((void*)source, source_len, "r");
 	d = tmpfile();
 	if ((!s) || (!d))
-		goto error;
+		goto out;
 
 	if (!lrzip_file_add(lr, s))
-		goto error;
+		goto out;
 	lrzip_outfile_set(lr, d);
 	if (!lrzip_run(lr))
-		goto error;
+		goto out;
 
 	fd = fileno(d);
 	if (fstat(fd, &st))
-		goto error;
+		goto out;
 	*dest_len = st.st_size;
 	if (unlikely((i64)fread(dest, sizeof(char), st.st_size, d) != st.st_size))
-		goto error;
+		goto out;
 	if (unlikely(ferror(d)))
-		goto error;
-	fclose(s);
-	fclose(d);
-	return true;
+		goto out;
+	ret = true;
 
-error:
+out:
 	if (s) fclose(s);
 	if (d) fclose(d);
 	lrzip_free(lr);
-	return false;
+	return ret;
 }
