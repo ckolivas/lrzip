@@ -1,5 +1,10 @@
 lrzip ChangeLog
 
+DECEMBER 2014, version 0.617 Peter Hyman
+
+* Fix display of lrzip -i output so that source filesize is reported
+properly when larger than one chunk.
+
 SEPTEMBER 2013, version 0.616 George Makrydakis
 
 * Making things more homogeneous in checks, some space removed.

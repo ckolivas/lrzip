@@ -1,3 +1,7 @@
+lrzip-0.617
+
+Fixes display output of lrzip -i for large files greater than one chunk.
+
 lrzip-0.616
 
 Fixes for various issues with -O not working with trailing slashes and
