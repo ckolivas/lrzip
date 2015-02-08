@@ -94,6 +94,8 @@ static void usage(void)
 	print_output("     -L level      set lzma/bzip2/gzip compression level (1-9, default 7)\n");
 	print_output("     -N value      Set nice value to value (default 19)\n");
 	print_output("     -p value      Set processor count to override number of threads\n");
+	print_output("     -m size       Set maximim available ram in hundreds of MB\n");
+	print_output("                   overrides detected ammount of available ram\n");
 	print_output("     -T            Disable LZO compressibility testing\n");
 	print_output("     -U            Use unlimited window size beyond ramsize (potentially much slower)\n");
 	print_output("     -w size       maximum compression window in hundreds of MB\n");
@@ -219,7 +221,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(control);
 
-	while ((c = getopt(argc, argv, "bcdDefghHiklL:nN:o:O:p:qS:tTUvVw:z?")) != -1) {
+	while ((c = getopt(argc, argv, "bcdDefghHiklL:nN:o:O:p:qS:tTUm:vVw:z?")) != -1) {
 		switch (c) {
 		case 'b':
 			if (control->flags & FLAG_NOT_LZMA)
@@ -327,6 +329,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'U':
 			control->flags |= FLAG_UNLIMITED;
+			break;
+		case 'm':
+			control->ramsize = atol(optarg) * 1024 * 1024 * 100;
 			break;
 		case 'v':
 			/* set verbosity flag */
