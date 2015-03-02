@@ -788,14 +788,6 @@ static inline int read_u32(rzip_control *control, int f, u32 *v)
 	return ret;
 }
 
-static inline int read_i64(rzip_control *control, int f, i64 *v)
-{
-	int ret = read_buf(control, f, (uchar *)v, 8);
-
-	*v = le64toh(*v);
-	return ret;
-}
-
 static inline int read_val(rzip_control *control, int f, i64 *v, int len)
 {
 	int ret;
