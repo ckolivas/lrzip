@@ -388,7 +388,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 			return -1; }
 		if (TMP_INBUF)
 			clear_tmpinbuf(control);
-		else if (STDIN)
+		else if (STDIN && !DECOMPRESS)
 			if (unlikely(!clear_tmpinfile(control)))
 				return -1;
 	} while (total < expected_size || (!expected_size && !control->eof));
