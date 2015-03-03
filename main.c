@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2013 Con Kolivas
+   Copyright (C) 2006-2015 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
 
         control = &base_control;
 
-	initialize_control(control);
+	initialise_control(control);
 
 	if (strstr(argv[0], "lrunzip"))
 		control->flags |= FLAG_DECOMPRESS;

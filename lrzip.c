@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2013 Con Kolivas
+   Copyright (C) 2006-2015 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -504,10 +504,15 @@ static bool open_tmpoutbuf(rzip_control *control)
 	return true;
 }
 
+/* We've decided to use a temporary output file instead of trying to store
+ * all the output buffer in ram so we can free up the ram and increase the
+ * maximum sizes of ram we can allocate */
 void close_tmpoutbuf(rzip_control *control)
 {
 	control->flags &= ~FLAG_TMP_OUTBUF;
 	free(control->tmp_outbuf);
+	if (!BITS32)
+		control->usable_ram = control->maxram += control->ramsize / 18;
 }
 
 static bool open_tmpinbuf(rzip_control *control)
@@ -534,10 +539,13 @@ bool clear_tmpinfile(rzip_control *control)
 	return true;
 }
 
+/* As per temporary output file but for input file */
 void close_tmpinbuf(rzip_control *control)
 {
 	control->flags &= ~FLAG_TMP_INBUF;
 	free(control->tmp_inbuf);
+	if (!BITS32)
+		control->usable_ram = control->maxram += control->ramsize / 18;
 }
 
 static int get_pass(rzip_control *control, char *s)
@@ -1215,7 +1223,7 @@ error:
 	return false;
 }
 
-bool initialize_control(rzip_control *control)
+bool initialise_control(rzip_control *control)
 {
 	struct timeval tv;
 	char *eptr; /* for environment */
