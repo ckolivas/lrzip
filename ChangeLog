@@ -1,9 +1,34 @@
 lrzip ChangeLog
 
-DECEMBER 2014, version 0.617 Peter Hyman
+MARCH 2015, version 0.620 Con Kolivas, Peter Hyman
 
-* Fix display of lrzip -i output so that source filesize is reported
-properly when larger than one chunk.
+* Increase maxram when we abandon use of temporary input/output buffers
+* Don't delete the tmpinfile when decompressing from stdin before allowing seek
+to end to succeed in checking md5
+* Use temporary file from read_seekto when STDIN will not fit in the ram input
+buffer
+* Remove unused read_i64 function
+* Add message about issue tracker in BUGS
+* Use a common exit path iin lrzip_compress/decompress and fix lr leak on
+successful return
+* Fix parenthesis placement inside of unlikely().
+* Clear sa_mask and sa_handler before calling sigaction().
+* Fix for lrzip -i. Decompressed size wrong
+* added '-m' command line option
+* Fix wrong README file being included in Makefile
+* Pass strict sizes to decompress length, rounding up only the amount we're
+allocating to not confuse decompression libraries
+* Convert the thread locking to use cksems
+* Add cksems to util.h
+* Fix 'Failed to malloc ckbuf in hash_search2' with very large files.
+* Round up compression and decompression buffers to page size since malloc will
+allocate them that large anyway.
+* Increase the compressed buffer size given to libzpaq in case of incompressible
+data since it does not check if it's trying to write beyond the end of the
+buffer.
+* Provide a helper function to round a value up to the nearest page size for
+malloc optimisations.
+
 
 SEPTEMBER 2013, version 0.616 George Makrydakis
 
