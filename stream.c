@@ -1,6 +1,6 @@
 /*
    Copyright (C) 2011 Serge Belyshev
-   Copyright (C) 2006-2013 Con Kolivas
+   Copyright (C) 2006-2015 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
@@ -666,6 +666,8 @@ ssize_t write_1g(rzip_control *control, void *buf, i64 len)
 	return total;
 }
 
+/* Should be called only if we know the buffer will be large enough, otherwise
+ * we must dump_stdin first */
 static bool read_fdin(struct rzip_control *control, i64 len)
 {
 	int tmpchar;
@@ -682,6 +684,17 @@ static bool read_fdin(struct rzip_control *control, i64 len)
 	return true;
 }
 
+/* Dump STDIN into a temporary file */
+static int dump_stdin(rzip_control *control)
+{
+	if (unlikely(!write_fdin(control)))
+		return -1;
+	if (unlikely(!read_tmpinfile(control, control->fd_in)))
+		return -1;
+	close_tmpinbuf(control);
+	return 0;
+}
+
 /* Ditto for read */
 ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
 {
@@ -693,16 +706,13 @@ ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
 		/* We're decompressing from STDIN */
 		if (unlikely(control->in_ofs + len > control->in_maxlen)) {
 			/* We're unable to fit it all into the temp buffer */
-			if (unlikely(!write_fdin(control)))
-				return -1;
-			if (unlikely(!read_tmpinfile(control, control->fd_in)))
-				return -1;
-			close_tmpinbuf(control);
+			dump_stdin(control);
 			goto read_fd;
 		}
-		if (control->in_ofs + len > control->in_len)
+		if (control->in_ofs + len > control->in_len) {
 			if (unlikely(!read_fdin(control, control->in_ofs + len - control->in_len)))
 				return false;
+		}
 		memcpy(buf, control->tmp_inbuf + control->in_ofs, len);
 		control->in_ofs += len;
 		return len;
@@ -830,9 +840,18 @@ static int read_seekto(rzip_control *control, struct stream_info *sinfo, i64 pos
 	i64 spos = pos + sinfo->initial_pos;
 
 	if (TMP_INBUF) {
-		if (spos > control->in_len)
-			if (unlikely(!read_fdin(control, spos - control->in_len)))
-				return -1;
+		if (spos > control->in_len) {
+			i64 len = spos - control->in_len;
+
+			if (control->in_ofs + len > control->in_maxlen) {
+				if (unlikely(dump_stdin(control)))
+					return -1;
+				goto fd_seek;
+			} else {
+				if (unlikely(!read_fdin(control, len)))
+					return -1;
+			}
+		}
 		control->in_ofs = spos;
 		if (unlikely(spos < 0)) {
 			print_err("Trying to seek to %lld outside tmp inbuf in read_seekto\n", spos);
@@ -840,7 +859,7 @@ static int read_seekto(rzip_control *control, struct stream_info *sinfo, i64 pos
 		}
 		return 0;
 	}
-
+fd_seek:
 	return fd_seekto(control, sinfo, spos, pos);
 }
 
@@ -1595,6 +1614,7 @@ fill_another:
 			return -1;
 		header_length = 1 + (read_len * 3);
 	}
+	print_maxverbose("Fill_buffer stream %d c_len %lld u_len %lld last_head %lld\n", streamno, c_len, u_len, last_head);
 	sinfo->total_read += header_length;
 
 	if (ENCRYPT) {
