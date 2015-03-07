@@ -437,9 +437,9 @@ static void sliding_next_tag(rzip_control *control, struct rzip_state *st, i64 p
 {
 	uchar *u;
 
-	u = control->get_sb(control, p - 1);
+	u = sliding_get_sb(control, p - 1);
 	*t ^= st->hash_index[*u];
-	u = control->get_sb(control, p + MINIMUM_MATCH - 1);
+	u = sliding_get_sb(control, p + MINIMUM_MATCH - 1);
 	*t ^= st->hash_index[*u];
 }
 
