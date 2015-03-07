@@ -443,14 +443,27 @@ static void sliding_next_tag(rzip_control *control, struct rzip_state *st, i64 p
 	*t ^= st->hash_index[*u];
 }
 
-static inline tag full_tag(rzip_control *control, struct rzip_state *st, i64 p)
+static tag single_full_tag(rzip_control *control, struct rzip_state *st, i64 p)
+{
+	tag ret = 0;
+	int i;
+	uchar u;
+
+	for (i = 0; i < MINIMUM_MATCH; i++) {
+		u = control->sb.buf_low[p + i];
+		ret ^= st->hash_index[u];
+	}
+	return ret;
+}
+
+static tag sliding_full_tag(rzip_control *control, struct rzip_state *st, i64 p)
 {
 	tag ret = 0;
 	int i;
 	uchar *u;
 
 	for (i = 0; i < MINIMUM_MATCH; i++) {
-		u = control->get_sb(control, p + i);
+		u = sliding_get_sb(control, p + i);
 		if (unlikely(!u))
 			return -1;
 		ret ^= st->hash_index[*u];
@@ -625,7 +638,7 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 	current.ofs = 0;
 
 	if (likely(end > 0)) {
-		t = full_tag(control, st, p);
+		t = control->full_tag(control, st, p);
 		if (unlikely(t == -1))
 			return false;
 	}
@@ -690,7 +703,7 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 			st->last_match = current.p + current.len;
 			current.p = p = st->last_match;
 			current.len = 0;
-			t = full_tag(control, st, p);
+			t = control->full_tag(control, st, p);
 			if (unlikely(t == -1))
 				return false;
 		}
@@ -1003,6 +1016,7 @@ bool rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	control->get_sb = single_get_sb;
 	control->do_mcpy = single_mcpy;
 	control->next_tag = &single_next_tag;
+	control->full_tag = &single_full_tag;
 
 	while (!pass || len > 0 || (STDIN && !st->stdin_eof)) {
 		double pct_base, pct_multiple;
@@ -1073,6 +1087,7 @@ retry:
 				control->get_sb = &sliding_get_sb;
 				control->do_mcpy = &sliding_mcpy;
 				control->next_tag = &sliding_next_tag;
+				control->full_tag = &sliding_full_tag;
 			}
 		}
 		print_maxverbose("Succeeded in testing %lld sized mmap for rzip pre-processing\n", st->mmap_size);
