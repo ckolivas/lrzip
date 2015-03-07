@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <semaphore.h>
 
 #ifdef HAVE_PTHREAD_H
 # include <pthread.h>
@@ -148,6 +149,18 @@ typedef uint32_t u32;
 
 typedef struct rzip_control rzip_control;
 typedef struct md5_ctx md5_ctx;
+
+/* ck specific unnamed semaphore implementations to cope with osx not
+ * implementing them. */
+#ifdef __APPLE__
+struct cksem {
+	int pipefd[2];
+};
+
+typedef struct cksem cksem_t;
+#else
+typedef sem_t cksem_t;
+#endif
 
 #if !defined(__linux)
  #define mremap fake_mremap
@@ -409,7 +422,7 @@ struct rzip_control {
 	unsigned char magic_written;
 	bool lzma_prop_set;
 
-	pthread_mutex_t cksumlock;
+	cksem_t cksumsem;
 	md5_ctx ctx;
 	uchar md5_resblock[MD5_DIGEST_SIZE];
 	i64 md5_read; // How far into the file the md5 has done so far

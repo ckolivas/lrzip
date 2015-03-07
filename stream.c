@@ -113,17 +113,6 @@ bool lock_mutex(rzip_control *control, pthread_mutex_t *mutex)
 	return true;
 }
 
-/* Lock and unlock a mutex */
-bool wait_mutex(rzip_control *control, pthread_mutex_t *mutex)
-{
-	bool ret;
-
-	ret = lock_mutex(control, mutex);
-	if (likely(ret))
-		ret = unlock_mutex(control, mutex);
-	return ret;
-}
-
 static bool cond_wait(rzip_control *control, pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_cond_wait(cond, mutex)))

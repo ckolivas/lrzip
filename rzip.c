@@ -607,7 +607,7 @@ static void *cksumthread(void *data)
 	if (!NO_MD5)
 		md5_process_bytes(control->checksum.buf, control->checksum.len, &control->ctx);
 	free(control->checksum.buf);
-	unlock_mutex(control, &control->cksumlock);
+	cksem_post(control, &control->cksumsem);
 	return NULL;
 }
 
@@ -738,7 +738,7 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 			 * cksumthread. This lock protects all the data in
 			 * control->checksum.
 			 */
-			lock_mutex(control, &control->cksumlock);
+			cksem_wait(control, &control->cksumsem);
 			control->checksum.len = MIN(st->chunk_size - p, control->page_size);
 			control->checksum.buf = malloc(control->checksum.len);
 			if (unlikely(!control->checksum.buf))
@@ -759,7 +759,7 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 	if (st->chunk_size > cksum_limit) {
 		/* Compute checksum. If the entire chunk is longer than maxram,
 		 * do it "per-partes" */
-		lock_mutex(control, &control->cksumlock);
+		cksem_wait(control, &control->cksumsem);
 		control->checksum.len = st->chunk_size - cksum_limit;
 		cksum_chunks = control->checksum.len / control->maxram;
 		cksum_remains = control->checksum.len % control->maxram;
@@ -781,9 +781,11 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 		if (!NO_MD5)
 			md5_process_bytes(control->checksum.buf, cksum_remains, &control->ctx);
 		free(control->checksum.buf);
-		unlock_mutex(control, &control->cksumlock);
-	} else
-		wait_mutex(control, &control->cksumlock);
+		cksem_post(control, &control->cksumsem);
+	} else {
+		cksem_wait(control, &control->cksumsem);
+		cksem_post(control, &control->cksumsem);
+	}
 
 	if (unlikely(!put_literal(control, st, 0, 0)))
 		return false;
@@ -954,7 +956,8 @@ bool rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	init_mutex(control, &control->control_lock);
 	if (!NO_MD5)
 		md5_init_ctx(&control->ctx);
-	init_mutex(control, &control->cksumlock);
+	cksem_init(control, &control->cksumsem);
+	cksem_post(control, &control->cksumsem);
 
 	st = calloc(sizeof(*st), 1);
 	if (unlikely(!st))

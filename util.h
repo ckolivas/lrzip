@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2011 Con Kolivas
+   Copyright (C) 2006-2015 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
@@ -23,6 +23,8 @@
 #include <errno.h>
 #include <semaphore.h>
 #include <stdarg.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 void register_infile(rzip_control *control, const char *name, char delete);
 void register_outfile(rzip_control *control, const char *name, char delete);
@@ -104,18 +106,6 @@ static inline bool lrz_decrypt(const rzip_control *control, uchar *buf, i64 len,
 	return lrz_crypt(control, buf, len, salt, LRZ_DECRYPT);
 }
 
-/* ck specific unnamed semaphore implementations to cope with osx not
- * implementing them. */
-#ifdef __APPLE__
-struct cksem {
-	int pipefd[2];
-};
-
-typedef struct cksem cksem_t;
-#else
-typedef sem_t cksem_t;
-#endif
-
 /* ck specific wrappers for true unnamed semaphore usage on platforms
  * that support them and for apple which does not. We use a single byte across
  * a pipe to emulate semaphore behaviour there. */
@@ -145,7 +135,7 @@ static inline void cksem_post(const rzip_control *control, cksem_t *cksem)
 
 	ret = write(cksem->pipefd[1], &buf, 1);
 	if (unlikely(ret == 0))
-		fatal("Failed to write errno=%d" IN_FMT_FFL, errno, file, func, line);
+		fatal("Failed to write in cksem_post errno=%d", errno);
 }
 
 static inline void cksem_wait(const rzip_control *control, cksem_t *cksem)
@@ -155,7 +145,7 @@ static inline void cksem_wait(const rzip_control *control, cksem_t *cksem)
 
 	ret = read(cksem->pipefd[0], &buf, 1);
 	if (unlikely(ret == 0))
-		fatal("Failed to read errno=%d" IN_FMT_FFL, errno, file, func, line);
+		fatal("Failed to read in cksem_post errno=%d", errno);
 }
 
 static inline void cksem_destroy(cksem_t *cksem)
@@ -178,6 +168,8 @@ static inline void cksem_reset(const rzip_control *control, cksem_t *cksem)
 		struct timeval timeout = {0, 0};
 
 		ret = select(fd + 1, &rd, NULL, NULL, &timeout);
+		if (unlikely(ret == -1))
+			fatal("Error in select in cksem_reset errno=%d", errno);
 		if (ret > 0)
 			ret = read(fd, &buf, 1);
 	} while (ret > 0);
