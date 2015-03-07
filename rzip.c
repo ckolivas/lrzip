@@ -159,11 +159,6 @@ static uchar *sliding_get_sb(rzip_control *control, i64 p)
 	return (sb->buf_high + (p - sb->offset_high));
 }
 
-static uchar *single_get_sb(__maybe_unused rzip_control *control, i64 p)
-{
-	return (control->sb.buf_low + p);
-}
-
 /* The length of continous range of the sliding buffer,
  * starting from the offset P.
  */
@@ -471,19 +466,17 @@ static tag sliding_full_tag(rzip_control *control, struct rzip_state *st, i64 p)
 	return ret;
 }
 
-static inline i64
-match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
-	  i64 end, i64 *rev)
+static i64
+single_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
+		 i64 end, i64 *rev)
 {
-	uchar *(*csb)(rzip_control *, i64);
 	i64 p, len;
 
 	if (op >= p0)
 		return 0;
 
 	p = p0;
-	csb = control->get_sb;
-	while (p < end && (*csb(control, p) == *csb(control, op))) {
+	while (p < end && control->sb.buf_low[p] == control->sb.buf_low[op]) {
 		p++;
 		op++;
 	}
@@ -493,7 +486,39 @@ match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
 
 	end = MAX(0, st->last_match);
 
-	while (p > end && op > 0 && *csb(control, op - 1) == *csb(control, p - 1)) {
+	while (p > end && op > 0 && control->sb.buf_low[op - 1] == control->sb.buf_low[p - 1]) {
+		op--;
+		p--;
+	}
+
+	len += *rev = p0 - p;
+	if (len < MINIMUM_MATCH)
+		return 0;
+
+	return len;
+}
+
+static i64
+sliding_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
+		  i64 end, i64 *rev)
+{
+	i64 p, len;
+
+	if (op >= p0)
+		return 0;
+
+	p = p0;
+	while (p < end && *sliding_get_sb(control, p) == *sliding_get_sb(control, op)) {
+		p++;
+		op++;
+	}
+	len = p - p0;
+	p = p0;
+	op -= len;
+
+	end = MAX(0, st->last_match);
+
+	while (p > end && op > 0 && *sliding_get_sb(control, op - 1) == *sliding_get_sb(control, p - 1)) {
 		op--;
 		p--;
 	}
@@ -525,8 +550,8 @@ find_best_match(rzip_control *control, struct rzip_state *st, tag t, i64 p,
 		i64 mlen;
 
 		if (t == he->t) {
-			mlen = match_len(control, st, p, he->offset, end,
-					 &rev);
+			mlen = control->match_len(control, st, p, he->offset, end,
+						  &rev);
 
 			if (mlen)
 				st->stats.tag_hits++;
@@ -1013,10 +1038,10 @@ bool rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	gettimeofday(&start, NULL);
 
 	prepare_streamout_threads(control);
-	control->get_sb = single_get_sb;
 	control->do_mcpy = single_mcpy;
 	control->next_tag = &single_next_tag;
 	control->full_tag = &single_full_tag;
+	control->match_len = &single_match_len;
 
 	while (!pass || len > 0 || (STDIN && !st->stdin_eof)) {
 		double pct_base, pct_multiple;
@@ -1084,10 +1109,10 @@ retry:
 			}
 			if (st->mmap_size < st->chunk_size) {
 				print_maxverbose("Enabling sliding mmap mode and using mmap of %lld bytes with window of %lld bytes\n", st->mmap_size, st->chunk_size);
-				control->get_sb = &sliding_get_sb;
 				control->do_mcpy = &sliding_mcpy;
 				control->next_tag = &sliding_next_tag;
 				control->full_tag = &sliding_full_tag;
+				control->match_len = &sliding_match_len;
 			}
 		}
 		print_maxverbose("Succeeded in testing %lld sized mmap for rzip pre-processing\n", st->mmap_size);

@@ -432,10 +432,10 @@ struct rzip_control {
 	void *log_data;
 
 	struct sliding_buffer sb;
-	uchar *(*get_sb)(rzip_control *control, i64 p);
 	void (*do_mcpy)(rzip_control *, unsigned char *, i64, i64);
 	void (*next_tag)(rzip_control *, struct rzip_state *, i64, tag *);
 	tag (*full_tag)(rzip_control *, struct rzip_state *, i64);
+	i64 (*match_len)(rzip_control *, struct rzip_state *, i64, i64, i64, i64 *);
 };
 
 struct stream {
