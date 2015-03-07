@@ -73,7 +73,6 @@
  * even tags, then all tags divisible by four, etc.).  This ensures
  * that on average, all parts of the file are covered by the hash, if
  * sparsely. */
-typedef i64 tag;
 
 /* All zero means empty.  We might miss the first chunk this way. */
 struct hash_entry {
@@ -97,34 +96,6 @@ static struct level {
 	{ 64, 1, 16 }, /* More MB makes sense, but need bigger test files */
 	{ 64, 1, 32 },
 	{ 64, 1, 128 },
-};
-
-struct rzip_state {
-	void *ss;
-	struct level *level;
-	tag hash_index[256];
-	struct hash_entry *hash_table;
-	char hash_bits;
-	i64 hash_count;
-	i64 hash_limit;
-	tag minimum_tag_mask;
-	i64 tag_clean_ptr;
-	i64 last_match;
-	i64 chunk_size;
-	i64 mmap_size;
-	char chunk_bytes;
-	uint32_t cksum;
-	int fd_in, fd_out;
-	char stdin_eof;
-	struct {
-		i64 inserts;
-		i64 literals;
-		i64 literal_bytes;
-		i64 matches;
-		i64 match_bytes;
-		i64 tag_hits;
-		i64 tag_misses;
-	} stats;
 };
 
 static bool remap_low_sb(rzip_control *control, struct sliding_buffer *sb)
@@ -452,7 +423,17 @@ again:
 	goto again;
 }
 
-static inline void next_tag(rzip_control *control, struct rzip_state *st, i64 p, tag *t)
+static void single_next_tag(rzip_control *control, struct rzip_state *st, i64 p, tag *t)
+{
+	uchar u;
+
+	u = control->sb.buf_low[p - 1];
+	*t ^= st->hash_index[u];
+	u = control->sb.buf_low[p + MINIMUM_MATCH - 1];
+	*t ^= st->hash_index[u];
+}
+
+static void sliding_next_tag(rzip_control *control, struct rzip_state *st, i64 p, tag *t)
 {
 	uchar *u;
 
@@ -674,7 +655,7 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 			}
 		}
 
-		next_tag(control, st, p, &t);
+		control->next_tag(control, st, p, &t);
 
 		/* Don't look for a match if there are no tags with
 		   this number of bits in the hash table. */
@@ -1021,6 +1002,7 @@ bool rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	prepare_streamout_threads(control);
 	control->get_sb = single_get_sb;
 	control->do_mcpy = single_mcpy;
+	control->next_tag = &single_next_tag;
 
 	while (!pass || len > 0 || (STDIN && !st->stdin_eof)) {
 		double pct_base, pct_multiple;
@@ -1090,6 +1072,7 @@ retry:
 				print_maxverbose("Enabling sliding mmap mode and using mmap of %lld bytes with window of %lld bytes\n", st->mmap_size, st->chunk_size);
 				control->get_sb = &sliding_get_sb;
 				control->do_mcpy = &sliding_mcpy;
+				control->next_tag = &sliding_next_tag;
 			}
 		}
 		print_maxverbose("Succeeded in testing %lld sized mmap for rzip pre-processing\n", st->mmap_size);

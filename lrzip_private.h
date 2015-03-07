@@ -325,6 +325,36 @@ struct checksum {
 	i64 len;
 };
 
+typedef i64 tag;
+
+struct rzip_state {
+	void *ss;
+	struct level *level;
+	tag hash_index[256];
+	struct hash_entry *hash_table;
+	char hash_bits;
+	i64 hash_count;
+	i64 hash_limit;
+	tag minimum_tag_mask;
+	i64 tag_clean_ptr;
+	i64 last_match;
+	i64 chunk_size;
+	i64 mmap_size;
+	char chunk_bytes;
+	uint32_t cksum;
+	int fd_in, fd_out;
+	char stdin_eof;
+	struct {
+		i64 inserts;
+		i64 literals;
+		i64 literal_bytes;
+		i64 matches;
+		i64 match_bytes;
+		i64 tag_hits;
+		i64 tag_misses;
+	} stats;
+};
+
 struct rzip_control {
 	char *infile;
 	FILE *inFILE; // if a FILE is being read from
@@ -403,7 +433,8 @@ struct rzip_control {
 
 	struct sliding_buffer sb;
 	uchar *(*get_sb)(rzip_control *control, i64 p);
-	void (*do_mcpy)(rzip_control *control, unsigned char *buf, i64 offset, i64 len);
+	void (*do_mcpy)(rzip_control *, unsigned char *, i64, i64);
+	void (*next_tag)(rzip_control *, struct rzip_state *, i64, tag *);
 };
 
 struct stream {
