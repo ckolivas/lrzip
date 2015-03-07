@@ -147,33 +147,6 @@ static inline void cksem_wait(const rzip_control *control, cksem_t *cksem)
 	if (unlikely(ret == 0))
 		fatal("Failed to read in cksem_post errno=%d", errno);
 }
-
-static inline void cksem_destroy(cksem_t *cksem)
-{
-	close(cksem->pipefd[1]);
-	close(cksem->pipefd[0]);
-}
-
-/* Reset semaphore count back to zero */
-static inline void cksem_reset(const rzip_control *control, cksem_t *cksem)
-{
-	int ret, fd;
-	fd_set rd;
-	char buf;
-
-	fd = cksem->pipefd[0];
-	FD_ZERO(&rd);
-	FD_SET(fd, &rd);
-	do {
-		struct timeval timeout = {0, 0};
-
-		ret = select(fd + 1, &rd, NULL, NULL, &timeout);
-		if (unlikely(ret == -1))
-			fatal("Error in select in cksem_reset errno=%d", errno);
-		if (ret > 0)
-			ret = read(fd, &buf, 1);
-	} while (ret > 0);
-}
 #else
 static inline void cksem_init(const rzip_control *control, cksem_t *cksem)
 {
@@ -192,20 +165,6 @@ static inline void cksem_wait(const rzip_control *control, cksem_t *cksem)
 {
 	if (unlikely(sem_wait(cksem)))
 		fatal("Failed to sem_wait errno=%d cksem=0x%p", errno, cksem);
-}
-
-static inline void cksem_reset(cksem_t *cksem)
-{
-	int ret;
-
-	do
-		ret = sem_trywait(cksem);
-	while (!ret);
-}
-
-static inline void cksem_destroy(cksem_t *cksem)
-{
-	sem_destroy(cksem);
 }
 #endif
 
