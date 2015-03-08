@@ -805,7 +805,6 @@ static inline void init_hash_indexes(struct rzip_state *st)
 
 #if defined(__APPLE__) || defined(__FreeBSD__)
 # define mremap fake_mremap
-#endif
 
 static inline void *fake_mremap(void *old_address, size_t old_size, size_t new_size, int flags __UNUSED__)
 {
@@ -825,6 +824,7 @@ static inline void *fake_mremap(void *old_address, size_t old_size, size_t new_s
 		return old_address;
 	}
 }
+#endif
 
 /* stdin is not file backed so we have to emulate the mmap by mapping
  * anonymous ram and reading stdin into it. It means the maximum ram
