@@ -98,7 +98,7 @@ static struct level {
 	{ 64, 1, 128 },
 };
 
-static bool remap_low_sb(rzip_control *control, struct sliding_buffer *sb)
+static void remap_low_sb(rzip_control *control, struct sliding_buffer *sb)
 {
 	i64 new_offset;
 
@@ -106,20 +106,19 @@ static bool remap_low_sb(rzip_control *control, struct sliding_buffer *sb)
 	round_to_page(&new_offset);
 	print_maxverbose("Sliding main buffer to offset %lld\n", new_offset);
 	if (unlikely(munmap(sb->buf_low, sb->size_low)))
-		fatal_return(("Failed to munmap in remap_low_sb\n"), false);
+		failure("Failed to munmap in remap_low_sb\n");
 	if (new_offset + sb->size_low > sb->orig_size)
 		sb->size_low = sb->orig_size - new_offset;
 	sb->offset_low = new_offset;
 	sb->buf_low = (uchar *)mmap(sb->buf_low, sb->size_low, PROT_READ, MAP_SHARED, sb->fd, sb->orig_offset + sb->offset_low);
 	if (unlikely(sb->buf_low == MAP_FAILED))
-		fatal_return(("Failed to re mmap in remap_low_sb\n"), false);
-	return true;
+		failure("Failed to re mmap in remap_low_sb\n");
 }
 
-static inline bool remap_high_sb(rzip_control *control, struct sliding_buffer *sb, i64 p)
+static inline void remap_high_sb(rzip_control *control, struct sliding_buffer *sb, i64 p)
 {
 	if (unlikely(munmap(sb->buf_high, sb->size_high)))
-		fatal_return(("Failed to munmap in remap_high_sb\n"), false);
+		failure("Failed to munmap in remap_high_sb\n");
 	sb->size_high = sb->high_length; /* In case we shrunk it when we hit the end of the file */
 	sb->offset_high = p;
 	/* Make sure offset is rounded to page size of total offset */
@@ -128,8 +127,7 @@ static inline bool remap_high_sb(rzip_control *control, struct sliding_buffer *s
 		sb->size_high = sb->orig_size - sb->offset_high;
 	sb->buf_high = (uchar *)mmap(sb->buf_high, sb->size_high, PROT_READ, MAP_SHARED, sb->fd, sb->orig_offset + sb->offset_high);
 	if (unlikely(sb->buf_high == MAP_FAILED))
-		fatal_return(("Failed to re mmap in remap_high_sb\n"), false);
-	return true;
+		failure("Failed to re mmap in remap_high_sb\n");
 }
 
 /* We use a "sliding mmap" to effectively read more than we can fit into the
@@ -153,8 +151,7 @@ static uchar *sliding_get_sb(rzip_control *control, i64 p)
 	if (p >= sbo && p < (sbo + sb->size_high))
 		return (sb->buf_high + (p - sbo));
 	/* p is not within the low or high buffer range */
-	if (unlikely(!remap_high_sb(control, &control->sb, p)))
-		return NULL;
+	remap_high_sb(control, &control->sb, p);
 	/* Use sb->offset_high directly since it will have changed */
 	return (sb->buf_high + (p - sb->offset_high));
 }
@@ -459,8 +456,6 @@ static tag sliding_full_tag(rzip_control *control, struct rzip_state *st, i64 p)
 
 	for (i = 0; i < MINIMUM_MATCH; i++) {
 		u = sliding_get_sb(control, p + i);
-		if (unlikely(!u))
-			return -1;
 		ret ^= st->hash_index[*u];
 	}
 	return ret;
