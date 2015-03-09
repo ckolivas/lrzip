@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2011 Con Kolivas
+   Copyright (C) 2006-2015 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
@@ -21,7 +21,7 @@
 #define RZIP_H
 #include "lrzip_private.h"
 
-bool rzip_fd(rzip_control *control, int fd_in, int fd_out);
+void rzip_fd(rzip_control *control, int fd_in, int fd_out);
 void rzip_control_free(rzip_control *control);
 
 #endif

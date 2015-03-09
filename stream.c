@@ -1435,10 +1435,10 @@ error:
 	return NULL;
 }
 
-static bool clear_buffer(rzip_control *control, struct stream_info *sinfo, int streamno, int newbuf)
+static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int streamno, int newbuf)
 {
-	static long i = 0;
 	stream_thread_struct *s;
+	static int i = 0;
 
 	/* Make sure this thread doesn't already exist */
 	cksem_wait(control, &cthread[i].cksem);
@@ -1454,37 +1454,31 @@ static bool clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 	s = malloc(sizeof(stream_thread_struct));
 	if (unlikely(!s)) {
 		cksem_post(control, &cthread[i].cksem);
-		fatal_return(("Unable to malloc in clear_buffer"), false);
+		failure("Unable to malloc in clear_buffer");
 	}
 	s->i = i;
 	s->control = control;
 	if (unlikely((!create_pthread(control, &threads[i], NULL, compthread, s)) ||
-	             (!detach_pthread(control, &threads[i])))) {
-		cksem_post(control, &cthread[i].cksem);
-		return false;
-	}
-
+	             (!detach_pthread(control, &threads[i]))))
+		failure("Unable to create compthread in clear_buffer");
 
 	if (newbuf) {
 		/* The stream buffer has been given to the thread, allocate a
 		 * new one. */
 		sinfo->s[streamno].buf = malloc(sinfo->bufsize);
-		if (unlikely(!sinfo->s[streamno].buf)) {
-			cksem_post(control, &cthread[i].cksem);
-			fatal_return(("Unable to malloc buffer of size %lld in flush_buffer\n", sinfo->bufsize), false);
-		}
+		if (unlikely(!sinfo->s[streamno].buf))
+			failure("Unable to malloc buffer of size %lld in flush_buffer\n", sinfo->bufsize);
 		sinfo->s[streamno].buflen = 0;
 	}
 
 	if (++i == control->threads)
 		i = 0;
-	return true;
 }
 
 /* flush out any data in a stream buffer */
-bool flush_buffer(rzip_control *control, struct stream_info *sinfo, int streamno)
+void flush_buffer(rzip_control *control, struct stream_info *sinfo, int streamno)
 {
-	return clear_buffer(control, sinfo, streamno, 1);
+	clear_buffer(control, sinfo, streamno, 1);
 }
 
 static void *ucompthread(void *data)
@@ -1690,7 +1684,7 @@ out:
 }
 
 /* write some data to a stream. Return -1 on failure */
-int write_stream(rzip_control *control, void *ss, int streamno, uchar *p, i64 len)
+void write_stream(rzip_control *control, void *ss, int streamno, uchar *p, i64 len)
 {
 	struct stream_info *sinfo = ss;
 
@@ -1706,10 +1700,8 @@ int write_stream(rzip_control *control, void *ss, int streamno, uchar *p, i64 le
 
 		/* Flush the buffer every sinfo->bufsize into one thread */
 		if (sinfo->s[streamno].buflen == sinfo->bufsize)
-			if (unlikely(!flush_buffer(control, sinfo, streamno)))
-				return -1;
+			flush_buffer(control, sinfo, streamno);
 	}
-	return 0;
 }
 
 /* read some data from a stream. Return number of bytes read, or -1
@@ -1749,10 +1741,8 @@ int close_stream_out(rzip_control *control, void *ss)
 	struct stream_info *sinfo = ss;
 	int i;
 
-	for (i = 0; i < sinfo->num_streams; i++) {
-		if (unlikely(!clear_buffer(control, sinfo, i, 0)))
-			return -1;
-	}
+	for (i = 0; i < sinfo->num_streams; i++)
+		clear_buffer(control, sinfo, i, 0);
 
 	if (ENCRYPT) {
 		/* Last two compressed blocks do not have an offset written
@@ -1773,16 +1763,20 @@ int close_stream_out(rzip_control *control, void *ss)
 		if (!control->sinfo_buckets) {
 			/* no streams added */
 			control->sinfo_queue = calloc(STREAM_BUCKET_SIZE + 1, sizeof(void*));
-			if (!control->sinfo_queue)
+			if (!control->sinfo_queue) {
+				print_err("Failed to calloc sinfo_queue in close_stream_out\n");
 				return -1;
+			}
 			control->sinfo_buckets++;
 		} else if (control->sinfo_idx == STREAM_BUCKET_SIZE * control->sinfo_buckets + 1) {
 			/* all buckets full, create new bucket */
 			void *tmp;
 
 			tmp = realloc(control->sinfo_queue, (++control->sinfo_buckets * STREAM_BUCKET_SIZE + 1) * sizeof(void*));
-			if (!tmp)
+			if (!tmp) {
+				print_err("Failed to realloc sinfo_queue in close_stream_out\n");
 				return -1;
+			}
 			control->sinfo_queue = tmp;
 			memset(control->sinfo_queue + control->sinfo_idx, 0, ((control->sinfo_buckets * STREAM_BUCKET_SIZE + 1) - control->sinfo_idx) * sizeof(void*));
 		}
