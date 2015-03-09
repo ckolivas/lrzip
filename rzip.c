@@ -657,11 +657,8 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 	current.p = p;
 	current.ofs = 0;
 
-	if (likely(end > 0)) {
+	if (likely(end > 0))
 		t = control->full_tag(control, st, p);
-		if (unlikely(t == -1))
-			return false;
-	}
 
 	while (p < end) {
 		i64 reverse, mlen, offset;
@@ -724,8 +721,6 @@ static inline bool hash_search(rzip_control *control, struct rzip_state *st,
 			current.p = p = st->last_match;
 			current.len = 0;
 			t = control->full_tag(control, st, p);
-			if (unlikely(t == -1))
-				return false;
 		}
 
 		if (p > cksum_limit) {
