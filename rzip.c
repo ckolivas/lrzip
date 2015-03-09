@@ -547,17 +547,15 @@ find_best_match(rzip_control *control, struct rzip_state *st, tag t, i64 p,
 		if (t == he->t) {
 			mlen = control->match_len(control, st, p, he->offset, end,
 						  &rev);
-
-			if (mlen)
+			if (mlen) {
+				if (mlen > length) {
+					length = mlen;
+					(*offset) = he->offset - rev;
+					(*reverse) = rev;
+				}
 				st->stats.tag_hits++;
-			else
+			} else
 				st->stats.tag_misses++;
-
-			if (mlen >= length) {
-				length = mlen;
-				(*offset) = he->offset - rev;
-				(*reverse) = rev;
-			}
 		}
 
 		h++;
