@@ -444,6 +444,7 @@ struct rzip_control {
 	void (*log_cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *func, const char *format, va_list);
 	void *log_data;
 
+	char chunk_bytes;
 	struct sliding_buffer sb;
 	void (*do_mcpy)(rzip_control *, unsigned char *, i64, i64);
 	void (*next_tag)(rzip_control *, struct rzip_state *, i64, tag *);

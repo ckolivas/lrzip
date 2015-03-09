@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2012 Con Kolivas
+   Copyright (C) 2006-2015 Con Kolivas
    Copyright (C) 1998-2003 Andrew Tridgell
 
    This program is free software; you can redistribute it and/or modify
@@ -139,16 +139,12 @@ static i64 seekto_fdinend(rzip_control *control)
 
 static i64 read_header(rzip_control *control, void *ss, uchar *head)
 {
-	int chunk_bytes = 2;
 	bool err = false;
 
-	/* All chunks were unnecessarily encoded 8 bytes wide version 0.4x */
-	if (control->major_version == 0 && control->minor_version == 4)
-		chunk_bytes = 8;
 	*head = read_u8(control, ss, 0, &err);
 	if (err)
 		return -1;
-	return read_vchars(control, ss, 0, chunk_bytes);
+	return read_vchars(control, ss, 0, control->chunk_bytes);
 }
 
 static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum)
@@ -308,6 +304,12 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	ss = open_stream_in(control, fd_in, NUM_STREAMS, chunk_bytes);
 	if (unlikely(!ss))
 		failure_return(("Failed to open_stream_in in runzip_chunk\n"), -1);
+
+	/* All chunks were unnecessarily encoded 8 bytes wide version 0.4x */
+	if (control->major_version == 0 && control->minor_version == 4)
+		control->chunk_bytes = 8;
+	else
+		control->chunk_bytes = 2;
 
 	while ((len = read_header(control, ss, &head)) || head) {
 		i64 u;
