@@ -1270,7 +1270,7 @@ bool initialise_control(rzip_control *control)
 		eptr = getenv("TEMPDIR");
 	if (!eptr)
 		eptr = getenv("TEMP");
-	if (!eptr) {
+	if (eptr) {
 		size_t len = strlen(eptr);
 
 		control->tmpdir = malloc(len+2);
