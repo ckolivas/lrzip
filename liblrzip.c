@@ -598,7 +598,7 @@ void lrzip_log_cb_set(Lrzip *lr, Lrzip_Log_Cb cb, void *log_data)
 {
 	if (!lr)
 		return;
-	lr->control->log_cb = (void*)cb;
+	lr->control->log_cb = cb;
 	lr->control->log_data = log_data;
 }
 
@@ -634,7 +634,7 @@ void lrzip_pass_cb_set(Lrzip *lr, Lrzip_Password_Cb cb, void *data)
 {
 	if (!lr)
 		return;
-	lr->control->pass_cb = (void*)cb;
+	lr->control->pass_cb = cb;
 	lr->control->pass_data = data;
 }
 
@@ -642,7 +642,7 @@ void lrzip_info_cb_set(Lrzip *lr, Lrzip_Info_Cb cb, void *data)
 {
 	if (!lr)
 		return;
-	lr->control->info_cb = (void*)cb;
+	lr->control->info_cb = cb;
 	lr->control->info_data = data;
 }
 

@@ -441,7 +441,7 @@ struct rzip_control {
 	int log_level;
 	void (*info_cb)(void *data, int pct, int chunk_pct);
 	void *info_data;
-	void (*log_cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *func, const char *format, va_list);
+	void (*log_cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *func, const char *format, va_list args);
 	void *log_data;
 
 	char chunk_bytes;

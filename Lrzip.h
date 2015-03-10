@@ -128,10 +128,11 @@ typedef void (*Lrzip_Info_Cb)(void *data, int pct, int chunk_pct);
  * @param level The Lrzip_Log_Level of the message
  * @param line The line in LRZIP code where the message originated
  * @param file The file in LRZIP code where the message originated
+ * @param func The function in LRZIP code where the message originated
  * @param format The printf-style format of the message
  * @param args The matching va_list for @p format
  */
-typedef void (*Lrzip_Log_Cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *format, va_list args);
+typedef void (*Lrzip_Log_Cb)(void *data, unsigned int level, unsigned int line, const char *file, const char *func, const char *format, va_list args);
 /**
  * @typedef Lrzip_Password_Cb
  * @brief The callback to call for operations requiring a password
