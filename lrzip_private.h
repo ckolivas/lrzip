@@ -491,8 +491,8 @@ static inline void print_stuff(const rzip_control *control, int level, unsigned 
 	} else if (control->msgout) {
 		va_start(ap, format);
 		vfprintf(control->msgout, format, ap);
-		fflush(control->msgout);
 		va_end(ap);
+		fflush(control->msgout);
 	}
 }
 
@@ -507,6 +507,7 @@ static inline void print_err(const rzip_control *control, unsigned int line, con
 		va_start(ap, format);
 		vfprintf(control->msgerr, format, ap);
 		va_end(ap);
+		fflush(control->msgerr);
 	}
 }
 
