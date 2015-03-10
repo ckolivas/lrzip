@@ -49,6 +49,8 @@
 # include <arpa/inet.h>
 #endif
 
+#include <getopt.h>
+
 #include "rzip.h"
 #include "lrzip_core.h"
 #include "util.h"
@@ -67,39 +69,39 @@ static void usage(void)
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
 	print_output("Usage: lrzip [options] <file...>\n");
 	print_output("General options:\n");
-	print_output("     -c            check integrity of file written on decompression\n");
-	print_output("     -d            decompress\n");
-	print_output("     -e            password protected sha512/aes128 encryption on compression\n");
-	print_output("     -h|-?         show help\n");
-	print_output("     -H            display md5 hash integrity information\n");
-	print_output("     -i            show compressed file information\n");
-	print_output("     -q            don't show compression progress\n");
-	print_output("     -t            test compressed file integrity\n");
-	print_output("     -v[v]         Increase verbosity\n");
-	print_output("     -V            show version\n");
+	print_output("	-c, --check		check integrity of file written on decompression\n");
+	print_output("	-d, --decompress	decompress\n");
+	print_output("	-e, --encrypt		password protected sha512/aes128 encryption on compression\n");
+	print_output("	-h, -?, --help		show help\n");
+	print_output("	-H, --hash		display md5 hash integrity information\n");
+	print_output("	-i, --info		show compressed file information\n");
+	print_output("	-q, --quiet		don't show compression progress\n");
+	print_output("	-t, --test		test compressed file integrity\n");
+	print_output("	-v[v], --verbose	Increase verbosity\n");
+	print_output("	-V, --version		show version\n");
 	print_output("Options affecting output:\n");
-	print_output("     -D            delete existing files\n");
-	print_output("     -f            force overwrite of any existing files\n");
-	print_output("     -k            keep broken or damaged output files\n");
-	print_output("     -o filename   specify the output file name and/or path\n");
-	print_output("     -O directory  specify the output directory when -o is not used\n");
-	print_output("     -S suffix     specify compressed suffix (default '.lrz')\n");
+	print_output("	-D, --delete		delete existing files\n");
+	print_output("	-f, --force		force overwrite of any existing files\n");
+	print_output("	-k, --keep-broken	keep broken or damaged output files\n");
+	print_output("	-o, --outfile filename	specify the output file name and/or path\n");
+	print_output("	-O, --outdir directory	specify the output directory when -o is not used\n");
+	print_output("	-S, --suffix suffix	specify compressed suffix (default '.lrz')\n");
 	print_output("Options affecting compression:\n");
-	print_output("     -b            bzip2 compression\n");
-	print_output("     -g            gzip compression using zlib\n");
-	print_output("     -l            lzo compression (ultra fast)\n");
-	print_output("     -n            no backend compression - prepare for other compressor\n");
-	print_output("     -z            zpaq compression (best, extreme compression, extremely slow)\n");
+	print_output("	-b, --bzip2		bzip2 compression\n");
+	print_output("	-g, --gzip		gzip compression using zlib\n");
+	print_output("	-l, --lzo		lzo compression (ultra fast)\n");
+	print_output("	-n, --no-compress	no backend compression - prepare for other compressor\n");
+	print_output("	-z, --zpaq		zpaq compression (best, extreme compression, extremely slow)\n");
 	print_output("Low level options:\n");
-	print_output("     -L level      set lzma/bzip2/gzip compression level (1-9, default 7)\n");
-	print_output("     -N value      Set nice value to value (default 19)\n");
-	print_output("     -p value      Set processor count to override number of threads\n");
-	print_output("     -m size       Set maximim available ram in hundreds of MB\n");
-	print_output("                   overrides detected ammount of available ram\n");
-	print_output("     -T            Disable LZO compressibility testing\n");
-	print_output("     -U            Use unlimited window size beyond ramsize (potentially much slower)\n");
-	print_output("     -w size       maximum compression window in hundreds of MB\n");
-	print_output("                   default chosen by heuristic dependent on ram and chosen compression\n");
+	print_output("	-L, --level level	set lzma/bzip2/gzip compression level (1-9, default 7)\n");
+	print_output("	-N, --nice-level value	Set nice value to value (default 19)\n");
+	print_output("	-p, --threads value	Set processor count to override number of threads\n");
+	print_output("	-m, --maxram size	Set maximim available ram in hundreds of MB\n");
+	print_output("				overrides detected ammount of available ram\n");
+	print_output("	-T, --threshold		Disable LZO compressibility testing\n");
+	print_output("	-U, --unlimited		Use unlimited window size beyond ramsize (potentially much slower)\n");
+	print_output("	-w, --window size	maximum compression window in hundreds of MB\n");
+	print_output("				default chosen by heuristic dependent on ram and chosen compression\n");
 	print_output("\nLRZIP=NOCONFIG environment variable setting can be used to bypass lrzip.conf.\n");
 	print_output("TMP environment variable will be used for storage of temporary files when needed.\n");
 	print_output("TMPDIR may also be stored in lrzip.conf file.\n");
@@ -186,6 +188,37 @@ static void show_summary(void)
 	}
 }
 
+static struct option long_options[] = {
+	{"bzip2",	no_argument,	0,	'b'},
+	{"check",	no_argument,	0,	'c'},
+	{"decompress",	no_argument,	0,	'd'},
+	{"delete",	no_argument,	0,	'D'},
+	{"encrypt",	no_argument,	0,	'e'},
+	{"force",	no_argument,	0,	'f'},
+	{"gzip",	no_argument,	0,	'g'},
+	{"help",	no_argument,	0,	'h'},
+	{"hash",	no_argument,	0,	'H'},
+	{"info",	no_argument,	0,	'i'},
+	{"keep-broken",	no_argument,	0,	'k'},
+	{"lzo",		no_argument,	0,	'l'},
+	{"level",	no_argument,	0,	'L'},
+	{"maxram",	required_argument,	0,	'm'},
+	{"no-compress",	no_argument,	0,	'n'},
+	{"nice-level",	required_argument,	0,	'N'},
+	{"outfile",	required_argument,	0,	'o'},
+	{"outdir",	required_argument,	0,	'O'},
+	{"threads",	required_argument,	0,	'p'},
+	{"quiet",	no_argument,	0,	'q'},
+	{"suffix",	required_argument,	0,	'S'},
+	{"test",	no_argument,	0,	't'},
+	{"threshold",	required_argument,	0,	'T'},
+	{"unlimited",	no_argument,	0,	'U'},
+	{"verbose",	no_argument,	0,	'v'},
+	{"version",	no_argument,	0,	'V'},
+	{"window",	required_argument,	0,	'w'},
+	{"zpaq",	no_argument,	0,	'z'},
+};
+
 int main(int argc, char *argv[])
 {
 	struct timeval start_time, end_time;
@@ -221,7 +254,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(control);
 
-	while ((c = getopt(argc, argv, "bcdDefghHiklL:nN:o:O:p:qS:tTUm:vVw:z?")) != -1) {
+	while ((c = getopt_long(argc, argv, "bcdDefghHiklL:nN:o:O:p:qS:tTUm:vVw:z?", long_options, &i)) != -1) {
 		switch (c) {
 		case 'b':
 			if (control->flags & FLAG_NOT_LZMA)
@@ -271,6 +304,9 @@ int main(int argc, char *argv[])
 			control->compression_level = atoi(optarg);
 			if (control->compression_level < 1 || control->compression_level > 9)
 				failure("Invalid compression level (must be 1-9)\n");
+			break;
+		case 'm':
+			control->ramsize = atol(optarg) * 1024 * 1024 * 100;
 			break;
 		case 'n':
 			if (control->flags & FLAG_NOT_LZMA)
@@ -329,9 +365,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'U':
 			control->flags |= FLAG_UNLIMITED;
-			break;
-		case 'm':
-			control->ramsize = atol(optarg) * 1024 * 1024 * 100;
 			break;
 		case 'v':
 			/* set verbosity flag */
