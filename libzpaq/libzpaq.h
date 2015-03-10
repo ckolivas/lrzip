@@ -397,7 +397,7 @@ void decompress(Reader* in, Writer* out);
 // Encoder compresses using an arithmetic code
 class Encoder {
 public:
-  Encoder(ZPAQL& z, int size=0):
+  Encoder(ZPAQL& z):
     out(0), low(1), high(0xFFFFFFFF), pr(z) {}
   void init();
   void compress(int c);  // c is 0..255 or EOF
