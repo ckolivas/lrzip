@@ -625,8 +625,8 @@ ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
 			print_err("Unable to write_fdout tmpoutbuf in put_fdout\n");
 			return -1;
 		}
-		close_tmpoutbuf(control); {
-		if (unlikely(!write_fdout(control, offset_buf, ret)))
+		close_tmpoutbuf(control);
+		if (unlikely(!write_fdout(control, offset_buf, ret))) {
 			print_err("Unable to write_fdout offset_buf in put_fdout\n");
 			return -1;
 		}
