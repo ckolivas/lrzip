@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2013 Con Kolivas
+   Copyright (C) 2006-2015 Con Kolivas
    Copyright (C) 2011 Serge Belyshev
    Copyright (C) 2008, 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
@@ -110,7 +110,10 @@ void setup_overhead(rzip_control *control)
 	/* Work out the compression overhead per compression thread for the
 	 * compression back-ends that need a lot of ram */
 	if (LZMA_COMPRESS) {
-		int level = control->compression_level * 7 / 9 ? : 1;
+		int level = control->compression_level * 7 / 9;
+
+		if (!level)
+			level = 1;
 		i64 dictsize = (level <= 5 ? (1 << (level * 2 + 14)) :
 				(level == 6 ? (1 << 25) : (1 << 26)));
 
