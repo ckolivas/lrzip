@@ -843,12 +843,9 @@ init_sliding_mmap(rzip_control *control, struct rzip_state *st, int fd_in,
 {
 	struct sliding_buffer *sb = &control->sb;
 
-	/* Initialise the high buffer */
+	/* Initialise the high buffer. One page size is fastest to manipulate */
 	if (!STDIN) {
-		sb->high_length = 65536;
-		/* Round up to the next biggest page size */
-		if (sb->high_length % control->page_size)
-			sb->high_length += control->page_size - (sb->high_length % control->page_size);
+		sb->high_length = control->page_size;
 		sb->buf_high = (uchar *)mmap(NULL, sb->high_length, PROT_READ, MAP_SHARED, fd_in, offset);
 		if (unlikely(sb->buf_high == MAP_FAILED))
 			failure("Unable to mmap buf_high in init_sliding_mmap\n");
