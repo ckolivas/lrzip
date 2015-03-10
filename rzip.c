@@ -569,8 +569,12 @@ static void show_distrib(rzip_control *control, struct rzip_state *st)
 	if (total != st->hash_count)
 		print_err("WARNING: hash_count says total %lld\n", st->hash_count);
 
-	print_output("%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n", total, primary,
-		     primary * 100.0 / (total ? : 1));
+	if (!total)
+		print_output("0 total hashes\n");
+	else {
+		print_output("%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n",
+			     total, primary, primary * 100.0 / total);
+	}
 }
 
 /* Perform all checksumming in a separate thread to speed up the hash search. */
@@ -647,12 +651,12 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 		if (unlikely(sb->offset_search > sb->offset_low + sb->size_low))
 			remap_low_sb(control, &control->sb);
 
-		if (unlikely(p % 128 == 0)) {
-			int pct, chunk_pct;
+		if (unlikely(p % 128 == 0 && st->chunk_size)) {
+			i64 chunk_pct;
+			int pct;
 
-			pct = pct_base + (pct_multiple * (100.0 * p) /
-			      (st->chunk_size ? : 1));
-			chunk_pct = p / ((end / 100) ? : 1);
+			pct = pct_base + (pct_multiple * (100.0 * p) / st->chunk_size );
+			chunk_pct = p * 100 / end;
 			if (pct != lastpct || chunk_pct != last_chunkpct) {
 				if (!STDIN || st->stdin_eof)
 					print_progress("Total: %2d%%  ", pct);
@@ -905,10 +909,10 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	struct timeval current, start, last;
 	i64 len = 0, last_chunk = 0;
 	int pass = 0, passes, j;
+	double chunkmbs, tdiff;
 	struct rzip_state *st;
 	struct statvfs fbuf;
 	struct stat s, s2;
-	double chunkmbs;
 	i64 free_space;
 
 	init_mutex(control, &control->control_lock);
@@ -1110,12 +1114,12 @@ retry:
 
 		gettimeofday(&current, NULL);
 		/* this will count only when size > window */
-		if (last.tv_sec > 0) {
+		if (last.tv_sec > 0 && pct_base > 100) {
 			unsigned int eta_hours, eta_minutes, eta_seconds, elapsed_time, finish_time,
 				elapsed_hours, elapsed_minutes, elapsed_seconds, diff_seconds;
 
 			elapsed_time = current.tv_sec - start.tv_sec;
-			finish_time = elapsed_time / ((pct_base / 100.0) ? : 1);
+			finish_time = elapsed_time / (pct_base / 100.0);
 			elapsed_hours = elapsed_time / 3600;
 			elapsed_minutes = (elapsed_time / 60) % 60;
 			elapsed_seconds = elapsed_time % 60;
@@ -1189,7 +1193,10 @@ retry:
 	gettimeofday(&current, NULL);
 	if (STDIN)
 		s.st_size = control->st_size;
-	chunkmbs = (s.st_size / 1024 / 1024) / ((double)(current.tv_sec-start.tv_sec)? : 1);
+	tdiff = current.tv_sec - start.tv_sec;
+	if (!tdiff)
+		tdiff = 1;
+	chunkmbs = (s.st_size / 1024 / 1024) / tdiff;
 
 	fstat(fd_out, &s2);
 
