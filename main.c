@@ -64,7 +64,7 @@ static rzip_control base_control, local_control, *control;
 static void usage(void)
 {
 	print_output("lrzip version %s\n", PACKAGE_VERSION);
-	print_output("Copyright (C) Con Kolivas 2006-2013\n");
+	print_output("Copyright (C) Con Kolivas 2006-2015\n");
 	print_output("Based on rzip ");
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
 	print_output("Usage: lrzip [options] <file...>\n");
