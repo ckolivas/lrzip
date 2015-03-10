@@ -306,11 +306,6 @@ int open_tmpoutfile(rzip_control *control)
 			fatal_return(("Failed to allocate outfile name\n"), -1);
 		strcpy(control->outfile, control->tmpdir);
 		strcat(control->outfile, "lrzipout.XXXXXX");
-	} else {
-		control->outfile = realloc(NULL, 16);
-		if (unlikely(!control->outfile))
-			fatal_return(("Failed to allocate outfile name\n"), -1);
-		strcpy(control->outfile, "lrzipout.XXXXXX");
 	}
 
 	fd_out = mkstemp(control->outfile);
@@ -1270,16 +1265,21 @@ bool initialise_control(rzip_control *control)
 		eptr = getenv("TEMPDIR");
 	if (!eptr)
 		eptr = getenv("TEMP");
-	if (eptr) {
-		size_t len = strlen(eptr);
-
-		control->tmpdir = malloc(len+2);
-		if (control->tmpdir == NULL)
-			fatal_return(("Failed to allocate for tmpdir\n"), false);
-		strcpy(control->tmpdir, eptr);
-		if (eptr[len - 2] != '/')
-			eptr[len - 2] = '/'; /* need a trailing slash */
-		eptr[len - 1] = 0;
+	if (!eptr) {
+		eptr = malloc(3);
+		if ( eptr == NULL )
+			fatal_return(("Failed to allocate for eptr\n"), false);
+		strcpy(eptr,"./");
 	}
+	size_t len = strlen(eptr);
+
+	control->tmpdir = malloc(len+2);
+	if (control->tmpdir == NULL)
+		fatal_return(("Failed to allocate for tmpdir\n"), false);
+	strcpy(control->tmpdir, eptr);
+	if (control->tmpdir[len] != '/')
+		control->tmpdir[len] = '/'; /* need a trailing slash */
+	control->tmpdir[len+1] = '\0';
+
 	return true;
 }
