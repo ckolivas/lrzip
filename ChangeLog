@@ -1,6 +1,49 @@
 lrzip ChangeLog
 
-MARCH 2015, version 0.620 Con Kolivas, Peter Hyman
+MARCH 2015, version 0.621 Con Kolivas, Peter Hyman
+
+* Making the high buffer only one page size is faster for sliding mmap mode
+* Fix incompatible log callback in liblrzip
+* Use PRId64 instead of lld in fscanf
+* Use int64_t for i64
+* Fix ISO C warning in lrzip.c
+* Fix ISO C warning in lrzip.c
+* Fix ISO C warning in runzip.c
+* Fix ISO C warnings in rzip.c
+* Fix iso c warning in util.c
+* Fix EOL to unix on libzpaq
+* control->tmpdir fixes
+* Null terminate long options to find unhandled options
+* Trivial date
+* Add long option support
+* Brace failure lead to broken dump to stdout
+* fflush messages on print_err
+* Fix inverse logic
+* Honour the proper unix environment variable for temporary directory and then
+try variations
+* Attempt to decompress file in ram only if we are unable to create temporary
+files when decompressing to stdout
+* Avoid checking return values repeatedly on compress that only lead to failures
+anyway
+* Microoptimisation
+* Don't check for failure condition that can no longer occur
+* Don't check twice for failure conditions that are fatal in hot paths
+* Cache the chunk bytes value to avoid setting it on each read_header call
+* fake_mremap is only used when defined to mremap
+* Remove unused cksem functions
+* Fix remaining use of mutexes lock/unlocking in different threads with cksems,
+corecting cksem usage on osx
+* Update copyright dates
+* Make match_len a function completely removing all indirect calls to get_sb,
+significantly speeding up the single_get_sb case
+* Make full_tag a pointer allowing us to avoid a function call for get_sb
+* Call sliding_get_sb directly in sliding_next_tag
+* Make next_tag a pointer to allow ordinary mapping to avoid an extra function
+call
+* fix order of lrzip.conf search
+
+
+MARCH 2015, version 0.620 Con Kolivas, Peter Hyman, Chris Spiegel, Elmir Jagudin
 
 * Increase maxram when we abandon use of temporary input/output buffers
 * Don't delete the tmpinfile when decompressing from stdin before allowing seek
