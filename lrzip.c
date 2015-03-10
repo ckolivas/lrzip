@@ -47,6 +47,7 @@
 #endif
 #include <math.h>
 #include <utime.h>
+#include <inttypes.h>
 
 #include "md5.h"
 #include "rzip.h"
@@ -104,7 +105,7 @@ i64 get_ram(rzip_control *control)
 	if(!(meminfo = fopen("/proc/meminfo", "r")))
 		fatal_return(("fopen\n"), -1);
 
-	while(!feof(meminfo) && !fscanf(meminfo, "MemTotal: %lld kB", &ramsize)) {
+	while(!feof(meminfo) && !fscanf(meminfo, "MemTotal: %"PRId64" kB", &ramsize)) {
 		if (unlikely(fgets(aux, sizeof(aux), meminfo) == NULL)) {
 			fclose(meminfo);
 			fatal_return(("Failed to fgets in get_ram\n"), -1);
