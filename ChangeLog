@@ -2,6 +2,8 @@ lrzip ChangeLog
 
 MARCH 2015, version 0.621 Con Kolivas, Peter Hyman
 
+* Fix libzpaq.cpp warnings
+* Fix warnings in LzmaLib.c
 * Making the high buffer only one page size is faster for sliding mmap mode
 * Fix incompatible log callback in liblrzip
 * Use PRId64 instead of lld in fscanf

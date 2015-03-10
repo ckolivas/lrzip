@@ -1,6 +1,25 @@
-lrzip-0.617
+lrzip-0.621
+
+Substantial speed ups for the rzip stage in both regular and unlimited modes.
+Lrzip now supports long command line options.
+Proper support for the various forms of TMPDIR environment variables.
+More unix portability fixes.
+OSX fixes.
+Fixed order of lrzip.conf search.
+Addressed all warnings created with pedantic compiler settings and clang
+Fixes for some stderr messages being swallowed up.
+Fixed being unable to decompress to STDOUT when in a non-writable directory.
+Changed broken liblrzip callback function API to match lrzip proper.
+
+
+lrzip-0.620
 
 Fixes display output of lrzip -i for large files greater than one chunk.
+Fixes for various failure to allocate memory conditions when dealing with
+large files and STDIO.
+Fixes for more unix portability.
+Fixes for failure to decompress to STDOUT.
+
 
 lrzip-0.616
 
