@@ -34,37 +34,39 @@ Here is a summary of the options to lrzip\&.
 
 
 General options:
-  \-c            check integrity of file written on decompression
-  \-d            decompress
-  \-e            password protected sha512/aes128 encryption on compression
-  \-h|\-?         show help
-  \-H            display md5 hash integrity information
-  \-i            show compressed file information
-  \-q            don't show compression progress
-  \-t            test compressed file integrity
-  \-v[v]         Increase verbosity
-  \-V            show version
+ \-c, \-\-check             check integrity of file written on decompression
+ \-d, \-\-decompress        decompress
+ \-e, \-\-encrypt           password protected sha512/aes128 encryption on compression
+ \-h, \-?, \-\-help          show help
+ \-H, \-\-hash              display md5 hash integrity information
+ \-i, \-\-info              show compressed file information
+ \-q, \-\-quiet             don't show compression progress
+ \-t, \-\-test              test compressed file integrity
+ \-v[v], \-\-verbose        Increase verbosity
+ \-V, \-\-version           show version
 Options affecting output:
-  \-D            delete existing files
-  \-f            force overwrite of any existing files
-  \-k            keep broken or damaged output files
-  \-o filename   specify the output file name and/or path
-  \-O directory  specify the output directory when \-o is not used
-  \-S suffix     specify compressed suffix (default '.lrz')
+ \-D, \-\-delete            delete existing files
+ \-f, \-\-force             force overwrite of any existing files
+ \-k, \-\-keep-broken       keep broken or damaged output files
+ \-o, \-\-outfile filename  specify the output file name and/or path
+ \-O, \-\-outdir directory  specify the output directory when -o is not used
+ \-S, \-\-suffix suffix     specify compressed suffix (default '.lrz')
 Options affecting compression:
-  \-b            bzip2 compression
-  \-g            gzip compression using zlib
-  \-l            lzo compression (ultra fast)
-  \-n            no backend compression - prepare for other compressor
-  \-z            zpaq compression (best, extreme compression, extremely slow)
+ \-b, \-\-bzip2             bzip2 compression
+ \-g, \-\-gzip              gzip compression using zlib
+ \-l, \-\-lzo               lzo compression (ultra fast)
+ \-n, \-\-no-compress       no backend compression - prepare for other compressor
+ \-z, \-\-zpaq              zpaq compression (best, extreme compression, extremely slow)
 Low level options:
-  \-L level      set lzma/bzip2/gzip compression level (1\-9, default 7)
-  \-N value      Set nice value to value (default 19)
-  \-p value      Set processor count to override number of threads
-  \-T            Disable LZO compressibility testing
-  \-U            Use unlimited window size beyond ramsize (potentially much slower)
-  \-w size       maximum compression window in hundreds of MB
-                default chosen by heuristic dependent on ram and chosen compression
+ \-L, \-\-level level       set lzma/bzip2/gzip compression level (1-9, default 7)
+ \-N, \-\-nice-level value  Set nice value to value (default 19)
+ \-p, \-\-threads value     Set processor count to override number of threads
+ \-m, \-\-maxram size       Set maximim available ram in hundreds of MB
+                         overrides detected ammount of available ram
+ \-T, \-\-threshold         Disable LZO compressibility testing
+ \-U, \-\-unlimited         Use unlimited window size beyond ramsize (potentially much slower)
+ \-w, \-\-window size       maximum compression window in hundreds of MB
+                         default chosen by heuristic dependent on ram and chosen compression
 
 LRZIP=NOCONFIG environment variable setting can be used to bypass lrzip.conf.
 TMP environment variable will be used for storage of temporary files when needed.
