@@ -1262,10 +1262,17 @@ bool initialise_control(rzip_control *control)
 	if (unlikely(!get_rand(control, control->salt + 2, 6)))
 		return false;
 
-	/* Get Temp Dir */
-	eptr = getenv("TMP");
-	if (eptr != NULL) {
+	/* Get Temp Dir. Try variations on canonical unix environment variable */
+	eptr = getenv("TMPDIR");
+	if (!eptr)
+		eptr = getenv("TMP");
+	if (!eptr)
+		eptr = getenv("TEMPDIR");
+	if (!eptr)
+		eptr = getenv("TEMP");
+	if (!eptr) {
 		size_t len = strlen(eptr);
+
 		control->tmpdir = malloc(len+2);
 		if (control->tmpdir == NULL)
 			fatal_return(("Failed to allocate for tmpdir\n"), false);
