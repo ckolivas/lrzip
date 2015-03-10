@@ -372,6 +372,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 	uchar md5_stored[MD5_DIGEST_SIZE];
 	struct timeval start,end;
 	i64 total = 0, u;
+	double tdiff;
 
 	if (!NO_MD5)
 		md5_init_ctx (&control->ctx);
@@ -406,9 +407,13 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 	} while (total < expected_size || (!expected_size && !control->eof));
 
 	gettimeofday(&end,NULL);
-	if (!ENCRYPT)
+	if (!ENCRYPT) {
+		tdiff = end.tv_sec - start.tv_sec;
+		if (!tdiff)
+			tdiff = 1;
 		print_progress("\nAverage DeCompression Speed: %6.3fMB/s\n",
-			(total / 1024 / 1024) / (double)((end.tv_sec-start.tv_sec)? : 1));
+			       (total / 1024 / 1024) / tdiff);
+	}
 
 	if (!NO_MD5) {
 		int i,j;
