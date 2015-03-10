@@ -314,9 +314,11 @@ int open_tmpoutfile(rzip_control *control)
 	}
 
 	fd_out = mkstemp(control->outfile);
-	if (unlikely(fd_out == -1))
-		fatal_return(("Failed to create out tmpfile: %s\n", control->outfile), -1);
-	register_outfile(control, control->outfile, TEST_ONLY || STDOUT || !KEEP_BROKEN);
+	if (fd_out == -1) {
+		print_verbose("WARNING: Failed to create out tmpfile: %s , will fail if cannot perform entirely in ram\n",
+			      control->outfile, DECOMPRESS ? "de" : "");
+	} else
+		register_outfile(control, control->outfile, TEST_ONLY || STDOUT || !KEEP_BROKEN);
 	return fd_out;
 }
 
@@ -352,7 +354,7 @@ bool write_fdout(rzip_control *control, void *buf, i64 len)
 		ret = MIN(len, one_g);
 		ret = write(control->fd_out, offset_buf, (size_t)ret);
 		if (unlikely(ret <= 0))
-			fatal_return(("Failed to write to fd_out in write_fdout\n"), false);;
+			fatal_return(("Failed to write to fd_out in write_fdout\n"), false);
 		len -= ret;
 		offset_buf += ret;
 	}
@@ -382,6 +384,8 @@ bool dump_tmpoutfile(rzip_control *control, int fd_out)
 	FILE *tmpoutfp;
 	int tmpchar;
 
+	if (unlikely(fd_out == -1))
+		fatal_return(("Failed: No temporary outfile created, unable to do in ram\n"), false);
 	/* flush anything not yet in the temporary file */
 	fsync(fd_out);
 	tmpoutfp = fdopen(fd_out, "r");
@@ -742,14 +746,16 @@ bool decompress_file(rzip_control *control)
 				return false;
 	} else {
 		fd_out = open_tmpoutfile(control);
-		if (unlikely(fd_out == -1))
-			fatal_return(("Failed to create %s\n", control->outfile), false);
-		fd_hist = open(control->outfile, O_RDONLY);
-		if (unlikely(fd_hist == -1))
-			fatal_return(("Failed to open history file %s\n", control->outfile), false);
-		/* Unlink temporary file as soon as possible */
-		if (unlikely(unlink(control->outfile)))
-			fatal_return(("Failed to unlink tmpfile: %s\n", control->outfile), false);
+		if (fd_out == -1) {
+			fd_hist = -1;
+		} else {
+			fd_hist = open(control->outfile, O_RDONLY);
+			if (unlikely(fd_hist == -1))
+				fatal_return(("Failed to open history file %s\n", control->outfile), false);
+			/* Unlink temporary file as soon as possible */
+			if (unlikely(unlink(control->outfile)))
+				fatal_return(("Failed to unlink tmpfile: %s\n", control->outfile), false);
+		}
 	}
 
 	if (unlikely(!open_tmpoutbuf(control)))
@@ -759,7 +765,7 @@ bool decompress_file(rzip_control *control)
 		if (unlikely(!read_magic(control, fd_in, &expected_size)))
 			return false;
 
-	if (!STDOUT) {
+	if (!STDOUT && !TEST_ONLY) {
 		/* Check if there's enough free space on the device chosen to fit the
 		* decompressed file. */
 		if (unlikely(fstatvfs(fd_out, &fbuf)))
@@ -792,9 +798,10 @@ bool decompress_file(rzip_control *control)
 	if (unlikely(runzip_fd(control, fd_in, fd_out, fd_hist, expected_size) < 0))
 		return false;
 
-	if (STDOUT && !TMP_OUTBUF)
+	if (STDOUT && !TMP_OUTBUF) {
 		if (unlikely(!dump_tmpoutfile(control, fd_out)))
 			return false;
+	}
 
 	/* if we get here, no fatal_return(( errors during decompression */
 	print_progress("\r");
@@ -807,8 +814,10 @@ bool decompress_file(rzip_control *control)
 	else
 		print_progress("[OK]                                             \n");
 
-	if (unlikely(close(fd_hist) || close(fd_out)))
-		fatal_return(("Failed to close files\n"), false);
+	if (fd_out > 0) {
+		if (unlikely(close(fd_hist) || close(fd_out)))
+			fatal_return(("Failed to close files\n"), false);
+	}
 
 	if (unlikely(!STDIN && !STDOUT && !TEST_ONLY && !preserve_times(control, fd_in)))
 		return false;

@@ -1179,11 +1179,12 @@ retry:
 		}
 	}
 
-	if (TMP_OUTBUF)
+	if (TMP_OUTBUF) {
 		if (unlikely(!flush_tmpoutbuf(control))) {
 			free(st);
 			failure("Failed to flush_tmpoutbuf in rzip_fd\n");
 		}
+	}
 
 	gettimeofday(&current, NULL);
 	if (STDIN)

@@ -619,11 +619,17 @@ ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
 		/* The data won't fit in a temporary output buffer so we have
 		 * to fall back to temporary files. */
 		print_verbose("Unable to decompress entirely in ram, will use physical files\n");
-		if (unlikely(!write_fdout(control, control->tmp_outbuf, control->out_len)))
+		if (unlikely(control->fd_out == -1))
+			failure("Was unable to decompress entirely in ram and no temporary file creation was possible\n");
+		if (unlikely(!write_fdout(control, control->tmp_outbuf, control->out_len))) {
+			print_err("Unable to write_fdout tmpoutbuf in put_fdout\n");
 			return -1;
-		close_tmpoutbuf(control);
+		}
+		close_tmpoutbuf(control); {
 		if (unlikely(!write_fdout(control, offset_buf, ret)))
+			print_err("Unable to write_fdout offset_buf in put_fdout\n");
 			return -1;
+		}
 		return ret;
 	}
 	memcpy(control->tmp_outbuf + control->out_ofs, offset_buf, ret);
@@ -1334,8 +1340,10 @@ retry:
 				write_magic(control);
 			unlock_mutex(control, &control->control_lock);
 
-			if (unlikely(!flush_tmpoutbuf(control)))
+			if (unlikely(!flush_tmpoutbuf(control))) {
+				print_err("Failed to flush_tmpoutbuf in compthread\n");
 				goto error;
+			}
 		}
 
 		print_maxverbose("Writing initial chunk bytes value %d at %lld\n",

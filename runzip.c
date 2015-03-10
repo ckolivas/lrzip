@@ -379,20 +379,30 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 
 	do {
 		u = runzip_chunk(control, fd_in, expected_size, total);
-		if (unlikely(u == -1))
+		if (unlikely(u == -1)) {
+			print_err("Failed to runzip_chunk in runzip_fd\n");
 			return -1;
+		}
 		total += u;
-		if (TMP_OUTBUF)
-			{ if (unlikely(!flush_tmpoutbuf(control)))
-			return -1; }
-		else if (STDOUT)
-			{ if (unlikely(!dump_tmpoutfile(control, fd_out)))
-			return -1; }
+		if (TMP_OUTBUF) {
+			if (unlikely(!flush_tmpoutbuf(control))) {
+				print_err("Failed to flush_tmpoutbuf in runzip_fd\n");
+				return -1;
+			}
+		} else if (STDOUT) {
+			if (unlikely(!dump_tmpoutfile(control, fd_out))) {
+				print_err("Failed to dump_tmpoutfile in runzip_fd\n");
+				return -1;
+			}
+		}
 		if (TMP_INBUF)
 			clear_tmpinbuf(control);
-		else if (STDIN && !DECOMPRESS)
-			if (unlikely(!clear_tmpinfile(control)))
+		else if (STDIN && !DECOMPRESS) {
+			if (unlikely(!clear_tmpinfile(control))) {
+				print_err("Failed to clear_tmpinfile in runzip_fd\n");
 				return -1;
+			}
+		}
 	} while (total < expected_size || (!expected_size && !control->eof));
 
 	gettimeofday(&end,NULL);
