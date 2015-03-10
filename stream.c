@@ -304,7 +304,9 @@ static int lzma_compress_buf(rzip_control *control, struct compress_thread *cthr
 		return 0;
 
 	/* only 7 levels with lzma, scale them */
-	lzma_level = control->compression_level * 7 / 9 ? : 1;
+	lzma_level = control->compression_level * 7 / 9;
+	if (!lzma_level)
+		lzma_level = 1;
 
 	print_maxverbose("Starting lzma back end compression thread...\n");
 retry:
