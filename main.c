@@ -217,6 +217,7 @@ static struct option long_options[] = {
 	{"version",	no_argument,	0,	'V'},
 	{"window",	required_argument,	0,	'w'},
 	{"zpaq",	no_argument,	0,	'z'},
+	{0,	0,	0,	0},
 };
 
 int main(int argc, char *argv[])
