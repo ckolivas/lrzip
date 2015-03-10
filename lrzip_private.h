@@ -144,7 +144,7 @@ extern int errno;
 # define ffsll __builtin_ffsll
 #endif
 
-typedef long long int i64;
+typedef int64_t i64;
 typedef uint32_t u32;
 
 typedef struct rzip_control rzip_control;

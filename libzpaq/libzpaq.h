@@ -449,7 +449,7 @@ void compress(Reader* in, Writer* out, int level);
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #define __maybe_unused	__attribute__((unused))
 
-typedef long long int i64;
+typedef int64_t i64;
 
 struct bufRead: public libzpaq::Reader {
 	uchar *s_buf;
