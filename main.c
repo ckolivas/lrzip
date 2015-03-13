@@ -80,9 +80,10 @@ static void usage(bool compat)
 	print_output("	-h, -?, --help		show help\n");
 	print_output("	-H, --hash		display md5 hash integrity information\n");
 	print_output("	-i, --info		show compressed file information\n");
-	if (compat)
+	if (compat) {
+		print_output("	-L, --license		display software version and license\n");
 		print_output("	-P, --progress		show compression progress\n");
-	else
+	} else
 		print_output("	-q, --quiet		don't show compression progress\n");
 	print_output("	-t, --test		test compressed file integrity\n");
 	print_output("	-v[v], --verbose	Increase verbosity\n");
@@ -104,6 +105,11 @@ static void usage(bool compat)
 	print_output("	-n, --no-compress	no backend compression - prepare for other compressor\n");
 	print_output("	-z, --zpaq		zpaq compression (best, extreme compression, extremely slow)\n");
 	print_output("Low level options:\n");
+	if (compat) {
+		print_output("	-1 .. -9		set lzma/bzip2/gzip compression level (1-9, default 7)\n");
+		print_output("	--fast			alias for -1\n");
+		print_output("	--best			alias for -9\n");
+	}
 	print_output("	-L, --level level	set lzma/bzip2/gzip compression level (1-9, default 7)\n");
 	print_output("	-N, --nice-level value	Set nice value to value (default %d)\n", compat ? 0 : 19);
 	print_output("	-p, --threads value	Set processor count to override number of threads\n");
@@ -200,37 +206,37 @@ static void show_summary(void)
 }
 
 static struct option long_options[] = {
-	{"bzip2",	no_argument,	0,	'b'},
+	{"bzip2",	no_argument,	0,	'b'}, /* 0 */
 	{"check",	no_argument,	0,	'c'},
 	{"check",	no_argument,	0,	'C'},
 	{"decompress",	no_argument,	0,	'd'},
 	{"delete",	no_argument,	0,	'D'},
-	{"encrypt",	no_argument,	0,	'e'},
+	{"encrypt",	no_argument,	0,	'e'}, /* 5 */
 	{"force",	no_argument,	0,	'f'},
 	{"gzip",	no_argument,	0,	'g'},
 	{"help",	no_argument,	0,	'h'},
 	{"hash",	no_argument,	0,	'H'},
-	{"info",	no_argument,	0,	'i'},
+	{"info",	no_argument,	0,	'i'}, /* 10 */
 	{"keep-broken",	no_argument,	0,	'k'},
 	{"keep-broken",	no_argument,	0,	'K'},
 	{"lzo",		no_argument,	0,	'l'},
-	{"level",	no_argument,	0,	'L'},
-	{"maxram",	required_argument,	0,	'm'},
+	{"level",	required_argument,	0,	'L'},
+	{"maxram",	required_argument,	0,	'm'}, /* 15 */
 	{"no-compress",	no_argument,	0,	'n'},
 	{"nice-level",	required_argument,	0,	'N'},
 	{"outfile",	required_argument,	0,	'o'},
 	{"outdir",	required_argument,	0,	'O'},
-	{"threads",	required_argument,	0,	'p'},
+	{"threads",	required_argument,	0,	'p'}, /* 20 */
 	{"progress",	no_argument,	0,	'P'},
 	{"quiet",	no_argument,	0,	'q'},
 	{"suffix",	required_argument,	0,	'S'},
 	{"test",	no_argument,	0,	't'},
-	{"threshold",	required_argument,	0,	'T'},
+	{"threshold",	required_argument,	0,	'T'}, /* 25 */
 	{"unlimited",	no_argument,	0,	'U'},
 	{"verbose",	no_argument,	0,	'v'},
 	{"version",	no_argument,	0,	'V'},
 	{"window",	required_argument,	0,	'w'},
-	{"zpaq",	no_argument,	0,	'z'},
+	{"zpaq",	no_argument,	0,	'z'}, /* 30 */
 	{"fast",	no_argument,	0,	'1'},
 	{"best",	no_argument,	0,	'9'},
 	{0,	0,	0,	0},
@@ -280,7 +286,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(control);
 
-	while ((c = getopt_long(argc, argv, "bcCdDefghHikKlL:nN:o:O:pP:qS:tTUm:vVw:z?123456789", long_options, &i)) != -1) {
+	while ((c = getopt_long(argc, argv, "bcCdDefghHikKlL:nN:o:O:pPqS:tTUm:vVw:z?123456789", long_options, &i)) != -1) {
 		switch (c) {
 		case 'b':
 			if (control->flags & FLAG_NOT_LZMA)
@@ -378,6 +384,9 @@ int main(int argc, char *argv[])
 			control->threads = atoi(optarg);
 			if (control->threads < 1)
 				failure("Must have at least one thread\n");
+			break;
+		case 'P':
+			control->flags |= FLAG_SHOW_PROGRESS;
 			break;
 		case 'q':
 			control->flags &= ~FLAG_SHOW_PROGRESS;
