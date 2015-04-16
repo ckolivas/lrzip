@@ -1,6 +1,6 @@
 #   Copyright
 #
-#      Copyright (C) 2011 Con Kolivas
+#      Copyright (C) 2011-2015 Con Kolivas
 #
 #   License
 #
@@ -69,6 +69,7 @@ lrzip(1),
 lrunzip(1),
 lrztar(1),
 lrzuntar(1),
+lrz(1),
 bzip2(1),
 gzip(1),
 lzop(1),
