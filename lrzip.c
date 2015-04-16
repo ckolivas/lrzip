@@ -424,22 +424,38 @@ bool write_fdin(rzip_control *control)
 /* Open a temporary inputfile to perform stdin decompression */
 int open_tmpinfile(rzip_control *control)
 {
-	int fd_in;
+	int fd_in = -1;
 
+	/* Use temporary directory if there is one */
 	if (control->tmpdir) {
 		control->infile = malloc(strlen(control->tmpdir) + 15);
 		if (unlikely(!control->infile))
 			fatal_return(("Failed to allocate infile name\n"), -1);
 		strcpy(control->infile, control->tmpdir);
 		strcat(control->infile, "lrzipin.XXXXXX");
-	} else {
-		control->infile = malloc(15);
+		fd_in = mkstemp(control->infile);
+	}
+
+	/* Try the current directory */
+	if (fd_in == -1) {
+		free(control->infile);
+		control->infile = malloc(16);
 		if (unlikely(!control->infile))
 			fatal_return(("Failed to allocate infile name\n"), -1);
 		strcpy(control->infile, "lrzipin.XXXXXX");
+		fd_in = mkstemp(control->infile);
 	}
 
-	fd_in = mkstemp(control->infile);
+	/* Use /tmp if nothing is writeable so far */
+	if (fd_in == -1) {
+		free(control->infile);
+		control->infile = malloc(20);
+		if (unlikely(!control->infile))
+			fatal_return(("Failed to allocate infile name\n"), -1);
+		strcpy(control->infile, "/tmp/lrzipin.XXXXXX");
+		fd_in = mkstemp(control->infile);
+	}
+
 	if (unlikely(fd_in == -1))
 		fatal_return(("Failed to create in tmpfile: %s\n", control->infile), -1);
 	register_infile(control, control->infile, (DECOMPRESS || TEST_ONLY) && STDIN);
