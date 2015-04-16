@@ -311,8 +311,8 @@ int open_tmpoutfile(rzip_control *control)
 
 	fd_out = mkstemp(control->outfile);
 	if (fd_out == -1) {
-		print_verbose("WARNING: Failed to create out tmpfile: %s , will fail if cannot perform entirely in ram\n",
-			      control->outfile, DECOMPRESS ? "de" : "");
+		print_progress("WARNING: Failed to create out tmpfile: %s, will fail if cannot perform %scompression entirely in ram\n",
+			       control->outfile, DECOMPRESS ? "de" : "");
 	} else
 		register_outfile(control, control->outfile, TEST_ONLY || STDOUT || !KEEP_BROKEN);
 	return fd_out;
@@ -456,15 +456,18 @@ int open_tmpinfile(rzip_control *control)
 		fd_in = mkstemp(control->infile);
 	}
 
-	if (unlikely(fd_in == -1))
-		fatal_return(("Failed to create in tmpfile: %s\n", control->infile), -1);
-	register_infile(control, control->infile, (DECOMPRESS || TEST_ONLY) && STDIN);
-	/* Unlink temporary file immediately to minimise chance of files left
-	 * lying around in cases of failure_return((. */
-	if (unlikely(unlink(control->infile))) {
-		fatal("Failed to unlink tmpfile: %s\n", control->infile);
-		close(fd_in);
-		return -1;
+	if (fd_in == -1) {
+		print_progress("WARNING: Failed to create in tmpfile: %s, will fail if cannot perform %scompression entirely in ram\n",
+			       control->infile, DECOMPRESS ? "de" : "");
+	} else {
+		register_infile(control, control->infile, (DECOMPRESS || TEST_ONLY) && STDIN);
+		/* Unlink temporary file immediately to minimise chance of files left
+		* lying around in cases of failure_return((. */
+		if (unlikely(unlink(control->infile))) {
+			fatal("Failed to unlink tmpfile: %s\n", control->infile);
+			close(fd_in);
+			return -1;
+		}
 	}
 	return fd_in;
 }
@@ -490,6 +493,8 @@ bool read_tmpinfile(rzip_control *control, int fd_in)
 	FILE *tmpinfp;
 	int tmpchar;
 
+	if (fd_in == -1)
+		return false;
 	if (control->flags & FLAG_SHOW_PROGRESS)
 		fprintf(control->msgout, "Copying from stdin.\n");
 	tmpinfp = fdopen(fd_in, "w+");
@@ -719,8 +724,6 @@ bool decompress_file(rzip_control *control)
 
 	if (STDIN) {
 		fd_in = open_tmpinfile(control);
-		if (unlikely(fd_in == -1))
-			return false;
 		read_tmpinmagic(control);
 		if (ENCRYPT)
 			failure_return(("Cannot decompress encrypted file from STDIN\n"), false);

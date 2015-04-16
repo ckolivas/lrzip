@@ -703,7 +703,8 @@ ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
 		/* We're decompressing from STDIN */
 		if (unlikely(control->in_ofs + len > control->in_maxlen)) {
 			/* We're unable to fit it all into the temp buffer */
-			dump_stdin(control);
+			if (dump_stdin(control))
+				failure_return(("Inadequate ram to %compress from STDIN and unable to create in tmpfile"), -1);
 			goto read_fd;
 		}
 		if (control->in_ofs + len > control->in_len) {
