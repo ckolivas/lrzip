@@ -802,7 +802,7 @@ bool decompress_file(rzip_control *control)
 	/* if we get here, no fatal_return(( errors during decompression */
 	print_progress("\r");
 	if (!(STDOUT | TEST_ONLY))
-		print_output("Output filename is: %s: ", control->outfile);
+		print_progress("Output filename is: %s: ", control->outfile);
 	if (!expected_size)
 		expected_size = control->st_size;
 	if (!ENCRYPT)
