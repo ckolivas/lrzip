@@ -242,6 +242,14 @@ static struct option long_options[] = {
 	{0,	0,	0,	0},
 };
 
+static void set_stdout(struct rzip_control *control)
+{
+	control->flags |= FLAG_STDOUT;
+	control->outFILE = stdout;
+	control->msgout = stderr;
+	register_outputfile(control, control->msgout);
+}
+
 int main(int argc, char *argv[])
 {
 	bool lrzcat = false, compat = false;
@@ -295,7 +303,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'c':
 			if (compat) {
-				control->flags |= FLAG_STDOUT;
+				set_stdout(control);
 				break;
 			}
 		case 'C':
@@ -504,15 +512,11 @@ int main(int argc, char *argv[])
 		if (INFO && STDIN)
 			failure("Will not get file info from STDIN\n");
 
+		/* If no output filename is specified, and we're using
+		 * stdin, use stdout */
 		if ((control->outname && (strcmp(control->outname, "-") == 0)) ||
-			/* If no output filename is specified, and we're using
-			 * stdin, use stdout */
-			(!control->outname && STDIN) || lrzcat ) {
-				control->flags |= FLAG_STDOUT;
-				control->outFILE = stdout;
-				control->msgout = stderr;
-				register_outputfile(control, control->msgout);
-		}
+		    (!control->outname && STDIN) || lrzcat)
+				set_stdout(control);
 
 		if (lrzcat) {
 			control->msgout = stderr;
@@ -540,7 +544,7 @@ int main(int argc, char *argv[])
 				usage(compat);
 				exit (1);
 			}
-			if (!TEST_ONLY && STDOUT && isatty(fileno((FILE *)stdout))) {
+			if (!TEST_ONLY && STDOUT && isatty(fileno((FILE *)stdout)) && !compat) {
 				print_err("Will not write stdout to a terminal. Use -f to override.\n");
 				usage(compat);
 				exit (1);
