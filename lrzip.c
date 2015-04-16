@@ -820,7 +820,7 @@ bool decompress_file(rzip_control *control)
 
 	close(fd_in);
 
-	if (!KEEP_FILES) {
+	if (!KEEP_FILES && !STDIN) {
 		if (unlikely(unlink(control->infile)))
 			fatal_return(("Failed to unlink %s\n", infilecopy), false);
 	}
