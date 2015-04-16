@@ -68,7 +68,7 @@ static void usage(bool compat)
 	print_output("Copyright (C) Con Kolivas 2006-2015\n");
 	print_output("Based on rzip ");
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
-	print_output("Usage: lrzip [options] <file...>\n");
+	print_output("Usage: lrz%s [options] <file...>\n", compat ? "" : "ip");
 	print_output("General options:\n");
 	if (compat) {
 		print_output("	-c, --stdout		output to STDOUT\n");
