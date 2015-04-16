@@ -1217,7 +1217,7 @@ bool compress_file(rzip_control *control)
 	if (TMP_OUTBUF)
 		close_tmpoutbuf(control);
 
-	if (!KEEP_FILES) {
+	if (!KEEP_FILES && !STDIN) {
 		if (unlikely(unlink(control->infile)))
 			fatal_return(("Failed to unlink %s\n", control->infile), false);
 	}
