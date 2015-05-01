@@ -1625,6 +1625,8 @@ fill_another:
 	sinfo->total_read += padded_len;
 	fsync(control->fd_out);
 
+	if (unlikely(u_len > control->maxram))
+		fatal_return(("Unable to malloc buffer of size %lld in this environment\n", u_len), -1);
 	s_buf = malloc(MAX(u_len, MIN_SIZE));
 	if (unlikely(u_len && !s_buf))
 		fatal_return(("Unable to malloc buffer of size %lld in fill_buffer\n", u_len), -1);
