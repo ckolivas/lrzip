@@ -138,7 +138,7 @@ Notice:
                    "$i/${s##*/}.tar.${vopt[v_S]}"
             return 1
         }
-        tar c "$s" | lrzip ${p[@]// /\\ }
+        tar c "$s" | lrzip "${p[@]}"
         x=$?
     }
     return $x
