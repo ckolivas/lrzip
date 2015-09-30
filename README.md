@@ -93,7 +93,7 @@ Simple 'n Easy™: `sudo make install`
 ### lrzip internals
 
 lrzip uses an extended version of [rzip](http://rzip.samba.org/) which does a first pass long distance
-redundancy reduction. lrzip's modifications allow it to scale to accomodate various memory sizes.
+redundancy reduction. lrzip's modifications allow it to scale to accommodate various memory sizes.
 
 Then, one of the following scenarios occurs:
 
