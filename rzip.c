@@ -772,7 +772,7 @@ static inline void init_hash_indexes(struct rzip_state *st)
 		st->hash_index[i] = ((random() << 16) ^ random());
 }
 
-#if defined(__APPLE__) || defined(__FreeBSD__)
+#if !defined(__linux)
 # define mremap fake_mremap
 
 static inline void *fake_mremap(void *old_address, size_t old_size, size_t new_size, int flags __UNUSED__)

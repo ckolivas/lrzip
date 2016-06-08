@@ -67,6 +67,10 @@ void *alloca (size_t);
 # include <sys/endian.h>
 #endif
 #ifndef __BYTE_ORDER
+# ifndef __BIG_ENDIAN
+#  define __BIG_ENDIAN	4321
+#  define __LITTLE_ENDIAN	1234
+# endif
 # ifdef WORDS_BIGENDIAN
 #  define __BYTE_ORDER __BIG_ENDIAN
 # else
