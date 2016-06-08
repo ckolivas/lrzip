@@ -47,14 +47,14 @@ Notice:
           v_w=0 v_S=0 v_D=0 v_p=0 v_q=0 v_L=0 \
           v_n=0 v_l=0 v_b=0 v_g=0 v_z=0 v_U=0 \
           v_T=0 v_N=0 v_v=0 v_f=0 v_d=0 v_h=0 \
-          v_H=0 v_c=0 v_k=0 v_o=0 v_O=0 x= i="$(pwd)"
+          v_H=0 v_c=0 v_k=0 v_o=0 v_O=0 v_m=0 x= i="$(pwd)"
     which tar   &> /dev/null \
         || { printf "lrztar: no tar in your path\n"; return 1; }
     which lrzip &> /dev/null \
         || { printf "lrztar: no lrzip in your path\n"; return 1; }
     which lrzcat &> /dev/null \
         || { printf "lrztar: no lrzcat in your path\n"; return 1; }
-    while getopts w:O:S:DqL:nlbgzUTN:p:vfo:d:tVhHck x; do
+    while getopts w:O:S:DqL:nlbgzUm:TN:p:vfo:d:tVhHck x; do
         [[ $x == [tV] ]] && {
             printf "lrztar: invalid option for lrztar: %s\n" "$x";
             return 1;
