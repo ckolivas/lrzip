@@ -303,6 +303,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'c':
 			if (compat) {
+				control->flags |= FLAG_KEEP_FILES;
 				set_stdout(control);
 				break;
 			}
@@ -409,6 +410,8 @@ int main(int argc, char *argv[])
 		case 't':
 			if (control->outname)
 				failure("Cannot specify an output file name when just testing.\n");
+			if (compat)
+				control->flags |= FLAG_KEEP_FILES;
 			if (!KEEP_FILES)
 				failure("Doubt that you want to delete a file when just testing.\n");
 			control->flags |= FLAG_TEST_ONLY;
@@ -421,7 +424,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'v':
 			/* set verbosity flag */
-			if (!(control->flags & FLAG_VERBOSITY) && !(control->flags & FLAG_VERBOSITY_MAX))
+			if (!(control->flags & FLAG_SHOW_PROGRESS))
+				control->flags |= FLAG_SHOW_PROGRESS;
+			else if (!(control->flags & FLAG_VERBOSITY) && !(control->flags & FLAG_VERBOSITY_MAX))
 				control->flags |= FLAG_VERBOSITY;
 			else if ((control->flags & FLAG_VERBOSITY)) {
 				control->flags &= ~FLAG_VERBOSITY;
