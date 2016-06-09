@@ -86,7 +86,7 @@ static void usage(bool compat)
 	} else
 		print_output("	-q, --quiet		don't show compression progress\n");
 	print_output("	-t, --test		test compressed file integrity\n");
-	print_output("	-v[v], --verbose	Increase verbosity\n");
+	print_output("	-v[v%s], --verbose	Increase verbosity\n", compat ? "v" : "");
 	print_output("	-V, --version		show version\n");
 	print_output("Options affecting output:\n");
 	if (!compat)
