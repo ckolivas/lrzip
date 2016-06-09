@@ -1175,6 +1175,7 @@ again:
 		if (ENCRYPT) {
 			if (unlikely(!decrypt_header(control, enc_head, &c, &v1, &v2, &sinfo->s[i].last_head)))
 				goto failed;
+			sinfo->total_read += SALT_LEN;
 		}
 
 		v1 = le64toh(v1);
@@ -1579,8 +1580,11 @@ fill_another:
 	if (unlikely(read_seekto(control, sinfo, s->last_head)))
 		return -1;
 
-	if (unlikely(ENCRYPT && read_buf(control, sinfo->fd, enc_head, SALT_LEN)))
-		return -1;
+	if (ENCRYPT) {
+		if (unlikely(read_buf(control, sinfo->fd, enc_head, SALT_LEN)))
+			return -1;
+		sinfo->total_read += SALT_LEN;
+	}
 
 	if (unlikely(read_u8(control, sinfo->fd, &c_type)))
 		return -1;
@@ -1622,6 +1626,7 @@ fill_another:
 			return -1;
 		if (unlikely(read_buf(control, sinfo->fd, blocksalt, SALT_LEN)))
 			return -1;
+		sinfo->total_read += SALT_LEN;
 	}
 	c_len = le64toh(c_len);
 	u_len = le64toh(u_len);
@@ -1642,9 +1647,10 @@ fill_another:
 	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len)))
 		return -1;
 
-	if (ENCRYPT)
+	if (ENCRYPT) {
 		if (unlikely(!lrz_decrypt(control, s_buf, padded_len, blocksalt)))
 			return -1;
+	}
 
 	ucthread[s->uthread_no].s_buf = s_buf;
 	ucthread[s->uthread_no].c_len = c_len;
