@@ -788,9 +788,10 @@ bool decompress_file(rzip_control *control)
 	if (unlikely(!open_tmpoutbuf(control)))
 		return false;
 
-	if (!STDIN)
+	if (!STDIN) {
 		if (unlikely(!read_magic(control, fd_in, &expected_size)))
 			return false;
+	}
 
 	if (!STDOUT && !TEST_ONLY) {
 		/* Check if there's enough free space on the device chosen to fit the
@@ -960,7 +961,8 @@ bool get_fileinfo(rzip_control *control)
 	infile_size = st.st_size;
 
 	/* Get decompressed size */
-	if (unlikely(!read_magic(control, fd_in, &expected_size))) goto error;
+	if (unlikely(!read_magic(control, fd_in, &expected_size)))
+		goto error;
 
 	if (ENCRYPT) {
 		print_output("Encrypted lrzip archive. No further information available\n");
@@ -1220,10 +1222,14 @@ bool compress_file(rzip_control *control)
 			fatal_goto(("Failed to create %s\n", control->outfile), error);
 		}
 		control->fd_out = fd_out;
-		if (!STDIN)
-			if (unlikely(!preserve_perms(control, fd_in, fd_out))) goto error;
-	} else
-		if (unlikely(!open_tmpoutbuf(control))) goto error;
+		if (!STDIN) {
+			if (unlikely(!preserve_perms(control, fd_in, fd_out)))
+				goto error;
+		}
+	} else {
+		if (unlikely(!open_tmpoutbuf(control)))
+			goto error;
+	}
 
 	/* Write zeroes to header at beginning of file */
 	if (unlikely(!STDOUT && write(fd_out, header, sizeof(header)) != sizeof(header)))
@@ -1232,8 +1238,10 @@ bool compress_file(rzip_control *control)
 	rzip_fd(control, fd_in, fd_out);
 
 	/* Wwrite magic at end b/c lzma does not tell us properties until it is done */
-	if (!STDOUT)
-		if (unlikely(!write_magic(control))) goto error;
+	if (!STDOUT) {
+		if (unlikely(!write_magic(control)))
+			goto error;
+	}
 
 	if (ENCRYPT)
 		release_hashes(control);
