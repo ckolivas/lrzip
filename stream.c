@@ -1,6 +1,6 @@
 /*
    Copyright (C) 2011 Serge Belyshev
-   Copyright (C) 2006-2015 Con Kolivas
+   Copyright (C) 2006-2016 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
@@ -1607,7 +1607,6 @@ fill_another:
 			return -1;
 		header_length = 1 + (read_len * 3);
 	}
-	print_maxverbose("Fill_buffer stream %d c_len %lld u_len %lld last_head %lld\n", streamno, c_len, u_len, last_head);
 	sinfo->total_read += header_length;
 
 	if (ENCRYPT) {
@@ -1619,6 +1618,7 @@ fill_another:
 	c_len = le64toh(c_len);
 	u_len = le64toh(u_len);
 	last_head = le64toh(last_head);
+	print_maxverbose("Fill_buffer stream %d c_len %lld u_len %lld last_head %lld\n", streamno, c_len, u_len, last_head);
 
 	padded_len = MAX(c_len, MIN_SIZE);
 	sinfo->total_read += padded_len;
