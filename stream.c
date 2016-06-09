@@ -1,6 +1,6 @@
 /*
    Copyright (C) 2011 Serge Belyshev
-   Copyright (C) 2006-2015 Con Kolivas
+   Copyright (C) 2006-2016 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
@@ -1122,7 +1122,8 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 		}
 	}
 	sinfo->initial_pos = get_readseek(control, f);
-	if (unlikely(sinfo->initial_pos == -1)) goto failed;
+	if (unlikely(sinfo->initial_pos == -1))
+		goto failed;
 
 	for (i = 0; i < n; i++) {
 		uchar c, enc_head[25 + SALT_LEN];
@@ -1172,8 +1173,11 @@ again:
 		}
 		sinfo->total_read += header_length;
 
-		if (ENCRYPT)
-			if (unlikely(!decrypt_header(control, enc_head, &c, &v1, &v2, &sinfo->s[i].last_head))) goto failed;
+		if (ENCRYPT) {
+			if (unlikely(!decrypt_header(control, enc_head, &c, &v1, &v2, &sinfo->s[i].last_head)))
+				goto failed;
+			sinfo->total_read += SALT_LEN;
+		}
 
 		v1 = le64toh(v1);
 		v2 = le64toh(v2);
@@ -1228,16 +1232,17 @@ static bool rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, 
 	if (unlikely(!head))
 		fatal_return(("Failed to malloc head in rewrite_encrypted\n"), false);
 	buf = head + SALT_LEN;
-	if (unlikely(!get_rand(control, head, SALT_LEN))) goto error;
+	if (unlikely(!get_rand(control, head, SALT_LEN)))
+		goto error;
 	if (unlikely(seekto(control, sinfo, ofs - SALT_LEN)))
 		failure_goto(("Failed to seekto buf ofs in rewrite_encrypted\n"), error);
 	if (unlikely(write_buf(control, head, SALT_LEN)))
 		failure_goto(("Failed to write_buf head in rewrite_encrypted\n"), error);
 	if (unlikely(read_buf(control, sinfo->fd, buf, 25)))
-
 		failure_goto(("Failed to read_buf buf in rewrite_encrypted\n"), error);
 
-	if (unlikely(!lrz_encrypt(control, buf, 25, head))) goto error;
+	if (unlikely(!lrz_encrypt(control, buf, 25, head)))
+		goto error;
 
 	if (unlikely(seekto(control, sinfo, ofs)))
 		failure_goto(("Failed to seek back to ofs in rewrite_encrypted\n"), error);
@@ -1307,7 +1312,8 @@ retry:
 		cti->s_buf = realloc(cti->s_buf, MIN_SIZE);
 		if (unlikely(!cti->s_buf))
 			fatal_goto(("Failed to realloc s_buf in compthread\n"), error);
-		if (unlikely(!get_rand(control, cti->s_buf + cti->c_len, MIN_SIZE - cti->c_len))) goto error;
+		if (unlikely(!get_rand(control, cti->s_buf + cti->c_len, MIN_SIZE - cti->c_len)))
+			goto error;
 	}
 
 	/* If compression fails for whatever reason multithreaded, then wait
@@ -1363,7 +1369,8 @@ retry:
 
 		/* First chunk of this stream, write headers */
 		ctis->initial_pos = get_seek(control, ctis->fd);
-		if (unlikely(ctis->initial_pos == -1)) goto error;
+		if (unlikely(ctis->initial_pos == -1))
+			goto error;
 
 		print_maxverbose("Writing initial header at %lld\n", ctis->initial_pos);
 		for (j = 0; j < ctis->num_streams; j++) {
@@ -1419,10 +1426,12 @@ retry:
 	ctis->cur_pos += 1 + (write_len * 3);
 
 	if (ENCRYPT) {
-		if (unlikely(!get_rand(control, cti->salt, SALT_LEN))) goto error;
+		if (unlikely(!get_rand(control, cti->salt, SALT_LEN)))
+			goto error;
 		if (unlikely(write_buf(control, cti->salt, SALT_LEN)))
 			fatal_goto(("Failed to write_buf block salt in compthread %d\n", i), error);
-		if (unlikely(!lrz_encrypt(control, cti->s_buf, padded_len, cti->salt))) goto error;
+		if (unlikely(!lrz_encrypt(control, cti->s_buf, padded_len, cti->salt)))
+			goto error;
 		ctis->cur_pos += SALT_LEN;
 	}
 
@@ -1572,8 +1581,11 @@ fill_another:
 	if (unlikely(read_seekto(control, sinfo, s->last_head)))
 		return -1;
 
-	if (unlikely(ENCRYPT && read_buf(control, sinfo->fd, enc_head, SALT_LEN)))
-		return -1;
+	if (ENCRYPT) {
+		if (unlikely(read_buf(control, sinfo->fd, enc_head, SALT_LEN)))
+			return -1;
+		sinfo->total_read += SALT_LEN;
+	}
 
 	if (unlikely(read_u8(control, sinfo->fd, &c_type)))
 		return -1;
@@ -1608,7 +1620,6 @@ fill_another:
 			return -1;
 		header_length = 1 + (read_len * 3);
 	}
-	print_maxverbose("Fill_buffer stream %d c_len %lld u_len %lld last_head %lld\n", streamno, c_len, u_len, last_head);
 	sinfo->total_read += header_length;
 
 	if (ENCRYPT) {
@@ -1616,10 +1627,12 @@ fill_another:
 			return -1;
 		if (unlikely(read_buf(control, sinfo->fd, blocksalt, SALT_LEN)))
 			return -1;
+		sinfo->total_read += SALT_LEN;
 	}
 	c_len = le64toh(c_len);
 	u_len = le64toh(u_len);
 	last_head = le64toh(last_head);
+	print_maxverbose("Fill_buffer stream %d c_len %lld u_len %lld last_head %lld\n", streamno, c_len, u_len, last_head);
 
 	padded_len = MAX(c_len, MIN_SIZE);
 	sinfo->total_read += padded_len;
@@ -1635,9 +1648,10 @@ fill_another:
 	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len)))
 		return -1;
 
-	if (ENCRYPT)
+	if (ENCRYPT) {
 		if (unlikely(!lrz_decrypt(control, s_buf, padded_len, blocksalt)))
 			return -1;
+	}
 
 	ucthread[s->uthread_no].s_buf = s_buf;
 	ucthread[s->uthread_no].c_len = c_len;
