@@ -50,6 +50,7 @@
 #ifdef HAVE_ARPA_INET_H
 # include <arpa/inet.h>
 #endif
+#include <inttypes.h>
 
 #include "md5.h"
 #include "stream.h"
@@ -729,23 +730,35 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 		put_literal(control, st, st->last_match, st->chunk_size);
 
 	if (st->chunk_size > cksum_limit) {
+		i64 cksum_len = control->maxram;
+		void *buf;
+
+		while (42) {
+			round_to_page(&cksum_len);
+			buf = malloc(cksum_len);
+			if (buf) {
+				print_maxverbose("Malloced %"PRId64" for checksum ckbuf\n", cksum_len);
+				break;
+			}
+			cksum_len = cksum_len / 3 * 2;
+			if (cksum_len < control->page_size)
+				failure("Failed to malloc any ram for checksum ckbuf\n");
+		}
+		control->checksum.buf = buf;
+
 		/* Compute checksum. If the entire chunk is longer than maxram,
 		 * do it "per-partes" */
 		cksem_wait(control, &control->cksumsem);
 		control->checksum.len = st->chunk_size - cksum_limit;
-		cksum_chunks = control->checksum.len / control->maxram;
-		cksum_remains = control->checksum.len % control->maxram;
-
-		control->checksum.buf = malloc(control->maxram);
-		if (unlikely(!control->checksum.buf))
-			failure("Failed to malloc ckbuf in hash_search2\n");
+		cksum_chunks = control->checksum.len / cksum_len;
+		cksum_remains = control->checksum.len % cksum_len;
 
 		for (i = 0; i < cksum_chunks; i++) {
-			control->do_mcpy(control, control->checksum.buf, cksum_limit, control->maxram);
-			cksum_limit += control->maxram;
-			st->cksum = CrcUpdate(st->cksum, control->checksum.buf, control->maxram);
+			control->do_mcpy(control, control->checksum.buf, cksum_limit, cksum_len);
+			cksum_limit += cksum_len;
+			st->cksum = CrcUpdate(st->cksum, control->checksum.buf, cksum_len);
 			if (!NO_MD5)
-				md5_process_bytes(control->checksum.buf, control->maxram, &control->ctx);
+				md5_process_bytes(control->checksum.buf, cksum_len, &control->ctx);
 		}
 		/* Process end of the checksum buffer */
 		control->do_mcpy(control, control->checksum.buf, cksum_limit, cksum_remains);
