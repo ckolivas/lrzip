@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2015 Con Kolivas
+   Copyright (C) 2006-2016 Con Kolivas
    Copyright (C) 1998 Andrew Tridgell
 
    Modified to use flat hash, memory limit and variable hash culling
