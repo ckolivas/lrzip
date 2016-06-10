@@ -1,5 +1,51 @@
 lrzip ChangeLog
 
+JUNE 2016, version 0.630 Con Kolivas, Peter Hyman, Petr Písař, Joel Fredrikson
+
+* checksum.buf should only be changed after the semaphore wait
+* Update README
+* Add documentation for recursive mode
+* Implement gzip compatible -r recursive option
+* Add initial argument processing for recursive option
+* Tidy
+* Add one more verbose for compat mode
+* Add support for various combinations in compat mode
+* models is array of chars. char's signess is implementation specific. It's
+unsigned on ARMv7. Unsigned char cannot represent negative values. GCC 6
+complains about it:
+* Fix decompression of multiple chunk encrypted archives
+* Tidy gotos
+* Show correct lengths during testing on big endian and compressed archives
+* Update copyright dates
+* Allow less than maxram to be malloced for checksum to fix Failed to malloc
+ckbuf in hash_search2
+* Base temporary output buffer on maximum mallocable, not maxram
+* Enable subdir objects for future automake compatibility
+* Add support for -m option in lrztar
+* Big endian fix for Solaris Sparc courtesy of joelfredrikson.
+* Fixed typographical error, changed accomodate to accommodate in README.
+* A whitespace fix on lrztar.
+* Add sanity check to prevent trying to malloc more ram than a
+system/environment is capable of
+* Cosmetic help change for compat
+* Add rudimentary manpage for lrz
+* Fix lrz symbolic linkage
+* Do not fail if we are unable to write temporary files, giving a warning only
+that it might fail if we don't have enough ram
+* Try /tmp/ if none of the temporary environment directories or the current
+directory are writeable
+* Set STDOUT correctly in compat mode
+* Style police
+* Fix false warning on decompressing from stdin without keep files
+* Fix false warning on compressing from stdin without keep files
+* Don't show extra message in compat mode decompress
+* Show correct appname when called in compat mode
+* Add support for progress, fast and best flags in compat mode
+* Add compatibility mode with gzip when called as lrz
+* Correct adding slash to control->tmpdir. off-by-one error.
+* Update manpage for long options
+
+
 MARCH 2015, version 0.621 Con Kolivas, Peter Hyman
 
 * Fix libzpaq.cpp warnings
@@ -308,7 +354,7 @@ disabling echo via terminfo. Take the password then multiply hash it
 according to the date it was generated. Inrease the number of hashes according
 to Moore's law so it always takes approximately 1 second per password on the
 most modern hardware when first encrypted. Hash the password against 8 bytes
-of salt which is a combination of the 2 byte encoded loop counter (for how 
+of salt which is a combination of the 2 byte encoded loop counter (for how
 many times to hash the password) and 6 random bytes. Take random from
 /dev/urandom if it's available and fall back to random() if not. Encrypt each
 block of compressed data with 8 extra bytes of random salt. Once the headers
@@ -413,7 +459,7 @@ header denoting its existence.
 * Use the header flag for md5's existence to determine what hash check to
 perform on decompression.
 * Add hash value display to maximum verbose output and in information mode.
-* Add -H option to enable hash value displaying without verbose mode. 
+* Add -H option to enable hash value displaying without verbose mode.
 * Display what hash checking will be used on decompression in verbose mode and
 in information displayed with -i.
 * Add -c option to perform a hash check on the file generated on decompression,
@@ -449,7 +495,7 @@ finished. This speeds up compression on files that take more than one pass to
 compress.
 * Limit the number of threads decompressing stream 0 to just 1 since it's always
 followed by stream 1 chunks, and it may lead to failure to decompress due to
-running out of memory by running too many threads. 
+running out of memory by running too many threads.
 * Default compression level and window size on lzma is set to 7 which is the
 highest it goes. Scale the 9 lrzip levels into 7, thus making the default lzma
 level 5 which uses a lot less memory and is substantially faster at the cost of
