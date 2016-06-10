@@ -50,6 +50,7 @@
 #endif
 
 #include <getopt.h>
+#include <libgen.h>
 
 #include "rzip.h"
 #include "lrzip_core.h"
@@ -61,28 +62,39 @@
 
 static rzip_control base_control, local_control, *control;
 
-static void usage(void)
+static void usage(bool compat)
 {
-	print_output("lrzip version %s\n", PACKAGE_VERSION);
+	print_output("lrz%s version %s\n", compat ? "" : "ip", PACKAGE_VERSION);
 	print_output("Copyright (C) Con Kolivas 2006-2015\n");
 	print_output("Based on rzip ");
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
-	print_output("Usage: lrzip [options] <file...>\n");
+	print_output("Usage: lrz%s [options] <file...>\n", compat ? "" : "ip");
 	print_output("General options:\n");
-	print_output("	-c, --check		check integrity of file written on decompression\n");
+	if (compat) {
+		print_output("	-c, --stdout		output to STDOUT\n");
+		print_output("	-C, --check		check integrity of file written on decompression\n");
+	} else
+		print_output("	-c, -C, --check		check integrity of file written on decompression\n");
 	print_output("	-d, --decompress	decompress\n");
 	print_output("	-e, --encrypt		password protected sha512/aes128 encryption on compression\n");
 	print_output("	-h, -?, --help		show help\n");
 	print_output("	-H, --hash		display md5 hash integrity information\n");
 	print_output("	-i, --info		show compressed file information\n");
-	print_output("	-q, --quiet		don't show compression progress\n");
+	if (compat) {
+		print_output("	-L, --license		display software version and license\n");
+		print_output("	-P, --progress		show compression progress\n");
+	} else
+		print_output("	-q, --quiet		don't show compression progress\n");
 	print_output("	-t, --test		test compressed file integrity\n");
-	print_output("	-v[v], --verbose	Increase verbosity\n");
+	print_output("	-v[v%s], --verbose	Increase verbosity\n", compat ? "v" : "");
 	print_output("	-V, --version		show version\n");
 	print_output("Options affecting output:\n");
-	print_output("	-D, --delete		delete existing files\n");
+	if (!compat)
+		print_output("	-D, --delete		delete existing files\n");
 	print_output("	-f, --force		force overwrite of any existing files\n");
-	print_output("	-k, --keep-broken	keep broken or damaged output files\n");
+	if (compat)
+		print_output("	-k, --keep		don't delete source files on de/compression\n");
+	print_output("	-%s, --keep-broken	keep broken or damaged output files\n", compat ? "K" : "k, -K");
 	print_output("	-o, --outfile filename	specify the output file name and/or path\n");
 	print_output("	-O, --outdir directory	specify the output directory when -o is not used\n");
 	print_output("	-S, --suffix suffix	specify compressed suffix (default '.lrz')\n");
@@ -93,8 +105,13 @@ static void usage(void)
 	print_output("	-n, --no-compress	no backend compression - prepare for other compressor\n");
 	print_output("	-z, --zpaq		zpaq compression (best, extreme compression, extremely slow)\n");
 	print_output("Low level options:\n");
+	if (compat) {
+		print_output("	-1 .. -9		set lzma/bzip2/gzip compression level (1-9, default 7)\n");
+		print_output("	--fast			alias for -1\n");
+		print_output("	--best			alias for -9\n");
+	}
 	print_output("	-L, --level level	set lzma/bzip2/gzip compression level (1-9, default 7)\n");
-	print_output("	-N, --nice-level value	Set nice value to value (default 19)\n");
+	print_output("	-N, --nice-level value	Set nice value to value (default %d)\n", compat ? 0 : 19);
 	print_output("	-p, --threads value	Set processor count to override number of threads\n");
 	print_output("	-m, --maxram size	Set maximim available ram in hundreds of MB\n");
 	print_output("				overrides detected ammount of available ram\n");
@@ -189,57 +206,79 @@ static void show_summary(void)
 }
 
 static struct option long_options[] = {
-	{"bzip2",	no_argument,	0,	'b'},
+	{"bzip2",	no_argument,	0,	'b'}, /* 0 */
 	{"check",	no_argument,	0,	'c'},
+	{"check",	no_argument,	0,	'C'},
 	{"decompress",	no_argument,	0,	'd'},
 	{"delete",	no_argument,	0,	'D'},
-	{"encrypt",	no_argument,	0,	'e'},
+	{"encrypt",	no_argument,	0,	'e'}, /* 5 */
 	{"force",	no_argument,	0,	'f'},
 	{"gzip",	no_argument,	0,	'g'},
 	{"help",	no_argument,	0,	'h'},
 	{"hash",	no_argument,	0,	'H'},
-	{"info",	no_argument,	0,	'i'},
+	{"info",	no_argument,	0,	'i'}, /* 10 */
 	{"keep-broken",	no_argument,	0,	'k'},
+	{"keep-broken",	no_argument,	0,	'K'},
 	{"lzo",		no_argument,	0,	'l'},
-	{"level",	no_argument,	0,	'L'},
-	{"maxram",	required_argument,	0,	'm'},
+	{"level",	required_argument,	0,	'L'},
+	{"maxram",	required_argument,	0,	'm'}, /* 15 */
 	{"no-compress",	no_argument,	0,	'n'},
 	{"nice-level",	required_argument,	0,	'N'},
 	{"outfile",	required_argument,	0,	'o'},
 	{"outdir",	required_argument,	0,	'O'},
-	{"threads",	required_argument,	0,	'p'},
+	{"threads",	required_argument,	0,	'p'}, /* 20 */
+	{"progress",	no_argument,	0,	'P'},
 	{"quiet",	no_argument,	0,	'q'},
 	{"suffix",	required_argument,	0,	'S'},
 	{"test",	no_argument,	0,	't'},
-	{"threshold",	required_argument,	0,	'T'},
+	{"threshold",	required_argument,	0,	'T'}, /* 25 */
 	{"unlimited",	no_argument,	0,	'U'},
 	{"verbose",	no_argument,	0,	'v'},
 	{"version",	no_argument,	0,	'V'},
 	{"window",	required_argument,	0,	'w'},
-	{"zpaq",	no_argument,	0,	'z'},
+	{"zpaq",	no_argument,	0,	'z'}, /* 30 */
+	{"fast",	no_argument,	0,	'1'},
+	{"best",	no_argument,	0,	'9'},
 	{0,	0,	0,	0},
 };
 
+static void set_stdout(struct rzip_control *control)
+{
+	control->flags |= FLAG_STDOUT;
+	control->outFILE = stdout;
+	control->msgout = stderr;
+	register_outputfile(control, control->msgout);
+}
+
 int main(int argc, char *argv[])
 {
+	bool lrzcat = false, compat = false;
 	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
-	bool lrzcat = false;
 	int c, i;
 	int hours,minutes;
 	extern int optind;
-	char *eptr; /* for environment */
+	char *eptr, *av; /* for environment */
 
         control = &base_control;
 
 	initialise_control(control);
 
-	if (strstr(argv[0], "lrunzip"))
+	av = basename(argv[0]);
+	if (!strcmp(av, "lrunzip"))
 		control->flags |= FLAG_DECOMPRESS;
-	else if (strstr(argv[0], "lrzcat")) {
+	else if (!strcmp(av, "lrzcat")) {
 		control->flags |= FLAG_DECOMPRESS | FLAG_STDOUT;
 		lrzcat = true;
+	} else if (!strcmp(av, "lrz")) {
+		/* Called in gzip compatible command line mode */
+		control->flags &= ~FLAG_SHOW_PROGRESS;
+		control->nice_val = 0;
+		control->flags &= ~FLAG_KEEP_FILES;
+		compat = true;
+		long_options[1].name = "stdout";
+		long_options[11].name = "keep";
 	}
 
 	/* generate crc table */
@@ -255,7 +294,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(control);
 
-	while ((c = getopt_long(argc, argv, "bcdDefghHiklL:nN:o:O:p:qS:tTUm:vVw:z?", long_options, &i)) != -1) {
+	while ((c = getopt_long(argc, argv, "bcCdDefghHikKlL:nN:o:O:pPqS:tTUm:vVw:z?123456789", long_options, &i)) != -1) {
 		switch (c) {
 		case 'b':
 			if (control->flags & FLAG_NOT_LZMA)
@@ -263,6 +302,12 @@ int main(int argc, char *argv[])
 			control->flags |= FLAG_BZIP2_COMPRESS;
 			break;
 		case 'c':
+			if (compat) {
+				control->flags |= FLAG_KEEP_FILES;
+				set_stdout(control);
+				break;
+			}
+		case 'C':
 			control->flags |= FLAG_CHECK;
 			control->flags |= FLAG_HASH;
 			break;
@@ -285,7 +330,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'h':
 		case '?':
-			usage();
+			usage(compat);
 			return -1;
 		case 'H':
 			control->flags |= FLAG_HASH;
@@ -294,6 +339,11 @@ int main(int argc, char *argv[])
 			control->flags |= FLAG_INFO;
 			break;
 		case 'k':
+			if (compat) {
+				control->flags |= FLAG_KEEP_FILES;
+				break;
+			}
+		case 'K':
 			control->flags |= FLAG_KEEP_BROKEN;
 			break;
 		case 'l':
@@ -344,6 +394,9 @@ int main(int argc, char *argv[])
 			if (control->threads < 1)
 				failure("Must have at least one thread\n");
 			break;
+		case 'P':
+			control->flags |= FLAG_SHOW_PROGRESS;
+			break;
 		case 'q':
 			control->flags &= ~FLAG_SHOW_PROGRESS;
 			break;
@@ -357,6 +410,8 @@ int main(int argc, char *argv[])
 		case 't':
 			if (control->outname)
 				failure("Cannot specify an output file name when just testing.\n");
+			if (compat)
+				control->flags |= FLAG_KEEP_FILES;
 			if (!KEEP_FILES)
 				failure("Doubt that you want to delete a file when just testing.\n");
 			control->flags |= FLAG_TEST_ONLY;
@@ -369,7 +424,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'v':
 			/* set verbosity flag */
-			if (!(control->flags & FLAG_VERBOSITY) && !(control->flags & FLAG_VERBOSITY_MAX))
+			if (!(control->flags & FLAG_SHOW_PROGRESS))
+				control->flags |= FLAG_SHOW_PROGRESS;
+			else if (!(control->flags & FLAG_VERBOSITY) && !(control->flags & FLAG_VERBOSITY_MAX))
 				control->flags |= FLAG_VERBOSITY;
 			else if ((control->flags & FLAG_VERBOSITY)) {
 				control->flags &= ~FLAG_VERBOSITY;
@@ -387,6 +444,17 @@ int main(int argc, char *argv[])
 			if (control->flags & FLAG_NOT_LZMA)
 				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			control->flags |= FLAG_ZPAQ_COMPRESS;
+			break;
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			control->compression_level = c - '0';
 			break;
 		}
 	}
@@ -449,15 +517,11 @@ int main(int argc, char *argv[])
 		if (INFO && STDIN)
 			failure("Will not get file info from STDIN\n");
 
+		/* If no output filename is specified, and we're using
+		 * stdin, use stdout */
 		if ((control->outname && (strcmp(control->outname, "-") == 0)) ||
-			/* If no output filename is specified, and we're using
-			 * stdin, use stdout */
-			(!control->outname && STDIN) || lrzcat ) {
-				control->flags |= FLAG_STDOUT;
-				control->outFILE = stdout;
-				control->msgout = stderr;
-				register_outputfile(control, control->msgout);
-		}
+		    (!control->outname && STDIN) || lrzcat)
+				set_stdout(control);
 
 		if (lrzcat) {
 			control->msgout = stderr;
@@ -482,12 +546,12 @@ int main(int argc, char *argv[])
 		if (!FORCE_REPLACE) {
 			if (STDIN && isatty(fileno((FILE *)stdin))) {
 				print_err("Will not read stdin from a terminal. Use -f to override.\n");
-				usage();
+				usage(compat);
 				exit (1);
 			}
-			if (!TEST_ONLY && STDOUT && isatty(fileno((FILE *)stdout))) {
+			if (!TEST_ONLY && STDOUT && isatty(fileno((FILE *)stdout)) && !compat) {
 				print_err("Will not write stdout to a terminal. Use -f to override.\n");
-				usage();
+				usage(compat);
 				exit (1);
 			}
 		}

@@ -311,8 +311,8 @@ int open_tmpoutfile(rzip_control *control)
 
 	fd_out = mkstemp(control->outfile);
 	if (fd_out == -1) {
-		print_verbose("WARNING: Failed to create out tmpfile: %s , will fail if cannot perform entirely in ram\n",
-			      control->outfile, DECOMPRESS ? "de" : "");
+		print_progress("WARNING: Failed to create out tmpfile: %s, will fail if cannot perform %scompression entirely in ram\n",
+			       control->outfile, DECOMPRESS ? "de" : "");
 	} else
 		register_outfile(control, control->outfile, TEST_ONLY || STDOUT || !KEEP_BROKEN);
 	return fd_out;
@@ -424,31 +424,50 @@ bool write_fdin(rzip_control *control)
 /* Open a temporary inputfile to perform stdin decompression */
 int open_tmpinfile(rzip_control *control)
 {
-	int fd_in;
+	int fd_in = -1;
 
+	/* Use temporary directory if there is one */
 	if (control->tmpdir) {
 		control->infile = malloc(strlen(control->tmpdir) + 15);
 		if (unlikely(!control->infile))
 			fatal_return(("Failed to allocate infile name\n"), -1);
 		strcpy(control->infile, control->tmpdir);
 		strcat(control->infile, "lrzipin.XXXXXX");
-	} else {
-		control->infile = malloc(15);
+		fd_in = mkstemp(control->infile);
+	}
+
+	/* Try the current directory */
+	if (fd_in == -1) {
+		free(control->infile);
+		control->infile = malloc(16);
 		if (unlikely(!control->infile))
 			fatal_return(("Failed to allocate infile name\n"), -1);
 		strcpy(control->infile, "lrzipin.XXXXXX");
+		fd_in = mkstemp(control->infile);
 	}
 
-	fd_in = mkstemp(control->infile);
-	if (unlikely(fd_in == -1))
-		fatal_return(("Failed to create in tmpfile: %s\n", control->infile), -1);
-	register_infile(control, control->infile, (DECOMPRESS || TEST_ONLY) && STDIN);
-	/* Unlink temporary file immediately to minimise chance of files left
-	 * lying around in cases of failure_return((. */
-	if (unlikely(unlink(control->infile))) {
-		fatal("Failed to unlink tmpfile: %s\n", control->infile);
-		close(fd_in);
-		return -1;
+	/* Use /tmp if nothing is writeable so far */
+	if (fd_in == -1) {
+		free(control->infile);
+		control->infile = malloc(20);
+		if (unlikely(!control->infile))
+			fatal_return(("Failed to allocate infile name\n"), -1);
+		strcpy(control->infile, "/tmp/lrzipin.XXXXXX");
+		fd_in = mkstemp(control->infile);
+	}
+
+	if (fd_in == -1) {
+		print_progress("WARNING: Failed to create in tmpfile: %s, will fail if cannot perform %scompression entirely in ram\n",
+			       control->infile, DECOMPRESS ? "de" : "");
+	} else {
+		register_infile(control, control->infile, (DECOMPRESS || TEST_ONLY) && STDIN);
+		/* Unlink temporary file immediately to minimise chance of files left
+		* lying around in cases of failure_return((. */
+		if (unlikely(unlink(control->infile))) {
+			fatal("Failed to unlink tmpfile: %s\n", control->infile);
+			close(fd_in);
+			return -1;
+		}
 	}
 	return fd_in;
 }
@@ -474,6 +493,8 @@ bool read_tmpinfile(rzip_control *control, int fd_in)
 	FILE *tmpinfp;
 	int tmpchar;
 
+	if (fd_in == -1)
+		return false;
 	if (control->flags & FLAG_SHOW_PROGRESS)
 		fprintf(control->msgout, "Copying from stdin.\n");
 	tmpinfp = fdopen(fd_in, "w+");
@@ -715,8 +736,6 @@ bool decompress_file(rzip_control *control)
 
 	if (STDIN) {
 		fd_in = open_tmpinfile(control);
-		if (unlikely(fd_in == -1))
-			return false;
 		read_tmpinmagic(control);
 		if (ENCRYPT)
 			failure_return(("Cannot decompress encrypted file from STDIN\n"), false);
@@ -769,9 +788,10 @@ bool decompress_file(rzip_control *control)
 	if (unlikely(!open_tmpoutbuf(control)))
 		return false;
 
-	if (!STDIN)
+	if (!STDIN) {
 		if (unlikely(!read_magic(control, fd_in, &expected_size)))
 			return false;
+	}
 
 	if (!STDOUT && !TEST_ONLY) {
 		/* Check if there's enough free space on the device chosen to fit the
@@ -814,7 +834,7 @@ bool decompress_file(rzip_control *control)
 	/* if we get here, no fatal_return(( errors during decompression */
 	print_progress("\r");
 	if (!(STDOUT | TEST_ONLY))
-		print_output("Output filename is: %s: ", control->outfile);
+		print_progress("Output filename is: %s: ", control->outfile);
 	if (!expected_size)
 		expected_size = control->st_size;
 	if (!ENCRYPT)
@@ -832,7 +852,7 @@ bool decompress_file(rzip_control *control)
 
 	close(fd_in);
 
-	if (!KEEP_FILES) {
+	if (!KEEP_FILES && !STDIN) {
 		if (unlikely(unlink(control->infile)))
 			fatal_return(("Failed to unlink %s\n", infilecopy), false);
 	}
@@ -941,7 +961,8 @@ bool get_fileinfo(rzip_control *control)
 	infile_size = st.st_size;
 
 	/* Get decompressed size */
-	if (unlikely(!read_magic(control, fd_in, &expected_size))) goto error;
+	if (unlikely(!read_magic(control, fd_in, &expected_size)))
+		goto error;
 
 	if (ENCRYPT) {
 		print_output("Encrypted lrzip archive. No further information available\n");
@@ -1201,10 +1222,14 @@ bool compress_file(rzip_control *control)
 			fatal_goto(("Failed to create %s\n", control->outfile), error);
 		}
 		control->fd_out = fd_out;
-		if (!STDIN)
-			if (unlikely(!preserve_perms(control, fd_in, fd_out))) goto error;
-	} else
-		if (unlikely(!open_tmpoutbuf(control))) goto error;
+		if (!STDIN) {
+			if (unlikely(!preserve_perms(control, fd_in, fd_out)))
+				goto error;
+		}
+	} else {
+		if (unlikely(!open_tmpoutbuf(control)))
+			goto error;
+	}
 
 	/* Write zeroes to header at beginning of file */
 	if (unlikely(!STDOUT && write(fd_out, header, sizeof(header)) != sizeof(header)))
@@ -1213,8 +1238,10 @@ bool compress_file(rzip_control *control)
 	rzip_fd(control, fd_in, fd_out);
 
 	/* Wwrite magic at end b/c lzma does not tell us properties until it is done */
-	if (!STDOUT)
-		if (unlikely(!write_magic(control))) goto error;
+	if (!STDOUT) {
+		if (unlikely(!write_magic(control)))
+			goto error;
+	}
 
 	if (ENCRYPT)
 		release_hashes(control);
@@ -1229,7 +1256,7 @@ bool compress_file(rzip_control *control)
 	if (TMP_OUTBUF)
 		close_tmpoutbuf(control);
 
-	if (!KEEP_FILES) {
+	if (!KEEP_FILES && !STDIN) {
 		if (unlikely(unlink(control->infile)))
 			fatal_return(("Failed to unlink %s\n", control->infile), false);
 	}
@@ -1288,13 +1315,13 @@ bool initialise_control(rzip_control *control)
 	}
 	size_t len = strlen(eptr);
 
-	control->tmpdir = malloc(len+2);
+	control->tmpdir = malloc(len + 2);
 	if (control->tmpdir == NULL)
 		fatal_return(("Failed to allocate for tmpdir\n"), false);
 	strcpy(control->tmpdir, eptr);
-	if (control->tmpdir[len-1] != '/') {
+	if (control->tmpdir[len - 1] != '/') {
 		control->tmpdir[len] = '/'; /* need a trailing slash */
-		control->tmpdir[len+1] = '\0';
+		control->tmpdir[len + 1] = '\0';
 	}
 	return true;
 }
