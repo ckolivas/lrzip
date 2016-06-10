@@ -65,7 +65,7 @@ static rzip_control base_control, local_control, *control;
 static void usage(bool compat)
 {
 	print_output("lrz%s version %s\n", compat ? "" : "ip", PACKAGE_VERSION);
-	print_output("Copyright (C) Con Kolivas 2006-2015\n");
+	print_output("Copyright (C) Con Kolivas 2006-2016\n");
 	print_output("Based on rzip ");
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
 	print_output("Usage: lrz%s [options] <file...>\n", compat ? "" : "ip");
@@ -85,6 +85,7 @@ static void usage(bool compat)
 		print_output("	-P, --progress		show compression progress\n");
 	} else
 		print_output("	-q, --quiet		don't show compression progress\n");
+	print_output("	-r, --recursive		operate recursively on directories\n");
 	print_output("	-t, --test		test compressed file integrity\n");
 	print_output("	-v[v%s], --verbose	Increase verbosity\n", compat ? "v" : "");
 	print_output("	-V, --version		show version\n");
@@ -229,6 +230,7 @@ static struct option long_options[] = {
 	{"threads",	required_argument,	0,	'p'}, /* 20 */
 	{"progress",	no_argument,	0,	'P'},
 	{"quiet",	no_argument,	0,	'q'},
+	{"recursive",	no_argument,	0,	'r'},
 	{"suffix",	required_argument,	0,	'S'},
 	{"test",	no_argument,	0,	't'},
 	{"threshold",	required_argument,	0,	'T'}, /* 25 */
@@ -252,7 +254,7 @@ static void set_stdout(struct rzip_control *control)
 
 int main(int argc, char *argv[])
 {
-	bool lrzcat = false, compat = false;
+	bool lrzcat = false, compat = false, recurse = false;
 	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
@@ -294,7 +296,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(control);
 
-	while ((c = getopt_long(argc, argv, "bcCdDefghHikKlL:nN:o:O:pPqS:tTUm:vVw:z?123456789", long_options, &i)) != -1) {
+	while ((c = getopt_long(argc, argv, "bcCdDefghHikKlL:nN:o:O:pPqrS:tTUm:vVw:z?123456789", long_options, &i)) != -1) {
 		switch (c) {
 		case 'b':
 			if (control->flags & FLAG_NOT_LZMA)
@@ -400,6 +402,9 @@ int main(int argc, char *argv[])
 		case 'q':
 			control->flags &= ~FLAG_SHOW_PROGRESS;
 			break;
+		case 'r':
+			recurse = true;
+			break;
 		case 'S':
 			if (control->outname)
 				failure("Specified output filename already, can't specify an extension.\n");
@@ -462,8 +467,12 @@ int main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (control->outname && argc > 1)
-		failure("Cannot specify output filename with more than 1 file\n");
+	if (control->outname) {
+		if (argc > 1)
+			failure("Cannot specify output filename with more than 1 file\n");
+		if (recurse)
+			failure("Cannot specify output filename with recursive\n");
+	}
 
 	if (VERBOSE && !SHOW_PROGRESS) {
 		print_err("Cannot have -v and -q options. -v wins.\n");
@@ -514,6 +523,8 @@ int main(int argc, char *argv[])
 			}
 		}
 
+		if (recurse && (STDIN || STDOUT))
+			failure("Cannot use -r recursive with STDIO\n");
 		if (INFO && STDIN)
 			failure("Will not get file info from STDIN\n");
 
