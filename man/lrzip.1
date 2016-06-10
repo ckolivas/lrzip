@@ -1,4 +1,4 @@
-.TH "lrzip" "1" "April 2015" "" ""
+.TH "lrzip" "1" "June 2016" "" ""
 .SH "NAME"
 lrzip \- a large-file compression program
 .SH "SYNOPSIS"
@@ -43,6 +43,7 @@ General options:
  \-H, \-\-hash              display md5 hash integrity information
  \-i, \-\-info              show compressed file information
  \-q, \-\-quiet             don't show compression progress
+ \-r, \-\-recursive         operate recursively on directories
  \-t, \-\-test              test compressed file integrity
  \-v[v], \-\-verbose        Increase verbosity
  \-V, \-\-version           show version
@@ -139,6 +140,13 @@ percentage progress while compressing. Note that compression happens in
 bursts with lzma compression which is the default compression. This means
 that it will progress very rapidly for short periods and then stop for
 long periods.
+.IP
+.IP "\fB-r\fP"
+If this option is specified, lrzip will recursively enter the directories
+specified, compressing or decompressing every file individually in the same
+directory. Note for better compression it is recommended to instead combine
+files in a tar file rather than compress them separately, either manually
+or with the lrztar helper.
 .IP
 .IP "\fB-t\fP"
 This tests the compressed file integrity. It does this by decompressing it
