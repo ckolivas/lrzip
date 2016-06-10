@@ -4,7 +4,7 @@ lrzip - Long Range ZIP or LZMA RZIP
 A compression utility that excels at compressing large files (usually > 10-50 MB).
 Larger files and/or more free RAM means that the utility will be able to more
 effectively compress your files (ie: faster / smaller size), especially if the
-filesize(s) exceed 100 MB. You can either choose to optimize for speed (fast
+filesize(s) exceed 100 MB. You can either choose to optimise for speed (fast
 compression / decompression) or size, but not both.
 
 
@@ -89,6 +89,8 @@ Simple 'n Easy™: `sudo make install`
 |`lrzip -z filename`|An archive "filename.lrz" compressed with **ZPAQ** that can give extreme compression, but takes a bit longer than forever to compress and decompress.|
 |`lrzip -l filename`|An archive lightly compressed with **LZO**, meaning really, really fast compression and decompression.|
 |`lrunzip filename.lrz`|Decompress filename.lrz to filename.|
+|`lrz filename`|As per lrzip above but with gzip compatible semantics (i.e. will be quiet and delete original file)
+|`lrz -d filename.lrz`|As per lrunzip above but with gzip compatible semantics (i.e. will be quiet and delete original file)
 
 ### lrzip internals
 
@@ -281,13 +283,13 @@ its very nature has very little redundancy. This means that there is not
 much that can actually be compressed. If your video/audio/picture is in a
 high bitrate, there will be more redundancy than a low bitrate one making it
 more suitable to compression. None of the compression techniques in lrzip are
-optimised for this sort of dat
+optimised for this sort of data.
 > A: However, the nature of rzip preparation
 means that you'll still get better compression than most normal compression
 algorithms give you if you have very large files. ISO images of dvds for
 example are best compressed directly instead of individual .VOB files. ZPAQ is
 the only compression format that can do any significant compression of
-multimedi
+multimedia.
 > A:
 
 > Q: Is this multithreaded?
@@ -397,8 +399,13 @@ compression backend (lzma) needs to compress.
 
 > Q: This version is much slower than the old version?
 
-> A: Make sure you have set CFLAGS and CXXFLAGS. An unoptimized build will be
+> A: Make sure you have set CFLAGS and CXXFLAGS. An unoptimised build will be
 almost 3 times slower.
+
+> Q: Why not update to the latest version of libzpaq?
+
+> A: For reasons that are unclear the later versions of libzpaq create
+corrupt archives when included with lrzip
 
 #### LIMITATIONS
 Due to mmap limitations the maximum size a window can be set to is currently
@@ -465,7 +472,7 @@ Persons above are listed in chronological order of first contribution to **lrzip
 #### README Authors
 
 Con Kolivas (`ckolivas` on GitHub) <kernel@kolivas.org>
-Sat, 11 March 2011: README
+Fri, 10 June 2016: README
 
 Also documented by
 Peter Hyman <pete@peterhyman.com>
