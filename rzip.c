@@ -744,11 +744,11 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 			if (cksum_len < control->page_size)
 				failure("Failed to malloc any ram for checksum ckbuf\n");
 		}
-		control->checksum.buf = buf;
 
 		/* Compute checksum. If the entire chunk is longer than maxram,
 		 * do it "per-partes" */
 		cksem_wait(control, &control->cksumsem);
+		control->checksum.buf = buf;
 		control->checksum.len = st->chunk_size - cksum_limit;
 		cksum_chunks = control->checksum.len / cksum_len;
 		cksum_remains = control->checksum.len % cksum_len;

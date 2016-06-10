@@ -578,8 +578,8 @@ int main(int argc, char *argv[])
 recursion:
 		if (recurse) {
 			if (curentry >= direntries) {
-				free(dirlist);
-				break;
+				infile = NULL;
+				continue;
 			}
 			infile = dirlist + MAX_PATH_LEN * curentry++;
 		}
