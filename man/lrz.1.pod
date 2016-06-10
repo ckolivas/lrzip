@@ -1,6 +1,6 @@
 #   Copyright
 #
-#      Copyright (C) 2015 Con Kolivas
+#      Copyright (C) 2016 Con Kolivas
 #
 #   License
 #
@@ -48,8 +48,8 @@ lrz - gzip compatible command line variant of lrzip
 
 =head1 DESCRIPTION
 
-lrz is identical to the lrzip application however its command line options are
-made to be as compatible with gzip as possible.
+lrz is identical to the lrzip application however its command line options and
+behaviour are made to be as compatible with gzip as possible.
 
 =head1 OPTIONS
 
@@ -65,8 +65,9 @@ General options:
         -i, --info              show compressed file information
         -L, --license           display software version and license
         -P, --progress          show compression progress
+        -r, --recursive         operate recursively on directories
         -t, --test              test compressed file integrity
-        -v[v], --verbose        Increase verbosity
+        -v[vv], --verbose       Increase verbosity
         -V, --version           show version
 Options affecting output:
         -f, --force             force overwrite of any existing files

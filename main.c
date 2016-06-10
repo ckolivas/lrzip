@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2015 Con Kolivas
+   Copyright (C) 2006-2016 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -49,6 +49,7 @@
 # include <arpa/inet.h>
 #endif
 
+#include <dirent.h>
 #include <getopt.h>
 #include <libgen.h>
 
@@ -60,12 +61,14 @@
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
 
+#define MAX_PATH_LEN 4096
+
 static rzip_control base_control, local_control, *control;
 
 static void usage(bool compat)
 {
 	print_output("lrz%s version %s\n", compat ? "" : "ip", PACKAGE_VERSION);
-	print_output("Copyright (C) Con Kolivas 2006-2015\n");
+	print_output("Copyright (C) Con Kolivas 2006-2016\n");
 	print_output("Based on rzip ");
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
 	print_output("Usage: lrz%s [options] <file...>\n", compat ? "" : "ip");
@@ -85,6 +88,7 @@ static void usage(bool compat)
 		print_output("	-P, --progress		show compression progress\n");
 	} else
 		print_output("	-q, --quiet		don't show compression progress\n");
+	print_output("	-r, --recursive		operate recursively on directories\n");
 	print_output("	-t, --test		test compressed file integrity\n");
 	print_output("	-v[v%s], --verbose	Increase verbosity\n", compat ? "v" : "");
 	print_output("	-V, --version		show version\n");
@@ -229,6 +233,7 @@ static struct option long_options[] = {
 	{"threads",	required_argument,	0,	'p'}, /* 20 */
 	{"progress",	no_argument,	0,	'P'},
 	{"quiet",	no_argument,	0,	'q'},
+	{"recursive",	no_argument,	0,	'r'},
 	{"suffix",	required_argument,	0,	'S'},
 	{"test",	no_argument,	0,	't'},
 	{"threshold",	required_argument,	0,	'T'}, /* 25 */
@@ -250,9 +255,41 @@ static void set_stdout(struct rzip_control *control)
 	register_outputfile(control, control->msgout);
 }
 
+/* Recursively enter all directories, adding all regular files to the dirlist array */
+static void recurse_dirlist(char *indir, char **dirlist, int *entries)
+{
+	char fname[MAX_PATH_LEN];
+	struct stat istat;
+	struct dirent *dp;
+	DIR *dirp;
+
+	dirp = opendir(indir);
+	if (unlikely(!dirp))
+		failure("Unable to open directory %s\n", indir);
+	while ((dp = readdir(dirp)) != NULL) {
+		if (!strcmp(dp->d_name, ".") || !strcmp(dp->d_name, ".."))
+			continue;
+		sprintf(fname, "%s/%s", indir, dp->d_name);
+		if (unlikely(stat(fname, &istat)))
+			failure("Unable to stat file %s\n", fname);
+		if (S_ISDIR(istat.st_mode)) {
+			recurse_dirlist(fname, dirlist, entries);
+			continue;
+		}
+		if (!S_ISREG(istat.st_mode)) {
+			print_err("Not regular file %s\n", fname);
+			continue;
+		}
+		print_maxverbose("Added file %s\n", fname);
+		*dirlist = realloc(*dirlist, MAX_PATH_LEN * (*entries + 1));
+		strcpy(*dirlist + MAX_PATH_LEN * (*entries)++, fname);
+	}
+	closedir(dirp);
+}
+
 int main(int argc, char *argv[])
 {
-	bool lrzcat = false, compat = false;
+	bool lrzcat = false, compat = false, recurse = false;
 	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
@@ -294,7 +331,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(control);
 
-	while ((c = getopt_long(argc, argv, "bcCdDefghHikKlL:nN:o:O:pPqS:tTUm:vVw:z?123456789", long_options, &i)) != -1) {
+	while ((c = getopt_long(argc, argv, "bcCdDefghHikKlL:nN:o:O:pPqrS:tTUm:vVw:z?123456789", long_options, &i)) != -1) {
 		switch (c) {
 		case 'b':
 			if (control->flags & FLAG_NOT_LZMA)
@@ -400,6 +437,9 @@ int main(int argc, char *argv[])
 		case 'q':
 			control->flags &= ~FLAG_SHOW_PROGRESS;
 			break;
+		case 'r':
+			recurse = true;
+			break;
 		case 'S':
 			if (control->outname)
 				failure("Specified output filename already, can't specify an extension.\n");
@@ -462,8 +502,12 @@ int main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (control->outname && argc > 1)
-		failure("Cannot specify output filename with more than 1 file\n");
+	if (control->outname) {
+		if (argc > 1)
+			failure("Cannot specify output filename with more than 1 file\n");
+		if (recurse)
+			failure("Cannot specify output filename with recursive\n");
+	}
 
 	if (VERBOSE && !SHOW_PROGRESS) {
 		print_err("Cannot have -v and -q options. -v wins.\n");
@@ -497,25 +541,49 @@ int main(int argc, char *argv[])
 
 	/* One extra iteration for the case of no parameters means we will default to stdin/out */
 	for (i = 0; i <= argc; i++) {
+		char *dirlist = NULL, *infile = NULL;
+		int direntries = 0, curentry = 0;
+
 		if (i < argc)
-			control->infile = argv[i];
+			infile = argv[i];
 		else if (!(i == 0 && STDIN))
 			break;
-		if (control->infile) {
-			if ((strcmp(control->infile, "-") == 0))
+		if (infile) {
+			if ((strcmp(infile, "-") == 0))
 				control->flags |= FLAG_STDIN;
 			else {
-				struct stat infile_stat;
+				bool isdir = false;
+				struct stat istat;
 
-				stat(control->infile, &infile_stat);
-				if (unlikely(S_ISDIR(infile_stat.st_mode)))
-					failure("lrzip only works directly on FILES.\n"
-					"Use lrztar or pipe through tar for compressing directories.\n");
+				if (unlikely(stat(infile, &istat)))
+					failure("Failed to stat %s\n", infile);
+				isdir = S_ISDIR(istat.st_mode);
+				if (!recurse && (isdir || !S_ISREG(istat.st_mode))) {
+					failure("lrzip only works directly on regular FILES.\n"
+					"Use -r recursive, lrztar or pipe through tar for compressing directories.\n");
+				}
+				if (recurse && !isdir)
+					failure("%s not a directory, -r recursive needs a directory\n", infile);
 			}
+		}
+
+		if (recurse) {
+			if (unlikely(STDIN || STDOUT))
+				failure("Cannot use -r recursive with STDIO\n");
+			recurse_dirlist(infile, &dirlist, &direntries);
 		}
 
 		if (INFO && STDIN)
 			failure("Will not get file info from STDIN\n");
+recursion:
+		if (recurse) {
+			if (curentry >= direntries) {
+				infile = NULL;
+				continue;
+			}
+			infile = dirlist + MAX_PATH_LEN * curentry++;
+		}
+		control->infile = infile;
 
 		/* If no output filename is specified, and we're using
 		 * stdin, use stdout */
@@ -591,6 +659,8 @@ int main(int argc, char *argv[])
 		seconds = total_time - hours * 3600 - minutes * 60;
 		if (!INFO)
 			print_progress("Total time: %02d:%02d:%05.2f\n", hours, minutes, seconds);
+		if (recurse)
+			goto recursion;
 	}
 
 	return 0;
