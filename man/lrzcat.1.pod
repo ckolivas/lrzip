@@ -1,6 +1,6 @@
 #   Copyright
 #
-#      Copyright (C) 2011-2015 Con Kolivas
+#      Copyright (C) 2011-2016 Con Kolivas
 #
 #   License
 #
