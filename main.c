@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2015 Con Kolivas
+   Copyright (C) 2006-2016 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -49,6 +49,7 @@
 # include <arpa/inet.h>
 #endif
 
+#include <dirent.h>
 #include <getopt.h>
 #include <libgen.h>
 
@@ -59,6 +60,8 @@
 
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
+
+#define MAX_PATH_LEN 4096
 
 static rzip_control base_control, local_control, *control;
 
@@ -250,6 +253,38 @@ static void set_stdout(struct rzip_control *control)
 	control->outFILE = stdout;
 	control->msgout = stderr;
 	register_outputfile(control, control->msgout);
+}
+
+/* Recursively enter all directories, adding all regular files to the dirlist array */
+static void recurse_dirlist(char *indir, char **dirlist, int *entries)
+{
+	char fname[MAX_PATH_LEN];
+	struct stat istat;
+	struct dirent *dp;
+	DIR *dirp;
+
+	dirp = opendir(indir);
+	if (unlikely(!dirp))
+		failure("Unable to open directory %s\n", indir);
+	while ((dp = readdir(dirp)) != NULL) {
+		if (!strcmp(dp->d_name, ".") || !strcmp(dp->d_name, ".."))
+			continue;
+		sprintf(fname, "%s/%s", indir, dp->d_name);
+		if (unlikely(stat(fname, &istat)))
+			failure("Unable to stat file %s\n", fname);
+		if (S_ISDIR(istat.st_mode)) {
+			recurse_dirlist(fname, dirlist, entries);
+			continue;
+		}
+		if (!S_ISREG(istat.st_mode)) {
+			print_err("Not regular file %s\n", fname);
+			continue;
+		}
+		print_maxverbose("Added file %s\n", fname);
+		*dirlist = realloc(*dirlist, MAX_PATH_LEN * (*entries + 1));
+		strcpy(*dirlist + MAX_PATH_LEN * (*entries)++, fname);
+	}
+	closedir(dirp);
 }
 
 int main(int argc, char *argv[])
@@ -506,27 +541,49 @@ int main(int argc, char *argv[])
 
 	/* One extra iteration for the case of no parameters means we will default to stdin/out */
 	for (i = 0; i <= argc; i++) {
+		char *dirlist = NULL, *infile = NULL;
+		int direntries = 0, curentry = 0;
+
 		if (i < argc)
-			control->infile = argv[i];
+			infile = argv[i];
 		else if (!(i == 0 && STDIN))
 			break;
-		if (control->infile) {
-			if ((strcmp(control->infile, "-") == 0))
+		if (infile) {
+			if ((strcmp(infile, "-") == 0))
 				control->flags |= FLAG_STDIN;
 			else {
-				struct stat infile_stat;
+				bool isdir = false;
+				struct stat istat;
 
-				stat(control->infile, &infile_stat);
-				if (unlikely(S_ISDIR(infile_stat.st_mode)))
-					failure("lrzip only works directly on FILES.\n"
-					"Use lrztar or pipe through tar for compressing directories.\n");
+				if (unlikely(stat(infile, &istat)))
+					failure("Failed to stat %s\n", infile);
+				isdir = S_ISDIR(istat.st_mode);
+				if (!recurse && (isdir || !S_ISREG(istat.st_mode))) {
+					failure("lrzip only works directly on regular FILES.\n"
+					"Use -r recursive, lrztar or pipe through tar for compressing directories.\n");
+				}
+				if (recurse && !isdir)
+					failure("%s not a directory, -r recursive needs a directory\n", infile);
 			}
 		}
 
-		if (recurse && (STDIN || STDOUT))
-			failure("Cannot use -r recursive with STDIO\n");
+		if (recurse) {
+			if (unlikely(STDIN || STDOUT))
+				failure("Cannot use -r recursive with STDIO\n");
+			recurse_dirlist(infile, &dirlist, &direntries);
+		}
+
 		if (INFO && STDIN)
 			failure("Will not get file info from STDIN\n");
+recursion:
+		if (recurse) {
+			if (curentry >= direntries) {
+				free(dirlist);
+				break;
+			}
+			infile = dirlist + MAX_PATH_LEN * curentry++;
+		}
+		control->infile = infile;
 
 		/* If no output filename is specified, and we're using
 		 * stdin, use stdout */
@@ -602,6 +659,8 @@ int main(int argc, char *argv[])
 		seconds = total_time - hours * 3600 - minutes * 60;
 		if (!INFO)
 			print_progress("Total time: %02d:%02d:%05.2f\n", hours, minutes, seconds);
+		if (recurse)
+			goto recursion;
 	}
 
 	return 0;
