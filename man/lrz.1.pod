@@ -1,3 +1,5 @@
+#!/usr/bin/perl -w
+
 #   Copyright
 #
 #      Copyright (C) 2016 Con Kolivas
@@ -38,63 +40,278 @@
 
 =pod
 
+=encoding utf8
+
 =head1 NAME
 
 lrz - gzip compatible command line variant of lrzip
 
+
 =head1 SYNOPSIS
 
-  lrz [OPTIONS] <file>
+B<lrz> [options] I<file>
+
 
 =head1 DESCRIPTION
 
-lrz is identical to the lrzip application however its command line options and
-behaviour are made to be as compatible with gzip as possible.
+B<lrz> is identical to the B<lrzip> application, however, its command
+line options and behaviour are made to be as compatible with B<gzip>
+as possible.
 
 =head1 OPTIONS
 
-lrz differs from lrzip by accepting the following commands:
+=head2 General options
 
-General options:
-        -c, --stdout            output to STDOUT
-        -C, --check             check integrity of file written on decompression
-        -d, --decompress        decompress
-        -e, --encrypt           password protected sha512/aes128 encryption on compression
-        -h, -?, --help          show help
-        -H, --hash              display md5 hash integrity information
-        -i, --info              show compressed file information
-        -L, --license           display software version and license
-        -P, --progress          show compression progress
-        -r, --recursive         operate recursively on directories
-        -t, --test              test compressed file integrity
-        -v[vv], --verbose       Increase verbosity
-        -V, --version           show version
-Options affecting output:
-        -f, --force             force overwrite of any existing files
-        -k, --keep              don't delete source files on de/compression
-        -K, --keep-broken       keep broken or damaged output files
-        -o, --outfile filename  specify the output file name and/or path
-        -O, --outdir directory  specify the output directory when -o is not used
-        -S, --suffix suffix     specify compressed suffix (default '.lrz')
-Options affecting compression:
-        -b, --bzip2             bzip2 compression
-        -g, --gzip              gzip compression using zlib
-        -l, --lzo               lzo compression (ultra fast)
-        -n, --no-compress       no backend compression - prepare for other compressor
-        -z, --zpaq              zpaq compression (best, extreme compression, extremely slow)
-Low level options:
-        -1 .. -9                set lzma/bzip2/gzip compression level (1-9, default 7)
-        --fast                  alias for -1
-        --best                  alias for -9
-        -L, --level level       set lzma/bzip2/gzip compression level (1-9, default 7)
-        -N, --nice-level value  Set nice value to value (default 0)
-        -p, --threads value     Set processor count to override number of threads
-        -m, --maxram size       Set maximim available ram in hundreds of MB
-                                overrides detected ammount of available ram
-        -T, --threshold         Disable LZO compressibility testing
-        -U, --unlimited         Use unlimited window size beyond ramsize (potentially much slower)
-        -w, --window size       maximum compression window in hundreds of MB
-                                default chosen by heuristic dependent on ram and chosen compression
+=over 9
+
+=item B<--stdout>
+
+=item B<-c>
+
+Output to STDOUT.
+
+
+=item B<--check>
+
+=item B<-C>
+
+Check integrity of file written on decompression.
+
+
+=item B<--decompress>
+
+=item B<-d>
+
+Decompress.
+
+
+=item B<--encrypt>
+
+=item B<-e>
+
+Password protect sha512/aes128 encryption on compression.
+
+
+=item B<--help>
+
+=item B<-h>
+
+=item B<-?>
+
+Show help.
+
+
+=item B<--hash>
+
+=item B<-H>
+
+Display md5 hash integrity information.
+
+
+=item B<--info>
+
+=item B<-i>
+
+Show compressed file information.
+
+
+=item B<--license>
+
+=item B<-L>
+
+Display software version and license.
+
+
+=item B<--progress>
+
+=item B<-P>
+
+Show compression progress.
+
+
+=item B<--recursive>
+
+=item B<-r>
+
+Operate recursively on directories.
+
+
+=item B<--test>
+
+=item B<-t>
+
+Test compressed file integrity.
+
+
+=item B<--verbose>
+
+=item B<-v[vv]>
+
+Increase verbosity.
+
+
+=item B<--version>
+
+=item B<-V>
+
+Show version.
+
+
+=back
+
+
+=head2 Options affecting output
+
+=over 9
+
+=item B<--force>
+
+=item B<-f>
+
+Force overwrite of any existing files.
+
+
+=item B<--keep>
+
+=item B<-k>
+
+Don't delete source files on de/compression.
+
+
+=item B<--keep-broken>
+
+=item B<-K>
+
+Keep broken or damaged output files.
+
+
+=item B<--outfile>  I<name>
+
+=item B<-o> I<name>
+
+Specify the output file name and/or path.
+
+
+=item B<--outdir> I<dir>
+
+=item B<-O> I<dir>
+
+Specify the output directory when B<-o> is not used.
+
+
+=item B<--suffix> I<suffix>
+
+=item B<-S> I<suffix>
+
+Specify compressed suffix (default '.lrz').
+
+
+=back
+
+=head2 Options affecting compression
+
+=over 9
+
+=item B<--bzip2>
+
+=item B<-b>
+
+Bzip2 compression.
+
+=item B<--gzip>
+
+=item B<-g>
+
+Gzip compression using zlib.
+
+=item B<--lzo>
+
+=item B<-l>
+
+Lzo compression (ultra fast).
+
+=item B<--lzma>
+
+Lzma compression (default).
+
+=item B<--no-compress>
+
+=item B<-n>
+
+No backend compression - prepare for other compressor.
+
+=item B<--zpaq>
+
+=item B<-z>
+
+Zpaq compression (best, extreme compression, extremely slow).
+
+
+=back
+
+=head2 Low level options
+
+=over 9
+
+=item B<-1> .. B<-9>
+
+=item B<--level> I<level>
+
+=item B<-L> I<level>
+
+Set lzma/bzip2/gzip compression level (1-9, default 7).
+
+
+=item B<--fast>
+
+Alias for B<-1>.
+
+
+=item B<--best>
+
+Alias for B<-9>.
+
+
+=item B<--nice-level> I<value>
+
+=item B<-N> I<value>
+
+Set nice value to I<value> (default 0).
+
+
+=item B<--threads> I<value>
+
+=item B<-P> I<value>
+
+Set processor count to override number of threads.
+
+=item B<--maxram> I<size>
+
+=item B<-m> I<size>
+
+Set maximim available ram as I<size> * 100 MB.
+Overrides detected amount of available ram.
+
+=item B<--threshold>
+
+=item B<-T>
+
+Disable LZO compressibility testing.
+
+=item B<--unlimited>
+
+=item B<-U>
+
+Use unlimited window size beyond ramsize (potentially much slower).
+
+=item B<--window> I<size>
+
+=item B<-w> I<size>
+
+Set maximum compression window as I<size> * 100 MB.
+Default chosen by heuristic dependent on ram and chosen compression.
+
+=back
 
 See also lrzip(1)
 

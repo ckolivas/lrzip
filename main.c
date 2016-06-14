@@ -103,6 +103,7 @@ static void usage(bool compat)
 	print_output("	-O, --outdir directory	specify the output directory when -o is not used\n");
 	print_output("	-S, --suffix suffix	specify compressed suffix (default '.lrz')\n");
 	print_output("Options affecting compression:\n");
+	print_output("	--lzma			lzma compression (default)\n");
 	print_output("	-b, --bzip2		bzip2 compression\n");
 	print_output("	-g, --gzip		gzip compression using zlib\n");
 	print_output("	-l, --lzo		lzo compression (ultra fast)\n");
@@ -224,24 +225,25 @@ static struct option long_options[] = {
 	{"keep-broken",	no_argument,	0,	'k'},
 	{"keep-broken",	no_argument,	0,	'K'},
 	{"lzo",		no_argument,	0,	'l'},
-	{"level",	required_argument,	0,	'L'},
-	{"maxram",	required_argument,	0,	'm'}, /* 15 */
+	{"lzma",       	no_argument,	0,	'/'},
+	{"level",	required_argument,	0,	'L'}, /* 15 */
+	{"maxram",	required_argument,	0,	'm'},
 	{"no-compress",	no_argument,	0,	'n'},
 	{"nice-level",	required_argument,	0,	'N'},
 	{"outfile",	required_argument,	0,	'o'},
-	{"outdir",	required_argument,	0,	'O'},
-	{"threads",	required_argument,	0,	'p'}, /* 20 */
+	{"outdir",	required_argument,	0,	'O'}, /* 20 */
+	{"threads",	required_argument,	0,	'p'},
 	{"progress",	no_argument,	0,	'P'},
 	{"quiet",	no_argument,	0,	'q'},
 	{"recursive",	no_argument,	0,	'r'},
 	{"suffix",	required_argument,	0,	'S'},
-	{"test",	no_argument,	0,	't'},
-	{"threshold",	required_argument,	0,	'T'}, /* 25 */
+	{"test",	no_argument,	0,	't'},  /* 25 */
+	{"threshold",	required_argument,	0,	'T'},
 	{"unlimited",	no_argument,	0,	'U'},
 	{"verbose",	no_argument,	0,	'v'},
 	{"version",	no_argument,	0,	'V'},
-	{"window",	required_argument,	0,	'w'},
-	{"zpaq",	no_argument,	0,	'z'}, /* 30 */
+	{"window",	required_argument,	0,	'w'},  /* 30 */
+	{"zpaq",	no_argument,	0,	'z'},
 	{"fast",	no_argument,	0,	'1'},
 	{"best",	no_argument,	0,	'9'},
 	{0,	0,	0,	0},
