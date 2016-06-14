@@ -1271,7 +1271,7 @@ error:
 
 bool initialise_control(rzip_control *control)
 {
-	struct timeval tv;
+	time_t now_t, tdiff;
 	char *eptr; /* for environment */
 
 	memset(control, 0, sizeof(rzip_control));
@@ -1292,9 +1292,17 @@ bool initialise_control(rzip_control *control)
 	/* The first 5 bytes of the salt is the time in seconds.
 	 * The next 2 bytes encode how many times to hash the password.
 	 * The last 9 bytes are random data, making 16 bytes of salt */
-	if (unlikely(gettimeofday(&tv, NULL)))
-		fatal_return(("Failed to gettimeofday in main\n"), false);
-	control->secs = tv.tv_sec;
+	if (unlikely((now_t = time(NULL)) == ((time_t)-1)))
+		fatal_return(("Failed to call time in main\n"), false);
+	if (unlikely(now_t < T_ZERO)) {
+		print_output("Warning your time reads before the year 2011, check your system clock\n");
+		now_t = T_ZERO;
+	}
+	/* Workaround for CPUs no longer keeping up with Moore's law!
+	 * This way we keep the magic header format unchanged. */
+	tdiff = (now_t - T_ZERO) / 4;
+	now_t = T_ZERO + tdiff;
+	control->secs = now_t;
 	control->encloops = nloops(control->secs, control->salt, control->salt + 1);
 	if (unlikely(!get_rand(control, control->salt + 2, 6)))
 		return false;
