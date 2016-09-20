@@ -333,7 +333,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(control);
 
-	while ((c = getopt_long(argc, argv, "bcCdDefghHikKlL:nN:o:O:pPqrS:tTUm:vVw:z?123456789", long_options, &i)) != -1) {
+	while ((c = getopt_long(argc, argv, "bcCdDefghHikKlL:nN:o:O:p:PqrS:tTUm:vVw:z?123456789", long_options, &i)) != -1) {
 		switch (c) {
 		case 'b':
 			if (control->flags & FLAG_NOT_LZMA)
