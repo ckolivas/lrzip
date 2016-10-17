@@ -1246,6 +1246,11 @@ bool compress_file(rzip_control *control)
 	if (ENCRYPT)
 		release_hashes(control);
 
+	if (unlikely(!STDIN && !STDOUT && !preserve_times(control, fd_in))) {
+		fatal("Failed to preserve times on output file\n");
+		goto error;
+	}
+
 	if (unlikely(close(fd_in))) {
 		fatal("Failed to close fd_in\n");
 		fd_in = -1;
@@ -1264,8 +1269,10 @@ bool compress_file(rzip_control *control)
 	free(control->outfile);
 	return true;
 error:
-	if (STDIN && (fd_in > 0)) close(fd_in);
-	if ((!STDOUT) && (fd_out > 0)) close(fd_out);
+	if (STDIN && (fd_in > 0))
+		close(fd_in);
+	if ((!STDOUT) && (fd_out > 0))
+		close(fd_out);
 	return false;
 }
 
