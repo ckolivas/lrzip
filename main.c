@@ -98,7 +98,7 @@ static void usage(bool compat)
 	print_output("	-f, --force		force overwrite of any existing files\n");
 	if (compat)
 		print_output("	-k, --keep		don't delete source files on de/compression\n");
-	print_output("	-%s, --keep-broken	keep broken or damaged output files\n", compat ? "K" : "k, -K");
+	print_output("	-K, --keep-broken	keep broken or damaged output files\n");
 	print_output("	-o, --outfile filename	specify the output file name and/or path\n");
 	print_output("	-O, --outdir directory	specify the output directory when -o is not used\n");
 	print_output("	-S, --suffix suffix	specify compressed suffix (default '.lrz')\n");
@@ -115,7 +115,8 @@ static void usage(bool compat)
 		print_output("	--fast			alias for -1\n");
 		print_output("	--best			alias for -9\n");
 	}
-	print_output("	-L, --level level	set lzma/bzip2/gzip compression level (1-9, default 7)\n");
+	if (!compat)
+		print_output("	-L, --level level	set lzma/bzip2/gzip compression level (1-9, default 7)\n");
 	print_output("	-N, --nice-level value	Set nice value to value (default %d)\n", compat ? 0 : 19);
 	print_output("	-p, --threads value	Set processor count to override number of threads\n");
 	print_output("	-m, --maxram size	Set maximim available ram in hundreds of MB\n");
@@ -129,6 +130,17 @@ static void usage(bool compat)
 	print_output("TMPDIR may also be stored in lrzip.conf file.\n");
 	print_output("\nIf no filenames or \"-\" is specified, stdin/out will be used.\n");
 
+}
+
+static void license(void)
+{
+	print_output("lrz version %s\n", PACKAGE_VERSION);
+	print_output("Copyright (C) Con Kolivas 2006-2016\n");
+	print_output("Based on rzip ");
+	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
+	print_output("This is free software.  You may redistribute copies of it under the terms of\n");
+	print_output("the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.\n");
+	print_output("There is NO WARRANTY, to the extent permitted by law.\n");
 }
 
 static void sighandler(int sig __UNUSED__)
@@ -226,7 +238,8 @@ static struct option long_options[] = {
 	{"keep-broken",	no_argument,	0,	'K'},
 	{"lzo",		no_argument,	0,	'l'},
 	{"lzma",       	no_argument,	0,	'/'},
-	{"level",	required_argument,	0,	'L'}, /* 15 */
+	{"level",	optional_argument,	0,	'L'}, /* 15 */
+	{"license",	no_argument,	0,	'L'},
 	{"maxram",	required_argument,	0,	'm'},
 	{"no-compress",	no_argument,	0,	'n'},
 	{"nice-level",	required_argument,	0,	'N'},
@@ -289,6 +302,9 @@ static void recurse_dirlist(char *indir, char **dirlist, int *entries)
 	closedir(dirp);
 }
 
+static const char *loptions = "bcCdDefghHiKlL:nN:o:O:pPqrS:tTUm:vVw:z?";
+static const char *coptions = "bcCdefghHikKlLnN:o:O:pPrS:tTUm:vVw:z?123456789";
+
 int main(int argc, char *argv[])
 {
 	bool lrzcat = false, compat = false, recurse = false;
@@ -333,7 +349,7 @@ int main(int argc, char *argv[])
 	else if (!strstr(eptr,"NOCONFIG"))
 		read_config(control);
 
-	while ((c = getopt_long(argc, argv, "bcCdDefghHikKlL:nN:o:O:pPqrS:tTUm:vVw:z?123456789", long_options, &i)) != -1) {
+	while ((c = getopt_long(argc, argv, compat ? coptions : loptions, long_options, &i)) != -1) {
 		switch (c) {
 		case 'b':
 			if (control->flags & FLAG_NOT_LZMA)
@@ -391,6 +407,10 @@ int main(int argc, char *argv[])
 			control->flags |= FLAG_LZO_COMPRESS;
 			break;
 		case 'L':
+			if (compat) {
+				license();
+				exit(0);
+			}
 			control->compression_level = atoi(optarg);
 			if (control->compression_level < 1 || control->compression_level > 9)
 				failure("Invalid compression level (must be 1-9)\n");
