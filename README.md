@@ -255,13 +255,12 @@ data is at all compressible. If a small block of data is not compressible, it
 tests progressively larger blocks until it has tested all the data (if it fails
 to compress at all). If no compressible data is found, then the subsequent
 compression is not even attempted. This can save a lot of time during the
-compression phase when there is incompressible dat
-> A: Theoretically it may be
-possible that data is compressible by the other backend (zpaq, lzma etc) and not
-at all by lzo, but in practice such data achieves only minuscule amounts of
+compression phase when there is incompressible data. Theoretically it may be
+possible that data is compressible by the other backend (zpaq, lzma etc) and
+not at all by lzo, but in practice such data achieves only minuscule amounts of
 compression which are not worth pursuing. Most of the time it is clear one way
-or the other that data is compressible or not. If you wish to disable this
-test and force it to try compressing it anyway, use -T.
+or the other that data is compressible or not. If you wish to disable this test
+and force it to try compressing it anyway, use -T.
 
 > Q: I have truckloads of ram so I can compress files much better, but can my
 generated file be decompressed on machines with less ram?
@@ -279,18 +278,16 @@ other modes are more useful).
 > Q: What about multimedia?
 
 > A: Most multimedia is already in a heavily compressed "lossy" format which by
-its very nature has very little redundancy. This means that there is not
-much that can actually be compressed. If your video/audio/picture is in a
-high bitrate, there will be more redundancy than a low bitrate one making it
-more suitable to compression. None of the compression techniques in lrzip are
-optimised for this sort of data.
-> A: However, the nature of rzip preparation
-means that you'll still get better compression than most normal compression
+its very nature has very little redundancy. This means that there is not much
+that can actually be compressed. If your video/audio/picture is in a high
+bitrate, there will be more redundancy than a low bitrate one making it more
+suitable to compression. None of the compression techniques in lrzip are
+optimised for this sort of data. However, the nature of rzip preparation means
+that you'll still get better compression than most normal compression
 algorithms give you if you have very large files. ISO images of dvds for
 example are best compressed directly instead of individual .VOB files. ZPAQ is
 the only compression format that can do any significant compression of
 multimedia.
-> A:
 
 > Q: Is this multithreaded?
 
@@ -337,8 +334,7 @@ permanent storage I compress it with the default options. When compressing
 small files for distribution I use the -z option for the smallest possible
 size.
 
-> Q: I found a file that compressed better with plain lzm
-> A: How can that be?
+> Q: I found a file that compressed better with plain lzma. How can that be?
 
 > A: When the file is more than 5 times the size of the compression window
 you have available, the efficiency of rzip preparation drops off as a means
@@ -363,12 +359,12 @@ slower at +19.
 
 > Q: What is the LZO Testing option, -T?
 
-> A: LZO testing is normally performed for the slower back-end compression of LZMA
-and ZPA> Q: The reasoning is that if it is completely incompressible by LZO then
-it will also be incompressible by them. Thus if a block fails to be compressed
-by the very fast LZO, lrzip will not attempt to compress that block with the
-slower compressor, thereby saving time. If this option is enabled, it will
-bypass the LZO testing and attempt to compress each block regardless.
+> A: LZO testing is normally performed for the slower back-end compression of
+LZMA and ZPAQ. The reasoning is that if it is completely incompressible by LZO
+then it will also be incompressible by them. Thus if a block fails to be
+compressed by the very fast LZO, lrzip will not attempt to compress that block
+with the slower compressor, thereby saving time. If this option is enabled, it
+will bypass the LZO testing and attempt to compress each block regardless.
 
 > Q: Compression and decompression progress on large archives slows down and
 speeds up. There's also a jump in the percentage at the end?
@@ -385,11 +381,10 @@ compression backend (lzma) needs to compress.
    what does this mean?
 
 > A: LZMA requests large amounts of memory. When a higher compression window is
-   used, there may not be enough contiguous memory for LZM
-> A: LZMA may request
-   up to 25% of TOTAL ram depending on compression level. If contiguous blocks
-   of memory are not free, LZMA will return an error. This is not a fatal
-   error, and a backup mode of compression will be used.
+used, there may not be enough contiguous memory for LZMA: LZMA may request up
+to 25% of TOTAL ram depending on compression level. If contiguous blocks of
+memory are not free, LZMA will return an error. This is not a fatal error, and
+a backup mode of compression will be used.
 
 > Q: Where can I get more information about the internals of LZMA?
 
