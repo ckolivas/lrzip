@@ -684,7 +684,7 @@ bool decompress_file(rzip_control *control)
 	i64 expected_size = 0, free_space;
 	struct statvfs fbuf;
 
-	if (!STDIN) {
+	if (!STDIN && !IS_FROM_FILE) {
 		struct stat fdin_stat;
 
 		stat(control->infile, &fdin_stat);
@@ -734,7 +734,10 @@ bool decompress_file(rzip_control *control)
 			print_progress("Output filename is: %s\n", control->outfile);
 	}
 
-	if (STDIN) {
+	if ( IS_FROM_FILE ) {
+		fd_in = fileno(control->inFILE);
+	}
+	else if (STDIN) {
 		fd_in = open_tmpinfile(control);
 		read_tmpinmagic(control);
 		if (ENCRYPT)
@@ -785,8 +788,9 @@ bool decompress_file(rzip_control *control)
 		}
 	}
 
-	if (unlikely(!open_tmpoutbuf(control)))
-		return false;
+    if ( STDOUT )
+        if (unlikely(!open_tmpoutbuf(control)))
+            return false;
 
 	if (!STDIN) {
 		if (unlikely(!read_magic(control, fd_in, &expected_size)))
@@ -842,6 +846,9 @@ bool decompress_file(rzip_control *control)
 	else
 		print_progress("[OK]                                             \n");
 
+	if (TMP_OUTBUF)
+		close_tmpoutbuf(control);
+
 	if (fd_out > 0) {
 		if (unlikely(close(fd_hist) || close(fd_out)))
 			fatal_return(("Failed to close files\n"), false);
@@ -850,7 +857,9 @@ bool decompress_file(rzip_control *control)
 	if (unlikely(!STDIN && !STDOUT && !TEST_ONLY && !preserve_times(control, fd_in)))
 		return false;
 
-	close(fd_in);
+	if ( ! IS_FROM_FILE ) {
+		close(fd_in);
+	}
 
 	if (!KEEP_FILES && !STDIN) {
 		if (unlikely(unlink(control->infile)))
@@ -947,7 +956,9 @@ bool get_fileinfo(rzip_control *control)
 			infilecopy = strdupa(control->infile);
 	}
 
-	if (STDIN)
+	if ( IS_FROM_FILE )
+		fd_in = fileno(control->inFILE);
+	else if (STDIN)
 		fd_in = 0;
 	else {
 		fd_in = open(infilecopy, O_RDONLY);
@@ -966,7 +977,8 @@ bool get_fileinfo(rzip_control *control)
 
 	if (ENCRYPT) {
 		print_output("Encrypted lrzip archive. No further information available\n");
-		if (!STDIN) close(fd_in);
+		if (!STDIN && !IS_FROM_FILE)
+			close(fd_in);
 		goto out;
 	}
 
@@ -1130,14 +1142,15 @@ done:
 		print_output("\n");
 	} else
 		print_output("CRC32 used for integrity testing\n");
-	if (unlikely(close(fd_in)))
-		fatal_return(("Failed to close fd_in in get_fileinfo\n"), false);
+	if ( !IS_FROM_FILE )
+		if (unlikely(close(fd_in)))
+			fatal_return(("Failed to close fd_in in get_fileinfo\n"), false);
 
 out:
 	free(control->outfile);
 	return true;
 error:
-	if (!STDIN) close(fd_in);
+	if (!STDIN && ! IS_FROM_FILE) close(fd_in);
 	return false;
 }
 
@@ -1159,17 +1172,20 @@ bool compress_file(rzip_control *control)
 			return false;
 	memset(header, 0, sizeof(header));
 
-	if (!STDIN) {
-		/* is extension at end of infile? */
+	if ( IS_FROM_FILE )
+		fd_in = fileno(control->inFILE);
+	else if (!STDIN) {
+		 /* is extension at end of infile? */
 		if ((tmp = strrchr(control->infile, '.')) && !strcmp(tmp, control->suffix)) {
 			print_err("%s: already has %s suffix. Skipping...\n", control->infile, control->suffix);
 			return false;
 		}
 
-		fd_in = open(control->infile, O_RDONLY);
+        fd_in = open(control->infile, O_RDONLY);
 		if (unlikely(fd_in == -1))
 			fatal_return(("Failed to open %s\n", control->infile), false);
-	} else
+	} 
+	else
 		fd_in = 0;
 
 	if (!STDOUT) {
@@ -1269,7 +1285,7 @@ bool compress_file(rzip_control *control)
 	free(control->outfile);
 	return true;
 error:
-	if (STDIN && (fd_in > 0))
+	if (! IS_FROM_FILE && STDIN && (fd_in > 0))
 		close(fd_in);
 	if ((!STDOUT) && (fd_out > 0))
 		close(fd_out);
