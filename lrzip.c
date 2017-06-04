@@ -788,8 +788,9 @@ bool decompress_file(rzip_control *control)
 		}
 	}
 
-	if (unlikely(!open_tmpoutbuf(control)))
-		return false;
+    if ( STDOUT )
+        if (unlikely(!open_tmpoutbuf(control)))
+            return false;
 
 	if (!STDIN) {
 		if (unlikely(!read_magic(control, fd_in, &expected_size)))
@@ -844,6 +845,9 @@ bool decompress_file(rzip_control *control)
 		print_progress("[OK] - %lld bytes                                \n", expected_size);
 	else
 		print_progress("[OK]                                             \n");
+
+	if (TMP_OUTBUF)
+		close_tmpoutbuf(control);
 
 	if (fd_out > 0) {
 		if (unlikely(close(fd_hist) || close(fd_out)))
