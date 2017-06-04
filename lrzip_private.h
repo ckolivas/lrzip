@@ -308,6 +308,8 @@ typedef sem_t cksem_t;
 #define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
 #define ENCRYPT		(control->flags & FLAG_ENCRYPT)
 
+#define IS_FROM_FILE ( !!(control->inFILE) && !STDIN )
+
 
 /* Structure to save state of computation between the single steps.  */
 struct md5_ctx

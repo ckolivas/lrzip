@@ -543,7 +543,8 @@ bool lrzip_run(Lrzip *lr)
 		lr->control->infile = lr->infilenames[0];
 	else {
 		lr->control->inFILE = lr->infiles[0];
-		control->flags |= FLAG_STDIN;
+        if ( lr->infiles[0] == stdin )
+            control->flags |= FLAG_STDIN;
 	}
 
 	if ((!STDOUT) && (!lr->control->msgout)) lr->control->msgout = stdout;
