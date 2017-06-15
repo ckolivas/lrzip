@@ -1,5 +1,10 @@
 lrzip ChangeLog
 
+JUNE 2017, version 0.640 Con Kolivas, Tim Savannah
+
+* Fix memory leak in decompress when output to stdout
+* Fix liblrzip compression/decompression using FILEs other than stdin/stdout
+
 JUNE 2016, version 0.630 Con Kolivas, Peter Hyman, Petr Písař, Joel Fredrikson
 
 * checksum.buf should only be changed after the semaphore wait

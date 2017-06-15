@@ -21,3 +21,4 @@ Serge Belyshev for encryption help and code
 Ulrich Drepper for MD5 implementation
 PolarSSL authors for sha512 + aes128 implementation
 Fernando Auil for lrzip completion
+Tim Savannah - liblrzip FILE compress/decompress + bug fix
