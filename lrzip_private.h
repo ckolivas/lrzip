@@ -422,6 +422,7 @@ struct rzip_control {
 	uchar *salt_pass;
 	int salt_pass_len;
 	uchar *hash;
+	char *passphrase;
 
 	pthread_mutex_t control_lock;
 	unsigned char eof;

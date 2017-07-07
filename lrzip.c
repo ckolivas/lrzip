@@ -586,7 +586,9 @@ static int get_pass(rzip_control *control, char *s)
 	int len;
 
 	memset(s, 0, PASS_LEN - SALT_LEN);
-	if (unlikely(fgets(s, PASS_LEN - SALT_LEN, stdin) == NULL))
+	if (control->passphrase)
+		strncpy(s, control->passphrase, PASS_LEN - SALT_LEN - 1);
+	else if (unlikely(fgets(s, PASS_LEN - SALT_LEN, stdin) == NULL))
 		failure_return(("Failed to retrieve passphrase\n"), -1);
 	len = strlen(s);
 	if (len > 0 && ('\r' ==  s[len - 1] || '\n' == s[len - 1]))
@@ -603,6 +605,7 @@ static bool get_hash(rzip_control *control, int make_hash)
 {
 	char *passphrase, *testphrase;
 	struct termios termios_p;
+	int prompt = control->passphrase == NULL;
 
 	passphrase = calloc(PASS_LEN, 1);
 	testphrase = calloc(PASS_LEN, 1);
@@ -637,13 +640,17 @@ static bool get_hash(rzip_control *control, int make_hash)
 		termios_p.c_lflag &= ~ECHO;
 		tcsetattr(fileno(stdin), 0, &termios_p);
 retry_pass:
-		print_output("Enter passphrase: ");
+		if (prompt)
+			print_output("Enter passphrase: ");
 		control->salt_pass_len = get_pass(control, passphrase) + SALT_LEN;
-		print_output("\n");
-		if (make_hash) {
-			print_output("Re-enter passphrase: ");
-			get_pass(control, testphrase);
+		if (prompt)
 			print_output("\n");
+		if (make_hash) {
+			if (prompt)
+				print_output("Re-enter passphrase: ");
+			get_pass(control, testphrase);
+			if (prompt)
+				print_output("\n");
 			if (strcmp(passphrase, testphrase)) {
 				print_output("Passwords do not match. Try again.\n");
 				goto retry_pass;

@@ -38,7 +38,7 @@ Here is a summary of the options to lrzip\&.
 General options:
  \-c, \-\-check             check integrity of file written on decompression
  \-d, \-\-decompress        decompress
- \-e, \-\-encrypt           password protected sha512/aes128 encryption on compression
+ \-e, \-\-encrypt[=password] password protected sha512/aes128 encryption on compression
  \-h, \-?, \-\-help          show help
  \-H, \-\-hash              display md5 hash integrity information
  \-i, \-\-info              show compressed file information
@@ -102,6 +102,7 @@ the name used to launch the program. If it contains the string
 "lrzcat" then the \-d \-o \- options are automatically set.
 .IP
 .IP "\fB-e\fP"
+.IP "\fB\-\-encrypt\fP[=\fIpassword\fP]"
 Encrypt. This option enables high grade password encryption using a combination
 of multiply sha512 hashed password, random salt and aes128 CBC encryption.
 Passwords up to 500 characters long are supported, and the encryption mechanism

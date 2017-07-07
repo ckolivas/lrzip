@@ -79,7 +79,7 @@ static void usage(bool compat)
 	} else
 		print_output("	-c, -C, --check		check integrity of file written on decompression\n");
 	print_output("	-d, --decompress	decompress\n");
-	print_output("	-e, --encrypt		password protected sha512/aes128 encryption on compression\n");
+	print_output("	-e, --encrypt[=password] password protected sha512/aes128 encryption on compression\n");
 	print_output("	-h, -?, --help		show help\n");
 	print_output("	-H, --hash		display md5 hash integrity information\n");
 	print_output("	-i, --info		show compressed file information\n");
@@ -228,7 +228,7 @@ static struct option long_options[] = {
 	{"check",	no_argument,	0,	'C'},
 	{"decompress",	no_argument,	0,	'd'},
 	{"delete",	no_argument,	0,	'D'},
-	{"encrypt",	no_argument,	0,	'e'}, /* 5 */
+	{"encrypt",	optional_argument,	0,	'e'}, /* 5 */
 	{"force",	no_argument,	0,	'f'},
 	{"gzip",	no_argument,	0,	'g'},
 	{"help",	no_argument,	0,	'h'},
@@ -374,6 +374,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'e':
 			control->flags |= FLAG_ENCRYPT;
+			control->passphrase = optarg;
 			break;
 		case 'f':
 			control->flags |= FLAG_FORCE_REPLACE;

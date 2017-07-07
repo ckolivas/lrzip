@@ -85,7 +85,7 @@ Check integrity of file written on decompression.
 Decompress.
 
 
-=item B<--encrypt>
+=item B<--encrypt>[=I<password>]
 
 =item B<-e>
 
