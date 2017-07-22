@@ -393,6 +393,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'i':
 			control->flags |= FLAG_INFO;
+			control->flags &= ~FLAG_DECOMPRESS;
 			break;
 		case 'k':
 			if (compat) {
