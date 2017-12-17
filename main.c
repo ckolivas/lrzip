@@ -501,6 +501,8 @@ int main(int argc, char *argv[])
 			break;
 		case 'w':
 			control->window = atol(optarg);
+			if (control->window < 1)
+				failure("Window must be positive\n");
 			break;
 		case 'z':
 			if (control->flags & FLAG_NOT_LZMA)
