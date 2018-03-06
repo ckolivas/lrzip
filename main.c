@@ -119,8 +119,8 @@ static void usage(bool compat)
 		print_output("	-L, --level level	set lzma/bzip2/gzip compression level (1-9, default 7)\n");
 	print_output("	-N, --nice-level value	Set nice value to value (default %d)\n", compat ? 0 : 19);
 	print_output("	-p, --threads value	Set processor count to override number of threads\n");
-	print_output("	-m, --maxram size	Set maximim available ram in hundreds of MB\n");
-	print_output("				overrides detected ammount of available ram\n");
+	print_output("	-m, --maxram size	Set maximum available ram in hundreds of MB\n");
+	print_output("				overrides detected amount of available ram\n");
 	print_output("	-T, --threshold		Disable LZO compressibility testing\n");
 	print_output("	-U, --unlimited		Use unlimited window size beyond ramsize (potentially much slower)\n");
 	print_output("	-w, --window size	maximum compression window in hundreds of MB\n");

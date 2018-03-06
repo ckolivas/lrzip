@@ -289,7 +289,7 @@ Set processor count to override number of threads.
 
 =item B<-m> I<size>
 
-Set maximim available ram as I<size> * 100 MB.
+Set maximum available ram as I<size> * 100 MB.
 Overrides detected amount of available ram.
 
 =item B<--threshold>
