@@ -362,6 +362,7 @@ int main(int argc, char *argv[])
 				set_stdout(control);
 				break;
 			}
+			/* FALLTHRU */
 		case 'C':
 			control->flags |= FLAG_CHECK;
 			control->flags |= FLAG_HASH;
@@ -400,6 +401,7 @@ int main(int argc, char *argv[])
 				control->flags |= FLAG_KEEP_FILES;
 				break;
 			}
+			/* FALLTHRU */
 		case 'K':
 			control->flags |= FLAG_KEEP_BROKEN;
 			break;
