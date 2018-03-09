@@ -795,9 +795,10 @@ bool decompress_file(rzip_control *control)
 		}
 	}
 
-    if ( STDOUT )
-        if (unlikely(!open_tmpoutbuf(control)))
-            return false;
+	if (STDOUT) {
+		if (unlikely(!open_tmpoutbuf(control)))
+			return false;
+	}
 
 	if (!STDIN) {
 		if (unlikely(!read_magic(control, fd_in, &expected_size)))
