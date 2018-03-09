@@ -465,7 +465,8 @@ struct bufRead: public libzpaq::Reader {
 
 	int get() {
 		if (progress && !(*s_len % 128)) {
-			int pct = (total_len - *s_len) * 100 / total_len;
+			int pct = (total_len > 0) ?
+				(total_len - *s_len) * 100 / total_len : 100;
 
 			if (pct / 10 != *last_pct / 10) {
 				int i;
