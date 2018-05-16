@@ -1567,9 +1567,9 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int str
 	stream_thread_struct *st;
 	uchar c_type, *s_buf;
 
-	dealloc(s->buf);
 	if (s->eos)
 		goto out;
+	dealloc(s->buf);
 fill_another:
 	if (unlikely(ucthread[s->uthread_no].busy))
 		failure_return(("Trying to start a busy thread, this shouldn't happen!\n"), -1);
