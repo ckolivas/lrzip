@@ -1030,6 +1030,8 @@ next_chunk:
 		chunk_total += chunk_size;
 		print_verbose("Chunk size: %lld\n", chunk_size);
 	}
+	if (unlikely(chunk_byte < 1 || chunk_byte > 8 || chunk_size < 0))
+		failure("Invalid chunk data\n");
 	while (stream < NUM_STREAMS) {
 		int block = 1;
 
