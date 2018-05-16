@@ -456,9 +456,8 @@ static int zpaq_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 	if (unlikely(dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %ld bytes, expected %lld\n", dlen, ucthread->u_len);
 		ret = -1;
-	}
-
-	dealloc(c_buf);
+	} else
+		dealloc(c_buf);
 out:
 	if (ret == -1)
 		ucthread->s_buf = c_buf;
@@ -491,9 +490,8 @@ static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_
 	if (unlikely(dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %d bytes, expected %lld\n", dlen, ucthread->u_len);
 		ret = -1;
-	}
-
-	dealloc(c_buf);
+	} else
+		dealloc(c_buf);
 out:
 	if (ret == -1)
 		ucthread->s_buf = c_buf;
@@ -526,9 +524,8 @@ static int gzip_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 	if (unlikely((i64)dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %ld bytes, expected %lld\n", dlen, ucthread->u_len);
 		ret = -1;
-	}
-
-	dealloc(c_buf);
+	} else
+		dealloc(c_buf);
 out:
 	if (ret == -1)
 		ucthread->s_buf = c_buf;
@@ -564,9 +561,8 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 	if (unlikely((i64)dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %lld bytes, expected %lld\n", (i64)dlen, ucthread->u_len);
 		ret = -1;
-	}
-
-	dealloc(c_buf);
+	} else
+		dealloc(c_buf);
 out:
 	if (ret == -1)
 		ucthread->s_buf = c_buf;
@@ -599,9 +595,8 @@ static int lzo_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_th
 	if (unlikely((i64)dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %lu bytes, expected %lld\n", (unsigned long)dlen, ucthread->u_len);
 		ret = -1;
-	}
-
-	dealloc(c_buf);
+	} else
+		dealloc(c_buf);
 out:
 	if (ret == -1)
 		ucthread->s_buf = c_buf;
