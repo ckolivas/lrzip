@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016 Con Kolivas
+   Copyright (C) 2006-2016,2018 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -265,6 +265,11 @@ typedef sem_t cksem_t;
 #else
 # define PAGE_SIZE (4096)
 #endif
+
+#define dealloc(ptr) do { \
+	free(ptr); \
+	ptr = NULL; \
+} while (0)
 
 /* Determine how many times to hash the password when encrypting, based on
  * the date such that we increase the number of loops according to Moore's

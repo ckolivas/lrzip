@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016 Con Kolivas
+   Copyright (C) 2006-2016,2018 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -438,7 +438,7 @@ int open_tmpinfile(rzip_control *control)
 
 	/* Try the current directory */
 	if (fd_in == -1) {
-		free(control->infile);
+		dealloc(control->infile);
 		control->infile = malloc(16);
 		if (unlikely(!control->infile))
 			fatal_return(("Failed to allocate infile name\n"), -1);
@@ -448,7 +448,7 @@ int open_tmpinfile(rzip_control *control)
 
 	/* Use /tmp if nothing is writeable so far */
 	if (fd_in == -1) {
-		free(control->infile);
+		dealloc(control->infile);
 		control->infile = malloc(20);
 		if (unlikely(!control->infile))
 			fatal_return(("Failed to allocate infile name\n"), -1);
@@ -543,7 +543,7 @@ static bool open_tmpoutbuf(rzip_control *control)
 void close_tmpoutbuf(rzip_control *control)
 {
 	control->flags &= ~FLAG_TMP_OUTBUF;
-	free(control->tmp_outbuf);
+	dealloc(control->tmp_outbuf);
 	if (!BITS32)
 		control->usable_ram = control->maxram += control->ramsize / 18;
 }
@@ -576,7 +576,7 @@ bool clear_tmpinfile(rzip_control *control)
 void close_tmpinbuf(rzip_control *control)
 {
 	control->flags &= ~FLAG_TMP_INBUF;
-	free(control->tmp_inbuf);
+	dealloc(control->tmp_inbuf);
 	if (!BITS32)
 		control->usable_ram = control->maxram += control->ramsize / 18;
 }
@@ -613,8 +613,8 @@ static bool get_hash(rzip_control *control, int make_hash)
 	control->hash = calloc(HASH_LEN, 1);
 	if (unlikely(!passphrase || !testphrase || !control->salt_pass || !control->hash)) {
 		fatal("Failed to calloc encrypt buffers in compress_file\n");
-		free(testphrase);
-		free(passphrase);
+		dealloc(testphrase);
+		dealloc(passphrase);
 		return false;
 	}
 	mlock(passphrase, PASS_LEN);
@@ -628,8 +628,8 @@ static bool get_hash(rzip_control *control, int make_hash)
 			fatal("Supplied password was null!");
 			munlock(passphrase, PASS_LEN);
 			munlock(testphrase, PASS_LEN);
-			free(testphrase);
-			free(passphrase);
+			dealloc(testphrase);
+			dealloc(passphrase);
 			release_hashes(control);
 			return false;
 		}
@@ -666,8 +666,8 @@ retry_pass:
 	memset(passphrase, 0, PASS_LEN);
 	munlock(passphrase, PASS_LEN);
 	munlock(testphrase, PASS_LEN);
-	free(testphrase);
-	free(passphrase);
+	dealloc(testphrase);
+	dealloc(passphrase);
 	return true;
 }
 
@@ -677,8 +677,8 @@ static void release_hashes(rzip_control *control)
 	memset(control->hash, 0, SALT_LEN);
 	munlock(control->salt_pass, PASS_LEN);
 	munlock(control->hash, HASH_LEN);
-	free(control->salt_pass);
-	free(control->hash);
+	dealloc(control->salt_pass);
+	dealloc(control->hash);
 }
 
 /*
@@ -877,7 +877,7 @@ bool decompress_file(rzip_control *control)
 	if (ENCRYPT)
 		release_hashes(control);
 
-	free(control->outfile);
+	dealloc(control->outfile);
 	return true;
 }
 
@@ -1155,7 +1155,7 @@ done:
 			fatal_return(("Failed to close fd_in in get_fileinfo\n"), false);
 
 out:
-	free(control->outfile);
+	dealloc(control->outfile);
 	return true;
 error:
 	if (!STDIN && ! IS_FROM_FILE) close(fd_in);
@@ -1290,7 +1290,7 @@ bool compress_file(rzip_control *control)
 			fatal_return(("Failed to unlink %s\n", control->infile), false);
 	}
 
-	free(control->outfile);
+	dealloc(control->outfile);
 	return true;
 error:
 	if (! IS_FROM_FILE && STDIN && (fd_in > 0))

@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2012-2016 Con Kolivas
+   Copyright (C) 2012-2016,2018 Con Kolivas
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -155,10 +155,10 @@ void lrzip_free(Lrzip *lr)
 		return;
 	rzip_control_free(lr->control);
 	for (x = 0; x < lr->infilename_idx; x++)
-		free(lr->infilenames[x]);
-	free(lr->infilenames);
-	free(lr->infiles);
-	free(lr);
+		dealloc(lr->infilenames[x]);
+	dealloc(lr->infilenames);
+	dealloc(lr->infiles);
+	dealloc(lr);
 }
 
 Lrzip *lrzip_new(Lrzip_Mode mode)
@@ -354,7 +354,7 @@ void lrzip_files_clear(Lrzip *lr)
 {
 	if ((!lr) || (!lr->infile_buckets))
 		return;
-	free(lr->infiles);
+	dealloc(lr->infiles);
 	lr->infiles = NULL;
 }
 
@@ -403,7 +403,7 @@ bool lrzip_filename_del(Lrzip *lr, const char *file)
 			return true; /* not found */
 		if (strcmp(lr->infilenames[x], file))
 			continue; /* not a match */
-		free(lr->infilenames[x]);
+		dealloc(lr->infilenames[x]);
 		break;
 	}
 	/* update index */
@@ -427,8 +427,8 @@ void lrzip_filenames_clear(Lrzip *lr)
 	if ((!lr) || (!lr->infilename_buckets))
 		return;
 	for (x = 0; x < lr->infilename_idx; x++)
-		free(lr->infilenames[x]);
-	free(lr->infilenames);
+		dealloc(lr->infilenames[x]);
+	dealloc(lr->infilenames);
 	lr->infilenames = NULL;
 }
 
@@ -436,7 +436,7 @@ void lrzip_suffix_set(Lrzip *lr, const char *suffix)
 {
 	if ((!lr) || (!suffix) || (!suffix[0]))
 		return;
-	free(lr->control->suffix);
+	dealloc(lr->control->suffix);
 	lr->control->suffix = strdup(suffix);
 }
 
@@ -454,7 +454,7 @@ void lrzip_outdir_set(Lrzip *lr, const char *dir)
 	size_t len;
 	if ((!lr) || (!dir) || (!dir[0]))
 		return;
-	free(lr->control->outdir);
+	dealloc(lr->control->outdir);
 	slash = strrchr(dir, '/');
 	if (slash && (slash[1] == 0)) {
 		lr->control->outdir = strdup(dir);
@@ -501,7 +501,7 @@ void lrzip_outfilename_set(Lrzip *lr, const char *file)
 		return;
 	if (lr->control->outname && file && (!strcmp(lr->control->outname, file)))
 		return;
-	free(lr->control->outname);
+	dealloc(lr->control->outname);
 	lr->control->outname = file ? strdup(file) : NULL;
 }
 

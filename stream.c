@@ -1,6 +1,6 @@
 /*
+   Copyright (C) 2006-2016,2018 Con Kolivas
    Copyright (C) 2011 Serge Belyshev
-   Copyright (C) 2006-2016 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
@@ -187,12 +187,12 @@ static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthr
 	if (unlikely(c_len >= cthread->c_len)) {
 		print_maxverbose("Incompressible block\n");
 		/* Incompressible, leave as CTYPE_NONE */
-		free(c_buf);
+		dealloc(c_buf);
 		return 0;
 	}
 
 	cthread->c_len = c_len;
-	free(cthread->s_buf);
+	dealloc(cthread->s_buf);
 	cthread->s_buf = c_buf;
 	cthread->c_type = CTYPE_ZPAQ;
 	return 0;
@@ -223,12 +223,12 @@ static int bzip2_compress_buf(rzip_control *control, struct compress_thread *cth
 	if (bzip2_ret == BZ_OUTBUFF_FULL) {
 		print_maxverbose("Incompressible block\n");
 		/* Incompressible, leave as CTYPE_NONE */
-		free(c_buf);
+		dealloc(c_buf);
 		return 0;
 	}
 
 	if (unlikely(bzip2_ret != BZ_OK)) {
-		free(c_buf);
+		dealloc(c_buf);
 		print_maxverbose("BZ2 compress failed\n");
 		return -1;
 	}
@@ -236,12 +236,12 @@ static int bzip2_compress_buf(rzip_control *control, struct compress_thread *cth
 	if (unlikely(dlen >= cthread->c_len)) {
 		print_maxverbose("Incompressible block\n");
 		/* Incompressible, leave as CTYPE_NONE */
-		free(c_buf);
+		dealloc(c_buf);
 		return 0;
 	}
 
 	cthread->c_len = dlen;
-	free(cthread->s_buf);
+	dealloc(cthread->s_buf);
 	cthread->s_buf = c_buf;
 	cthread->c_type = CTYPE_BZIP2;
 	return 0;
@@ -268,12 +268,12 @@ static int gzip_compress_buf(rzip_control *control, struct compress_thread *cthr
 	if (gzip_ret == Z_BUF_ERROR) {
 		print_maxverbose("Incompressible block\n");
 		/* Incompressible, leave as CTYPE_NONE */
-		free(c_buf);
+		dealloc(c_buf);
 		return 0;
 	}
 
 	if (unlikely(gzip_ret != Z_OK)) {
-		free(c_buf);
+		dealloc(c_buf);
 		print_maxverbose("compress2 failed\n");
 		return -1;
 	}
@@ -281,12 +281,12 @@ static int gzip_compress_buf(rzip_control *control, struct compress_thread *cthr
 	if (unlikely((i64)dlen >= cthread->c_len)) {
 		print_maxverbose("Incompressible block\n");
 		/* Incompressible, leave as CTYPE_NONE */
-		free(c_buf);
+		dealloc(c_buf);
 		return 0;
 	}
 
 	cthread->c_len = dlen;
-	free(cthread->s_buf);
+	dealloc(cthread->s_buf);
 	cthread->s_buf = c_buf;
 	cthread->c_type = CTYPE_GZIP;
 	return 0;
@@ -344,7 +344,7 @@ retry:
 				break;
 		}
 		/* can pass -1 if not compressible! Thanks Lasse Collin */
-		free(c_buf);
+		dealloc(c_buf);
 		if (lzma_ret == SZ_ERROR_MEM) {
 			if (lzma_level > 1) {
 				lzma_level--;
@@ -364,7 +364,7 @@ retry:
 	if (unlikely((i64)dlen >= cthread->c_len)) {
 		/* Incompressible, leave as CTYPE_NONE */
 		print_maxverbose("Incompressible block\n");
-		free(c_buf);
+		dealloc(c_buf);
 		return 0;
 	}
 
@@ -381,7 +381,7 @@ retry:
 	unlock_mutex(control, &control->control_lock);
 
 	cthread->c_len = dlen;
-	free(cthread->s_buf);
+	dealloc(cthread->s_buf);
 	cthread->s_buf = c_buf;
 	cthread->c_type = CTYPE_LZMA;
 	return 0;
@@ -415,16 +415,16 @@ static int lzo_compress_buf(rzip_control *control, struct compress_thread *cthre
 	if (dlen >= in_len){
 		/* Incompressible, leave as CTYPE_NONE */
 		print_maxverbose("Incompressible block\n");
-		free(c_buf);
+		dealloc(c_buf);
 		goto out_free;
 	}
 
 	cthread->c_len = dlen;
-	free(cthread->s_buf);
+	dealloc(cthread->s_buf);
 	cthread->s_buf = c_buf;
 	cthread->c_type = CTYPE_LZO;
 out_free:
-	free(wrkmem);
+	dealloc(wrkmem);
 	return ret;
 }
 
@@ -458,7 +458,7 @@ static int zpaq_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 		ret = -1;
 	}
 
-	free(c_buf);
+	dealloc(c_buf);
 out:
 	if (ret == -1)
 		ucthread->s_buf = c_buf;
@@ -482,7 +482,7 @@ static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_
 	bzerr = BZ2_bzBuffToBuffDecompress((char*)ucthread->s_buf, &dlen, (char*)c_buf, ucthread->c_len, 0, 0);
 	if (unlikely(bzerr != BZ_OK)) {
 		print_err("Failed to decompress buffer - bzerr=%d\n", bzerr);
-		free(ucthread->s_buf);
+		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
 		ret = -1;
 		goto out;
@@ -493,7 +493,7 @@ static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_
 		ret = -1;
 	}
 
-	free(c_buf);
+	dealloc(c_buf);
 out:
 	if (ret == -1)
 		ucthread->s_buf = c_buf;
@@ -517,7 +517,7 @@ static int gzip_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 	gzerr = uncompress(ucthread->s_buf, &dlen, c_buf, ucthread->c_len);
 	if (unlikely(gzerr != Z_OK)) {
 		print_err("Failed to decompress buffer - gzerr=%d\n", gzerr);
-		free(ucthread->s_buf);
+		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
 		ret = -1;
 		goto out;
@@ -528,7 +528,7 @@ static int gzip_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 		ret = -1;
 	}
 
-	free(c_buf);
+	dealloc(c_buf);
 out:
 	if (ret == -1)
 		ucthread->s_buf = c_buf;
@@ -555,7 +555,7 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 	lzmaerr = LzmaUncompress(ucthread->s_buf, &dlen, c_buf, &c_len, control->lzma_properties, 5);
 	if (unlikely(lzmaerr)) {
 		print_err("Failed to decompress buffer - lzmaerr=%d\n", lzmaerr);
-		free(ucthread->s_buf);
+		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
 		ret = -1;
 		goto out;
@@ -566,7 +566,7 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 		ret = -1;
 	}
 
-	free(c_buf);
+	dealloc(c_buf);
 out:
 	if (ret == -1)
 		ucthread->s_buf = c_buf;
@@ -590,7 +590,7 @@ static int lzo_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_th
 	lzerr = lzo1x_decompress((uchar*)c_buf, ucthread->c_len, (uchar*)ucthread->s_buf, &dlen, NULL);
 	if (unlikely(lzerr != LZO_E_OK)) {
 		print_err("Failed to decompress buffer - lzerr=%d\n", lzerr);
-		free(ucthread->s_buf);
+		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
 		ret = -1;
 		goto out;
@@ -601,7 +601,7 @@ static int lzo_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_th
 		ret = -1;
 	}
 
-	free(c_buf);
+	dealloc(c_buf);
 out:
 	if (ret == -1)
 		ucthread->s_buf = c_buf;
@@ -903,7 +903,7 @@ bool prepare_streamout_threads(rzip_control *control)
 
 	cthread = calloc(sizeof(struct compress_thread), control->threads);
 	if (unlikely(!cthread)) {
-		free(threads);
+		dealloc(threads);
 		fatal_return(("Unable to calloc cthread in prepare_streamout_threads\n"), false);
 	}
 
@@ -927,8 +927,8 @@ bool close_streamout_threads(rzip_control *control)
 		if (++close_thread == control->threads)
 			close_thread = 0;
 	}
-	free(cthread);
-	free(threads);
+	dealloc(cthread);
+	dealloc(threads);
 	return true;
 }
 
@@ -954,7 +954,7 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 
 	sinfo->s = calloc(sizeof(struct stream), n);
 	if (unlikely(!sinfo->s)) {
-		free(sinfo);
+		dealloc(sinfo);
 		return NULL;
 	}
 
@@ -1001,13 +1001,13 @@ retest_malloc:
 		char *testmalloc2 = malloc(limit);
 
 		if (!testmalloc2) {
-			free(testmalloc);
+			dealloc(testmalloc);
 			limit = limit / 10 * 9;
 			goto retest_malloc;
 		}
-		free(testmalloc2);
+		dealloc(testmalloc2);
 	}
-	free(testmalloc);
+	dealloc(testmalloc);
 	print_maxverbose("Succeeded in testing %lld sized malloc for back end compression\n", testsize);
 
 	/* Make the bufsize no smaller than STREAM_BUFSIZE. Round up the
@@ -1026,8 +1026,8 @@ retest_malloc:
 		sinfo->s[i].buf = calloc(sinfo->bufsize , 1);
 		if (unlikely(!sinfo->s[i].buf)) {
 			fatal("Unable to malloc buffer of size %lld in open_stream_out\n", sinfo->bufsize);
-			free(sinfo->s);
-			free(sinfo);
+			dealloc(sinfo->s);
+			dealloc(sinfo);
 			return NULL;
 		}
 	}
@@ -1081,8 +1081,8 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 
 	ucthread = calloc(sizeof(struct uncomp_thread), total_threads);
 	if (unlikely(!ucthread)) {
-		free(sinfo);
-		free(threads);
+		dealloc(sinfo);
+		dealloc(threads);
 		fatal_return(("Unable to calloc cthread in open_stream_in\n"), NULL);
 	}
 
@@ -1092,7 +1092,7 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 
 	sinfo->s = calloc(sizeof(struct stream), n);
 	if (unlikely(!sinfo->s)) {
-		free(sinfo);
+		dealloc(sinfo);
 		return NULL;
 	}
 
@@ -1208,8 +1208,8 @@ again:
 	return (void *)sinfo;
 
 failed:
-	free(sinfo->s);
-	free(sinfo);
+	dealloc(sinfo->s);
+	dealloc(sinfo);
 	return NULL;
 }
 
@@ -1248,11 +1248,11 @@ static bool rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, 
 		failure_goto(("Failed to seek back to ofs in rewrite_encrypted\n"), error);
 	if (unlikely(write_buf(control, buf, 25)))
 		failure_goto(("Failed to write_buf encrypted buf in rewrite_encrypted\n"), error);
-	free(head);
+	dealloc(head);
 	seekto(control, sinfo, cur_ofs);
 	return true;
 error:
-	free(head);
+	dealloc(head);
 	return false;
 }
 
@@ -1271,7 +1271,7 @@ static void *compthread(void *data)
 
 	/* Make sure this thread doesn't already exist */
 
-	free(data);
+	dealloc(data);
 	cti = &cthread[i];
 	ctis = cti->sinfo;
 
@@ -1441,7 +1441,7 @@ retry:
 		fatal_goto(("Failed to write_buf s_buf in compthread %d\n", i), error);
 
 	ctis->cur_pos += padded_len;
-	free(cti->s_buf);
+	dealloc(cti->s_buf);
 
 	lock_mutex(control, &output_lock);
 	if (++output_thread == control->threads)
@@ -1509,7 +1509,7 @@ static void *ucompthread(void *data)
 	struct uncomp_thread *uci;
 	int waited = 0, ret = 0;
 
-	free(data);
+	dealloc(data);
 	uci = &ucthread[i];
 
 	if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1))
@@ -1570,8 +1570,7 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int str
 	stream_thread_struct *st;
 	uchar c_type, *s_buf;
 
-	if (s->buf)
-		free(s->buf);
+	dealloc(s->buf);
 	if (s->eos)
 		goto out;
 fill_another:
@@ -1671,7 +1670,7 @@ fill_another:
 	st->i = s->uthread_no;
 	st->control = control;
 	if (unlikely(!create_pthread(control, &threads[s->uthread_no], NULL, ucompthread, st))) {
-		free(st);
+		dealloc(st);
 		return -1;
 	}
 
@@ -1814,8 +1813,8 @@ int close_stream_out(rzip_control *control, void *ss)
 	 * stream has started. Instead (in library mode), they are stored and only freed
 	 * after the entire operation has completed.
 	 */
-	free(sinfo->s);
-	free(sinfo);
+	dealloc(sinfo->s);
+	dealloc(sinfo);
 #endif
 	return 0;
 }
@@ -1833,13 +1832,13 @@ int close_stream_in(rzip_control *control, void *ss)
 		return -1;
 
 	for (i = 0; i < sinfo->num_streams; i++)
-		free(sinfo->s[i].buf);
+		dealloc(sinfo->s[i].buf);
 
 	output_thread = 0;
-	free(ucthread);
-	free(threads);
-	free(sinfo->s);
-	free(sinfo);
+	dealloc(ucthread);
+	dealloc(threads);
+	dealloc(sinfo->s);
+	dealloc(sinfo);
 
 	return 0;
 }
@@ -1871,7 +1870,7 @@ static int lzo_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 
 	c_buf = malloc(dlen);
 	if (unlikely(!c_buf)) {
-		free(wrkmem);
+		dealloc(wrkmem);
 		fatal_return(("Unable to allocate c_buf in lzo_compresses\n"), 0);
 	}
 
@@ -1901,8 +1900,8 @@ static int lzo_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 			(ret == 0? "FAILED" : "OK"), save_len,
 			100 * ((double) best_dlen / (double) in_len), workcounter);
 
-	free(wrkmem);
-	free(c_buf);
+	dealloc(wrkmem);
+	dealloc(c_buf);
 
 	return ret;
 }

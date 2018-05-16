@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016 Con Kolivas
+   Copyright (C) 2006-2016,2018 Con Kolivas
    Copyright (C) 1998 Andrew Tridgell
 
    Modified to use flat hash, memory limit and variable hash culling
@@ -588,7 +588,7 @@ static void *cksumthread(void *data)
 	*control->checksum.cksum = CrcUpdate(*control->checksum.cksum, control->checksum.buf, control->checksum.len);
 	if (!NO_MD5)
 		md5_process_bytes(control->checksum.buf, control->checksum.len, &control->ctx);
-	free(control->checksum.buf);
+	dealloc(control->checksum.buf);
 	cksem_post(control, &control->cksumsem);
 	return NULL;
 }
@@ -765,7 +765,7 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 		st->cksum = CrcUpdate(st->cksum, control->checksum.buf, cksum_remains);
 		if (!NO_MD5)
 			md5_process_bytes(control->checksum.buf, cksum_remains, &control->ctx);
-		free(control->checksum.buf);
+		dealloc(control->checksum.buf);
 		cksem_post(control, &control->cksumsem);
 	} else {
 		cksem_wait(control, &control->cksumsem);
@@ -937,13 +937,13 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 
 	if (LZO_COMPRESS) {
 		if (unlikely(lzo_init() != LZO_E_OK)) {
-			free(st);
+			dealloc(st);
 			failure("lzo_init() failed\n");
 		}
 	}
 
 	if (unlikely(fstat(fd_in, &s))) {
-		free(st);
+		dealloc(st);
 		failure("Failed to stat fd_in in rzip_fd\n");
 	}
 
@@ -958,7 +958,7 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 		* compressed file, based on the compressed file being as large as the
 		* uncompressed file. */
 		if (unlikely(fstatvfs(fd_out, &fbuf))) {
-			free(st);
+			dealloc(st);
 			failure("Failed to fstatvfs in compress_file\n");
 		}
 		free_space = (i64)fbuf.f_bsize * (i64)fbuf.f_bavail;
@@ -966,7 +966,7 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 			if (FORCE_REPLACE)
 				print_err("Warning, possibly inadequate free space detected, but attempting to compress due to -f option being used.\n");
 			else {
-				free(st);
+				dealloc(st);
 				failure("Possibly inadequate free space to compress file, use -f to override.\n");
 			}
 		}
@@ -1041,16 +1041,16 @@ retry:
 			if (sb->buf_low == MAP_FAILED) {
 				if (unlikely(errno != ENOMEM)) {
 					close_streamout_threads(control);
-					free(st->hash_table);
-					free(st);
+					dealloc(st->hash_table);
+					dealloc(st);
 					failure("Failed to mmap %s\n", control->infile);
 				}
 				st->mmap_size = st->mmap_size / 10 * 9;
 				round_to_page(&st->mmap_size);
 				if (unlikely(!st->mmap_size)) {
 					close_streamout_threads(control);
-					free(st->hash_table);
-					free(st);
+					dealloc(st->hash_table);
+					dealloc(st);
 					failure("Unable to mmap any ram\n");
 				}
 				goto retry;
@@ -1063,16 +1063,16 @@ retry:
 			if (sb->buf_low == MAP_FAILED) {
 				if (unlikely(errno != ENOMEM)) {
 					close_streamout_threads(control);
-					free(st->hash_table);
-					free(st);
+					dealloc(st->hash_table);
+					dealloc(st);
 					failure("Failed to mmap %s\n", control->infile);
 				}
 				st->mmap_size = st->mmap_size / 10 * 9;
 				round_to_page(&st->mmap_size);
 				if (unlikely(!st->mmap_size)) {
 					close_streamout_threads(control);
-					free(st->hash_table);
-					free(st);
+					dealloc(st->hash_table);
+					dealloc(st);
 					failure("Unable to mmap any ram\n");
 				}
 				goto retry;
@@ -1159,16 +1159,16 @@ retry:
 		len -= st->chunk_size;
 		if (unlikely(len > 0 && control->eof)) {
 			close_streamout_threads(control);
-			free(st->hash_table);
-			free(st);
+			dealloc(st->hash_table);
+			dealloc(st);
 			failure("Wrote EOF to file yet chunk_size was shrunk, corrupting archive.\n");
 		}
 	}
 
 	if (likely(st->hash_table))
-		free(st->hash_table);
+		dealloc(st->hash_table);
 	if (unlikely(!close_streamout_threads(control))) {
-		free(st);
+		dealloc(st);
 		failure("Failed to close_streamout_threads in rzip_fd\n");
 	}
 
@@ -1184,18 +1184,18 @@ retry:
 		/* When encrypting data, we encrypt the MD5 value as well */
 		if (ENCRYPT)
 			if (unlikely(!lrz_encrypt(control, control->md5_resblock, MD5_DIGEST_SIZE, control->salt_pass))) {
-				free(st);
+				dealloc(st);
 				failure("Failed to lrz_encrypt in rzip_fd\n");
 			}
 		if (unlikely(write_1g(control, control->md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE)) {
-			free(st);
+			dealloc(st);
 			failure("Failed to write md5 in rzip_fd\n");
 		}
 	}
 
 	if (TMP_OUTBUF) {
 		if (unlikely(!flush_tmpoutbuf(control))) {
-			free(st);
+			dealloc(st);
 			failure("Failed to flush_tmpoutbuf in rzip_fd\n");
 		}
 	}
@@ -1225,7 +1225,7 @@ retry:
 	print_progress("Compression Ratio: %.3f. Average Compression Speed: %6.3fMB/s.\n",
 		       1.0 * s.st_size / s2.st_size, chunkmbs);
 
-	free(st);
+	dealloc(st);
 }
 
 void rzip_control_free(rzip_control *control)
@@ -1234,15 +1234,16 @@ void rzip_control_free(rzip_control *control)
 	if (!control)
 		return;
 
-	free(control->tmpdir);
-	free(control->outname);
-	free(control->outdir);
-	if (control->suffix && control->suffix[0]) free(control->suffix);
+	dealloc(control->tmpdir);
+	dealloc(control->outname);
+	dealloc(control->outdir);
+	if (control->suffix && control->suffix[0])
+		dealloc(control->suffix);
 
 	for (x = 0; x < control->sinfo_idx; x++) {
-		free(control->sinfo_queue[x]->s);
-		free(control->sinfo_queue[x]);
+		dealloc(control->sinfo_queue[x]->s);
+		dealloc(control->sinfo_queue[x]);
 	}
-	free(control->sinfo_queue);
-	free(control);
+	dealloc(control->sinfo_queue);
+	dealloc(control);
 }

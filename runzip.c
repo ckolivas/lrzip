@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016 Con Kolivas
+   Copyright (C) 2006-2016,2018 Con Kolivas
    Copyright (C) 1998-2003 Andrew Tridgell
 
    This program is free software; you can redistribute it and/or modify
@@ -161,12 +161,12 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum
 
 	stream_read = read_stream(control, ss, 1, buf, len);
 	if (unlikely(stream_read == -1 )) {
-		free(buf);
+		dealloc(buf);
 		fatal_return(("Failed to read_stream in unzip_literal\n"), -1);
 	}
 
 	if (unlikely(write_1g(control, buf, (size_t)stream_read) != (ssize_t)stream_read)) {
-		free(buf);
+		dealloc(buf);
 		fatal_return(("Failed to write literal buffer of size %lld\n", stream_read), -1);
 	}
 
@@ -175,7 +175,7 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum
 	if (!NO_MD5)
 		md5_process_bytes(buf, stream_read, &control->ctx);
 
-	free(buf);
+	dealloc(buf);
 	return stream_read;
 }
 
@@ -221,11 +221,11 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 		n = MIN(len, offset);
 
 		if (unlikely(read_fdhist(control, off_buf, (size_t)n) != (ssize_t)n)) {
-			free(buf);
+			dealloc(buf);
 			fatal_return(("Failed to read %d bytes in unzip_match\n", n), -1);
 		}
 		if (unlikely(write_1g(control, off_buf, (size_t)n) != (ssize_t)n)) {
-			free(buf);
+			dealloc(buf);
 			fatal_return(("Failed to write %d bytes in unzip_match\n", n), -1);
 		}
 
@@ -239,7 +239,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 		total += n;
 	}
 
-	free(buf);
+	dealloc(buf);
 
 	return total;
 }
