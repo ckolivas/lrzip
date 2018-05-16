@@ -459,8 +459,10 @@ static int zpaq_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 	} else
 		dealloc(c_buf);
 out:
-	if (ret == -1)
+	if (ret == -1) {
+		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
+	}
 	return ret;
 }
 
@@ -481,7 +483,6 @@ static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_
 	bzerr = BZ2_bzBuffToBuffDecompress((char*)ucthread->s_buf, &dlen, (char*)c_buf, ucthread->c_len, 0, 0);
 	if (unlikely(bzerr != BZ_OK)) {
 		print_err("Failed to decompress buffer - bzerr=%d\n", bzerr);
-		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
 		ret = -1;
 		goto out;
@@ -493,8 +494,10 @@ static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_
 	} else
 		dealloc(c_buf);
 out:
-	if (ret == -1)
+	if (ret == -1) {
+		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
+	}
 	return ret;
 }
 
@@ -515,7 +518,6 @@ static int gzip_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 	gzerr = uncompress(ucthread->s_buf, &dlen, c_buf, ucthread->c_len);
 	if (unlikely(gzerr != Z_OK)) {
 		print_err("Failed to decompress buffer - gzerr=%d\n", gzerr);
-		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
 		ret = -1;
 		goto out;
@@ -527,8 +529,10 @@ static int gzip_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 	} else
 		dealloc(c_buf);
 out:
-	if (ret == -1)
+	if (ret == -1) {
+		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
+	}
 	return ret;
 }
 
@@ -552,7 +556,6 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 	lzmaerr = LzmaUncompress(ucthread->s_buf, &dlen, c_buf, &c_len, control->lzma_properties, 5);
 	if (unlikely(lzmaerr)) {
 		print_err("Failed to decompress buffer - lzmaerr=%d\n", lzmaerr);
-		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
 		ret = -1;
 		goto out;
@@ -564,8 +567,10 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 	} else
 		dealloc(c_buf);
 out:
-	if (ret == -1)
+	if (ret == -1) {
+		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
+	}
 	return ret;
 }
 
