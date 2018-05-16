@@ -993,12 +993,16 @@ bool get_fileinfo(rzip_control *control)
 	if (control->major_version == 0 && control->minor_version > 4) {
 		if (unlikely(read(fd_in, &chunk_byte, 1) != 1))
 			fatal_goto(("Failed to read chunk_byte in get_fileinfo\n"), error);
+		if (unlikely(chunk_byte < 1 || chunk_byte > 8))
+			fatal_goto(("Invalid chunk bytes %d\n", chunk_byte), error);
 		if (control->major_version == 0 && control->minor_version > 5) {
 			if (unlikely(read(fd_in, &control->eof, 1) != 1))
 				fatal_goto(("Failed to read eof in get_fileinfo\n"), error);
 			if (unlikely(read(fd_in, &chunk_size, chunk_byte) != chunk_byte))
 				fatal_goto(("Failed to read chunk_size in get_fileinfo\n"), error);
 			chunk_size = le64toh(chunk_size);
+			if (unlikely(chunk_size < 0))
+				fatal_goto(("Invalid chunk size %lld\n", chunk_size), error);
 		}
 	}
 
