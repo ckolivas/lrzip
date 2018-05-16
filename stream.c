@@ -95,35 +95,35 @@ static pthread_t *threads;
 bool init_mutex(rzip_control *control, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_mutex_init(mutex, NULL)))
-		fatal_return(("pthread_mutex_init failed"), false);
+		fatal_return(("Failed to pthread_mutex_init\n"), false);
 	return true;
 }
 
 bool unlock_mutex(rzip_control *control, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_mutex_unlock(mutex)))
-		fatal_return(("pthread_mutex_unlock failed"), false);
+		fatal_return(("Failed to pthread_mutex_unlock\n"), false);
 	return true;
 }
 
 bool lock_mutex(rzip_control *control, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_mutex_lock(mutex)))
-		fatal_return(("pthread_mutex_lock failed"), false);
+		fatal_return(("Failed to pthread_mutex_lock\n"), false);
 	return true;
 }
 
 static bool cond_wait(rzip_control *control, pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_cond_wait(cond, mutex)))
-		fatal_return(("pthread_cond_wait failed"), false);
+		fatal_return(("Failed to pthread_cond_wait\n"), false);
 	return true;
 }
 
 static bool cond_broadcast(rzip_control *control, pthread_cond_t *cond)
 {
 	if (unlikely(pthread_cond_broadcast(cond)))
-		fatal_return(("pthread_cond_broadcast failed"), false);
+		fatal_return(("Failed to pthread_cond_broadcast\n"), false);
 	return true;
 }
 
@@ -131,21 +131,21 @@ bool create_pthread(rzip_control *control, pthread_t *thread, pthread_attr_t * a
 	void * (*start_routine)(void *), void *arg)
 {
 	if (unlikely(pthread_create(thread, attr, start_routine, arg)))
-		fatal_return(("pthread_create"), false);
+		fatal_return(("Failed to pthread_create\n"), false);
 	return true;
 }
 
 bool detach_pthread(rzip_control *control, pthread_t *thread)
 {
 	if (unlikely(pthread_detach(*thread)))
-		fatal_return(("pthread_detach"), false);
+		fatal_return(("Failed to pthread_detach\n"), false);
 	return true;
 }
 
 bool join_pthread(rzip_control *control, pthread_t th, void **thread_return)
 {
 	if (pthread_join(th, thread_return))
-		fatal_return(("pthread_join"), false);
+		fatal_return(("Failed to pthread_join\n"), false);
 	return true;
 }
 
