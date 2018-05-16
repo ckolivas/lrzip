@@ -1632,6 +1632,10 @@ fill_another:
 	c_len = le64toh(c_len);
 	u_len = le64toh(u_len);
 	last_head = le64toh(last_head);
+	if (unlikely(c_len < 1 || u_len < 1 || last_head < 0)) {
+		fatal_return(("Invalid data compressed len %lld uncompressed %lld last_head %lld\n",
+			     c_len, u_len, last_head), -1);
+	}
 	print_maxverbose("Fill_buffer stream %d c_len %lld u_len %lld last_head %lld\n", streamno, c_len, u_len, last_head);
 
 	padded_len = MAX(c_len, MIN_SIZE);
