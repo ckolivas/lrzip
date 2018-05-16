@@ -1034,7 +1034,7 @@ next_chunk:
 		chunk_total += chunk_size;
 		print_verbose("Chunk size: %lld\n", chunk_size);
 	}
-	if (unlikely(chunk_byte < 1 || chunk_byte > 8 || chunk_size < 0))
+	if (unlikely(chunk_byte && (chunk_byte > 8 || chunk_size < 0)))
 		failure("Invalid chunk data\n");
 	while (stream < NUM_STREAMS) {
 		int block = 1;
@@ -1093,6 +1093,8 @@ next_chunk:
 	if (control->major_version == 0 && control->minor_version > 4) {
 		if (unlikely(read(fd_in, &chunk_byte, 1) != 1))
 			fatal_goto(("Failed to read chunk_byte in get_fileinfo\n"), error);
+		if (unlikely(chunk_byte < 1 || chunk_byte > 8))
+			fatal_goto(("Invalid chunk bytes %d\n", chunk_byte), error);
 		ofs++;
 		if (control->major_version == 0 && control->minor_version > 5) {
 			if (unlikely(read(fd_in, &control->eof, 1) != 1))
@@ -1100,6 +1102,8 @@ next_chunk:
 			if (unlikely(read(fd_in, &chunk_size, chunk_byte) != chunk_byte))
 				fatal_goto(("Failed to read chunk_size in get_fileinfo\n"), error);
 			chunk_size = le64toh(chunk_size);
+			if (unlikely(chunk_size < 0))
+				fatal_goto(("Invalid chunk size %lld\n", chunk_size), error);
 			ofs += 1 + chunk_byte;
 			header_length = 1 + (chunk_byte * 3);
 		}
