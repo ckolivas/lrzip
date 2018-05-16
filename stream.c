@@ -1564,7 +1564,7 @@ retry:
 /* fill a buffer from a stream - return -1 on failure */
 static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int streamno)
 {
-	i64 u_len, c_len, last_head, padded_len, header_length;
+	i64 u_len, c_len, last_head, padded_len, header_length, max_len;
 	uchar enc_head[25 + SALT_LEN], blocksalt[SALT_LEN];
 	struct stream *s = &sinfo->s[streamno];
 	stream_thread_struct *st;
@@ -1639,7 +1639,9 @@ fill_another:
 
 	if (unlikely(u_len > control->maxram))
 		fatal_return(("Unable to malloc buffer of size %lld in this environment\n", u_len), -1);
-	s_buf = malloc(MAX(u_len, MIN_SIZE));
+	max_len = MAX(u_len, MIN_SIZE);
+	max_len = MAX(max_len, c_len);
+	s_buf = malloc(max_len);
 	if (unlikely(u_len && !s_buf))
 		fatal_return(("Unable to malloc buffer of size %lld in fill_buffer\n", u_len), -1);
 	sinfo->ram_alloced += u_len;
