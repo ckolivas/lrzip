@@ -1303,7 +1303,8 @@ error:
 bool initialise_control(rzip_control *control)
 {
 	time_t now_t, tdiff;
-	char *eptr; /* for environment */
+	char localeptr[] = "./", *eptr; /* for environment */
+	size_t len;
 
 	memset(control, 0, sizeof(rzip_control));
 	control->msgout = stderr;
@@ -1346,13 +1347,9 @@ bool initialise_control(rzip_control *control)
 		eptr = getenv("TEMPDIR");
 	if (!eptr)
 		eptr = getenv("TEMP");
-	if (!eptr) {
-		eptr = malloc(3);
-		if ( eptr == NULL )
-			fatal_return(("Failed to allocate for eptr\n"), false);
-		strcpy(eptr,"./");
-	}
-	size_t len = strlen(eptr);
+	if (!eptr)
+		eptr = localeptr;
+	len = strlen(eptr);
 
 	control->tmpdir = malloc(len + 2);
 	if (control->tmpdir == NULL)
