@@ -964,7 +964,7 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 		free_space = (i64)fbuf.f_bsize * (i64)fbuf.f_bavail;
 		if (free_space < control->st_size) {
 			if (FORCE_REPLACE)
-				print_err("Warning, possibly inadequate free space detected, but attempting to compress due to -f option being used.\n");
+				print_output("Warning, possibly inadequate free space detected, but attempting to compress due to -f option being used.\n");
 			else {
 				dealloc(st);
 				failure("Possibly inadequate free space to compress file, use -f to override.\n");
