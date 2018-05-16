@@ -219,6 +219,8 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 
 	while (len) {
 		n = MIN(len, offset);
+		if (unlikely(n < 1))
+			fatal_return(("Failed fd history in unzip_match due to corrupt archive\n"), -1);
 
 		if (unlikely(read_fdhist(control, off_buf, (size_t)n) != (ssize_t)n)) {
 			dealloc(buf);
