@@ -588,7 +588,6 @@ static int lzo_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_th
 	lzerr = lzo1x_decompress((uchar*)c_buf, ucthread->c_len, (uchar*)ucthread->s_buf, &dlen, NULL);
 	if (unlikely(lzerr != LZO_E_OK)) {
 		print_err("Failed to decompress buffer - lzerr=%d\n", lzerr);
-		dealloc(ucthread->s_buf);
 		ret = -1;
 		goto out;
 	}
@@ -599,8 +598,10 @@ static int lzo_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_th
 	} else
 		dealloc(c_buf);
 out:
-	if (ret == -1)
+	if (ret == -1) {
+		dealloc(ucthread->s_buf);
 		ucthread->s_buf = c_buf;
+	}
 	return ret;
 }
 
