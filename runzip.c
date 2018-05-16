@@ -380,7 +380,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 exp
 
 	do {
 		u = runzip_chunk(control, fd_in, expected_size, total);
-		if (unlikely(u == -1)) {
+		if (unlikely(u < 1)) {
 			print_err("Failed to runzip_chunk in runzip_fd\n");
 			return -1;
 		}
