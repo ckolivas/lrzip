@@ -1571,9 +1571,9 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int str
 	stream_thread_struct *st;
 	uchar c_type, *s_buf;
 
+	dealloc(s->buf);
 	if (s->eos)
 		goto out;
-	dealloc(s->buf);
 fill_another:
 	if (unlikely(ucthread[s->uthread_no].busy))
 		failure_return(("Trying to start a busy thread, this shouldn't happen!\n"), -1);
@@ -1632,7 +1632,9 @@ fill_another:
 	c_len = le64toh(c_len);
 	u_len = le64toh(u_len);
 	last_head = le64toh(last_head);
-	if (unlikely(c_len < 1 || u_len < 1 || last_head < 0)) {
+	/* Check for invalid data and that the last_head is actually moving
+	 * forward correctly. */
+	if (unlikely(c_len < 1 || u_len < 1 || last_head < 0 || (last_head && last_head <= s->last_head))) {
 		fatal_return(("Invalid data compressed len %lld uncompressed %lld last_head %lld\n",
 			     c_len, u_len, last_head), -1);
 	}

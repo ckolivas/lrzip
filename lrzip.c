@@ -941,7 +941,7 @@ static double percentage(i64 num, i64 den)
 
 bool get_fileinfo(rzip_control *control)
 {
-	i64 u_len, c_len, last_head, utotal = 0, ctotal = 0, ofs = 25, stream_head[2];
+	i64 u_len, c_len, second_last, last_head, utotal = 0, ctotal = 0, ofs = 25, stream_head[2];
 	i64 expected_size, infile_size, chunk_size = 0, chunk_total = 0;
 	int header_length, stream = 0, chunk = 0;
 	char *tmp, *infilecopy = NULL;
@@ -1039,6 +1039,7 @@ next_chunk:
 	while (stream < NUM_STREAMS) {
 		int block = 1;
 
+		second_last = 0;
 		if (unlikely(lseek(fd_in, stream_head[stream] + ofs, SEEK_SET) == -1))
 			fatal_goto(("Failed to seek to header data in get_fileinfo\n"), error);
 		if (unlikely(!get_header_info(control, fd_in, &ctype, &c_len, &u_len, &last_head, chunk_byte)))
@@ -1050,6 +1051,9 @@ next_chunk:
 		do {
 			i64 head_off;
 
+			if (unlikely(last_head && last_head < second_last))
+				failure_goto(("Invalid earlier last_head position, corrupt archive.\n"), error);
+			second_last = last_head;
 			if (unlikely(last_head + ofs > infile_size))
 				failure_goto(("Offset greater than archive size, likely corrupted/truncated archive.\n"), error);
 			if (unlikely(head_off = lseek(fd_in, last_head + ofs, SEEK_SET) == -1))
