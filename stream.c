@@ -1506,9 +1506,8 @@ static void *ucompthread(void *data)
 {
 	stream_thread_struct *s = data;
 	rzip_control *control = s->control;
-	long i = s->i;
+	int waited = 0, ret = 0, i = s->i;
 	struct uncomp_thread *uci;
-	int waited = 0, ret = 0;
 
 	dealloc(data);
 	uci = &ucthread[i];
@@ -1559,22 +1558,23 @@ retry:
 
 	print_maxverbose("Thread %ld decompressed %lld bytes from stream %d\n", i, uci->u_len, uci->streamno);
 
-	return 0;
+	return NULL;
 }
 
 /* fill a buffer from a stream - return -1 on failure */
-static int fill_buffer(rzip_control *control, struct stream_info *sinfo, int streamno)
+static int fill_buffer(rzip_control *control, struct stream_info *sinfo, struct stream *s, int streamno)
 {
 	i64 u_len, c_len, last_head, padded_len, header_length, max_len;
 	uchar enc_head[25 + SALT_LEN], blocksalt[SALT_LEN];
-	struct stream *s = &sinfo->s[streamno];
 	stream_thread_struct *st;
+	bool new_thread = false;
 	uchar c_type, *s_buf;
 
 	dealloc(s->buf);
 	if (s->eos)
 		goto out;
 fill_another:
+	new_thread = true;
 	if (unlikely(ucthread[s->uthread_no].busy))
 		failure_return(("Trying to start a busy thread, this shouldn't happen!\n"), -1);
 
@@ -1702,7 +1702,7 @@ out:
 	unlock_mutex(control, &output_lock);
 
 	/* join_pthread here will make it wait till the data is ready */
-	if (unlikely(!join_pthread(control, threads[s->unext_thread], NULL)))
+	if (unlikely(new_thread && !join_pthread(control, threads[s->unext_thread], NULL)))
 		return -1;
 	ucthread[s->unext_thread].busy = 0;
 
@@ -1744,25 +1744,26 @@ void write_stream(rzip_control *control, void *ss, int streamno, uchar *p, i64 l
 i64 read_stream(rzip_control *control, void *ss, int streamno, uchar *p, i64 len)
 {
 	struct stream_info *sinfo = ss;
+	struct stream *s = &sinfo->s[streamno];
 	i64 ret = 0;
 
 	while (len) {
 		i64 n;
 
-		n = MIN(sinfo->s[streamno].buflen - sinfo->s[streamno].bufp, len);
+		n = MIN(s->buflen - s->bufp, len);
 
 		if (n > 0) {
-			memcpy(p, sinfo->s[streamno].buf + sinfo->s[streamno].bufp, n);
-			sinfo->s[streamno].bufp += n;
+			memcpy(p, s->buf + s->bufp, n);
+			s->bufp += n;
 			p += n;
 			len -= n;
 			ret += n;
 		}
 
-		if (len && sinfo->s[streamno].bufp == sinfo->s[streamno].buflen) {
-			if (unlikely(fill_buffer(control, sinfo, streamno)))
+		if (len && s->bufp == s->buflen) {
+			if (unlikely(fill_buffer(control, sinfo, s, streamno)))
 				return -1;
-			if (sinfo->s[streamno].bufp == sinfo->s[streamno].buflen)
+			if (s->bufp == s->buflen)
 				break;
 		}
 	}
