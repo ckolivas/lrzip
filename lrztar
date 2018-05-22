@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Copyright (C) George Makrydakis 2009-2011,2013
-# Copyright (C) Con Kolivas 2011-2012,2016
+# Copyright (C) Con Kolivas 2011-2012,2016,2018
 
 # A bash wrapper for Con Kolivas' excellent lrzip utility. For the time
 # being, lrzip does not like pipes, so we had to do this. It is kind of
@@ -43,6 +43,10 @@ Notice:
  - This script exists because of how lrzip behaves.
  - Beware the -f flag, it stands for what it says...
 "
+    [[ $1 == "" ]] && {
+        printf "lrztar: no arguments given\n";
+        return 1;
+    }
     local p=("${@:1:$(($#-1))}") s="${!#}" vopt=("lrz") \
           v_w=0 v_S=0 v_D=0 v_p=0 v_q=0 v_L=0 \
           v_n=0 v_l=0 v_b=0 v_g=0 v_z=0 v_U=0 \
