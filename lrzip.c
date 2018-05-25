@@ -803,6 +803,8 @@ bool decompress_file(rzip_control *control)
 	if (!STDIN) {
 		if (unlikely(!read_magic(control, fd_in, &expected_size)))
 			return false;
+		if (unlikely(expected_size < 0))
+			fatal_return(("Invalid expected size %lld\n", expected_size), false);
 	}
 
 	if (!STDOUT && !TEST_ONLY) {
