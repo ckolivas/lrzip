@@ -1710,6 +1710,7 @@ out:
 
 	print_maxverbose("Taking decompressed data from thread %ld\n", s->unext_thread);
 	s->buf = ucthread[s->unext_thread].s_buf;
+	ucthread[s->unext_thread].s_buf = NULL;
 	s->buflen = ucthread[s->unext_thread].u_len;
 	sinfo->ram_alloced -= s->buflen;
 	s->bufp = 0;
@@ -1755,6 +1756,8 @@ i64 read_stream(rzip_control *control, void *ss, int streamno, uchar *p, i64 len
 		n = MIN(s->buflen - s->bufp, len);
 
 		if (n > 0) {
+			if (unlikely(!s->buf))
+				failure_return(("Stream ran out prematurely, likely corrupt archive\n"), -1);
 			memcpy(p, s->buf + s->bufp, n);
 			s->bufp += n;
 			p += n;
