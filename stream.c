@@ -1653,12 +1653,14 @@ fill_another:
 		fatal_return(("Unable to malloc buffer of size %lld in fill_buffer\n", u_len), -1);
 	sinfo->ram_alloced += u_len;
 
-	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len)))
+	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len))) {
+		dealloc(s_buf);
 		return -1;
+	}
 
-	if (ENCRYPT) {
-		if (unlikely(!lrz_decrypt(control, s_buf, padded_len, blocksalt)))
-			return -1;
+	if (unlikely(ENCRYPT && !lrz_decrypt(control, s_buf, padded_len, blocksalt))) {
+		dealloc(s_buf);
+		return -1;
 	}
 
 	ucthread[s->uthread_no].s_buf = s_buf;
