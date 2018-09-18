@@ -15,7 +15,7 @@ Just change the word `directory` to the name of the directory you wish to compre
 #### Compression:
 
 ```bash
-lrzdir=directory; tar cvf $lrzdir; lrzip -Ubvvp `nproc` -S .bzip2-lrz -L 9 $lrzdir.tar; rm -fv $lrzdir.tar; unset lrzdir
+lrzdir=directory; tar cvf $lrzdir.tar $lrzdir; lrzip -Ubvvp `nproc` -S .bzip2-lrz -L 9 $lrzdir.tar; rm -fv $lrzdir.tar; unset lrzdir
 ```
 
 `tar`s the directory, then maxes out all of the system's processor cores
