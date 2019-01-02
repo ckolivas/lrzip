@@ -1704,7 +1704,7 @@ out:
 	unlock_mutex(control, &output_lock);
 
 	/* join_pthread here will make it wait till the data is ready */
-	if (unlikely(new_thread && !join_pthread(control, threads[s->unext_thread], NULL)))
+	if (unlikely(new_thread & !join_pthread(control, threads[s->unext_thread], NULL)))
 		return -1;
 	ucthread[s->unext_thread].busy = 0;
 
