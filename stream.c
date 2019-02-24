@@ -1543,7 +1543,7 @@ retry:
 	 * parallel */
 	if (unlikely(ret)) {
 		if (unlikely(waited))
-			failure_return(("Failed to decompress in ucompthread\n"), NULL);
+			failure_return(("Failed to decompress in ucompthread\n"), (void*)1);
 		print_maxverbose("Unable to decompress in parallel, waiting for previous thread to complete before trying again\n");
 		/* We do not strictly need to wait for this, so it's used when
 		 * decompression fails due to inadequate memory to try again
@@ -1567,14 +1567,13 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, struct 
 	i64 u_len, c_len, last_head, padded_len, header_length, max_len;
 	uchar enc_head[25 + SALT_LEN], blocksalt[SALT_LEN];
 	stream_thread_struct *st;
-	bool new_thread = false;
 	uchar c_type, *s_buf;
+	void *thr_return;
 
 	dealloc(s->buf);
 	if (s->eos)
 		goto out;
 fill_another:
-	new_thread = true;
 	if (unlikely(ucthread[s->uthread_no].busy))
 		failure_return(("Trying to start a busy thread, this shouldn't happen!\n"), -1);
 
@@ -1704,7 +1703,8 @@ out:
 	unlock_mutex(control, &output_lock);
 
 	/* join_pthread here will make it wait till the data is ready */
-	if (unlikely(new_thread && !join_pthread(control, threads[s->unext_thread], NULL)))
+	thr_return = NULL;
+	if (unlikely(!join_pthread(control, threads[s->unext_thread], &thr_return) || !!thr_return))
 		return -1;
 	ucthread[s->unext_thread].busy = 0;
 

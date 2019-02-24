@@ -125,6 +125,11 @@ AC_CHECK_LIB(lzo2, lzo1x_1_compress, ,
 AC_CHECK_FUNCS(mmap strerror)
 AC_CHECK_FUNCS(getopt_long)
 
+AX_PTHREAD
+LIBS="$PTHREAD_LIBS $LIBS"
+CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+CXXFLAGS="$CXXFLAGS $PTHREAD_CXXFLAGS"
+
 # final checks for x86 and/or assembler
 if test x"$ASM" = x"no"; then
 	ASM_OBJ=7zCrc.o
