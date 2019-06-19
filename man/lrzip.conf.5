@@ -1,4 +1,4 @@
-.TH "lrzip.conf" "5" "January 2009" "" ""
+.TH "lrzip.conf" "5" "January 2009, updated May 2019" "" ""
 .SH "NAME"
 lrzip.conf \- Configuration File for lrzip
 .SH "DESCRIPTION"
@@ -13,54 +13,63 @@ three places\&:
 .nf
 $PWD \- Current Directory
 /etc/lrzip
-$HOME/\&./lrzip
+$HOME/\&.lrzip
 .PP
 Parameters are set in \fBPARAMETER\&=VALUE\fP fashion where any line
 beginning with a \fB#\fP or that is blank will be ignored\&.
-Parameter values are not case sensitive\&.
+Parameter values are not case sensitive except where specified\&.
 .PP
 .SH "CONFIG FILE EXAMPLE"
 .nf
 # This is a comment.
 
-# Compression Window size in 100MB. Normally selected by program.
-# WINDOW = 5
-# Compression Level 1-9 (7 Default).
+# Compression Window size in 100MB. Normally selected by program. (-w)
+# WINDOW = 20
+# Compression Level 1-9 (7 Default). (-L)
 # COMPRESSIONLEVEL = 7
-# Unlimited Ram Compression
-# UNLIMITED = YES
-# Compression Method, rzip, gzip, bzip2, lzo, or lzma (default), zpaq.
-# COMPRESSIONMETHOD = LZMA
-# Perform LZO Test. Default = YES (\-T option, NO)
+# Use -U setting, Unlimited ram. Yes or No
+# UNLIMITED = NO
+# Compression Method, rzip, gzip, bzip2, lzo, or lzma (default), or zpaq. (-n -g -b -l --lzma -z)
+# If specified here, command line options not usable.
+# COMPRESSIONMETHOD = lzma
+# Perform LZO Test. Default = YES (-T )
 # LZOTEST = NO
-# Hash Check on decompression, YES
+# Hash Check on decompression, (-c)
 # HASHCHECK = YES
-# Show HASH value on Compression even if Verbose is off, YES
+# Show HASH value on Compression even if Verbose is off, YES (-H)
 # SHOWHASH = YES
 
-# Default output directory
+# Default output directory (-O)
 # OUTPUTDIRECTORY = location
-# Verbosity, Yes or Max
-# VERBOSITY = MAX
-# Show Progress as file is parsed, YES, NO (yes is default)
-# SHOWPROGRESS = NO
-# Set Niceness. 19 is default. \-20 to 19 is the allowable range
+# Verbosity, YES or MAX (v, vv)
+# VERBOSITY = max
+# Show Progress as file is parsed, YES or no (NO = -q option)
+# SHOWPROGRESS = YES
+
+# Set Niceness. 19 is default. -20 to 19 is the allowable range (-N)
 # NICE = 19
 
-# Keep broken or damaged output files, YES
+# Keep broken or damaged output files, YES (-K)
 # KEEPBROKEN = YES
-# Delete source file after compression
+
+# Delete source file after compression (-D)
 # this parameter and value are case sensitive
 # value must be YES to activate
+
 # DELETEFILES = NO
 
-# Replace existing lrzip file when compressing
+# Replace existing lrzip file when compressing (-f)
 # this parameter and value are case sensitive
 # value must be YES to activate
-# REPLACEFILE = NO
 
-# Select Temporary Directory when stdin/stdout or Test file is used
+# REPLACEFILE = YES 
+
+# Override for Temporary Directory. Only valid when stdin/out or Test is used
 # TMPDIR = /tmp
+
+# Whether to use encryption on compression YES, NO (-e)
+# ENCRYPT = NO
+
 .fi
 .PP
 .SH "NOTES"

@@ -1,55 +1,47 @@
 # lrzip.conf example file
 # anything beginning with a # or whitespace will be ignored
 # valid parameters are separated with an = and a value
-# parameters and values are not case sensitive
+# parameters and values are not case sensitive except where specified
 # 
 # lrzip 0.24+, peter hyman, pete@peterhyman.com
 # ignored by earlier versions.
 
-# Compression Window size in 100MB. Normally selected by program.
+# Compression Window size in 100MB. Normally selected by program. (-w)
 # WINDOW = 20
-
-# Compression Level 1-9 (7 Default).
+# Compression Level 1-9 (7 Default). (-L)
 # COMPRESSIONLEVEL = 7
-
 # Use -U setting, Unlimited ram. Yes or No
 # UNLIMITED = NO
-
-# Compression Method, rzip, gzip, bzip2, lzo, or lzma (default), or zpaq.
+# Compression Method, rzip, gzip, bzip2, lzo, or lzma (default), or zpaq. (-n -g -b -l --lzma -z)
 # If specified here, command line options not usable.
 # COMPRESSIONMETHOD = lzma
-
-# Perform LZO Test. Default = YES (-T option, NO)
+# Perform LZO Test. Default = YES (-T )
 # LZOTEST = NO
-
-# Hash Check on decompression, YES
+# Hash Check on decompression, (-c)
 # HASHCHECK = YES
-
-# Show HASH value on Compression even if Verbose is off, YES
+# Show HASH value on Compression even if Verbose is off, YES (-H)
 # SHOWHASH = YES
 
-# Default output directory
+# Default output directory (-O)
 # OUTPUTDIRECTORY = location
-
-# Verbosity, Yes or Max
+# Verbosity, YES or MAX (v, vv)
 # VERBOSITY = max
+# Show Progress as file is parsed, YES or no (NO = -q option)
+# SHOWPROGRESS = YES
 
-# Show Progress as file is parsed, Yes or no
-# SHOWPROGRESS = true
-
-# Set Niceness. 19 is default. -20 to 19 is the allowable range
+# Set Niceness. 19 is default. -20 to 19 is the allowable range (-N)
 # NICE = 19
 
-# Keep broken or damaged output files, YES
+# Keep broken or damaged output files, YES (-K)
 # KEEPBROKEN = YES
 
-# Delete source file after compression
+# Delete source file after compression (-D)
 # this parameter and value are case sensitive
 # value must be YES to activate
 
 # DELETEFILES = NO
 
-# Replace existing lrzip file when compressing
+# Replace existing lrzip file when compressing (-f)
 # this parameter and value are case sensitive
 # value must be YES to activate
 
@@ -58,6 +50,6 @@
 # Override for Temporary Directory. Only valid when stdin/out or Test is used
 # TMPDIR = /tmp
 
+# Whether to use encryption on compression YES, NO (-e)
 # ENCRYPT = NO
 
-# Whether to use encryption on compression
