@@ -308,6 +308,7 @@ static const char *coptions = "bcCdefghHikKlLnN:o:O:p:PrS:tTUm:vVw:z?123456789";
 int main(int argc, char *argv[])
 {
 	bool lrzcat = false, compat = false, recurse = false;
+	bool options_file = false; /* for environment and tracking of compression setting */
 	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
@@ -342,19 +343,44 @@ int main(int argc, char *argv[])
 	/* Get Preloaded Defaults from lrzip.conf
 	 * Look in ., $HOME/.lrzip/, /etc/lrzip.
 	 * If LRZIP=NOCONFIG is set, then ignore config
+	 * If lrzip.conf sets a compression mode, options_file will be true.
+	 * This will allow for a test to permit an override of compression mode.
+	 * If there is an override, then all compression settings will be reset
+	 * and command line switches will prevail, including for --lzma.
 	 */
 	eptr = getenv("LRZIP");
 	if (eptr == NULL)
-		read_config(control);
+		options_file = read_config(control);
 	else if (!strstr(eptr,"NOCONFIG"))
-		read_config(control);
+		options_file = read_config(control);
+	if (options_file)
+		if (control->flags & FLAG_NOT_LZMA)				/* if compression set in conf file */
+			control->flags &= ~FLAG_NOT_LZMA;			/* clear compression flags (LZMA now default) */
+
 
 	while ((c = getopt_long(argc, argv, compat ? coptions : loptions, long_options, &i)) != -1) {
 		switch (c) {
 		case 'b':
+		case 'g':
+		case 'l':
+		case 'n':
+		case 'z':
 			if (control->flags & FLAG_NOT_LZMA)
 				failure("Can only use one of -l, -b, -g, -z or -n\n");
-			control->flags |= FLAG_BZIP2_COMPRESS;
+			/* Select Compression Mode */
+			if (c == 'b')
+				control->flags |= FLAG_BZIP2_COMPRESS;
+			else if (c == 'g')
+				control->flags |= FLAG_ZLIB_COMPRESS;
+			else if (c == 'l')
+				control->flags |= FLAG_LZO_COMPRESS;
+			else if (c == 'n')
+				control->flags |= FLAG_NO_COMPRESS;
+			else if (c == 'z')
+				control->flags |= FLAG_ZPAQ_COMPRESS;
+			break;
+		case '/':							/* LZMA Compress selected */
+			control->flags &= ~FLAG_NOT_LZMA;			/* clear alternate compression flags */
 			break;
 		case 'c':
 			if (compat) {
@@ -380,11 +406,6 @@ int main(int argc, char *argv[])
 		case 'f':
 			control->flags |= FLAG_FORCE_REPLACE;
 			break;
-		case 'g':
-			if (control->flags & FLAG_NOT_LZMA)
-				failure("Can only use one of -l, -b, -g, -z or -n\n");
-			control->flags |= FLAG_ZLIB_COMPRESS;
-			break;
 		case 'h':
 		case '?':
 			usage(compat);
@@ -405,11 +426,6 @@ int main(int argc, char *argv[])
 		case 'K':
 			control->flags |= FLAG_KEEP_BROKEN;
 			break;
-		case 'l':
-			if (control->flags & FLAG_NOT_LZMA)
-				failure("Can only use one of -l, -b, -g, -z or -n\n");
-			control->flags |= FLAG_LZO_COMPRESS;
-			break;
 		case 'L':
 			if (compat) {
 				license();
@@ -421,11 +437,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'm':
 			control->ramsize = atol(optarg) * 1024 * 1024 * 100;
-			break;
-		case 'n':
-			if (control->flags & FLAG_NOT_LZMA)
-				failure("Can only use one of -l, -b, -g, -z or -n\n");
-			control->flags |= FLAG_NO_COMPRESS;
 			break;
 		case 'N':
 			control->nice_val = atoi(optarg);
@@ -507,11 +518,6 @@ int main(int argc, char *argv[])
 			control->window = atol(optarg);
 			if (control->window < 1)
 				failure("Window must be positive\n");
-			break;
-		case 'z':
-			if (control->flags & FLAG_NOT_LZMA)
-				failure("Can only use one of -l, -b, -g, -z or -n\n");
-			control->flags |= FLAG_ZPAQ_COMPRESS;
 			break;
 		case '1':
 		case '2':

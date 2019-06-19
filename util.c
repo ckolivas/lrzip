@@ -205,7 +205,7 @@ bool read_config(rzip_control *control)
 			fprintf(control->msgout, "Using configuration file /etc/lrzip/lrzip.conf\n");
 	}
 	if (fp == NULL)
-		return true;
+		return false;
 
 	/* if we get here, we have a file. read until no more. */
 
