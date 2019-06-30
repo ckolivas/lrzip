@@ -137,11 +137,13 @@ Notice:
             s="${s%/}"
             p+=(-o "$i/${s##*/}.tar.${vopt[v_S]}");
         fi
-        ! ((v_f)) && [[ -e $i/${s##*/}.tar.${vopt[v_S]} ]] && {
-            printf "lrztar: %s exists, use -f to overwrite\n" \
-                   "$i/${s##*/}.tar.${vopt[v_S]}"
-            return 1
-        }
+        if ! ((v_o)); then 
+            ! ((v_f)) && [[ -e $i/${s##*/}.tar.${vopt[v_S]} ]] && {
+                printf "lrztar: %s exists, use -f to overwrite\n" \
+                    "$i/${s##*/}.tar.${vopt[v_S]}"
+                return 1
+            }
+        fi
         tar c "$s" | lrzip "${p[@]}"
         x=$?
     }
