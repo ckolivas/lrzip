@@ -950,6 +950,7 @@ bool get_fileinfo(rzip_control *control)
 	char chunk_byte = 0;
 	long double cratio;
 	uchar ctype = 0;
+	uchar save_ctype = 255;
 	struct stat st;
 	int fd_in;
 
@@ -1080,6 +1081,11 @@ next_chunk:
 				print_verbose("zpaq");
 			else
 				print_verbose("Dunno wtf");
+			if (save_ctype == 255)
+				save_ctype = ctype; /* need this for lzma when some chunks could have no compression
+						     * and info will show rzip + none on info display if last chunk
+						     * is not compressed. Adjust for all types in case it's used in
+						     * the future */
 			utotal += u_len;
 			ctotal += c_len;
 			print_verbose("\t%.1f%%\t%lld / %lld", percentage(c_len, u_len), c_len, u_len);
@@ -1133,17 +1139,17 @@ done:
 	print_output("%s:\nlrzip version: %d.%d file\n", infilecopy, control->major_version, control->minor_version);
 
 	print_output("Compression: ");
-	if (ctype == CTYPE_NONE)
+	if (save_ctype == CTYPE_NONE)
 		print_output("rzip alone\n");
-	else if (ctype == CTYPE_BZIP2)
+	else if (save_ctype == CTYPE_BZIP2)
 		print_output("rzip + bzip2\n");
-	else if (ctype == CTYPE_LZO)
+	else if (save_ctype == CTYPE_LZO)
 		print_output("rzip + lzo\n");
-	else if (ctype == CTYPE_LZMA)
+	else if (save_ctype == CTYPE_LZMA)
 		print_output("rzip + lzma\n");
-	else if (ctype == CTYPE_GZIP)
+	else if (save_ctype == CTYPE_GZIP)
 		print_output("rzip + gzip\n");
-	else if (ctype == CTYPE_ZPAQ)
+	else if (save_ctype == CTYPE_ZPAQ)
 		print_output("rzip + zpaq\n");
 	else
 		print_output("Dunno wtf\n");
