@@ -21,5 +21,3 @@ Consider ncurses version or even GUI one.
 
 Consider using LZMA Filters for processor-optimised
 coding to increase compression.
-
-Get the ASM working on 64bit - it's only the CRC check so probably no point.

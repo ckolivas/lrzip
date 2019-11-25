@@ -1,5 +1,13 @@
 lrzip ChangeLog
 
+NOVEMBER 2019, updates to version 0.631, Peter Hyman
+
+* Fixups to Assembler code in configure.ac lzma/C/Makefile.am by using
+optimized code from p7zip LZMA SDK 16.02. Now works for 64 and 32 bit using
+one optimized source. Hack to allow libtool to compile and link assembler
+code.
+
+
 JUNE 2016, version 0.630 Con Kolivas, Peter Hyman, Petr Písař, Joel Fredrikson
 
 * checksum.buf should only be changed after the semaphore wait

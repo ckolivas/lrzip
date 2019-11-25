@@ -51,23 +51,25 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_SUBST(SHELL)
 AC_SYS_LARGEFILE
+AC_FUNC_FSEEKO
 AC_FUNC_ALLOCA
 AC_PROG_CC_C99
-AS_IF([test "x$ac_cv_prog_cc_c99" = "xno"], 
+AS_IF([test x"$ac_cv_prog_cc_c99" = x"no"],
 	AC_MSG_ERROR([C compiler does not support C99], 1))
 AC_CHECK_PROG([HAVE_POD2MAN], [pod2man], [yes])
 AS_IF([test "$HAVE_POD2MAN" != "yes"],
 	AC_MSG_FAILURE([pod2man is needed to generate manual from POD]))
 
 
- AC_ARG_ENABLE(
+AC_ARG_ENABLE(
 		asm,
 		[AC_HELP_STRING([--enable-asm],[Enable native Assembly code])],
 		ASM=$enableval,
 		ASM=yes
              )
-if test x"$ASM" = xyes; then
-	AC_CHECK_PROG( ASM_PROG, nasm, yes, no )
+
+if test x"$ASM" = x"yes"; then
+	AC_CHECK_PROG( ASM_PROG, nasm, nasm, no ) # fix to set ASM_PROG to nasm, not yes.
 	if test x"$ASM_PROG" = x"no "; then
 		ASM=no
 	fi
@@ -78,7 +80,7 @@ AC_ARG_ENABLE([static-bin],
 	[AC_HELP_STRING([--enable-static-bin],[Build statically linked binary @<:@default=no@:>@])],
 	[static=$enableval]
 	)
-AM_CONDITIONAL([STATIC], [test "x$static" = "xyes"])
+AM_CONDITIONAL([STATIC], [test x"$static" = x"yes"])
 
 AC_CHECK_HEADERS(fcntl.h sys/time.h unistd.h sys/mman.h)
 AC_CHECK_HEADERS(ctype.h errno.h sys/resource.h)
@@ -91,12 +93,6 @@ AC_C___ATTRIBUTE__
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
 AC_CHECK_SIZEOF(short)
-
-if test $ac_cv_sizeof_long != 4 -a "x$ASM" = "xyes" ; then
-	AC_MSG_WARN([64bit arch detected, disabling ASM])
-	ASM=no
-fi
-
 
 AC_CACHE_CHECK([for large file support],rzip_cv_HAVE_LARGE_FILES,[
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
@@ -130,24 +126,23 @@ LIBS="$PTHREAD_LIBS $LIBS"
 CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
 CXXFLAGS="$CXXFLAGS $PTHREAD_CXXFLAGS"
 
-# final checks for x86 and/or assembler
-if test x"$ASM" = x"no"; then
-	ASM_OBJ=7zCrc.o
-	ASM=no
-else
+# final checks for assembler
+# ASM is back for x86_64 by using newer CRC code from p7zip-16.02
+# object files handled in lzma/C/Makefile.am
+if test x"$ASM" = x"yes"; then
+	ASM_OPT="-I../ASM/x86/"
 	case $host in
 		i?86-*)
-			ASM_OBJ="7zCrcT8.o 7zCrcT8U.o"
-			ASM_CMD="$ASM_PROG -f elf" ;;
-# x86_64 code is broken still
-#		x86_64-*)
-#			ASM_OBJ="7zCrcT8.o 7zCrcT8U_64.o"
-#			ASM_CMD="$ASM_PROG -f elf64" ;;
-		*) ASM_OBJ=7zCrc.o ;;
+			ASM_OPT="$ASM_OPT -f elf" ;;
+		x86_64-*)
+			ASM_OPT="$ASM_OPT -Dx64 -f elf64" ;;
+		*) ASM_OPT= ;;
 	esac
+else
+	ASM_OPT=
 fi
-AM_CONDITIONAL([USE_ASM], [test "x$ASM" != "xyes" -a "x$ASM" != "xno"])
-AC_SUBST([ASM_OBJ])
+AM_CONDITIONAL([USE_ASM], [test x"$ASM" = x"yes"])
+AC_SUBST([ASM_OPT])
 AC_SUBST([ASM_CMD])
 EFL_CHECK_DOXYGEN([build_doc="yes"], [build_doc="no"])
 
@@ -171,7 +166,7 @@ echo
 echo
 echo "Configuration Options Summary:"
 echo
-echo "  ASM.(32 bit only)..: $ASM"
+echo "  ASM................: $ASM"
 echo "  Static binary......: $static"
 echo
 echo "Documentation..........: ${build_doc}"

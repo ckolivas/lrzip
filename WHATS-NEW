@@ -1,3 +1,7 @@
+lrzip-0.631
+
+Assembler code is back and works with x86_64
+
 lrzip-0.621
 
 Substantial speed ups for the rzip stage in both regular and unlimited modes.
