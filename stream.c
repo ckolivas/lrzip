@@ -325,7 +325,8 @@ retry:
 				lzma_level,
 				0, /* dict size. set default, choose by level */
 				-1, -1, -1, -1, /* lc, lp, pb, fb */
-				control->threads);
+				control->threads > 1 ? 2: 1);
+				/* LZMA spec has threads = 1 or 2 only. */
 	if (lzma_ret != SZ_OK) {
 		switch (lzma_ret) {
 			case SZ_ERROR_MEM:
