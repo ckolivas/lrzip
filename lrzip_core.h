@@ -47,4 +47,7 @@ extern void zpaq_compress(uchar *c_buf, i64 *c_len, uchar *s_buf, i64 s_len, int
 			  FILE *msgout, bool progress, long thread);
 extern void zpaq_decompress(uchar *s_buf, i64 *d_len, uchar *c_buf, i64 c_len,
 			    FILE *msgout, bool progress, long thread);
+
+static int current_priority;
+
 #endif
