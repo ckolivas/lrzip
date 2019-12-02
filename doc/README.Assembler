@@ -1,5 +1,20 @@
 README.Assembler
 
+Update November 2019
+
+Assembler is enabled by
+./configure --enable-asm
+and disabled by
+./configure --disable-asm
+not
+ASM=no ./configure 
+
+New files replace 32 and 64 bit assembler code.
+fixes to lzma/C/Makefile.am permit libtool linking.
+
+Original text follows.
+==========================
+
 Notes about CRC Assembly Language Coding.
 
 lrzip-0.21 makes use of an x86 assembly language file
