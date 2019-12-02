@@ -308,7 +308,7 @@ static const char *coptions = "bcCdefghHikKlLnN:o:O:p:PrS:tTUm:vVw:z?123456789";
 int main(int argc, char *argv[])
 {
 	bool lrzcat = false, compat = false, recurse = false;
-	bool options_file = false; /* for environment and tracking of compression setting */
+	bool options_file = false, conf_file_compression_set = false; /* for environment and tracking of compression setting */
 	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
@@ -353,10 +353,8 @@ int main(int argc, char *argv[])
 		options_file = read_config(control);
 	else if (!strstr(eptr,"NOCONFIG"))
 		options_file = read_config(control);
-	if (options_file)
-		if (control->flags & FLAG_NOT_LZMA)				/* if compression set in conf file */
-			control->flags &= ~FLAG_NOT_LZMA;			/* clear compression flags (LZMA now default) */
-
+	if (options_file && (control->flags & FLAG_NOT_LZMA))		/* if some compression set in lrzip.conf    */
+		conf_file_compression_set = true;			/* need this to allow command line override */
 
 	while ((c = getopt_long(argc, argv, compat ? coptions : loptions, long_options, &i)) != -1) {
 		switch (c) {
@@ -365,9 +363,13 @@ int main(int argc, char *argv[])
 		case 'l':
 		case 'n':
 		case 'z':
-			if (control->flags & FLAG_NOT_LZMA)
+			/* If some compression was chosen in lrzip.conf, allow this one time
+			 * because conf_file_compression_set will be true
+			 */
+			if ((control->flags & FLAG_NOT_LZMA) && conf_file_compression_set == false)
 				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			/* Select Compression Mode */
+			control->flags &= ~FLAG_NOT_LZMA; /* must clear all compressions first */
 			if (c == 'b')
 				control->flags |= FLAG_BZIP2_COMPRESS;
 			else if (c == 'g')
@@ -378,6 +380,8 @@ int main(int argc, char *argv[])
 				control->flags |= FLAG_NO_COMPRESS;
 			else if (c == 'z')
 				control->flags |= FLAG_ZPAQ_COMPRESS;
+			/* now FLAG_NOT_LZMA will evaluate as true */
+			conf_file_compression_set = false;
 			break;
 		case '/':							/* LZMA Compress selected */
 			control->flags &= ~FLAG_NOT_LZMA;			/* clear alternate compression flags */
