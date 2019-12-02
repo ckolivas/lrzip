@@ -16,7 +16,7 @@ if USE_ASM
   ASM_H += @top_srcdir@/lzma/ASM/x86/7zAsm.asm
   C_S += 7zCrcT8.c
 else
-  C_S += 7zCrcT8.c 
+  C_S += 7zCrc.c 
 endif
 
 noinst_LTLIBRARIES = liblzma.la
