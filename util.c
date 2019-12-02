@@ -117,7 +117,9 @@ void setup_overhead(rzip_control *control)
 		i64 dictsize = (level <= 5 ? (1 << (level * 2 + 14)) :
 				(level == 6 ? (1 << 25) : (1 << 26)));
 
-		control->overhead = (dictsize * 23 / 2) + (4 * 1024 * 1024);
+		control->overhead = (dictsize * 23 / 2) + (6 * 1024 * 1024) + 16384;
+		/* LZMA spec shows memory requirements as 6MB, not 4MB and state size
+		 * where default is 16KB */
 	} else if (ZPAQ_COMPRESS)
 		control->overhead = 112 * 1024 * 1024;
 }
