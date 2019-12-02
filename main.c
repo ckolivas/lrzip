@@ -440,8 +440,8 @@ int main(int argc, char *argv[])
 			break;
 		case 'N':
 			control->nice_val = atoi(optarg);
-			if (control->nice_val < -20 || control->nice_val > 19)
-				failure("Invalid nice value (must be -20..19)\n");
+			if (control->nice_val < PRIO_MIN || control->nice_val > PRIO_MAX)
+				failure("Invalid nice value (must be %d...%d)\n", PRIO_MIN, PRIO_MAX);
 			break;
 		case 'o':
 			if (control->outdir)
@@ -565,12 +565,20 @@ int main(int argc, char *argv[])
 
 	/* Set the main nice value to half that of the backend threads since
 	 * the rzip stage is usually the rate limiting step */
-	if (control->nice_val > 0 && !NO_COMPRESS) {
-		if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val / 2) == -1))
-			print_err("Warning, unable to set nice value\n");
+	current_priority = getpriority(PRIO_PROCESS, 0);
+	if (!NO_COMPRESS) {
+		/* If niceness can't be set. just reset process priority */
+		if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val/2) == -1)) {
+			print_err("Warning, unable to set nice value %d...Resetting to %d\n",
+				control->nice_val, current_priority);
+			setpriority(PRIO_PROCESS, 0, (control->nice_val=current_priority));
+		}
 	} else {
-		if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1))
-			print_err("Warning, unable to set nice value\n");
+		if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1)) {
+			print_err("Warning, unable to set nice value %d...Resetting to %d\n",
+				control->nice_val, current_priority);
+			setpriority(PRIO_PROCESS, 0, (control->nice_val=current_priority));
+		}
 	}
 
 	/* One extra iteration for the case of no parameters means we will default to stdin/out */
