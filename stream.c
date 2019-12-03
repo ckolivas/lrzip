@@ -1656,11 +1656,11 @@ fill_another:
 	fsync(control->fd_out);
 
 	if (unlikely(u_len > control->maxram))
-		fatal_return(("Unable to malloc buffer of size %lld in this environment\n", u_len), -1);
+		print_progress("Warning, attempting to malloc very large buffer for this environment of size %lld\n", u_len);
 	max_len = MAX(u_len, MIN_SIZE);
 	max_len = MAX(max_len, c_len);
 	s_buf = malloc(max_len);
-	if (unlikely(u_len && !s_buf))
+	if (unlikely(!s_buf))
 		fatal_return(("Unable to malloc buffer of size %lld in fill_buffer\n", u_len), -1);
 	sinfo->ram_alloced += u_len;
 
