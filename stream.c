@@ -1635,13 +1635,21 @@ fill_another:
 	c_len = le64toh(c_len);
 	u_len = le64toh(u_len);
 	last_head = le64toh(last_head);
+	print_maxverbose("Fill_buffer stream %d c_len %lld u_len %lld last_head %lld\n", streamno, c_len, u_len, last_head);
+
+	/* It is possible for there to be an empty match block at the end of
+	 * incompressible data */
+	if (unlikely(c_len == 0 && u_len == 0 && streamno == 1 && last_head == 0)) {
+		print_maxverbose("Skipping empty match block\n");
+		goto skip_empty;
+	}
+
 	/* Check for invalid data and that the last_head is actually moving
 	 * forward correctly. */
 	if (unlikely(c_len < 1 || u_len < 1 || last_head < 0 || (last_head && last_head <= s->last_head))) {
 		fatal_return(("Invalid data compressed len %lld uncompressed %lld last_head %lld\n",
 			     c_len, u_len, last_head), -1);
 	}
-	print_maxverbose("Fill_buffer stream %d c_len %lld u_len %lld last_head %lld\n", streamno, c_len, u_len, last_head);
 
 	padded_len = MAX(c_len, MIN_SIZE);
 	sinfo->total_read += padded_len;
@@ -1690,7 +1698,7 @@ fill_another:
 
 	if (++s->uthread_no == s->base_thread + s->total_threads)
 		s->uthread_no = s->base_thread;
-
+skip_empty:
 	/* Reached the end of this stream, no more data to read in, otherwise
 	 * see if the next thread is free to grab more data. We also check that
 	 * we're not going to be allocating too much ram to generate all these
