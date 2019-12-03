@@ -569,19 +569,19 @@ int main(int argc, char *argv[])
 
 	/* Set the main nice value to half that of the backend threads since
 	 * the rzip stage is usually the rate limiting step */
-	current_priority = getpriority(PRIO_PROCESS, 0);
+	control->current_priority = getpriority(PRIO_PROCESS, 0);
 	if (!NO_COMPRESS) {
 		/* If niceness can't be set. just reset process priority */
 		if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val/2) == -1)) {
 			print_err("Warning, unable to set nice value %d...Resetting to %d\n",
-				control->nice_val, current_priority);
-			setpriority(PRIO_PROCESS, 0, (control->nice_val=current_priority));
+				control->nice_val, control->current_priority);
+			setpriority(PRIO_PROCESS, 0, (control->nice_val=control->current_priority));
 		}
 	} else {
 		if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1)) {
 			print_err("Warning, unable to set nice value %d...Resetting to %d\n",
-				control->nice_val, current_priority);
-			setpriority(PRIO_PROCESS, 0, (control->nice_val=current_priority));
+				control->nice_val, control->current_priority);
+			setpriority(PRIO_PROCESS, 0, (control->nice_val=control->current_priority));
 		}
 	}
 

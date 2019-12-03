@@ -412,6 +412,7 @@ struct rzip_control {
 	i64 max_mmap;
 	int threads;
 	char nice_val;		// added for consistency
+	int current_priority;
 	char major_version;
 	char minor_version;
 	i64 st_size;
