@@ -69,8 +69,8 @@ AC_ARG_ENABLE(
              )
 
 if test x"$ASM" = x"yes"; then
-	AC_CHECK_PROG( ASM_PROG, nasm, nasm, no ) # fix to set ASM_PROG to nasm, not yes.
-	if test x"$ASM_PROG" = x"no "; then
+	AC_CHECK_PROGS( ASM_PROG, nasm yasm, no ) # Allow test for multiple Assemblers.
+	if test x"$ASM_PROG" = x"no"; then
 		ASM=no
 	fi
 fi
@@ -108,15 +108,15 @@ AC_C_INLINE
 AC_C_BIGENDIAN
 
 AC_CHECK_LIB(pthread, pthread_create, ,
-        AC_MSG_ERROR([Could not find pthread library - please install libpthread]))
+	AC_MSG_ERROR([Could not find pthread library - please install libpthread]))
 AC_CHECK_LIB(m, sqrt, ,
-        AC_MSG_ERROR([Could not find math library - please install libm]))
+	AC_MSG_ERROR([Could not find math library - please install libm]))
 AC_CHECK_LIB(z, compress2, ,
 	AC_MSG_ERROR([Could not find zlib library - please install zlib-dev]))
 AC_CHECK_LIB(bz2, BZ2_bzBuffToBuffCompress, ,
-        AC_MSG_ERROR([Could not find bz2 library - please install libbz2-dev]))
+	AC_MSG_ERROR([Could not find bz2 library - please install libbz2-dev]))
 AC_CHECK_LIB(lzo2, lzo1x_1_compress, ,
-        AC_MSG_ERROR([Could not find lzo2 library - please install liblzo2-dev]))
+	AC_MSG_ERROR([Could not find lzo2 library - please install liblzo2-dev]))
 
 AC_CHECK_FUNCS(mmap strerror)
 AC_CHECK_FUNCS(getopt_long)
@@ -143,7 +143,6 @@ else
 fi
 AM_CONDITIONAL([USE_ASM], [test x"$ASM" = x"yes"])
 AC_SUBST([ASM_OPT])
-AC_SUBST([ASM_CMD])
 EFL_CHECK_DOXYGEN([build_doc="yes"], [build_doc="no"])
 
 AC_CONFIG_FILES([
@@ -166,7 +165,12 @@ echo
 echo
 echo "Configuration Options Summary:"
 echo
-echo "  ASM................: $ASM"
+echo -n "  ASM................:"
+if test x"$ASM_PROG" = x"no"; then
+	echo " $ASM"
+else
+	echo " $ASM, using $ASM_PROG Assembler"
+fi
 echo "  Static binary......: $static"
 echo
 echo "Documentation..........: ${build_doc}"
