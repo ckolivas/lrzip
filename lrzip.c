@@ -807,17 +807,21 @@ bool decompress_file(rzip_control *control)
 			fatal_return(("Invalid expected size %lld\n", expected_size), false);
 	}
 
-	if (!STDOUT && !TEST_ONLY) {
+	if (!STDOUT) {
 		/* Check if there's enough free space on the device chosen to fit the
-		* decompressed file. */
+		* decompressed or test file. */
 		if (unlikely(fstatvfs(fd_out, &fbuf)))
 			fatal_return(("Failed to fstatvfs in decompress_file\n"), false);
 		free_space = (i64)fbuf.f_bsize * (i64)fbuf.f_bavail;
 		if (free_space < expected_size) {
-			if (FORCE_REPLACE)
-				print_err("Warning, inadequate free space detected, but attempting to decompress due to -f option being used.\n");
+			if (FORCE_REPLACE && !TEST_ONLY)
+				print_err("Warning, inadequate free space detected, but attempting to decompress file due to -f option being used.\n");
 			else
-				failure_return(("Inadequate free space to decompress file, use -f to override.\n"), false);
+				failure_return(("Inadequate free space to %s. Space needed: %ld. Space available: %ld.\nTry %s and \
+select a larger volume.\n",
+					TEST_ONLY ? "test file" : "decompress file. Use -f to override", expected_size, free_space,
+					TEST_ONLY ? "setting `TMP=dirname`" : "using `-O dirname` or `-o [dirname/]filename` options"),
+						false);
 		}
 	}
 	control->fd_out = fd_out;
