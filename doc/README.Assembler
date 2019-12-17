@@ -7,7 +7,7 @@ Assembler is enabled by
 and disabled by
 ./configure --disable-asm
 not
-ASM=no ./configure 
+ASM=no ./configure
 
 New files replace 32 and 64 bit assembler code.
 fixes to lzma/C/Makefile.am permit libtool linking.
@@ -38,7 +38,7 @@ which will automatically not include the asm module or
 change the line
 
 ASM_OBJ=7zCrcT8.o 7zCrcT8U.o
-to 
+to
 ASM_OBJ=7zCrc.o
 
 in Makefile. This will change the dependency tree.

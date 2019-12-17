@@ -1,5 +1,23 @@
 lrzip ChangeLog
 
+DECEMBER 2019, version bump 0.640-beta, Peter Hyman
+
+* Add Dictionary Size capability.
+* Pass absolute dictionary to lzma compressor since lrzip determines size.
+* Pass -1 for threading to lzma encoder so it can choose multi-thread or not.
+* Update lrzip.conf to support dictionary size.
+* Update setup_overhead() in util.c to handle variable dictionary sizes.
+* Update open_stream_out() in stream.c to maximize use of memory and threads.
+* Update info display to show actual lzma settings, lc, lp, pb, and
+dictionary size.
+* Show ETA for each pass of compression (fixed logic in rzip.c).
+* Display decompression status every 5 seconds instead of multiples of 10%.
+* lrzip can now use nasm or yasm assemblers. AC_CHECK_PROGS in configure.ac.
+* LZMA can now use all levels 1-9. Removed 7/9 scaling from early SDK. LZMA
+default still 5 and will display on summary screen.
+* Update man pages.
+* Some code cleanups (align comments, whitespace removal).
+
 NOVEMBER 2019, updates to version 0.631, Peter Hyman
 
 * Fixups to Assembler code in configure.ac lzma/C/Makefile.am by using

@@ -1,4 +1,4 @@
-.TH "lrzip" "1" "June 2016" "" ""
+.TH "lrzip" "1" "December 2019" "" ""
 .SH "NAME"
 lrzip \- a large-file compression program
 .SH "SYNOPSIS"
@@ -55,13 +55,15 @@ Options affecting output:
  \-O, \-\-outdir directory  specify the output directory when -o is not used
  \-S, \-\-suffix suffix     specify compressed suffix (default '.lrz')
 Options affecting compression:
+ \-\-lzma                  lzma compression (default)
  \-b, \-\-bzip2             bzip2 compression
  \-g, \-\-gzip              gzip compression using zlib
  \-l, \-\-lzo               lzo compression (ultra fast)
  \-n, \-\-no-compress       no backend compression - prepare for other compressor
  \-z, \-\-zpaq              zpaq compression (best, extreme compression, extremely slow)
 Low level options:
- \-L, \-\-level level       set lzma/bzip2/gzip compression level (1-9, default 7)
+ \-L, \-\-level level       Set lzma/bzip2/gzip compression level (1-9, default 7)
+ \-\-dictsize = ds         Set Dictionary Size for LZMA ds=12 to 30 expressed as 2^ds
  \-N, \-\-nice-level value  Set nice value to value (default 19)
  \-p, \-\-threads value     Set processor count to override number of threads
  \-m, \-\-maxram size       Set maximum available ram in hundreds of MB
@@ -226,6 +228,11 @@ slower than lzma which is the default).
 Set the compression level from 1 to 9. The default is to use level 7, which
 gives good all round compression. The compression level is also strongly related
 to how much memory lrzip uses. See the \-w option for details.
+.IP
+.IP "\fB--dictsize=12\&.\&.30\fP"
+Set Dictionary Size for LZMA from 2^12 (16KB) to 2^30 (1GB). Normally this
+option is not useful since lrzip will set and sometimes change the dictionary
+size depending on the compression level selected and usable ram available.
 .IP
 .IP "\fB-N value\fP"
 The default nice value is 19. This option can be used to set the priority

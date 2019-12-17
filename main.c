@@ -59,7 +59,7 @@
 #include "stream.h"
 
 /* needed for CRC routines */
-#include "lzma/C/7zCrc.h"
+#include "7zCrc.h"
 
 #define MAX_PATH_LEN 4096
 
@@ -117,6 +117,7 @@ static void usage(bool compat)
 	}
 	if (!compat)
 		print_output("	-L, --level level	set lzma/bzip2/gzip compression level (1-9, default 7)\n");
+	print_output("	--dictsize		Set Dictionary Size for LZMA ds=12 to 30 expressed as 2^ds\n");
 	print_output("	-N, --nice-level value	Set nice value to value (default %d)\n", compat ? 0 : 19);
 	print_output("	-p, --threads value	Set processor count to override number of threads\n");
 	print_output("	-m, --maxram size	Set maximum available ram in hundreds of MB\n");
@@ -160,13 +161,15 @@ static void show_summary(void)
 {
 	/* OK, if verbosity set, print summary of options selected */
 	if (!INFO) {
-		if (!TEST_ONLY)
-			print_verbose("The following options are in effect for this %s.\n",
-				      DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
+		print_verbose("The following options are in effect for this %s.\n",
+			      DECOMPRESS ? "DECOMPRESSION" : TEST_ONLY ? "INTEGRITY TEST" : "COMPRESSION");
 		print_verbose("Threading is %s. Number of CPUs detected: %d\n", control->threads > 1? "ENABLED" : "DISABLED",
 			      control->threads);
 		print_verbose("Detected %lld bytes ram\n", control->ramsize);
-		print_verbose("Compression level %d\n", control->compression_level);
+		print_verbose("Compression level %d %s\n", control->compression_level,
+				LZMA_COMPRESS ? (control->compression_level == 5 ? "- Default LZMA level": "" ) : "" );
+		if (LZMA_COMPRESS)
+			print_verbose("Dictionary Size: %ld\n", control->dictSize );
 		print_verbose("Nice Value: %d\n", control->nice_val);
 		print_verbose("Show Progress\n");
 		print_maxverbose("Max ");
@@ -259,6 +262,7 @@ static struct option long_options[] = {
 	{"zpaq",	no_argument,	0,	'z'},
 	{"fast",	no_argument,	0,	'1'},
 	{"best",	no_argument,	0,	'9'},
+	{"dictsize",	required_argument,	0,	'\\'},
 	{0,	0,	0,	0},
 };
 
@@ -312,7 +316,7 @@ int main(int argc, char *argv[])
 	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
-	int c, i;
+	int c, i, ds;
 	int hours,minutes;
 	extern int optind;
 	char *eptr, *av; /* for environment */
@@ -369,7 +373,7 @@ int main(int argc, char *argv[])
 			if ((control->flags & FLAG_NOT_LZMA) && conf_file_compression_set == false)
 				failure("Can only use one of -l, -b, -g, -z or -n\n");
 			/* Select Compression Mode */
-			control->flags &= ~FLAG_NOT_LZMA; /* must clear all compressions first */
+			control->flags &= ~FLAG_NOT_LZMA; 		/* must clear all compressions first */
 			if (c == 'b')
 				control->flags |= FLAG_BZIP2_COMPRESS;
 			else if (c == 'g')
@@ -383,8 +387,8 @@ int main(int argc, char *argv[])
 			/* now FLAG_NOT_LZMA will evaluate as true */
 			conf_file_compression_set = false;
 			break;
-		case '/':							/* LZMA Compress selected */
-			control->flags &= ~FLAG_NOT_LZMA;			/* clear alternate compression flags */
+		case '/':						/* LZMA Compress selected */
+			control->flags &= ~FLAG_NOT_LZMA;		/* clear alternate compression flags */
 			break;
 		case 'c':
 			if (compat) {
@@ -402,6 +406,13 @@ int main(int argc, char *argv[])
 			break;
 		case 'D':
 			control->flags &= ~FLAG_KEEP_FILES;
+			break;
+		case '\\':
+			/* Dictionary Size, 2^12-30 */
+			control->dictSize = atoi(optarg);
+			if (control->dictSize < 12 || control->dictSize > 30)
+				failure("Dictionary Size must be between 12 and 30 for 2^12 (4KB) to 2^30 (1GB)");
+			control->dictSize = (1 << control->dictSize);
 			break;
 		case 'e':
 			control->flags |= FLAG_ENCRYPT;
@@ -536,6 +547,15 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
+
+	/* Because LZMA default compression level is 5, not 7, compression_level is
+	 * initialized as 0, not 7. A check must be made to set it if not otherwise
+	 * specified on command line */
+	if (!control->compression_level)
+		if (LZMA_COMPRESS)
+			control->compression_level = 5; // default LZMA level is 5
+		else
+			control->compression_level = 7;
 
 	argc -= optind;
 	argv += optind;

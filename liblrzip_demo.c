@@ -271,6 +271,16 @@ int main(int argc, char *argv[])
 	}
 	/* LZMA is the default */
 	if (!lrzip_mode_get(lr)) lrzip_mode_set(lr, LRZIP_MODE_COMPRESS_LZMA);
+
+	/* Because LZMA default compression level is 5, not 7, compression_level is
+	 * initialized as 0, not 7. A check must be made to set it if not otherwise
+	 * specified on command line */
+	if (!lrzip_compression_level_get(lr))
+		if (LRZIP_MODE_COMPRESS_LZMA)
+			lrzip_compression_level_set(lr, 5); // default LZMA level is 5
+		else
+			lrzip_compression_level_set(lr, 7);
+
 	argc -= optind, argv += optind;
 
 	if (lrzip_outfilename_get(lr) && (argc > 1))

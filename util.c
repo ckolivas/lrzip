@@ -108,18 +108,33 @@ void fatal_exit(rzip_control *control)
 void setup_overhead(rzip_control *control)
 {
 	/* Work out the compression overhead per compression thread for the
-	 * compression back-ends that need a lot of ram */
+	 * compression back-ends that need a lot of ram
+	 * and set Dictionary size */
 	if (LZMA_COMPRESS) {
-		int level = control->compression_level * 7 / 9;
-
-		if (!level)
-			level = 1;
-		i64 dictsize = (level <= 5 ? (1 << (level * 2 + 14)) :
-				(level == 6 ? (1 << 25) : (1 << 26)));
-
-		control->overhead = (dictsize * 23 / 2) + (6 * 1024 * 1024) + 16384;
+		if (control->dictSize == 0)
+			switch (control->compression_level) {
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5: control->dictSize = (1 << (control->compression_level * 2 + 14));
+				break; // 65KB to 16MB
+			case 6:
+			case 7: control->dictSize = (1 << 25);
+				break; // 32MB
+			case 8: control->dictSize = (1 << 26);
+				break; // 64MB
+			case 9: control->dictSize = (1 << 27);
+				break; // 128MB -- this is maximum for 32 bits
+			default: control->dictSize = (1 << 24);
+				break; // 16MB -- should never reach here
+			}
 		/* LZMA spec shows memory requirements as 6MB, not 4MB and state size
 		 * where default is 16KB */
+		// FIXME, need to check filesize and make sure dictionary is not too large
+		// or larger than maxram also. May also need test for 32 bit or 64 bit
+
+		control->overhead = (control->dictSize * 23 / 2) + (6 * 1024 * 1024) + 16384;
 	} else if (ZPAQ_COMPRESS)
 		control->overhead = 112 * 1024 * 1024;
 }
@@ -231,14 +246,15 @@ bool read_config(rzip_control *control)
 
 		if (isparameter(parameter, "window"))
 			control->window = atoi(parametervalue);
-		else if (isparameter(parameter, "unlimited")) {
+		else if (isparameter(parameter, "unlimited"))
 			if (isparameter(parametervalue, "yes"))
 				control->flags |= FLAG_UNLIMITED;
-		} else if (isparameter(parameter, "compressionlevel")) {
+		else if (isparameter(parameter, "compressionlevel")) {
 			control->compression_level = atoi(parametervalue);
 			if ( control->compression_level < 1 || control->compression_level > 9 )
 				failure_return(("CONF.FILE error. Compression Level must between 1 and 9"), false);
-		} else if (isparameter(parameter, "compressionmethod")) {
+		}
+		else if (isparameter(parameter, "compressionmethod")) {
 			/* valid are rzip, gzip, bzip2, lzo, lzma (default), and zpaq */
 			if (control->flags & FLAG_NOT_LZMA)
 				failure_return(("CONF.FILE error. Can only specify one compression method"), false);
@@ -254,26 +270,28 @@ bool read_config(rzip_control *control)
 				control->flags |= FLAG_ZPAQ_COMPRESS;
 			else if (!isparameter(parametervalue, "lzma")) /* oops, not lzma! */
 				failure_return(("CONF.FILE error. Invalid compression method %s specified\n",parametervalue), false);
-		} else if (isparameter(parameter, "lzotest")) {
+		}
+		else if (isparameter(parameter, "lzotest"))
 			/* default is yes */
 			if (isparameter(parametervalue, "no"))
 				control->flags &= ~FLAG_THRESHOLD;
-		} else if (isparameter(parameter, "hashcheck")) {
+		else if (isparameter(parameter, "hashcheck"))
 			if (isparameter(parametervalue, "yes")) {
 				control->flags |= FLAG_CHECK;
 				control->flags |= FLAG_HASH;
 			}
-		} else if (isparameter(parameter, "showhash")) {
+		else if (isparameter(parameter, "showhash"))
 			if (isparameter(parametervalue, "yes"))
 				control->flags |= FLAG_HASH;
-		} else if (isparameter(parameter, "outputdirectory")) {
+		else if (isparameter(parameter, "outputdirectory")) {
 			control->outdir = malloc(strlen(parametervalue) + 2);
 			if (!control->outdir)
 				fatal_return(("Fatal Memory Error in read_config"), false);
 			strcpy(control->outdir, parametervalue);
 			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
 				strcat(control->outdir, "/");
-		} else if (isparameter(parameter,"verbosity")) {
+		}
+		else if (isparameter(parameter,"verbosity")) {
 			if (control->flags & FLAG_VERBOSE)
 				failure_return(("CONF.FILE error. Verbosity already defined."), false);
 			if (isparameter(parametervalue, "yes"))
@@ -282,39 +300,47 @@ bool read_config(rzip_control *control)
 				control->flags |= FLAG_VERBOSITY_MAX;
 			else /* oops, unrecognized value */
 				print_err("lrzip.conf: Unrecognized verbosity value %s. Ignored.\n", parametervalue);
-		} else if (isparameter(parameter, "showprogress")) {
+		}
+		else if (isparameter(parameter, "showprogress"))
 			/* Yes by default */
 			if (isparameter(parametervalue, "NO"))
 				control->flags &= ~FLAG_SHOW_PROGRESS;
-		} else if (isparameter(parameter,"nice")) {
+		else if (isparameter(parameter,"nice")) {
 			control->nice_val = atoi(parametervalue);
 			if (control->nice_val < -20 || control->nice_val > 19)
 				failure_return(("CONF.FILE error. Nice must be between -20 and 19"), false);
-		} else if (isparameter(parameter, "keepbroken")) {
+		}
+		else if (isparameter(parameter, "keepbroken"))
 			if (isparameter(parametervalue, "yes" ))
 				control->flags |= FLAG_KEEP_BROKEN;
-		} else if (iscaseparameter(parameter, "DELETEFILES")) {
+		else if (iscaseparameter(parameter, "DELETEFILES"))
 			/* delete files must be case sensitive */
 			if (iscaseparameter(parametervalue, "YES"))
 				control->flags &= ~FLAG_KEEP_FILES;
-		} else if (iscaseparameter(parameter, "REPLACEFILE")) {
+		else if (iscaseparameter(parameter, "REPLACEFILE"))
 			/* replace lrzip file must be case sensitive */
 			if (iscaseparameter(parametervalue, "YES"))
 				control->flags |= FLAG_FORCE_REPLACE;
-		} else if (isparameter(parameter, "tmpdir")) {
+		else if (isparameter(parameter, "tmpdir")) {
 			control->tmpdir = realloc(NULL, strlen(parametervalue) + 2);
 			if (!control->tmpdir)
 				fatal_return(("Fatal Memory Error in read_config"), false);
 			strcpy(control->tmpdir, parametervalue);
 			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
 				strcat(control->tmpdir, "/");
-		} else if (isparameter(parameter, "encrypt")) {
+		}
+		else if (isparameter(parameter, "encrypt"))
 			if (isparameter(parameter, "YES"))
 				control->flags |= FLAG_ENCRYPT;
-		} else
+		else if (isparameter(parameter, "dictionarysize")) {
+			control->dictSize = atoi(parametervalue);
+			if (control->dictSize != 0 && (control->dictSize < 12 || control->dictSize > 30))
+				failure_return(("CONF FILE error. Dictionary Size must be between 12 and 30."), false);
+		}
+		else
 			/* oops, we have an invalid parameter, display */
 			print_err("lrzip.conf: Unrecognized parameter value, %s = %s. Continuing.\n",\
-				       parameter, parametervalue);
+			       parameter, parametervalue);
 	}
 
 	if (unlikely(fclose(fp)))

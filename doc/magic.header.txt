@@ -32,7 +32,7 @@ Rzip Chunk Data:
 XX	Stream 0 header data
 XX	Stream 1 header data
 
-Stream Header Data: 
+Stream Header Data:
 Byte:
 0	Compressed data type
 (RCD0 bytes)	Compressed data length

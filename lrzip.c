@@ -55,6 +55,8 @@
 #include "util.h"
 #include "stream.h"
 
+#include "LzmaDec.h" // decode LZMA header for get_info
+
 #define MAGIC_LEN (24)
 
 static void release_hashes(rzip_control *control);
@@ -137,8 +139,8 @@ i64 nloops(i64 seconds, uchar *b1, uchar *b2)
 
 bool write_magic(rzip_control *control)
 {
-	char magic[MAGIC_LEN] = { 
-		'L', 'R', 'Z', 'I', LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION 
+	char magic[MAGIC_LEN] = {
+		'L', 'R', 'Z', 'I', LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION
 	};
 
 	/* File size is stored as zero for streaming STDOUT blocks when the
@@ -807,17 +809,21 @@ bool decompress_file(rzip_control *control)
 			fatal_return(("Invalid expected size %lld\n", expected_size), false);
 	}
 
-	if (!STDOUT && !TEST_ONLY) {
+	if (!STDOUT) {
 		/* Check if there's enough free space on the device chosen to fit the
-		* decompressed file. */
+		* decompressed or test file. */
 		if (unlikely(fstatvfs(fd_out, &fbuf)))
 			fatal_return(("Failed to fstatvfs in decompress_file\n"), false);
 		free_space = (i64)fbuf.f_bsize * (i64)fbuf.f_bavail;
 		if (free_space < expected_size) {
-			if (FORCE_REPLACE)
-				print_err("Warning, inadequate free space detected, but attempting to decompress due to -f option being used.\n");
+			if (FORCE_REPLACE && !TEST_ONLY)
+				print_err("Warning, inadequate free space detected, but attempting to decompress file due to -f option being used.\n");
 			else
-				failure_return(("Inadequate free space to decompress file, use -f to override.\n"), false);
+				failure_return(("Inadequate free space to %s. Space needed: %ld. Space available: %ld.\nTry %s and \
+select a larger volume.\n",
+					TEST_ONLY ? "test file" : "decompress file. Use -f to override", expected_size, free_space,
+					TEST_ONLY ? "setting `TMP=dirname`" : "using `-O dirname` or `-o [dirname/]filename` options"),
+						false);
 		}
 	}
 	control->fd_out = fd_out;
@@ -953,6 +959,8 @@ bool get_fileinfo(rzip_control *control)
 	uchar save_ctype = 255;
 	struct stat st;
 	int fd_in;
+	CLzmaProps p; // decode lzma header
+	int lzma_ret;
 
 	if (!STDIN) {
 		struct stat fdin_stat;
@@ -1145,8 +1153,13 @@ done:
 		print_output("rzip + bzip2\n");
 	else if (save_ctype == CTYPE_LZO)
 		print_output("rzip + lzo\n");
-	else if (save_ctype == CTYPE_LZMA)
-		print_output("rzip + lzma\n");
+	else if (save_ctype == CTYPE_LZMA) {
+		print_output("rzip + lzma -- ");
+		if (lzma_ret=LzmaProps_Decode(&p, control->lzma_properties, sizeof(control->lzma_properties))==SZ_OK)
+			print_output("lc = %d, lp = %d, pb = %d, Dictionary Size = %d\n", p.lc, p.lp, p.pb, p.dicSize);
+		else
+			print_err("Corrupt LZMA Properties\n");
+	}
 	else if (save_ctype == CTYPE_GZIP)
 		print_output("rzip + gzip\n");
 	else if (save_ctype == CTYPE_ZPAQ)
@@ -1214,7 +1227,7 @@ bool compress_file(rzip_control *control)
         fd_in = open(control->infile, O_RDONLY);
 		if (unlikely(fd_in == -1))
 			fatal_return(("Failed to open %s\n", control->infile), false);
-	} 
+	}
 	else
 		fd_in = 0;
 
@@ -1325,7 +1338,7 @@ error:
 bool initialise_control(rzip_control *control)
 {
 	time_t now_t, tdiff;
-	char localeptr[] = "./", *eptr; /* for environment */
+	char localeptr[] = "./", *eptr; 	/* for environment */
 	size_t len;
 
 	memset(control, 0, sizeof(rzip_control));
@@ -1334,12 +1347,13 @@ bool initialise_control(rzip_control *control)
 	register_outputfile(control, control->msgout);
 	control->flags = FLAG_SHOW_PROGRESS | FLAG_KEEP_FILES | FLAG_THRESHOLD;
 	control->suffix = ".lrz";
-	control->compression_level = 7;
+	control->compression_level = 0; 	/* 0 because lrzip default level is 5, others 7 */
+	control->dictSize = 0;			/* Dictionary Size for lzma. 0 means program decides */
 	control->ramsize = get_ram(control);
 	if (unlikely(control->ramsize == -1))
 		return false;
 	/* for testing single CPU */
-	control->threads = PROCESSORS;	/* get CPUs for LZMA */
+	control->threads = PROCESSORS;		/* get CPUs for LZMA */
 	control->page_size = PAGE_SIZE;
 	control->nice_val = 19;
 
@@ -1378,7 +1392,7 @@ bool initialise_control(rzip_control *control)
 		fatal_return(("Failed to allocate for tmpdir\n"), false);
 	strcpy(control->tmpdir, eptr);
 	if (control->tmpdir[len - 1] != '/') {
-		control->tmpdir[len] = '/'; /* need a trailing slash */
+		control->tmpdir[len] = '/'; 	/* need a trailing slash */
 		control->tmpdir[len + 1] = '\0';
 	}
 	return true;

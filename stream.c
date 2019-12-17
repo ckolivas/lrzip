@@ -55,7 +55,7 @@
 #endif
 
 /* LZMA C Wrapper */
-#include "lzma/C/LzmaLib.h"
+#include "LzmaLib.h"
 
 #include "util.h"
 #include "lrzip_core.h"
@@ -303,30 +303,22 @@ static int lzma_compress_buf(rzip_control *control, struct compress_thread *cthr
 	if (!lzo_compresses(control, cthread->s_buf, cthread->s_len))
 		return 0;
 
-	/* only 7 levels with lzma, scale them */
-	lzma_level = control->compression_level * 7 / 9;
-	if (!lzma_level)
-		lzma_level = 1;
-
 	print_maxverbose("Starting lzma back end compression thread...\n");
 retry:
-	dlen = round_up_page(control, cthread->s_len);
+	dlen = round_up_page(control, cthread->s_len * 1.02); // add 2% for lzma overhead to prevent memory overrun
 	c_buf = malloc(dlen);
 	if (!c_buf) {
 		print_err("Unable to allocate c_buf in lzma_compress_buf\n");
 		return -1;
 	}
 
-	/* with LZMA SDK 4.63, we pass compression level and threads only
-	 * and receive properties in lzma_properties */
-
+	/* pass absolute dictionary size and compression level */
 	lzma_ret = LzmaCompress(c_buf, &dlen, cthread->s_buf,
 		(size_t)cthread->s_len, lzma_properties, &prop_size,
-				lzma_level,
-				0, /* dict size. set default, choose by level */
+				control->compression_level,
+				control->dictSize, 	// absolute dictionary size
 				-1, -1, -1, -1, /* lc, lp, pb, fb */
-				control->threads > 1 ? 2: 1);
-				/* LZMA spec has threads = 1 or 2 only. */
+				-1); 			// threads. let lzma encoder decide if multi threading is used, not lrzip
 	if (lzma_ret != SZ_OK) {
 		switch (lzma_ret) {
 			case SZ_ERROR_MEM:
@@ -966,20 +958,42 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	else
 		testbufs = 2;
 
-	testsize = (limit * testbufs) + (control->overhead * control->threads);
-	if (testsize > control->usable_ram)
-		limit = (control->usable_ram - (control->overhead * control->threads)) / testbufs;
-
-	/* If we don't have enough ram for the number of threads, decrease the
-	 * number of threads till we do, or only have one thread. */
-	while (limit < STREAM_BUFSIZE && limit < chunk_limit) {
-		if (control->threads > 1)
-			--control->threads;
-		else
-			break;
-		limit = (control->usable_ram - (control->overhead * control->threads)) / testbufs;
-		limit = MIN(limit, chunk_limit);
+	/* Reduce threads one by one and then reduce dictionary size
+	* by 10% until testsize is within range of estimated allocated
+	* memory for backend compression. Leave `limit` alone for now.
+	* First reduce threads, then dictionary size. */
+	int dict_or_threads = 0;
+	unsigned DICTSIZEDEFAULT = (1<<24);				// a reasonable minimum dictionary size
+	unsigned save_dictSize = control->dictSize;			// save dictionary
+	while(1) {
+		if ((testsize = (limit * testbufs) + (control->overhead * control->threads)) > control->usable_ram) {
+			if (dict_or_threads < 2) {			// reduce thread count
+				control->threads--;
+				if (control->threads == 0) {
+					control->threads = 1;		// threads are 1, break
+					break;
+				}
+				dict_or_threads++;
+			}
+			else {						// reduce computed dictionary size
+				control->dictSize *= 0.90;		// by 10% each iteration
+				round_to_page(&control->dictSize);	// round to a page size
+				if (control->dictSize % 2) 		// if dictionary size is an odd number
+					control->dictSize -= 1;		// round down to even number
+				setup_overhead(control);		// recompute overhead
+				dict_or_threads = 0;
+			}
+			print_maxverbose("Reducing Dictionary Size to %ld and/or Threads to %d to maximize threads and compression block size.\n",
+				control->dictSize, control->threads);
+			if (control->dictSize <= DICTSIZEDEFAULT)	// break on minimum
+				break;
+			continue;					// test again
+		}
+		break;
 	}
+	if (control->dictSize != save_dictSize)
+		print_verbose("Dictionary Size reduced to %d\n", control->dictSize);
+
 	if (BITS32) {
 		limit = MIN(limit, one_g);
 		if (limit + (control->overhead * control->threads) > one_g)

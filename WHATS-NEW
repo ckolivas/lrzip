@@ -1,3 +1,13 @@
+lrzip-0.640-beta
+
+Dictionary Size can be set from command line or conf file.
+Memory and block size computations now favor larger blocks
+and larger dictionary sizes for better pre-processing and to give
+compression backends more to work with.
+Removal of scaling for lzma levels.
+Larger blocks in lrzip files may result in faster compression and
+decompression times and smaller output files.
+
 lrzip-0.631
 
 Assembler code is back and works with x86_64

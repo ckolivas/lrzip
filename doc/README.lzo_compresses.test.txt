@@ -88,7 +88,7 @@ explain.
         lzo testing for incompressible data...OK for chunk 43408.
         Compressed size = 52.58% of chunk, 1 Passes
         Progress percentage pausing during lzma compression...
-        lzo testing for incompressible data...FAILED - below threshold for chunk 523245383. 
+        lzo testing for incompressible data...FAILED - below threshold for chunk 523245383.
         Compressed size = 98.87% of chunk, 50 Passes
 
 This was for a video .VOB file of 1GB. A compression threshold of 2 was used.

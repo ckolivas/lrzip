@@ -21,55 +21,62 @@ Parameter values are not case sensitive except where specified\&.
 .PP
 .SH "CONFIG FILE EXAMPLE"
 .nf
-# This is a comment.
-
+# lrzip.conf example file
 # Compression Window size in 100MB. Normally selected by program. (-w)
-# WINDOW = 20
+# \fBWINDOW = 20\fP
+
 # Compression Level 1-9 (7 Default). (-L)
-# COMPRESSIONLEVEL = 7
+# \fBCOMPRESSIONLEVEL = 7\fP
+
 # Use -U setting, Unlimited ram. Yes or No
-# UNLIMITED = NO
+# \fBUNLIMITED = NO\fP
+
 # Compression Method, rzip, gzip, bzip2, lzo, or lzma (default), or zpaq. (-n -g -b -l --lzma -z)
-# If specified here, command line options not usable.
-# COMPRESSIONMETHOD = lzma
+# May be overriden by command line compression choice.
+# \fBCOMPRESSIONMETHOD = lzma\fP
+
+# LZMA Dictionary Size. 0 = default value used. 12-30 = 2^ds will be used.
+# \fBDICTIONARYSIZE = 0\fP
+
 # Perform LZO Test. Default = YES (-T )
-# LZOTEST = NO
+# \fBLZOTEST = NO\fP
+
 # Hash Check on decompression, (-c)
-# HASHCHECK = YES
+# \fBHASHCHECK = YES\fP
+
 # Show HASH value on Compression even if Verbose is off, YES (-H)
-# SHOWHASH = YES
+# \fBSHOWHASH = YES\fP
 
 # Default output directory (-O)
-# OUTPUTDIRECTORY = location
+# \fBOUTPUTDIRECTORY = location\fP
+
 # Verbosity, YES or MAX (v, vv)
-# VERBOSITY = max
+# \fBVERBOSITY = max\fP
+
 # Show Progress as file is parsed, YES or no (NO = -q option)
-# SHOWPROGRESS = YES
+# \fBSHOWPROGRESS = YES\fP
 
 # Set Niceness. 19 is default. -20 to 19 is the allowable range (-N)
-# NICE = 19
+# \fBNICE = 19\fP
 
 # Keep broken or damaged output files, YES (-K)
-# KEEPBROKEN = YES
+# \fBKEEPBROKEN = YES\fP
 
 # Delete source file after compression (-D)
 # this parameter and value are case sensitive
 # value must be YES to activate
-
-# DELETEFILES = NO
+# \fBDELETEFILES = NO\fP
 
 # Replace existing lrzip file when compressing (-f)
 # this parameter and value are case sensitive
 # value must be YES to activate
-
-# REPLACEFILE = YES 
+# \fBREPLACEFILE = YES\fP
 
 # Override for Temporary Directory. Only valid when stdin/out or Test is used
-# TMPDIR = /tmp
+# \fBTMPDIR = /tmp\fP
 
 # Whether to use encryption on compression YES, NO (-e)
-# ENCRYPT = NO
-
+# \fBENCRYPT = NO\fP
 .fi
 .PP
 .SH "NOTES"

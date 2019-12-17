@@ -401,10 +401,11 @@ struct rzip_control {
 	FILE *msgerr; //stream for output errors
 	char *suffix;
 	uchar compression_level;
-	i64 overhead; // compressor overhead
-	i64 usable_ram; // the most ram we'll try to use on one activity
-	i64 maxram; // the largest chunk of ram to allocate
+	i64 overhead; 		// compressor overhead
+	i64 usable_ram; 	// the most ram we'll try to use on one activity
+	i64 maxram; 		// the largest chunk of ram to allocate
 	unsigned char lzma_properties[5]; // lzma properties, encoded
+	unsigned dictSize; 	// lzma Dictionary size - set in overhead computation
 	i64 window;
 	unsigned long flags;
 	i64 ramsize;
@@ -438,7 +439,7 @@ struct rzip_control {
 	cksem_t cksumsem;
 	md5_ctx ctx;
 	uchar md5_resblock[MD5_DIGEST_SIZE];
-	i64 md5_read; // How far into the file the md5 has done so far
+	i64 md5_read; 		// How far into the file the md5 has done so far
 	struct checksum checksum;
 
 	const char *util_infile;

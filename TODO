@@ -1,5 +1,9 @@
 MAYBE TODO for lrzip program
 
+Update LZMA SDK to 19.00+ (in progress). Includes some improvements
+especially in regards to memory and decompression speed. Includes
+a multi threaded decompressor and increased compression speed and ratios.
+
 Upgrade to newer version of zpaq supporting 3 compression levels without
 relying on open_memstream so it works without temporary files on apple.
 

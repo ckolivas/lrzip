@@ -57,7 +57,7 @@
 #include "util.h"
 #include "lrzip_core.h"
 /* needed for CRC routines */
-#include "lzma/C/7zCrc.h"
+#include "7zCrc.h"
 
 #ifndef MAP_ANONYMOUS
 # define MAP_ANONYMOUS MAP_ANON
@@ -1124,7 +1124,7 @@ retry:
 
 		gettimeofday(&current, NULL);
 		/* this will count only when size > window */
-		if (last.tv_sec > 0 && pct_base > 100) {
+		if (last.tv_sec > 0 && pct_base > 0) {
 			unsigned int eta_hours, eta_minutes, eta_seconds, elapsed_time, finish_time,
 				elapsed_hours, elapsed_minutes, elapsed_seconds, diff_seconds;
 

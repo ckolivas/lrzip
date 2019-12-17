@@ -46,7 +46,7 @@
 #include "util.h"
 #include "lrzip_core.h"
 /* needed for CRC routines */
-#include "lzma/C/7zCrc.h"
+#include "7zCrc.h"
 
 static inline uchar read_u8(rzip_control *control, void *ss, int stream, bool *err)
 {
@@ -253,12 +253,14 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 {
 	uint32 good_cksum, cksum = 0;
 	i64 len, ofs, total = 0;
-	int l = -1, p = 0;
+	int p;
 	char chunk_bytes;
 	struct stat st;
 	uchar head;
 	void *ss;
 	bool err = false;
+	struct timeval curtime, lasttime;
+	lasttime.tv_sec = 0;
 
 	/* for display of progress */
 	unsigned long divisor[] = {1,1024,1048576,1073741824U};
@@ -338,11 +340,12 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 		}
 		if (expected_size) {
 			p = 100 * ((double)(tally + total) / (double)expected_size);
-			if (p / 10 != l / 10)  {
+			gettimeofday(&curtime,NULL);
+			if (curtime.tv_sec - lasttime.tv_sec > 5 || p == 100 ) {	/* update every 5 seconds or when done */
 				prog_done = (double)(tally + total) / (double)divisor[divisor_index];
 				print_progress("%3d%%  %9.2f / %9.2f %s\r",
 						p, prog_done, prog_tsize, suffix[divisor_index] );
-				l = p;
+				lasttime.tv_sec = curtime.tv_sec;
 			}
 		}
 	}

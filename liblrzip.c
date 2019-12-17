@@ -31,7 +31,7 @@
 #endif
 
 /* needed for CRC routines */
-#include "lzma/C/7zCrc.h"
+#include "7zCrc.h"
 #include "util.h"
 #include "lrzip_core.h"
 #include "rzip.h"
