@@ -166,10 +166,6 @@ static void show_summary(void)
 		print_verbose("Threading is %s. Number of CPUs detected: %d\n", control->threads > 1? "ENABLED" : "DISABLED",
 			      control->threads);
 		print_verbose("Detected %lld bytes ram\n", control->ramsize);
-		print_verbose("Compression level %d %s\n", control->compression_level,
-				LZMA_COMPRESS ? (control->compression_level == 5 ? "- Default LZMA level": "" ) : "" );
-		if (LZMA_COMPRESS)
-			print_verbose("Dictionary Size: %ld\n", control->dictSize );
 		print_verbose("Nice Value: %d\n", control->nice_val);
 		print_verbose("Show Progress\n");
 		print_maxverbose("Max ");
@@ -192,6 +188,10 @@ static void show_summary(void)
 			print_verbose("Compression mode is: ");
 			if (LZMA_COMPRESS)
 				print_verbose("LZMA. LZO Compressibility testing %s\n", (LZO_TEST? "enabled" : "disabled"));
+			print_verbose("Compression level %d %s\n", control->compression_level,
+				(LZMA_COMPRESS ? (control->compression_level == 5 ? "- Default LZMA level": "" ) : ""));
+			if (LZMA_COMPRESS)
+				print_verbose("Dictionary Size: %ld\n", control->dictSize );
 			else if (LZO_COMPRESS)
 				print_verbose("LZO\n");
 			else if (BZIP2_COMPRESS)
