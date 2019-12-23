@@ -963,11 +963,17 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	* memory for backend compression. Leave `limit` alone for now.
 	* First reduce threads, then dictionary size. */
 	int dict_or_threads = 0;
-	unsigned DICTSIZEDEFAULT = (1<<24);				// a reasonable minimum dictionary size
+	unsigned DICTSIZEMIN =
+		(control->dictSize > (1<<13) ? control->dictSize / 2: control->dictSize); // minimum dictionary size
 	unsigned save_dictSize = control->dictSize;			// save dictionary
-	while(1) {
-		if ((testsize = (limit * testbufs) + (control->overhead * control->threads)) > control->usable_ram) {
-			if (dict_or_threads < 2) {			// reduce thread count
+	if (!save_threads)						// in cases of multiple chunks, need to restore
+		save_threads = control->threads;			// thread count in case it was reduced below
+	else
+		control->threads = save_threads;
+	limit = control->usable_ram/testbufs;				// this is max chunk limit based on ram and compression window
+	while(1) {							// for testing purposes add 10% to test
+		if (limit * 1.1 <= control->overhead * control->threads) {
+			if (dict_or_threads < 2) {			// reduce thread count favoring reducing threads
 				control->threads--;
 				if (control->threads == 0) {
 					control->threads = 1;		// threads are 1, break
@@ -985,7 +991,7 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 			}
 			print_maxverbose("Reducing Dictionary Size to %ld and/or Threads to %d to maximize threads and compression block size.\n",
 				control->dictSize, control->threads);
-			if (control->dictSize <= DICTSIZEDEFAULT)	// break on minimum
+			if (control->dictSize <= DICTSIZEMIN)		// break on minimum
 				break;
 			continue;					// test again
 		}
@@ -1001,7 +1007,7 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	}
 	/* Use a nominal minimum size should we fail all previous shrinking */
 	limit = MAX(limit, STREAM_BUFSIZE);
-	limit = MIN(limit, chunk_limit);
+	limit = MIN(control->usable_ram/testbufs, chunk_limit);
 retest_malloc:
 	testsize = limit + (control->overhead * control->threads);
 	testmalloc = malloc(testsize);
