@@ -92,6 +92,8 @@ static pthread_mutex_t output_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t output_cond = PTHREAD_COND_INITIALIZER;
 static pthread_t *threads;
 
+unsigned save_threads = 0; // need for multiple chunks to restore thread count
+
 bool init_mutex(rzip_control *control, pthread_mutex_t *mutex)
 {
 	if (unlikely(pthread_mutex_init(mutex, NULL)))
@@ -983,9 +985,9 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 			}
 			else {						// reduce computed dictionary size
 				control->dictSize *= 0.90;		// by 10% each iteration
-				round_to_page(&control->dictSize);	// round to a page size
 				if (control->dictSize % 2) 		// if dictionary size is an odd number
 					control->dictSize -= 1;		// round down to even number
+				round_to_page(&control->dictSize);	// round to a page size
 				setup_overhead(control);		// recompute overhead
 				dict_or_threads = 0;
 			}
@@ -1010,6 +1012,8 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	limit = MIN(control->usable_ram/testbufs, chunk_limit);
 retest_malloc:
 	testsize = limit + (control->overhead * control->threads);
+	if (testsize > control->usable_ram)
+		limit = control->usable_ram/testbufs;
 	testmalloc = malloc(testsize);
 	if (!testmalloc) {
 		limit = limit / 10 * 9;
