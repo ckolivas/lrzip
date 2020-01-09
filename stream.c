@@ -965,9 +965,8 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	* memory for backend compression. Leave `limit` alone for now.
 	* First reduce threads, then dictionary size. */
 	int dict_or_threads = 0;
-	unsigned DICTSIZEMIN =
-		(control->dictSize > (1<<13) ? control->dictSize / 2: control->dictSize); // minimum dictionary size
-	unsigned save_dictSize = control->dictSize;			// save dictionary
+	i64 DICTSIZEMIN = control->dictSize / 2;			// minimum dictionary size
+	i64 save_dictSize = control->dictSize;				// save dictionary
 	if (!save_threads)						// in cases of multiple chunks, need to restore
 		save_threads = control->threads;			// thread count in case it was reduced below
 	else
