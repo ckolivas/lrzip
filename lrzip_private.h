@@ -494,6 +494,7 @@ struct stream_info {
 	char chunk_bytes;
 };
 
+bool progress_flag ; // print newline when verbose and last print was progress indicator
 static inline void print_stuff(const rzip_control *control, int level, unsigned int line, const char *file, const char *func, const char *format, ...)
 {
 	va_list ap;
@@ -524,7 +525,11 @@ static inline void print_err(const rzip_control *control, unsigned int line, con
 	}
 }
 
-#define print_stuff(level, ...) do {\
+#define print_stuff(level, ...) do {		\
+	if (progress_flag && level != 2) {	\
+		print_stuff(control,level, __LINE__, __FILE__, __func__, "\n");	\
+		progress_flag = false;		\
+	}					\
 	print_stuff(control, level, __LINE__, __FILE__, __func__, __VA_ARGS__); \
 } while (0)
 
@@ -532,9 +537,12 @@ static inline void print_err(const rzip_control *control, unsigned int line, con
 	print_stuff(1, __VA_ARGS__); \
 } while (0)
 
-#define print_progress(...)	do {\
-	if (SHOW_PROGRESS)	\
-		print_stuff(2, __VA_ARGS__); \
+#define print_progress(...)	do {		\
+	if (SHOW_PROGRESS) {			\
+		print_stuff(2, __VA_ARGS__);	\
+		if (!progress_flag)		\
+			progress_flag = true;	\
+	}					\
 } while (0)
 
 #define print_verbose(...)	do {\
