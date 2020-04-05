@@ -124,7 +124,7 @@ AC_CHECK_FUNCS(getopt_long)
 AX_PTHREAD
 LIBS="$PTHREAD_LIBS $LIBS"
 CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
-CXXFLAGS="$CXXFLAGS $PTHREAD_CXXFLAGS"
+CXXFLAGS="$CXXFLAGS $PTHREAD_CFLAGS"
 
 # final checks for assembler
 # ASM is back for x86_64 by using newer CRC code from p7zip-16.02

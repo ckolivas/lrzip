@@ -181,7 +181,8 @@ static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthr
 
 	c_len = 0;
 
-	zpaq_compress(c_buf, &c_len, cthread->s_buf, cthread->s_len, control->compression_level / 4 + 1,
+	/* Compression level can be 1 to 5, zpaq version 7.15 */
+	zpaq_compress(c_buf, &c_len, cthread->s_buf, cthread->s_len, control->compression_level / 2 + 1,
 		      control->msgout, SHOW_PROGRESS ? true: false, thread);
 
 	if (unlikely(c_len >= cthread->c_len)) {
