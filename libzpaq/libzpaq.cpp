@@ -27,7 +27,6 @@ See libzpaq.h for additional documentation.
 #include <string>
 #include <vector>
 #include <stdio.h>
-#include <math.h>
 
 #ifdef unix
 #ifndef NOJIT
@@ -187,6 +186,7 @@ void SHA1::process() {
   h[0]+=a; h[1]+=b; h[2]+=c; h[3]+=d; h[4]+=e;
 }
 
+/* prune, not needed for lrzip
 //////////////////////////// SHA256 //////////////////////////
 
 void SHA256::init() {
@@ -714,6 +714,7 @@ void random(char* buf, int n) {
   if (n>=1 && (buf[0]=='z' || buf[0]=='7'))
     buf[0]^=0x80;
 }
+*/
 
 //////////////////////////// Component ///////////////////////
 

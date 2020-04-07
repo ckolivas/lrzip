@@ -247,7 +247,7 @@ The hash is computed as hash := hash x N1 + next_byte + 1 (mod hash table
 size). Thus, N1 = 12 selects a higher order context, and N1 = 48 selects a
 lower order.
 
-A word model ('w") is an ICM-ISSE chain of length N1 (orders 0..N1-1)
+A word model ('w') is an ICM-ISSE chain of length N1 (orders 0..N1-1)
 in which the contexts are whole words. A word is defined as the set
 of characters in the range N2..N2+N3-1 after ANDing with N4. The context
 is hashed using multiplier N5. Memory is halved by N6. The default is
@@ -490,7 +490,7 @@ compression algorithm:
     "  d=0 hash b-- hash *d=a (put order 2 context hash in H[0] pointed by D)"
     "  d++ b-- hash b-- hash *d=a (put order 4 context in H[1]) "
     "  halt "
-    "end " (no pre/post processing) ",
+    "end  (no pre/post processing) ",
     args,     // Arguments $1 through $9 to ZPAQL code (unused, can be NULL)
     &out);    // Writer* to write pcomp command (default is NULL)
 
@@ -711,7 +711,7 @@ respectively.
 
 You can pass up to 9 signed numeric arguments in args[]. In any
 place that a number "N" is allowed, you can write "$M" or "$M+N"
-(like "$1" or $9+25") and value args[M-1]+N will be substituted.
+(like "$1" or "$9+25") and value args[M-1]+N will be substituted.
 
 ZPAQL allows (nested) comments in parenthesis. It is not case sensitive.
 If there are input errors, then error() will report the error. If the
@@ -840,6 +840,7 @@ Use at your own risk.
 #include <stdlib.h>
 #include <string.h>
 #include <algorithm>
+#include <math.h>
 
 namespace libzpaq {
 
@@ -957,6 +958,7 @@ private:
   void process();   // hash 1 block
 };
 
+/* prune, not needed for lrzip
 //////////////////////////// SHA256 //////////////////////////
 
 // For computing SHA-256 checksums
@@ -1017,6 +1019,8 @@ void stretchKey(char* out, const char* key, const char* salt);
 // Fill buf[0..n-1] with n cryptographic random bytes. The first
 // byte is never '7' or 'z'.
 void random(char* buf, int n);
+
+*/
 
 //////////////////////////// ZPAQL ///////////////////////////
 
@@ -1597,12 +1601,19 @@ extern "C" void zpaq_compress(uchar *c_buf, i64 *c_len, uchar *s_buf, i64 s_len,
 {
 	i64 total_len = s_len;
 	int last_pct = 100;
-	char method[]="041280";		// defaults for buffer size, compressibility, data type
+	int bs=0;
+	char method[]="0xx\0";		// level + block size 1-11 2^bs MB
 
 	bufRead bufR(s_buf, &s_len, total_len, &last_pct, progress, thread, msgout);
 	bufWrite bufW(c_buf, c_len);
 
 	method[0]=(char)level+'0';	// set level 1-5
+	// set block size for method based on input length
+	bs = log2(s_len);
+	if (bs > 11) bs = 11;
+	else if (bs < 1) bs = 1;
+	
+	sprintf(method+1,"%d",bs); // store block size
 
 	compress (&bufR, &bufW, (const char *) &method,  NULL, NULL, true);
 }
