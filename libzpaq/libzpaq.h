@@ -1596,26 +1596,16 @@ struct bufWrite: public libzpaq::Writer {
 	}
 };
 
-extern "C" void zpaq_compress(uchar *c_buf, i64 *c_len, uchar *s_buf, i64 s_len, int level,
-			      FILE *msgout, bool progress, long thread)
+extern "C" void zpaq_compress(uchar *c_buf, i64 *c_len, uchar *s_buf, i64 s_len,
+		uchar *method, FILE *msgout, bool progress, long thread)
 {
 	i64 total_len = s_len;
 	int last_pct = 100;
-	int bs=0;
-	char method[]="0xx\0";		// level + block size 1-11 2^bs MB
 
 	bufRead bufR(s_buf, &s_len, total_len, &last_pct, progress, thread, msgout);
 	bufWrite bufW(c_buf, c_len);
 
-	method[0]=(char)level+'0';	// set level 1-5
-	// set block size for method based on input length
-	bs = log2(s_len);
-	if (bs > 11) bs = 11;
-	else if (bs < 1) bs = 1;
-	
-	sprintf(method+1,"%d",bs); // store block size
-
-	compress (&bufR, &bufW, (const char *) &method,  NULL, NULL, true);
+	compress (&bufR, &bufW, (const char *) method,  NULL, NULL, true);
 }
 
 extern "C" void zpaq_decompress(uchar *s_buf, i64 *d_len, uchar *c_buf, i64 c_len,

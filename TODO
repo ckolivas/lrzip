@@ -21,3 +21,5 @@ Consider ncurses version or even GUI one.
 
 Consider using LZMA Filters for processor-optimised
 coding to increase compression.
+
+ZPAQ: Progress indicators don't work with 7.15

@@ -1,5 +1,11 @@
 lrzip ChangeLog
 
+APRIL 2020, ZPAQ 7.15, Peter Hyman
+
+* ZPAQ 7.15 SDK
+* heuristically set block size, ease of compression flags
+* visible with -v option
+
 NOVEMBER 2019, updates to version 0.631, Peter Hyman
 
 * Fixups to Assembler code in configure.ac lzma/C/Makefile.am by using
