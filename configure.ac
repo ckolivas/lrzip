@@ -69,8 +69,8 @@ AC_ARG_ENABLE(
              )
 
 if test x"$ASM" = x"yes"; then
-	AC_CHECK_PROG( ASM_PROG, nasm, nasm, no ) # fix to set ASM_PROG to nasm, not yes.
-	if test x"$ASM_PROG" = x"no "; then
+	AC_CHECK_PROGS( ASM_PROG, nasm yasm, no, ) # fix to set ASM_PROG to nasm or yasm
+	if test x"$ASM_PROG" = x"no"; then
 		ASM=no
 	fi
 fi
