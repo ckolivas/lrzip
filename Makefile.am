@@ -50,7 +50,11 @@ libtmplrzip_la_SOURCES = \
   sha4.c \
   sha4.h \
   libzpaq/libzpaq.cpp \
-  libzpaq/libzpaq.h
+  libzpaq/libzpaq.h \
+  minilzo-2.10/minilzo.c \
+  minilzo-2.10/minilzo.h \
+  minilzo-2.10/lzoconf.h \
+  minilzo-2.10/lzodefs.h
 
 libtmplrzip_la_LIBADD = lzma/C/liblzma.la
 
@@ -87,7 +91,8 @@ dist_doc_DATA = \
   README.md \
   README-NOT-BACKWARD-COMPATIBLE \
   TODO \
-  WHATS-NEW
+  WHATS-NEW \
+  minilzo-2.10/README.LZO
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = lrzip.pc

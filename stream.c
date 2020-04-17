@@ -40,8 +40,7 @@
 #include <pthread.h>
 #include <bzlib.h>
 #include <zlib.h>
-#include <lzo/lzoconf.h>
-#include <lzo/lzo1x.h>
+#include "minilzo-2.10/minilzo.h"
 #ifdef HAVE_ERRNO_H
 # include <errno.h>
 #endif
