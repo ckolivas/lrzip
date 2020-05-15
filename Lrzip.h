@@ -20,6 +20,7 @@
 #ifndef LIBLRZIP_H
 #define LIBLRZIP_H
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #ifdef _WIN32
