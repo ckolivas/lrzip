@@ -60,6 +60,7 @@ liblzma_la_LIBADD = $(ASM_7z).lo
 
 $(ASM_7z).lo: $(ASM_S)
 	$(ASM_PROG) $(ASM_OPT) -o $(ASM_7z).o $(ASM_S)
+	mkdir .libs
 	cp $(ASM_7z).o .libs/
 	@echo -e "$(7ZIPASMLOFILE)" > $(ASM_7z).lo 
 endif
