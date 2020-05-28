@@ -594,7 +594,8 @@ int main(int argc, char *argv[])
 			infile = argv[i];
 		else if (!(i == 0 && STDIN))
 			break;
-		if (infile) {
+		if (infile && !(DECOMPRESS || TEST_ONLY)) {
+			/* check that input file exists, unless Decompressing or Test */
 			if ((strcmp(infile, "-") == 0))
 				control->flags |= FLAG_STDIN;
 			else {
