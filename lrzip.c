@@ -693,27 +693,26 @@ bool decompress_file(rzip_control *control)
 
 	if (!STDIN && !IS_FROM_FILE) {
 		struct stat fdin_stat;
-		/* make sure infile has an extension. If not, add it
-		 * because manipulations may be made to input filename, set local ptr
-		*/
-		tmp = strrchr(control->infile, '.');
-		if (strcmp(tmp,control->suffix)) {
+
+		stat(control->infile, &fdin_stat);
+		if (!S_ISREG(fdin_stat.st_mode) && (tmp = strrchr(control->infile, '.')) &&
+		    strcmp(tmp,control->suffix)) {
+			/* make sure infile has an extension. If not, add it
+			  * because manipulations may be made to input filename, set local ptr
+			*/
 			infilecopy = alloca(strlen(control->infile) + strlen(control->suffix) + 1);
 			strcpy(infilecopy, control->infile);
 			strcat(infilecopy, control->suffix);
 		} else
 			infilecopy = strdupa(control->infile);
-		stat(infilecopy, &fdin_stat);
-		if (!S_ISREG(fdin_stat.st_mode))
-			failure("lrzip only works on regular FILES\n");
 		/* regardless, infilecopy has the input filename */
 	}
 
 	if (!STDOUT && !TEST_ONLY) {
 		/* if output name already set, use it */
-		if (control->outname)
+		if (control->outname) {
 			control->outfile = strdup(control->outname);
-		else {
+		} else {
 			/* default output name from infilecopy
 			 * test if outdir specified. If so, strip path from filename of
 			 * infilecopy, then remove suffix.
