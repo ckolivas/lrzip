@@ -133,9 +133,9 @@ if test x"$ASM" = x"yes"; then
 	ASM_OPT="-I../ASM/x86/"
 	case $host in
 		i?86-*)
-			ASM_OPT="$ASM_OPT -f elf" ;;
+			ASM_OPT="$ASM_OPT -g -f elf" ;;
 		x86_64-*)
-			ASM_OPT="$ASM_OPT -Dx64 -f elf64" ;;
+			ASM_OPT="$ASM_OPT -Dx64 -g -f elf64" ;;
 		*) ASM_OPT= ;;
 	esac
 else

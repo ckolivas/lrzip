@@ -12,8 +12,8 @@ ASM_7z =
 C_S =
 if USE_ASM
   ASM_7z += 7zCrcOpt_asm
-  ASM_S += @top_srcdir@/lzma/ASM/x86/$(ASM_7z).asm
-  ASM_H += @top_srcdir@/lzma/ASM/x86/7zAsm.asm
+  ASM_S += @abs_top_srcdir@/lzma/ASM/x86/$(ASM_7z).asm
+  ASM_H += @abs_top_srcdir@/lzma/ASM/x86/7zAsm.asm
   C_S += 7zCrcT8.c
 else
   C_S += 7zCrc.c 
@@ -24,7 +24,7 @@ noinst_LTLIBRARIES = liblzma.la
 # to prevent an error even if -j## is used.
 liblzma_la_SOURCES = \
 	$(C_S) \
-	7z.Crc.h \
+	7zCrc.h \
 	LzmaDec.h \
 	LzmaEnc.h \
 	LzFind.c \
