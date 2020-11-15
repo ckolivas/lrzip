@@ -1061,7 +1061,7 @@ next_chunk:
 			second_last = last_head;
 			if (unlikely(last_head + ofs > infile_size))
 				failure_goto(("Offset greater than archive size, likely corrupted/truncated archive.\n"), error);
-			if (unlikely(head_off = lseek(fd_in, last_head + ofs, SEEK_SET) == -1))
+			if (unlikely((head_off = lseek(fd_in, last_head + ofs, SEEK_SET)) == -1))
 				fatal_goto(("Failed to seek to header data in get_fileinfo\n"), error);
 			if (unlikely(!get_header_info(control, fd_in, &ctype, &c_len, &u_len,
 					&last_head, chunk_byte)))
