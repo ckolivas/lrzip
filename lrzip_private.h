@@ -351,8 +351,15 @@ struct checksum {
 
 typedef i64 tag;
 
+struct node {
+	void *data;
+	struct node *prev;
+};
+
 struct rzip_state {
 	void *ss;
+	struct node *sslist;
+	struct node *head;
 	struct level *level;
 	tag hash_index[256];
 	struct hash_entry *hash_table;
@@ -444,10 +451,6 @@ struct rzip_control {
 	const char *util_infile;
 	char delete_infile;
 	const char *util_outfile;
-#define STREAM_BUCKET_SIZE 20
-	size_t sinfo_buckets;
-	size_t sinfo_idx;
-	struct stream_info **sinfo_queue;
 	char delete_outfile;
 	FILE *outputfile;
 	char library_mode;

@@ -1812,37 +1812,12 @@ int close_stream_out(rzip_control *control, void *ss)
 		for (i = 0; i < sinfo->num_streams; i++)
 			rewrite_encrypted(control, sinfo, sinfo->s[i].last_headofs);
 	}
-	if (control->library_mode) {
-		if (!control->sinfo_buckets) {
-			/* no streams added */
-			control->sinfo_queue = calloc(STREAM_BUCKET_SIZE + 1, sizeof(void*));
-			if (!control->sinfo_queue) {
-				print_err("Failed to calloc sinfo_queue in close_stream_out\n");
-				return -1;
-			}
-			control->sinfo_buckets++;
-		} else if (control->sinfo_idx == STREAM_BUCKET_SIZE * control->sinfo_buckets + 1) {
-			/* all buckets full, create new bucket */
-			void *tmp;
 
-			tmp = realloc(control->sinfo_queue, (++control->sinfo_buckets * STREAM_BUCKET_SIZE + 1) * sizeof(void*));
-			if (!tmp) {
-				print_err("Failed to realloc sinfo_queue in close_stream_out\n");
-				return -1;
-			}
-			control->sinfo_queue = tmp;
-			memset(control->sinfo_queue + control->sinfo_idx, 0, ((control->sinfo_buckets * STREAM_BUCKET_SIZE + 1) - control->sinfo_idx) * sizeof(void*));
-		}
-		control->sinfo_queue[control->sinfo_idx++] = sinfo;
-	}
-#if 0
-	/* These cannot be freed immediately because their values are read after the next
-	 * stream has started. Instead (in library mode), they are stored and only freed
-	 * after the entire operation has completed.
+	/* Note that sinfo->s and sinfo are not released here but after compression
+	 * has completed as they cannot be freed immediately because their values
+	 * are read after the next stream has started.
 	 */
-	dealloc(sinfo->s);
-	dealloc(sinfo);
-#endif
+
 	return 0;
 }
 

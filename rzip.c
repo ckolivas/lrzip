@@ -872,6 +872,17 @@ init_sliding_mmap(rzip_control *control, struct rzip_state *st, int fd_in,
 	sb->fd = fd_in;
 }
 
+static void add_to_sslist(rzip_control *control, struct rzip_state *st)
+{
+	struct node *node = calloc(sizeof(struct node), 1);
+
+	if (unlikely(!node))
+		failure("Failed to calloc struct node in add_to_sslist\n");
+	node->data = st->ss;
+	node->prev = st->sslist;
+	st->head = node;
+}
+
 /* compress a chunk of an open file. Assumes that the file is able to
    be mmap'd and is seekable */
 static inline void
@@ -903,6 +914,23 @@ rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, int fd_out,
 
 	if (unlikely(close_stream_out(control, st->ss)))
 		failure("Failed to flush/close streams in rzip_chunk\n");
+
+	/* Save the sinfo data to a list to be safely released after all
+	 * threads have been shut down. */
+	add_to_sslist(control, st);
+}
+
+static void clear_sslist(struct rzip_state *st)
+{
+	while (st->head) {
+		struct node *node = st->head;
+		struct stream_info *sinfo = node->data;
+
+		dealloc(sinfo->s);
+		dealloc(sinfo);
+		st->head = node->prev;
+		dealloc(node);
+	}
 }
 
 /* compress a whole file chunks at a time */
@@ -1225,12 +1253,12 @@ retry:
 	print_progress("Compression Ratio: %.3f. Average Compression Speed: %6.3fMB/s.\n",
 		       1.0 * s.st_size / s2.st_size, chunkmbs);
 
+	clear_sslist(st);
 	dealloc(st);
 }
 
 void rzip_control_free(rzip_control *control)
 {
-	size_t x;
 	if (!control)
 		return;
 
@@ -1240,10 +1268,5 @@ void rzip_control_free(rzip_control *control)
 	if (control->suffix && control->suffix[0])
 		dealloc(control->suffix);
 
-	for (x = 0; x < control->sinfo_idx; x++) {
-		dealloc(control->sinfo_queue[x]->s);
-		dealloc(control->sinfo_queue[x]);
-	}
-	dealloc(control->sinfo_queue);
 	dealloc(control);
 }
