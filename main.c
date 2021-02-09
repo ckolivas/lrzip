@@ -316,6 +316,7 @@ int main(int argc, char *argv[])
 	int hours,minutes;
 	extern int optind;
 	char *eptr, *av; /* for environment */
+	char *endptr = NULL;
 
         control = &base_control;
 
@@ -435,17 +436,23 @@ int main(int argc, char *argv[])
 				license();
 				exit(0);
 			}
-			control->compression_level = atoi(optarg);
+			control->compression_level = strtol(optarg, &endptr, 10);
 			if (control->compression_level < 1 || control->compression_level > 9)
 				failure("Invalid compression level (must be 1-9)\n");
+			if (*endptr)
+				failure("Extra characters after compression level: \'%s\'\n", endptr);
 			break;
 		case 'm':
-			control->ramsize = atol(optarg) * 1024 * 1024 * 100;
+			control->ramsize = strtol(optarg, &endptr, 10) * 1024 * 1024 * 100;
+			if (*endptr)
+				failure("Extra characters after ramsize: \'%s\'\n", endptr);
 			break;
 		case 'N':
-			control->nice_val = atoi(optarg);
+			control->nice_val = strtol(optarg, &endptr, 10);
 			if (control->nice_val < PRIO_MIN || control->nice_val > PRIO_MAX)
 				failure("Invalid nice value (must be %d...%d)\n", PRIO_MIN, PRIO_MAX);
+			if (*endptr)
+				failure("Extra characters after nice level: \'%s\'\n", endptr);
 			break;
 		case 'o':
 			if (control->outdir)
@@ -468,9 +475,11 @@ int main(int argc, char *argv[])
 				strcat(control->outdir, "/");
 			break;
 		case 'p':
-			control->threads = atoi(optarg);
+			control->threads = strtol(optarg, &endptr, 10);
 			if (control->threads < 1)
 				failure("Must have at least one thread\n");
+			if (*endptr)
+				failure("Extra characters after number of threads: \'%s\'\n", endptr);
 			break;
 		case 'P':
 			control->flags |= FLAG_SHOW_PROGRESS;
@@ -519,9 +528,11 @@ int main(int argc, char *argv[])
 			exit(0);
 			break;
 		case 'w':
-			control->window = atol(optarg);
+			control->window = strtol(optarg, &endptr, 10);
 			if (control->window < 1)
 				failure("Window must be positive\n");
+			if (*endptr)
+				failure("Extra characters after window size: \'%s\'\n", endptr);
 			break;
 		case '1':
 		case '2':
