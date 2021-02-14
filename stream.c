@@ -73,18 +73,10 @@ static struct compress_thread {
 	uchar salt[SALT_LEN];
 } *cthreads;
 
-static struct uncomp_thread {
-	uchar *s_buf;
-	i64 u_len, c_len;
-	i64 last_head;
-	uchar c_type;
-	int busy;
-	int streamno;
-} *ucthreads;
-
 typedef struct stream_thread_struct {
 	int i;
 	rzip_control *control;
+	struct stream_info *sinfo;
 } stream_thread_struct;
 
 static long output_thread;
@@ -1059,6 +1051,7 @@ static bool decrypt_header(rzip_control *control, uchar *head, uchar *c_type,
 /* prepare a set of n streams for reading on file descriptor f */
 void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 {
+	struct uncomp_thread *ucthreads;
 	struct stream_info *sinfo;
 	int total_threads, i;
 	i64 header_length;
@@ -1077,7 +1070,7 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 	if (unlikely(!threads))
 		return NULL;
 
-	ucthreads = calloc(sizeof(struct uncomp_thread), total_threads);
+	sinfo->ucthreads = ucthreads = calloc(sizeof(struct uncomp_thread), total_threads);
 	if (unlikely(!ucthreads)) {
 		dealloc(sinfo);
 		dealloc(threads);
@@ -1506,13 +1499,12 @@ void flush_buffer(rzip_control *control, struct stream_info *sinfo, int streamno
 
 static void *ucompthread(void *data)
 {
-	stream_thread_struct *s = data;
-	rzip_control *control = s->control;
-	int waited = 0, ret = 0, i = s->i;
-	struct uncomp_thread *uci;
+	stream_thread_struct *sts = data;
+	rzip_control *control = sts->control;
+	int waited = 0, ret = 0, i = sts->i;
+	struct uncomp_thread *uci = &sts->sinfo->ucthreads[i];
 
 	dealloc(data);
-	uci = &ucthreads[i];
 
 	if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1)) {
 		print_err("Warning, unable to set thread nice value %d...Resetting to %d\n", control->nice_val, control->current_priority);
@@ -1570,7 +1562,8 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, struct 
 {
 	i64 u_len, c_len, last_head, padded_len, header_length, max_len;
 	uchar enc_head[25 + SALT_LEN], blocksalt[SALT_LEN];
-	stream_thread_struct *st;
+	stream_thread_struct *sts;
+	struct uncomp_thread *ucthreads = sinfo->ucthreads;
 	uchar c_type, *s_buf;
 	void *thr_return;
 
@@ -1686,13 +1679,14 @@ fill_another:
 	print_maxverbose("Starting thread %ld to decompress %lld bytes from stream %d\n",
 			 s->uthread_no, padded_len, streamno);
 
-	st = malloc(sizeof(stream_thread_struct));
-	if (unlikely(!st))
+	sts = malloc(sizeof(stream_thread_struct));
+	if (unlikely(!sts))
 		fatal_return(("Unable to malloc in fill_buffer"), -1);
-	st->i = s->uthread_no;
-	st->control = control;
-	if (unlikely(!create_pthread(control, &threads[s->uthread_no], NULL, ucompthread, st))) {
-		dealloc(st);
+	sts->i = s->uthread_no;
+	sts->control = control;
+	sts->sinfo = sinfo;
+	if (unlikely(!create_pthread(control, &threads[s->uthread_no], NULL, ucompthread, sts))) {
+		dealloc(sts);
 		return -1;
 	}
 
@@ -1837,7 +1831,7 @@ int close_stream_in(rzip_control *control, void *ss)
 		dealloc(sinfo->s[i].buf);
 
 	output_thread = 0;
-	dealloc(ucthreads);
+	dealloc(sinfo->ucthreads);
 	dealloc(threads);
 	dealloc(sinfo->s);
 	dealloc(sinfo);

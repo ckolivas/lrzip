@@ -468,6 +468,15 @@ struct rzip_control {
 	i64 (*match_len)(rzip_control *, struct rzip_state *, i64, i64, i64, i64 *);
 };
 
+struct uncomp_thread {
+	uchar *s_buf;
+	i64 u_len, c_len;
+	i64 last_head;
+	uchar c_type;
+	int busy;
+	int streamno;
+};
+
 struct stream {
 	i64 last_head;
 	uchar *buf;
@@ -491,6 +500,7 @@ struct stream_info {
 	i64 total_read;
 	i64 ram_alloced;
 	i64 size;
+	struct uncomp_thread *ucthreads;
 	long thread_no;
 	long next_thread;
 	int chunks;
