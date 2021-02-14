@@ -62,7 +62,7 @@
 
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
-static struct compress_thread{
+static struct compress_thread {
 	uchar *s_buf;	/* Uncompressed buffer -> Compressed buffer */
 	uchar c_type;	/* Compression type */
 	i64 s_len;	/* Data length uncompressed */
@@ -71,16 +71,16 @@ static struct compress_thread{
 	struct stream_info *sinfo;
 	int streamno;
 	uchar salt[SALT_LEN];
-} *cthread;
+} *cthreads;
 
-static struct uncomp_thread{
+static struct uncomp_thread {
 	uchar *s_buf;
 	i64 u_len, c_len;
 	i64 last_head;
 	uchar c_type;
 	int busy;
 	int streamno;
-} *ucthread;
+} *ucthreads;
 
 typedef struct stream_thread_struct {
 	int i;
@@ -899,15 +899,15 @@ bool prepare_streamout_threads(rzip_control *control)
 	if (unlikely(!threads))
 		fatal_return(("Unable to calloc threads in prepare_streamout_threads\n"), false);
 
-	cthread = calloc(sizeof(struct compress_thread), control->threads);
-	if (unlikely(!cthread)) {
+	cthreads = calloc(sizeof(struct compress_thread), control->threads);
+	if (unlikely(!cthreads)) {
 		dealloc(threads);
-		fatal_return(("Unable to calloc cthread in prepare_streamout_threads\n"), false);
+		fatal_return(("Unable to calloc cthreads in prepare_streamout_threads\n"), false);
 	}
 
 	for (i = 0; i < control->threads; i++) {
-		cksem_init(control, &cthread[i].cksem);
-		cksem_post(control, &cthread[i].cksem);
+		cksem_init(control, &cthreads[i].cksem);
+		cksem_post(control, &cthreads[i].cksem);
 	}
 	return true;
 }
@@ -920,12 +920,12 @@ bool close_streamout_threads(rzip_control *control)
 	/* Wait for the threads in the correct order in case they end up
 	 * serialised */
 	for (i = 0; i < control->threads; i++) {
-		cksem_wait(control, &cthread[close_thread].cksem);
+		cksem_wait(control, &cthreads[close_thread].cksem);
 
 		if (++close_thread == control->threads)
 			close_thread = 0;
 	}
-	dealloc(cthread);
+	dealloc(cthreads);
 	dealloc(threads);
 	return true;
 }
@@ -1077,11 +1077,11 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 	if (unlikely(!threads))
 		return NULL;
 
-	ucthread = calloc(sizeof(struct uncomp_thread), total_threads);
-	if (unlikely(!ucthread)) {
+	ucthreads = calloc(sizeof(struct uncomp_thread), total_threads);
+	if (unlikely(!ucthreads)) {
 		dealloc(sinfo);
 		dealloc(threads);
-		fatal_return(("Unable to calloc cthread in open_stream_in\n"), NULL);
+		fatal_return(("Unable to calloc ucthreads in open_stream_in\n"), NULL);
 	}
 
 	sinfo->num_streams = n;
@@ -1274,7 +1274,7 @@ static void *compthread(void *data)
 	/* Make sure this thread doesn't already exist */
 
 	dealloc(data);
-	cti = &cthread[i];
+	cti = &cthreads[i];
 	ctis = cti->sinfo;
 
 	if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1)) {
@@ -1464,19 +1464,19 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 	static int i = 0;
 
 	/* Make sure this thread doesn't already exist */
-	cksem_wait(control, &cthread[i].cksem);
+	cksem_wait(control, &cthreads[i].cksem);
 
-	cthread[i].sinfo = sinfo;
-	cthread[i].streamno = streamno;
-	cthread[i].s_buf = sinfo->s[streamno].buf;
-	cthread[i].s_len = sinfo->s[streamno].buflen;
+	cthreads[i].sinfo = sinfo;
+	cthreads[i].streamno = streamno;
+	cthreads[i].s_buf = sinfo->s[streamno].buf;
+	cthreads[i].s_len = sinfo->s[streamno].buflen;
 
 	print_maxverbose("Starting thread %ld to compress %lld bytes from stream %d\n",
-			 i, cthread[i].s_len, streamno);
+			 i, cthreads[i].s_len, streamno);
 
 	s = malloc(sizeof(stream_thread_struct));
 	if (unlikely(!s)) {
-		cksem_post(control, &cthread[i].cksem);
+		cksem_post(control, &cthreads[i].cksem);
 		failure("Unable to malloc in clear_buffer");
 	}
 	s->i = i;
@@ -1512,7 +1512,7 @@ static void *ucompthread(void *data)
 	struct uncomp_thread *uci;
 
 	dealloc(data);
-	uci = &ucthread[i];
+	uci = &ucthreads[i];
 
 	if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1)) {
 		print_err("Warning, unable to set thread nice value %d...Resetting to %d\n", control->nice_val, control->current_priority);
@@ -1578,7 +1578,7 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, struct 
 	if (s->eos)
 		goto out;
 fill_another:
-	if (unlikely(ucthread[s->uthread_no].busy))
+	if (unlikely(ucthreads[s->uthread_no].busy))
 		failure_return(("Trying to start a busy thread, this shouldn't happen!\n"), -1);
 
 	if (unlikely(read_seekto(control, sinfo, s->last_head)))
@@ -1674,15 +1674,15 @@ fill_another:
 		return -1;
 	}
 
-	ucthread[s->uthread_no].s_buf = s_buf;
-	ucthread[s->uthread_no].c_len = c_len;
-	ucthread[s->uthread_no].u_len = u_len;
-	ucthread[s->uthread_no].c_type = c_type;
-	ucthread[s->uthread_no].streamno = streamno;
+	ucthreads[s->uthread_no].s_buf = s_buf;
+	ucthreads[s->uthread_no].c_len = c_len;
+	ucthreads[s->uthread_no].u_len = u_len;
+	ucthreads[s->uthread_no].c_type = c_type;
+	ucthreads[s->uthread_no].streamno = streamno;
 	s->last_head = last_head;
 
 	/* List this thread as busy */
-	ucthread[s->uthread_no].busy = 1;
+	ucthreads[s->uthread_no].busy = 1;
 	print_maxverbose("Starting thread %ld to decompress %lld bytes from stream %d\n",
 			 s->uthread_no, padded_len, streamno);
 
@@ -1705,7 +1705,7 @@ skip_empty:
 	 * threads. */
 	if (!last_head)
 		s->eos = 1;
-	else if (s->uthread_no != s->unext_thread && !ucthread[s->uthread_no].busy &&
+	else if (s->uthread_no != s->unext_thread && !ucthreads[s->uthread_no].busy &&
 		 sinfo->ram_alloced < control->maxram)
 			goto fill_another;
 out:
@@ -1718,12 +1718,12 @@ out:
 	thr_return = NULL;
 	if (unlikely(!join_pthread(control, threads[s->unext_thread], &thr_return) || !!thr_return))
 		return -1;
-	ucthread[s->unext_thread].busy = 0;
+	ucthreads[s->unext_thread].busy = 0;
 
 	print_maxverbose("Taking decompressed data from thread %ld\n", s->unext_thread);
-	s->buf = ucthread[s->unext_thread].s_buf;
-	ucthread[s->unext_thread].s_buf = NULL;
-	s->buflen = ucthread[s->unext_thread].u_len;
+	s->buf = ucthreads[s->unext_thread].s_buf;
+	ucthreads[s->unext_thread].s_buf = NULL;
+	s->buflen = ucthreads[s->unext_thread].u_len;
 	sinfo->ram_alloced -= s->buflen;
 	s->bufp = 0;
 
@@ -1804,8 +1804,8 @@ int close_stream_out(rzip_control *control, void *ss)
 		int close_thread = output_thread;
 
 		for (i = 0; i < control->threads; i++) {
-			cksem_wait(control, &cthread[close_thread].cksem);
-			cksem_post(control, &cthread[close_thread].cksem);
+			cksem_wait(control, &cthreads[close_thread].cksem);
+			cksem_post(control, &cthreads[close_thread].cksem);
 			if (++close_thread == control->threads)
 				close_thread = 0;
 		}
@@ -1837,7 +1837,7 @@ int close_stream_in(rzip_control *control, void *ss)
 		dealloc(sinfo->s[i].buf);
 
 	output_thread = 0;
-	dealloc(ucthread);
+	dealloc(ucthreads);
 	dealloc(threads);
 	dealloc(sinfo->s);
 	dealloc(sinfo);
