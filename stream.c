@@ -586,7 +586,7 @@ static int lzo_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_th
 		goto out;
 	}
 
-	lzerr = lzo1x_decompress((uchar*)c_buf, ucthread->c_len, (uchar*)ucthread->s_buf, &dlen, NULL);
+	lzerr = lzo1x_decompress_safe((uchar*)c_buf, ucthread->c_len, (uchar*)ucthread->s_buf, &dlen, NULL);
 	if (unlikely(lzerr != LZO_E_OK)) {
 		print_err("Failed to decompress buffer - lzerr=%d\n", lzerr);
 		ret = -1;
