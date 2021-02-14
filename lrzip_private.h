@@ -466,6 +466,8 @@ struct rzip_control {
 	void (*next_tag)(rzip_control *, struct rzip_state *, i64, tag *);
 	tag (*full_tag)(rzip_control *, struct rzip_state *, i64);
 	i64 (*match_len)(rzip_control *, struct rzip_state *, i64, i64, i64, i64 *);
+
+	pthread_t *pthreads;
 };
 
 struct uncomp_thread {
