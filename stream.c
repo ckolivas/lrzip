@@ -1117,7 +1117,7 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 			sinfo->size = le64toh(sinfo->size);
 			print_maxverbose("Chunk size: %lld\n", sinfo->size);
 			control->st_size += sinfo->size;
-			if (unlikely(sinfo->chunk_bytes < 1 || sinfo->chunk_bytes > 8 || sinfo->size < 0)) {
+			if (unlikely(sinfo->chunk_bytes < 1 || sinfo->chunk_bytes > 8 || sinfo->size <= 0)) {
 				print_err("Invalid chunk data size %d bytes %lld\n", sinfo->size, sinfo->chunk_bytes);
 				goto failed;
 			}

@@ -1006,7 +1006,7 @@ bool get_fileinfo(rzip_control *control)
 			if (unlikely(read(fd_in, &chunk_size, chunk_byte) != chunk_byte))
 				fatal_goto(("Failed to read chunk_size in get_fileinfo\n"), error);
 			chunk_size = le64toh(chunk_size);
-			if (unlikely(chunk_size < 0))
+			if (unlikely(chunk_size <= 0))
 				fatal_goto(("Invalid chunk size %lld\n", chunk_size), error);
 		}
 	}
