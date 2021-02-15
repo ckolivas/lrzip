@@ -1,8 +1,8 @@
 ##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
 ##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
-m4_define([v_maj], [m4_esyscmd_s([./util/gitdesc.sh major])])
-m4_define([v_min], [m4_esyscmd_s([./util/gitdesc.sh minor])])
-m4_define([v_mic],[m4_esyscmd_s([./util/gitdesc.sh micro])])
+m4_define([v_maj], [0])
+m4_define([v_min], [6])
+m4_define([v_mic], [31])
 ##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
 m4_define([v_v], m4_join([], v_min, v_mic))
 m4_define([v_ver], [v_maj.v_v])
