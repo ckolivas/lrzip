@@ -309,6 +309,7 @@ int main(int argc, char *argv[])
 	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
+	bool nice_set = false;
 	int c, i;
 	int hours,minutes;
 	extern int optind;
@@ -328,7 +329,6 @@ int main(int argc, char *argv[])
 	} else if (!strcmp(av, "lrz")) {
 		/* Called in gzip compatible command line mode */
 		control->flags &= ~FLAG_SHOW_PROGRESS;
-		control->nice_val = 0;
 		control->flags &= ~FLAG_KEEP_FILES;
 		compat = true;
 		long_options[1].name = "stdout";
@@ -579,18 +579,20 @@ int main(int argc, char *argv[])
 	/* Set the main nice value to half that of the backend threads since
 	 * the rzip stage is usually the rate limiting step */
 	control->current_priority = getpriority(PRIO_PROCESS, 0);
-	if (!NO_COMPRESS) {
-		/* If niceness can't be set. just reset process priority */
-		if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val/2) == -1)) {
-			print_err("Warning, unable to set nice value %d...Resetting to %d\n",
-				control->nice_val, control->current_priority);
-			setpriority(PRIO_PROCESS, 0, (control->nice_val=control->current_priority));
-		}
-	} else {
-		if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1)) {
-			print_err("Warning, unable to set nice value %d...Resetting to %d\n",
-				control->nice_val, control->current_priority);
-			setpriority(PRIO_PROCESS, 0, (control->nice_val=control->current_priority));
+	if (nice_set) {
+		if (!NO_COMPRESS) {
+			/* If niceness can't be set. just reset process priority */
+			if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val/2) == -1)) {
+				print_err("Warning, unable to set nice value %d...Resetting to %d\n",
+					control->nice_val, control->current_priority);
+				setpriority(PRIO_PROCESS, 0, (control->nice_val=control->current_priority));
+			}
+		} else {
+			if (unlikely(setpriority(PRIO_PROCESS, 0, control->nice_val) == -1)) {
+				print_err("Warning, unable to set nice value %d...Resetting to %d\n",
+					control->nice_val, control->current_priority);
+				setpriority(PRIO_PROCESS, 0, (control->nice_val=control->current_priority));
+			}
 		}
 	}
 
