@@ -1085,6 +1085,8 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 	sinfo->s = calloc(sizeof(struct stream), n);
 	if (unlikely(!sinfo->s)) {
 		dealloc(sinfo);
+		dealloc(threads);
+		dealloc(ucthreads);
 		return NULL;
 	}
 
@@ -1206,6 +1208,8 @@ again:
 failed:
 	dealloc(sinfo->s);
 	dealloc(sinfo);
+	dealloc(threads);
+	dealloc(ucthreads);
 	return NULL;
 }
 
@@ -1818,6 +1822,20 @@ int close_stream_out(rzip_control *control, void *ss)
 	return 0;
 }
 
+/* Add to an runzip list to safely deallocate memory after all threads have
+ * returned. */
+static void add_to_rulist(rzip_control *control, struct stream_info *sinfo)
+{
+	struct runzip_node *node = calloc(sizeof(struct runzip_node), 1);
+
+	if (unlikely(!node))
+		failure("Failed to calloc struct node in add_rulist\n");
+	node->sinfo = sinfo;
+	node->pthreads = control->pthreads;
+	node->prev = control->rulist;
+	control->ruhead = node;
+}
+
 /* close down an input stream */
 int close_stream_in(rzip_control *control, void *ss)
 {
@@ -1834,10 +1852,9 @@ int close_stream_in(rzip_control *control, void *ss)
 		dealloc(sinfo->s[i].buf);
 
 	output_thread = 0;
-	dealloc(sinfo->ucthreads);
-	dealloc(control->pthreads);
-	dealloc(sinfo->s);
-	dealloc(sinfo);
+	/* We cannot safely release the sinfo and pthread data here till all
+	 * threads are shut down. */
+	add_to_rulist(control, sinfo);
 
 	return 0;
 }

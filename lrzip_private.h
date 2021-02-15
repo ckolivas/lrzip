@@ -356,6 +356,12 @@ struct node {
 	struct node *prev;
 };
 
+struct runzip_node {
+	struct stream_info *sinfo;
+	pthread_t *pthreads;
+	struct runzip_node *prev;
+};
+
 struct rzip_state {
 	void *ss;
 	struct node *sslist;
@@ -468,6 +474,8 @@ struct rzip_control {
 	i64 (*match_len)(rzip_control *, struct rzip_state *, i64, i64, i64, i64 *);
 
 	pthread_t *pthreads;
+	struct runzip_node *rulist;
+	struct runzip_node *ruhead;
 };
 
 struct uncomp_thread {
