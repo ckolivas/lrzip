@@ -121,7 +121,7 @@ static void usage(bool compat)
 	print_output("	-p, --threads value	Set processor count to override number of threads\n");
 	print_output("	-m, --maxram size	Set maximum available ram in hundreds of MB\n");
 	print_output("				overrides detected amount of available ram\n");
-	print_output("	-T, --threshold		Disable LZO compressibility testing\n");
+	print_output("	-T, --threshold		Disable LZ4 compressibility testing\n");
 	print_output("	-U, --unlimited		Use unlimited window size beyond ramsize (potentially much slower)\n");
 	print_output("	-w, --window size	maximum compression window in hundreds of MB\n");
 	print_output("				default chosen by heuristic dependent on ram and chosen compression\n");
@@ -185,15 +185,15 @@ static void show_summary(void)
 		if (!DECOMPRESS && !TEST_ONLY) {
 			print_verbose("Compression mode is: ");
 			if (LZMA_COMPRESS)
-				print_verbose("LZMA. LZO Compressibility testing %s\n", (LZO_TEST? "enabled" : "disabled"));
+				print_verbose("LZMA. LZ4 Compressibility testing %s\n", (LZ4_TEST? "enabled" : "disabled"));
 			else if (LZO_COMPRESS)
 				print_verbose("LZO\n");
 			else if (BZIP2_COMPRESS)
-				print_verbose("BZIP2. LZO Compressibility testing %s\n", (LZO_TEST? "enabled" : "disabled"));
+				print_verbose("BZIP2. LZ4 Compressibility testing %s\n", (LZ4_TEST? "enabled" : "disabled"));
 			else if (ZLIB_COMPRESS)
 				print_verbose("GZIP\n");
 			else if (ZPAQ_COMPRESS)
-				print_verbose("ZPAQ. LZO Compressibility testing %s\n", (LZO_TEST? "enabled" : "disabled"));
+				print_verbose("ZPAQ. LZ4 Compressibility testing %s\n", (LZ4_TEST? "enabled" : "disabled"));
 			else if (NO_COMPRESS)
 				print_verbose("RZIP pre-processing only\n");
 			if (control->window)

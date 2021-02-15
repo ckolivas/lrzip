@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016,2018 Con Kolivas
+   Copyright (C) 2006-2016,2018,2021 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -308,7 +308,7 @@ typedef sem_t cksem_t;
 #define HAS_MD5		(control->flags & FLAG_MD5)
 #define CHECK_FILE	(control->flags & FLAG_CHECK)
 #define KEEP_BROKEN	(control->flags & FLAG_KEEP_BROKEN)
-#define LZO_TEST	(control->flags & FLAG_THRESHOLD)
+#define LZ4_TEST	(control->flags & FLAG_THRESHOLD)
 #define TMP_OUTBUF	(control->flags & FLAG_TMP_OUTBUF)
 #define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
 #define ENCRYPT		(control->flags & FLAG_ENCRYPT)

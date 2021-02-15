@@ -2,7 +2,7 @@
 
 #   Copyright
 #
-#      Copyright (C) 2016 Con Kolivas
+#      Copyright (C) 2021 Con Kolivas
 #
 #   License
 #
@@ -296,7 +296,7 @@ Overrides detected amount of available ram.
 
 =item B<-T>
 
-Disable LZO compressibility testing.
+Disable LZ4 compressibility testing.
 
 =item B<--unlimited>
 

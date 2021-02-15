@@ -49,8 +49,9 @@ A quick guide on building and installing.
  - libz-dev
  - libbz2-dev
  - liblzo2-dev
+ - liblz4-dev
  - coreutils
- - nasm on x86, not needed on x64
+ - Optional nasm
  - git if you want a repo-fresh copy
  - an OS with the usual *nix headers and libraries
 
@@ -247,17 +248,17 @@ lzma compression can't currently be tracked when handing over 100+MB chunks
 over to the lzma library. Therefore you'll see progress percentage until
 each chunk is handed over to the lzma library.
 
-> Q: What's this "lzo testing for incompressible data" message?
+> Q: What's this "lz4 testing for incompressible data" message?
 
-> A: Other compression is much slower, and lzo is the fastest. To help speed up
-the process, lzo compression is performed on the data first to test that the
+> A: Other compression is much slower, and lz4 is the fastest. To help speed up
+the process, lz4 compression is performed on the data first to test that the
 data is at all compressible. If a small block of data is not compressible, it
 tests progressively larger blocks until it has tested all the data (if it fails
 to compress at all). If no compressible data is found, then the subsequent
 compression is not even attempted. This can save a lot of time during the
 compression phase when there is incompressible data. Theoretically it may be
 possible that data is compressible by the other backend (zpaq, lzma etc) and
-not at all by lzo, but in practice such data achieves only minuscule amounts of
+not at all by lz4, but in practice such data achieves only minuscule amounts of
 compression which are not worth pursuing. Most of the time it is clear one way
 or the other that data is compressible or not. If you wish to disable this test
 and force it to try compressing it anyway, use -T.
@@ -357,14 +358,14 @@ cpu process scheduler how to prioritise workloads, and if your application is
 the _only_ thing running it will be no faster at nice -20 nor will it be any
 slower at +19.
 
-> Q: What is the LZO Testing option, -T?
+> Q: What is the LZ4 Testing option, -T?
 
-> A: LZO testing is normally performed for the slower back-end compression of
-LZMA and ZPAQ. The reasoning is that if it is completely incompressible by LZO
+> A: LZ4 testing is normally performed for the slower back-end compression of
+LZMA and ZPAQ. The reasoning is that if it is completely incompressible by LZ4
 then it will also be incompressible by them. Thus if a block fails to be
-compressed by the very fast LZO, lrzip will not attempt to compress that block
+compressed by the very fast LZ4, lrzip will not attempt to compress that block
 with the slower compressor, thereby saving time. If this option is enabled, it
-will bypass the LZO testing and attempt to compress each block regardless.
+will bypass the LZ4 testing and attempt to compress each block regardless.
 
 > Q: Compression and decompression progress on large archives slows down and
 speeds up. There's also a jump in the percentage at the end?

@@ -1,4 +1,4 @@
-.TH "lrzip" "1" "June 2016" "" ""
+.TH "lrzip" "1" "February 2021" "" ""
 .SH "NAME"
 lrzip \- a large-file compression program
 .SH "SYNOPSIS"
@@ -66,7 +66,7 @@ Low level options:
  \-p, \-\-threads value     Set processor count to override number of threads
  \-m, \-\-maxram size       Set maximum available ram in hundreds of MB
                          overrides detected amount of available ram
- \-T, \-\-threshold         Disable LZO compressibility testing
+ \-T, \-\-threshold         Disable LZ4 compressibility testing
  \-U, \-\-unlimited         Use unlimited window size beyond ramsize (potentially much slower)
  \-w, \-\-window size       maximum compression window in hundreds of MB
                          default chosen by heuristic dependent on ram and chosen compression
@@ -240,13 +240,13 @@ decrease the load on your machine, or to improve compression. Setting it to
 1 will maximise compression but will not attempt to use more than one CPU.
 .IP
 .IP "\fB-T\fP"
-Disables the LZO compressibility threshold testing when a slower compression
-back-end is used. LZO testing is normally performed for the slower back-end
+Disables the LZ4 compressibility threshold testing when a slower compression
+back-end is used. LZ4 testing is normally performed for the slower back-end
 compression of LZMA and ZPAQ. The reasoning is that if it is completely
-incompressible by LZO then it will also be incompressible by them. Thus if a
-block fails to be compressed by the very fast LZO, lrzip will not attempt to
+incompressible by LZ4 then it will also be incompressible by them. Thus if a
+block fails to be compressed by the very fast LZ4, lrzip will not attempt to
 compress that block with the slower compressor, thereby saving time. If this
-option is enabled, it will bypass the LZO testing and attempt to compress each
+option is enabled, it will bypass the LZ4 testing and attempt to compress each
 block regardless.
 .IP
 .IP "\fB-U \fP"
