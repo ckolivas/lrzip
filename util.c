@@ -100,6 +100,13 @@ void fatal_exit(rzip_control *control)
 	tcsetattr(fileno(stdin), 0, &termios_p);
 
 	unlink_files(control);
+	if (!STDOUT && !TEST_ONLY && control->outfile) {
+		if (!KEEP_BROKEN) {
+			print_verbose("Deleting broken file %s\n", control->outfile);
+			unlink(control->outfile);
+		} else
+			print_verbose("Keeping broken file %s as requested\n", control->outfile);
+	}
 	fprintf(control->outputfile, "Fatal error - exiting\n");
 	fflush(control->outputfile);
 	exit(1);

@@ -145,15 +145,10 @@ static void license(void)
 
 static void sighandler(int sig __UNUSED__)
 {
-	struct termios termios_p;
-
-	/* Make sure we haven't died after disabling stdin echo */
-	tcgetattr(fileno(stdin), &termios_p);
-	termios_p.c_lflag |= ECHO;
-	tcsetattr(fileno(stdin), 0, &termios_p);
-
-	unlink_files(control);
-	exit(0);
+	signal(sig, SIG_IGN);
+	signal(SIGTERM, SIG_IGN);
+	print_err("Interrupted\n");
+	fatal_exit(&local_control);
 }
 
 static void show_summary(void)
