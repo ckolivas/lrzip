@@ -718,8 +718,8 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 				failure("Failed to malloc ckbuf in hash_search\n");
 			control->do_mcpy(control, control->checksum.buf, cksum_limit, control->checksum.len);
 			control->checksum.cksum = &st->cksum;
-			cksum_update(control);
 			cksum_limit += control->checksum.len;
+			cksum_update(control);
 		}
 	}
 
