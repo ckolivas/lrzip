@@ -985,6 +985,14 @@ retest_malloc:
 	testmalloc = malloc(testsize);
 	if (!testmalloc) {
 		limit = limit / 10 * 9;
+		if (limit < 100000000) {
+			/* If we can't even allocate 100MB then we'll never
+			 * succeed */
+			print_err("Unable to allocate enough memory for operation\n");
+			dealloc(sinfo->s);
+			dealloc(sinfo);
+			return NULL;
+		}
 		goto retest_malloc;
 	}
 	if (!NO_COMPRESS) {
