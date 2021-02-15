@@ -19,6 +19,8 @@ jobs:
       run: ./autogen.sh
     - name: install liblzo2-dev
       run: sudo apt install -y liblzo2-dev
+    - name: install liblz4-dev
+      run: sudo apt install -y liblz4-dev
     - name: configure
       run: ./configure
     - name: make
