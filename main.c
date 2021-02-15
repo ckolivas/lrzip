@@ -696,8 +696,8 @@ recursion:
 
 		gettimeofday(&start_time, NULL);
 
-		if (unlikely(STDIN && ENCRYPT))
-			failure("Unable to work from STDIN while reading password\n");
+		if (unlikely((STDIN || STDOUT) && ENCRYPT))
+			failure("Unable to work from STDIO while reading password\n");
 
 		memcpy(&local_control, &base_control, sizeof(rzip_control));
 		if (DECOMPRESS || TEST_ONLY)
