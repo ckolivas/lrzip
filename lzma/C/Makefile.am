@@ -44,8 +44,7 @@ liblzma_la_SOURCES = \
 	windows.h \
 	basetyps.h \
 	MyWindows.h \
-	MyGuidDef.h \
-	$(ASM_S) $(ASM_H) 
+	MyGuidDef.h
 
 ## hack to force asm compilation and to trick libtool with .lo file
 if USE_ASM 

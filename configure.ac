@@ -151,6 +151,7 @@ Makefile
 lrzip.pc
 lzma/Makefile
 lzma/C/Makefile
+lzma/ASM/x86/Makefile
 doc/Makefile
 man/Makefile
 ])
