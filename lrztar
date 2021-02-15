@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Copyright (C) George Makrydakis 2009-2011,2013
-# Copyright (C) Con Kolivas 2011-2012,2016,2018
+# Copyright (C) Con Kolivas 2011-2012,2016,2018,2021
 
 # A bash wrapper for Con Kolivas' excellent lrzip utility. For the time
 # being, lrzip does not like pipes, so we had to do this. It is kind of
@@ -52,11 +52,11 @@ Notice:
           v_n=0 v_l=0 v_b=0 v_g=0 v_z=0 v_U=0 \
           v_T=0 v_N=0 v_v=0 v_f=0 v_d=0 v_h=0 \
           v_H=0 v_c=0 v_k=0 v_o=0 v_O=0 v_m=0 x= i="$(pwd)"
-    which tar   &> /dev/null \
+    tar --version &> /dev/null \
         || { printf "lrztar: no tar in your path\n"; return 1; }
-    which lrzip &> /dev/null \
+    lrzip --version &> /dev/null \
         || { printf "lrztar: no lrzip in your path\n"; return 1; }
-    which lrzcat &> /dev/null \
+    lrzcat --version &> /dev/null \
         || { printf "lrztar: no lrzcat in your path\n"; return 1; }
     while getopts w:O:S:DqL:nlbgzUm:TN:p:vfo:d:tVhHck x; do
         [[ $x == [tV] ]] && {
