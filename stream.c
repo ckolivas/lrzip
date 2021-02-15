@@ -1293,6 +1293,14 @@ static void *compthread(void *data)
 	/* Flushing writes to disk frees up any dirty ram, improving chances
 	 * of succeeding in allocating more ram */
 	fsync(ctis->fd);
+
+	/* This is a cludge in case we are compressing to stdout and our first
+	 * stream is not compressed, but subsequent ones are compressed by
+	 * lzma and we can no longer seek back to the beginning of the file
+	 * to write the lzma properties which are effectively always starting
+	 * with 93. */
+	if (TMP_OUTBUF && LZMA_COMPRESS)
+		control->lzma_properties[0] = 93;
 retry:
 	/* Very small buffers have issues to do with minimum amounts of ram
 	 * allocatable to a buffer combined with the MINIMUM_MATCH of rzip
