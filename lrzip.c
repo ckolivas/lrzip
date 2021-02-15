@@ -218,6 +218,9 @@ static bool get_magic(rzip_control *control, char *magic)
 	if ((int) magic[16]) {
 		for (i = 0; i < 5; i++)
 			control->lzma_properties[i] = magic[i + 16];
+		/* Cludge to allow us to read possibly corrupted archives */
+		if (!control->lzma_properties[0])
+			control->lzma_properties[0] = 93;
 	}
 
 	/* Whether this archive contains md5 data at the end or not */
