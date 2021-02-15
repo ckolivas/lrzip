@@ -521,6 +521,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'V':
+			control->msgout = stdout;
 			print_output("lrzip version %s\n", PACKAGE_VERSION);
 			exit(0);
 			break;
