@@ -7,13 +7,11 @@ AM_CFLAGS = \
   -I@top_srcdir@
 
 ASM_S =
-ASM_H =
 ASM_7z =
 C_S =
 if USE_ASM
   ASM_7z += 7zCrcOpt_asm
   ASM_S += @abs_top_srcdir@/lzma/ASM/x86/$(ASM_7z).asm
-  ASM_H += @abs_top_srcdir@/lzma/ASM/x86/7zAsm.asm
   C_S += 7zCrcT8.c
 else
   C_S += 7zCrc.c 
@@ -61,5 +59,5 @@ $(ASM_7z).lo: $(ASM_S)
 	$(ASM_PROG) $(ASM_OPT) -o $(ASM_7z).o $(ASM_S)
 	mkdir -p .libs
 	cp $(ASM_7z).o .libs/
-	@echo -e "$(7ZIPASMLOFILE)" > $(ASM_7z).lo 
+	@echo -e "$(7ZIPASMLOFILE)" > $(ASM_7z).lo
 endif

@@ -14,6 +14,8 @@ ltmain.sh \
 missing \
 $(PACKAGE_TARNAME)-$(PACKAGE_VERSION).tar.gz \
 $(PACKAGE_TARNAME)-$(PACKAGE_VERSION).tar.bz2 \
+$(PACKAGE_TARNAME)-$(PACKAGE_VERSION).tar.xz \
+$(PACKAGE_TARNAME)-$(PACKAGE_VERSION).tar.lrz \
 $(PACKAGE_TARNAME)-$(PACKAGE_VERSION)-doc.tar.bz2 \
 m4/libtool.m4 \
 m4/lt~obsolete.m4 \
