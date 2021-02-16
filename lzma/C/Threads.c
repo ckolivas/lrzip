@@ -198,7 +198,7 @@ WRes Thread_Create(CThread *thread, THREAD_FUNC_RET_TYPE (THREAD_FUNC_CALL_TYPE 
 	ret = pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_JOINABLE);
 	if (ret) return ret;
 
-	ret = pthread_create(&thread->_tid, &attr, (void * (*)(void *))startAddress, parameter);
+	ret = pthread_create(&thread->_tid, &attr, (void *)startAddress, parameter);
 
 	/* ret2 = */ pthread_attr_destroy(&attr);
 
