@@ -1,3 +1,17 @@
+Changelog will be moved to git entirely from this point forward.
+
+lrzip-0.650
+
+Numerous bugfixes and build fixes.
+lz4 now used for compressibility testing (only) making lz4-dev a build
+requirement.
+Fixes for handling of corrupt archives without crashing.
+Fixes for creating small lzma based archives to stdout.
+Incomplete files are now deleted on interrupting lrzip unless the keep-broken
+option is enabled.
+Version prints to stdout instead of stderr.
+
+
 lrzip-0.631
 
 Assembler code is back and works with x86_64

@@ -468,7 +468,7 @@ Persons above are listed in chronological order of first contribution to **lrzip
 #### README Authors
 
 Con Kolivas (`ckolivas` on GitHub) <kernel@kolivas.org>
-Fri, 10 June 2016: README
+Tuesday, 16 February 2021: README
 
 Also documented by
 Peter Hyman <pete@peterhyman.com>

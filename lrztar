@@ -24,7 +24,7 @@ function lrztar_local() {
     local hv="\
 lrztar GNU/bash wrapper script for lrzip and tar input/output over directories.
 Copyright (C) George Makrydakis 2009-2011,2013
-Copyright (C) Con Kolivas       2011,2012
+Copyright (C) Con Kolivas       2011-2012,2016,2018,2021
 
 Usage : lrztar [lrzip options] <directory>
 Result: a lrzip tarball is produced.

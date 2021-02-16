@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016 Con Kolivas
+   Copyright (C) 2006-2016,2021 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -68,7 +68,7 @@ static rzip_control base_control, local_control, *control;
 static void usage(bool compat)
 {
 	print_output("lrz%s version %s\n", compat ? "" : "ip", PACKAGE_VERSION);
-	print_output("Copyright (C) Con Kolivas 2006-2016\n");
+	print_output("Copyright (C) Con Kolivas 2006-2021\n");
 	print_output("Based on rzip ");
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
 	print_output("Usage: lrz%s [options] <file...>\n", compat ? "" : "ip");
