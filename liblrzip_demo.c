@@ -317,16 +317,17 @@ int main(int argc, char *argv[])
 		if (!lrzip_files_count(lr)) lrzip_file_add(lr, stdin);
 		if (lrzip_filenames_count(lr)) {
 			if (!lrzip_outfilename_get(lr)) {
-				char buf[4096];
+				char *buf;
 				const char *infile;
 				size_t len;
 
 				infile = lrzip_filenames_get(lr)[0];
 				len = strlen(infile);
+				buf = alloca(len + 8);
 				if (!strcmp(infile + len - 4, ".lrz"))
-					strncat(buf, infile, len - 4);
+					strcat(buf, infile);
 				else
-					snprintf(buf, sizeof(buf), "%s.out", infile);
+					sprintf(buf, "%s.out", infile);
 				lrzip_outfilename_set(lr, buf);
 			}
 		} else if (!lrzip_outfile_get(lr)) lrzip_outfile_set(lr, stdout);
