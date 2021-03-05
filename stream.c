@@ -1882,11 +1882,8 @@ int close_stream_in(rzip_control *control, void *ss)
    so do not compress any block that is incompressible by lz4. */
 static int lz4_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 {
-	int in_len, test_len = s_len, save_len = s_len;
-	int dlen;
+	int dlen, test_len;
 	char *c_buf = NULL, *test_buf = (char *)s_buf;
-	/* set minimum buffer test size based on the length of the test stream */
-	int buftest_size = (test_len > 5 * STREAM_BUFSIZE ? STREAM_BUFSIZE : STREAM_BUFSIZE / 4096);
 	int ret = 0;
 	int workcounter = 0;	/* count # of passes */
 	int best_dlen = INT_MAX; /* save best compression estimate */
@@ -1894,40 +1891,37 @@ static int lz4_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 	if (!LZ4_TEST)
 		return 1;
 
-	in_len = MIN(test_len, buftest_size);
-	dlen = STREAM_BUFSIZE + STREAM_BUFSIZE / 16 + 64 + 3;
-
+	dlen = MIN(s_len, STREAM_BUFSIZE);
+	test_len = MIN(dlen, STREAM_BUFSIZE >> 8);
 	c_buf = malloc(dlen);
 	if (unlikely(!c_buf))
 		fatal_return(("Unable to allocate c_buf in lz4_compresses\n"), 0);
 
 	/* Test progressively larger blocks at a time and as soon as anything
 	   compressible is found, jump out as a success */
-	while (test_len > 0) {
+	do {
 		int lz4_ret;
 
 		workcounter++;
 		lz4_ret = LZ4_compress_default((const char *)test_buf, c_buf, test_len, dlen);
-		if (!lz4_ret) // Bigger than dlen, no point going further
-			break;
+		if (!lz4_ret) // Bigger than dlen
+			lz4_ret = test_len;
 		if (lz4_ret < best_dlen)
 			best_dlen = lz4_ret;
 		if (lz4_ret < test_len) {
 			ret = 1;
 			break;
 		}
-		/* expand and move buffer */
-		test_len -= in_len;
-		if (test_len) {
-			test_buf += (ptrdiff_t)in_len;
-			if (buftest_size < STREAM_BUFSIZE)
-				buftest_size <<= 1;
-			in_len = MIN(test_len, buftest_size);
-		}
+		/* expand test length */
+		test_len <<= 1;
+	} while (test_len <= dlen);
+
+	if (!ret)
+		print_maxverbose("lz4 testing FAILED for chunk %ld. %d Passes\n", workcounter);
+	else {
+		print_maxverbose("lz4 testing OK for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
+				s_len, 100 * ((double) best_dlen / (double) test_len), workcounter);
 	}
-	print_maxverbose("lz4 testing %s for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
-			(ret == 0? "FAILED" : "OK"), save_len,
-			100 * ((double) best_dlen / (double) in_len), workcounter);
 
 	dealloc(c_buf);
 
