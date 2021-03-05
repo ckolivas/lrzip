@@ -1,6 +1,11 @@
 Changelog will be moved to git entirely from this point forward.
 
-lrzip-0.650
+lrzip-0.641
+
+Critical bugfix for broken lz4 testing which would prevent secondary
+compression from being enabled.
+
+lrzip-0.640
 
 Numerous bugfixes and build fixes.
 lz4 now used for compressibility testing (only) making lz4-dev a build
