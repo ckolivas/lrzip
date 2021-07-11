@@ -194,7 +194,7 @@ static i64 read_fdhist(rzip_control *control, void *buf, i64 len)
 static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, int chunk_bytes)
 {
 	i64 offset, n, total, cur_pos;
-	uchar *buf, *off_buf;
+	uchar *buf;
 
 	if (unlikely(len < 0))
 		failure_return(("len %lld is negative in unzip_match!\n",len), -1);
@@ -212,32 +212,35 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 		fatal_return(("Seek failed by %d from %d on history file in unzip_match\n",
 		      offset, cur_pos), -1);
 
-	buf = (uchar *)malloc(len);
+	n = MIN(len, offset);
+	if (unlikely(n < 1))
+		fatal_return(("Failed fd history in unzip_match due to corrupt archive\n"), -1);
+
+	buf = (uchar *)malloc(n);
 	if (unlikely(!buf))
 		fatal_return(("Failed to malloc match buffer of size %lld\n", len), -1);
-	off_buf = buf;
+
+	if (unlikely(read_fdhist(control, buf, (size_t)n) != (ssize_t)n)) {
+		dealloc(buf);
+		fatal_return(("Failed to read %d bytes in unzip_match\n", n), -1);
+	}
 
 	while (len) {
 		n = MIN(len, offset);
 		if (unlikely(n < 1))
 			fatal_return(("Failed fd history in unzip_match due to corrupt archive\n"), -1);
 
-		if (unlikely(read_fdhist(control, off_buf, (size_t)n) != (ssize_t)n)) {
-			dealloc(buf);
-			fatal_return(("Failed to read %d bytes in unzip_match\n", n), -1);
-		}
-		if (unlikely(write_1g(control, off_buf, (size_t)n) != (ssize_t)n)) {
+		if (unlikely(write_1g(control, buf, (size_t)n) != (ssize_t)n)) {
 			dealloc(buf);
 			fatal_return(("Failed to write %d bytes in unzip_match\n", n), -1);
 		}
 
 		if (!HAS_MD5)
-			*cksum = CrcUpdate(*cksum, off_buf, n);
+			*cksum = CrcUpdate(*cksum, buf, n);
 		if (!NO_MD5)
-			md5_process_bytes(off_buf, n, &control->ctx);
+			md5_process_bytes(buf, n, &control->ctx);
 
 		len -= n;
-		off_buf += n;
 		total += n;
 	}
 
