@@ -13,7 +13,7 @@
 # Use -U setting, Unlimited ram. Yes or No
 # UNLIMITED = NO
 # Compression Method, rzip, gzip, bzip2, lzo, or lzma (default), or zpaq. (-n -g -b -l --lzma -z)
-# May be overriden by command line compression choice.
+# May be overridden by command line compression choice.
 # COMPRESSIONMETHOD = lzma
 # Perform LZO Test. Default = YES (-T )
 # LZOTEST = NO

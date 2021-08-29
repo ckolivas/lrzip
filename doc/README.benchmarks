@@ -45,7 +45,7 @@ purpose compressor at the moment:
 
 These are benchmarks performed on a 2.53Ghz dual core Intel Core2 with 4GB ram
 using lrzip v0.5.1. Note that it was running with a 32 bit userspace so only
-2GB addressing was posible. However the benchmark was run with the -U option
+2GB addressing was possible. However the benchmark was run with the -U option
 allowing the whole file to be treated as one large compression window.
 
 Tarball of 6 consecutive kernel trees.
