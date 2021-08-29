@@ -409,9 +409,9 @@ int main(int argc, char *argv[])
 			control->flags |= FLAG_FORCE_REPLACE;
 			break;
 		case 'h':
-		case '?':
 			usage(compat);
-			return -1;
+			exit(0);
+			break;
 		case 'H':
 			control->flags |= FLAG_HASH;
 			break;
@@ -544,6 +544,9 @@ int main(int argc, char *argv[])
 		case '9':
 			control->compression_level = c - '0';
 			break;
+		default:
+			usage(compat);
+			return 2;
 		}
 	}
 
