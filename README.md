@@ -61,7 +61,7 @@ Two different ways of doing this:
 
 Stable: Packaged tarball that is known to work:
 
-Go to <https://github.com/ckolivas/lrzip/releases> and downlaod the `tar.gz`
+Go to <https://github.com/ckolivas/lrzip/releases> and download the `tar.gz`
 file from the top. `cd` to the directory you downloaded, and use `tar xvzf lrzip-X.X.tar.gz`
 to extract the files (don't forget to replace `X.X` with the correct version). Finally, cd
 into the directory you just extracted.
