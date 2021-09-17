@@ -137,7 +137,13 @@ if test x"$ASM" = x"yes"; then
 		i?86-*)
 			ASM_OPT="$ASM_OPT -g -f elf" ;;
 		x86_64-*)
-			ASM_OPT="$ASM_OPT -Dx64 -g -f elf64" ;;
+			case "${host_os}" in
+				darwin*)
+					ASM_OPT="$ASM_OPT -Dx64 -g -f macho64" ;;
+				*)
+					ASM_OPT="$ASM_OPT -Dx64 -g -f elf64" ;;
+			esac
+			;;
 		*) ASM_OPT= ;;
 	esac
 else
