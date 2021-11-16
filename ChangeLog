@@ -88,7 +88,7 @@ anyway
 * fake_mremap is only used when defined to mremap
 * Remove unused cksem functions
 * Fix remaining use of mutexes lock/unlocking in different threads with cksems,
-corecting cksem usage on osx
+correcting cksem usage on osx
 * Update copyright dates
 * Make match_len a function completely removing all indirect calls to get_sb,
 significantly speeding up the single_get_sb case
