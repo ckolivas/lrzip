@@ -34,7 +34,6 @@ lrztar_SCRIPTS = lrztar
 noinst_LTLIBRARIES = libtmplrzip.la
 libtmplrzip_la_SOURCES = \
   lrzip_private.h \
-  liblrzip_private.h \
   lrzip.c \
   lrzip_core.h \
   rzip.h \
@@ -57,13 +56,6 @@ libtmplrzip_la_SOURCES = \
 libtmplrzip_la_LIBADD = lzma/C/liblzma.la
 
 
-lib_LTLIBRARIES = liblrzip.la
-liblrzip_la_SOURCES = \
-  liblrzip.c \
-  liblrzip_private.h
-nodist_EXTRA_liblrzip_la_SOURCES = dummy.cxx
-liblrzip_la_LIBADD = libtmplrzip.la
-
 bin_PROGRAMS = lrzip
 lrzip_SOURCES = \
   main.c
@@ -73,13 +65,6 @@ lrzip_LDADD = libtmplrzip.la
 if STATIC
   lrzip_LDFLAGS = -all-static
 endif
-
-noinst_PROGRAMS = decompress_demo liblrzip_demo
-decompress_demo_SOURCES = decompress_demo.c
-decompress_demo_LDADD = liblrzip.la
-
-liblrzip_demo_SOURCES = liblrzip_demo.c
-liblrzip_demo_LDADD = liblrzip.la
 
 dist_doc_DATA = \
   AUTHORS \
