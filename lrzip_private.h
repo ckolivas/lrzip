@@ -260,10 +260,12 @@ typedef sem_t cksem_t;
 # define PROCESSORS (sysconf(_SC_NPROCESSORS_ONLN))
 #endif
 
-#ifdef _SC_PAGE_SIZE
-# define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
-#else
-# define PAGE_SIZE (4096)
+#ifndef PAGE_SIZE
+# ifdef _SC_PAGE_SIZE
+#  define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
+# else
+#  define PAGE_SIZE (4096)
+# endif
 #endif
 
 #define dealloc(ptr) do { \
