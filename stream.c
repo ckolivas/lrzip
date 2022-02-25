@@ -632,8 +632,7 @@ ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
 }
 
 /* This is a custom version of write() which writes in 1GB chunks to avoid
-   the overflows at the >= 2GB mark thanks to 32bit fuckage. This should help
-   even on the rare occasion write() fails to write 1GB as well. */
+   the overflows at the >= 2GB mark thanks to 32bit fuckage. */
 ssize_t write_1g(rzip_control *control, void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
@@ -642,7 +641,10 @@ ssize_t write_1g(rzip_control *control, void *buf, i64 len)
 
 	total = 0;
 	while (len > 0) {
-		ret = MIN(len, one_g);
+		if (BITS32)
+			ret = MIN(len, one_g);
+		else
+			ret = len;
 		ret = put_fdout(control, offset_buf, (size_t)ret);
 		if (unlikely(ret <= 0))
 			return ret;
@@ -717,7 +719,10 @@ ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
 read_fd:
 	total = 0;
 	while (len > 0) {
-		ret = MIN(len, one_g);
+		if (BITS32)
+			ret = MIN(len, one_g);
+		else
+			ret = len;
 		ret = read(fd, offset_buf, (size_t)ret);
 		if (unlikely(ret <= 0))
 			return ret;
