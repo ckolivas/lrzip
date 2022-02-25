@@ -225,7 +225,7 @@ static bool get_magic(rzip_control *control, char *magic)
 
 	/* Whether this archive contains md5 data at the end or not */
 	md5 = magic[21];
-	if (md5 && MD5_RELIABLE) {
+	if (md5) {
 		if (md5 == 1)
 			control->flags |= FLAG_MD5;
 		else
@@ -1222,8 +1222,7 @@ bool compress_file(rzip_control *control)
 	int fd_in = -1, fd_out = -1;
 	char header[MAGIC_LEN];
 
-	if (MD5_RELIABLE)
-		control->flags |= FLAG_MD5;
+	control->flags |= FLAG_MD5;
 	if (ENCRYPT)
 		if (unlikely(!get_hash(control, 1)))
 			return false;
