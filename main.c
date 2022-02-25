@@ -461,8 +461,7 @@ int main(int argc, char *argv[])
 			if (unlikely(STDOUT))
 				failure("Cannot specify an output filename when outputting to stdout\n");
 			control->outname = optarg;
-			dealloc(control->suffix);
-			control->suffix = strdup("");
+			control->suffix = "";
 			break;
 		case 'O':
 			if (control->outname)	/* can't mix -o and -O */
@@ -497,8 +496,7 @@ int main(int argc, char *argv[])
 				failure("Specified output filename already, can't specify an extension.\n");
 			if (unlikely(STDOUT))
 				failure("Cannot specify a filename suffix when outputting to stdout\n");
-			dealloc(control->suffix);
-			control->suffix = strdup(optarg);
+			control->suffix = optarg;
 			break;
 		case 't':
 			if (control->outname)
