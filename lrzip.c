@@ -1338,7 +1338,7 @@ bool initialise_control(rzip_control *control)
 	control->msgerr = stderr;
 	register_outputfile(control, control->msgout);
 	control->flags = FLAG_SHOW_PROGRESS | FLAG_KEEP_FILES | FLAG_THRESHOLD;
-	control->suffix = ".lrz";
+	control->suffix = strdup(".lrz");
 	control->compression_level = 7;
 	control->ramsize = get_ram(control);
 	if (unlikely(control->ramsize == -1))
