@@ -331,8 +331,8 @@ static bool fwrite_stdout(rzip_control *control, void *buf, i64 len)
 	while (len > 0) {
 		ssize_t wrote;
 
-		if (len > one_g)
-			ret = one_g;
+		if (BITS32)
+			ret = MIN(len, one_g);
 		else
 			ret = len;
 		wrote = fwrite(offset_buf, 1, ret, control->outFILE);
@@ -352,7 +352,10 @@ bool write_fdout(rzip_control *control, void *buf, i64 len)
 	ssize_t ret;
 
 	while (len > 0) {
-		ret = MIN(len, one_g);
+		if (BITS32)
+			ret = MIN(len, one_g);
+		else
+			ret = len;
 		ret = write(control->fd_out, offset_buf, (size_t)ret);
 		if (unlikely(ret <= 0))
 			fatal_return(("Failed to write to fd_out in write_fdout\n"), false);
@@ -416,7 +419,10 @@ bool write_fdin(rzip_control *control)
 	ssize_t ret;
 
 	while (len > 0) {
-		ret = MIN(len, one_g);
+		if (BITS32)
+			ret = MIN(len, one_g);
+		else
+			ret = len;
 		ret = write(control->fd_in, offset_buf, (size_t)ret);
 		if (unlikely(ret <= 0))
 			fatal_return(("Failed to write to fd_in in write_fdin\n"), false);
