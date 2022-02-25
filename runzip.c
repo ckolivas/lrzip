@@ -249,7 +249,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 	return total;
 }
 
-static void clear_rulist(rzip_control *control)
+void clear_rulist(rzip_control *control)
 {
 	while (control->ruhead) {
 		struct runzip_node *node = control->ruhead;
@@ -380,10 +380,6 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 
 	if (unlikely(close_stream_in(control, ss)))
 		fatal("Failed to close stream!\n");
-
-	/* We can now safely delete sinfo and pthread data of all threads
-	 * created. */
-	clear_rulist(control);
 
 	return total;
 }
