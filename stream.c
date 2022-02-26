@@ -610,20 +610,22 @@ ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
 	if (unlikely(control->out_ofs + ret > control->out_maxlen)) {
 		/* The data won't fit in a temporary output buffer so we have
 		 * to fall back to temporary files. */
-		print_verbose("Unable to decompress entirely in ram, will use physical files\n");
-		if (unlikely(control->fd_out == -1))
-			failure("Was unable to decompress entirely in ram and no temporary file creation was possible\n");
+		print_verbose("Unable to %scompress entirely in ram, will use physical files\n",
+			      DECOMPRESS ? "de" : "");
+		if (unlikely(control->fd_out == -1)) {
+			failure("Was unable to %scompress entirely in ram and no temporary file creation was possible\n",
+				DECOMPRESS ? "de" : "");
+		}
+		/* Copy tmp_outbuf to tmpoutfile before deallocation */
 		if (unlikely(!write_fdout(control, control->tmp_outbuf, control->out_len))) {
 			print_err("Unable to write_fdout tmpoutbuf in put_fdout\n");
 			return -1;
 		}
+		/* Deallocate now unused tmpoutbuf and unset tmp_outbuf flag */
 		close_tmpoutbuf(control);
-		if (unlikely(!write_fdout(control, offset_buf, ret))) {
-			print_err("Unable to write_fdout offset_buf in put_fdout\n");
-			return -1;
-		}
-		return ret;
+		return write(control->fd_out, offset_buf, (size_t)ret);
 	}
+
 	memcpy(control->tmp_outbuf + control->out_ofs, offset_buf, ret);
 	control->out_ofs += ret;
 	if (likely(control->out_ofs > control->out_len))
@@ -695,8 +697,10 @@ ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
 		/* We're decompressing from STDIN */
 		if (unlikely(control->in_ofs + len > control->in_maxlen)) {
 			/* We're unable to fit it all into the temp buffer */
-			if (dump_stdin(control))
-				failure_return(("Inadequate ram to %compress from STDIN and unable to create in tmpfile"), -1);
+			if (dump_stdin(control)) {
+				failure_return(("Inadequate ram to %scompress from STDIN and unable to create in tmpfile",
+					DECOMPRESS ? "de" : ""), -1);
+			}
 			goto read_fd;
 		}
 		if (control->in_ofs + len > control->in_len) {
@@ -1366,16 +1370,11 @@ retry:
 	if (!ctis->chunks++) {
 		int j;
 
-		if (TMP_OUTBUF) {
+		if (STDOUT) {
 			lock_mutex(control, &control->control_lock);
 			if (!control->magic_written)
 				write_magic(control);
 			unlock_mutex(control, &control->control_lock);
-
-			if (unlikely(!flush_tmpoutbuf(control))) {
-				print_err("Failed to flush_tmpoutbuf in compthread\n");
-				goto error;
-			}
 		}
 
 		print_maxverbose("Writing initial chunk bytes value %d at %lld\n",

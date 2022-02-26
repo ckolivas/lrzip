@@ -1221,11 +1221,9 @@ retry:
 		}
 	}
 
-	if (TMP_OUTBUF) {
-		if (unlikely(!flush_tmpoutbuf(control))) {
+	if (unlikely(!flush_tmpout(control))) {
 			dealloc(st);
-			failure("Failed to flush_tmpoutbuf in rzip_fd\n");
-		}
+			failure("Failed to flush_tmpout in rzip_fd\n");
 	}
 
 	gettimeofday(&current, NULL);

@@ -318,6 +318,7 @@ int open_tmpoutfile(rzip_control *control)
 			       control->outfile, DECOMPRESS ? "de" : "");
 	} else
 		register_outfile(control, control->outfile, TEST_ONLY || STDOUT || !KEEP_BROKEN);
+	print_maxverbose("Created temporary outfile %s\n", control->outfile);
 	return fd_out;
 }
 
@@ -365,7 +366,7 @@ bool write_fdout(rzip_control *control, void *buf, i64 len)
 	return true;
 }
 
-bool flush_tmpoutbuf(rzip_control *control)
+static bool flush_tmpoutbuf(rzip_control *control)
 {
 	if (!TEST_ONLY) {
 		print_maxverbose("Dumping buffer to physical file.\n");
@@ -383,10 +384,10 @@ bool flush_tmpoutbuf(rzip_control *control)
 }
 
 /* Dump temporary outputfile to perform stdout */
-bool dump_tmpoutfile(rzip_control *control, int fd_out)
+static bool dump_tmpoutfile(rzip_control *control)
 {
+	int tmpchar, fd_out = control->fd_out;
 	FILE *tmpoutfp;
-	int tmpchar;
 
 	if (unlikely(fd_out == -1))
 		fatal_return(("Failed: No temporary outfile created, unable to do in ram\n"), false);
@@ -408,6 +409,15 @@ bool dump_tmpoutfile(rzip_control *control, int fd_out)
 	if (unlikely(ftruncate(fd_out, 0)))
 		fatal_return(("Failed to ftruncate fd_out in dump_tmpoutfile\n"), false);
 	return true;
+}
+
+bool flush_tmpout(rzip_control *control)
+{
+	if (!STDOUT)
+		return true;
+	if (TMP_OUTBUF)
+		return flush_tmpoutbuf(control);
+	return dump_tmpoutfile(control);
 }
 
 /* Used if we're unable to read STDIN into the temporary buffer, shunts data
@@ -856,11 +866,6 @@ bool decompress_file(rzip_control *control)
 	/* We can now safely delete sinfo and pthread data of all threads
 	 * created. */
 	clear_rulist(control);
-
-	if (STDOUT && !TMP_OUTBUF) {
-		if (unlikely(!dump_tmpoutfile(control, fd_out)))
-			return false;
-	}
 
 	/* if we get here, no fatal_return(( errors during decompression */
 	print_progress("\r");
@@ -1311,6 +1316,12 @@ bool compress_file(rzip_control *control)
 				goto error;
 		}
 	} else {
+		control->fd_out = fd_out = open_tmpoutfile(control);
+		if (likely(fd_out != -1)) {
+			/* Unlink temporary file as soon as possible */
+			if (unlikely(unlink(control->outfile)))
+				fatal_return(("Failed to unlink tmpfile: %s\n", control->outfile), false);
+		}
 		if (unlikely(!open_tmpoutbuf(control)))
 			goto error;
 	}
@@ -1321,7 +1332,7 @@ bool compress_file(rzip_control *control)
 
 	rzip_fd(control, fd_in, fd_out);
 
-	/* Wwrite magic at end b/c lzma does not tell us properties until it is done */
+	/* Write magic at end b/c lzma does not tell us properties until it is done */
 	if (!STDOUT) {
 		if (unlikely(!write_magic(control)))
 			goto error;

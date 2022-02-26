@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016 Con Kolivas
+   Copyright (C) 2006-2016,2022 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -27,7 +27,7 @@ bool write_magic(rzip_control *control);
 bool read_magic(rzip_control *control, int fd_in, i64 *expected_size);
 bool preserve_perms(rzip_control *control, int fd_in, int fd_out);
 int open_tmpoutfile(rzip_control *control);
-bool dump_tmpoutfile(rzip_control *control, int fd_out);
+bool flush_tmpout(rzip_control *control);
 int open_tmpinfile(rzip_control *control);
 bool read_tmpinfile(rzip_control *control, int fd_in);
 bool decompress_file(rzip_control *control);
@@ -36,7 +36,6 @@ bool get_fileinfo(rzip_control *control);
 bool compress_file(rzip_control *control);
 bool write_fdout(rzip_control *control, void *buf, i64 len);
 bool write_fdin(rzip_control *control);
-bool flush_tmpoutbuf(rzip_control *control);
 void close_tmpoutbuf(rzip_control *control);
 void clear_tmpinbuf(rzip_control *control);
 bool clear_tmpinfile(rzip_control *control);
