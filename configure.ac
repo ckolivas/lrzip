@@ -150,7 +150,6 @@ EFL_CHECK_DOXYGEN([build_doc="yes"], [build_doc="no"])
 
 AC_CONFIG_FILES([
 Makefile
-lrzip.pc
 lzma/Makefile
 lzma/C/Makefile
 lzma/ASM/x86/Makefile
