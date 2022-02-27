@@ -249,21 +249,6 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 	return total;
 }
 
-void clear_rulist(rzip_control *control)
-{
-	while (control->ruhead) {
-		struct runzip_node *node = control->ruhead;
-		struct stream_info *sinfo = node->sinfo;
-
-		dealloc(sinfo->ucthreads);
-		dealloc(node->pthreads);
-		dealloc(sinfo->s);
-		dealloc(sinfo);
-		control->ruhead = node->prev;
-		dealloc(node);
-	}
-}
-
 /* decompress a section of an open file. Call fatal_return(() on error
    return the number of bytes that have been retrieved
  */

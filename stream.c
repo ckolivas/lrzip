@@ -1853,8 +1853,11 @@ static void add_to_rulist(rzip_control *control, struct stream_info *sinfo)
 		failure("Failed to calloc struct node in add_rulist\n");
 	node->sinfo = sinfo;
 	node->pthreads = control->pthreads;
-	node->prev = control->rulist;
+
+	lock_mutex(control, &control->control_lock);
+	node->prev = control->ruhead;
 	control->ruhead = node;
+	unlock_mutex(control, &control->control_lock);
 }
 
 /* close down an input stream */

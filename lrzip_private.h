@@ -470,7 +470,6 @@ struct rzip_control {
 	i64 (*match_len)(rzip_control *, struct rzip_state *, i64, i64, i64, i64 *);
 
 	pthread_t *pthreads;
-	struct runzip_node *rulist;
 	struct runzip_node *ruhead;
 };
 
