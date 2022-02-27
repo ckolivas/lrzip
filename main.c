@@ -87,8 +87,10 @@ static void usage(bool compat)
 	if (compat) {
 		print_output("	-L, --license		display software version and license\n");
 		print_output("	-P, --progress		show compression progress\n");
-	} else
+	} else {
 		print_output("	-q, --quiet		don't show compression progress\n");
+		print_output("	-Q, --very-quiet	don't show any output\n");
+	}
 	print_output("	-r, --recursive		operate recursively on directories\n");
 	print_output("	-t, --test		test compressed file integrity\n");
 	print_output("	-v[v%s], --verbose	Increase verbosity\n", compat ? "v" : "");
@@ -246,6 +248,7 @@ static struct option long_options[] = {
 	{"threads",	required_argument,	0,	'p'},
 	{"progress",	no_argument,	0,	'P'},
 	{"quiet",	no_argument,	0,	'q'},
+	{"very-quiet",	no_argument,	0,	'Q'},
 	{"recursive",	no_argument,	0,	'r'},
 	{"suffix",	required_argument,	0,	'S'},
 	{"test",	no_argument,	0,	't'},  /* 25 */
@@ -300,7 +303,7 @@ static void recurse_dirlist(char *indir, char **dirlist, int *entries)
 	closedir(dirp);
 }
 
-static const char *loptions = "bcCdDefghHiKlL:nN:o:O:p:PqrS:tTUm:vVw:z?";
+static const char *loptions = "bcCdDefghHiKlL:nN:o:O:p:PqQrS:tTUm:vVw:z?";
 static const char *coptions = "bcCdefghHikKlLnN:o:O:p:PrS:tTUm:vVw:z?123456789";
 
 int main(int argc, char *argv[])
@@ -324,6 +327,7 @@ int main(int argc, char *argv[])
 	initialise_control(control);
 
 	av = basename(argv[0]);
+	control->flags |= FLAG_OUTPUT;
 	if (!strcmp(av, "lrunzip"))
 		control->flags |= FLAG_DECOMPRESS;
 	else if (!strcmp(av, "lrzcat")) {
@@ -488,6 +492,10 @@ int main(int argc, char *argv[])
 		case 'q':
 			control->flags &= ~FLAG_SHOW_PROGRESS;
 			break;
+		case 'Q':
+			control->flags &= ~FLAG_SHOW_PROGRESS;
+			control->flags &= ~FLAG_OUTPUT;
+			break;
 		case 'r':
 			recurse = true;
 			break;
@@ -552,6 +560,9 @@ int main(int argc, char *argv[])
 			return 2;
 		}
 	}
+
+	if (compat)
+		control->flags &= ~FLAG_OUTPUT;
 
 	argc -= optind;
 	argv += optind;

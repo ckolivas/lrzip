@@ -229,6 +229,7 @@ typedef sem_t cksem_t;
 #define FLAG_TMP_OUTBUF		(1 << 21)
 #define FLAG_TMP_INBUF		(1 << 22)
 #define FLAG_ENCRYPT		(1 << 23)
+#define FLAG_OUTPUT		(1 << 24)
 
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
@@ -308,6 +309,7 @@ typedef sem_t cksem_t;
 #define TMP_OUTBUF	(control->flags & FLAG_TMP_OUTBUF)
 #define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
 #define ENCRYPT		(control->flags & FLAG_ENCRYPT)
+#define SHOW_OUTPUT	(control->flags & FLAG_OUTPUT)
 
 #define IS_FROM_FILE ( !!(control->inFILE) && !STDIN )
 
@@ -547,6 +549,7 @@ static inline void print_err(const rzip_control *control, unsigned int line, con
 } while (0)
 
 #define print_output(...)	do {\
+	if (SHOW_OUTPUT)	\
 	print_stuff(1, __VA_ARGS__); \
 } while (0)
 
