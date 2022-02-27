@@ -76,14 +76,10 @@ dist_doc_DATA = \
   TODO \
   WHATS-NEW
 
-pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = lrzip.pc
-
-lrzip_HEADERS = Lrzip.h
+noinst_HEADERS = Lrzip.h
 lrzipdir = $(includedir)
 
 EXTRA_DIST = \
-		lrzip.pc.in \
 		lrztar \
 		description-pak \
 		autogen.sh \
