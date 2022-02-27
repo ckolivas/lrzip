@@ -858,7 +858,7 @@ bool decompress_file(rzip_control *control)
 
 	print_progress("Decompressing...\n");
 
-	if (unlikely(runzip_fd(control, fd_in, fd_out, fd_hist, expected_size) < 0)) {
+	if (unlikely(runzip_fd(control, fd_in, fd_hist, expected_size) < 0)) {
 		clear_rulist(control);
 		return false;
 	}

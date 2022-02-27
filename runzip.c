@@ -387,7 +387,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 /* Decompress an open file. Call fatal_return(() on error
    return the number of bytes that have been retrieved
  */
-i64 runzip_fd(rzip_control *control, int fd_in, int fd_out, int fd_hist, i64 expected_size)
+i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 {
 	uchar md5_stored[MD5_DIGEST_SIZE];
 	struct timeval start,end;

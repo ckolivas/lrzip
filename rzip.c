@@ -1254,17 +1254,3 @@ retry:
 	clear_sslist(st);
 	dealloc(st);
 }
-
-void rzip_control_free(rzip_control *control)
-{
-	if (!control)
-		return;
-
-	dealloc(control->tmpdir);
-	dealloc(control->outname);
-	dealloc(control->outdir);
-	if (control->suffix && control->suffix[0])
-		dealloc(control->suffix);
-
-	dealloc(control);
-}
