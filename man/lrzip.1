@@ -1,4 +1,4 @@
-.TH "lrzip" "1" "February 2021" "" ""
+.TH "lrzip" "1" "February 2022" "" ""
 .SH "NAME"
 lrzip \- a large-file compression program
 .SH "SYNOPSIS"
@@ -43,6 +43,7 @@ General options:
  \-H, \-\-hash              display md5 hash integrity information
  \-i, \-\-info              show compressed file information
  \-q, \-\-quiet             don't show compression progress
+ \-Q, \-\-very-quiet        don't show any output
  \-r, \-\-recursive         operate recursively on directories
  \-t, \-\-test              test compressed file integrity
  \-v[v], \-\-verbose        Increase verbosity
@@ -141,6 +142,10 @@ percentage progress while compressing. Note that compression happens in
 bursts with lzma compression which is the default compression. This means
 that it will progress very rapidly for short periods and then stop for
 long periods.
+.IP
+.IP "\fB-Q\fP"
+If this option is specified then lrzip will not show any output to the console
+except for error messages.
 .IP
 .IP "\fB-r\fP"
 If this option is specified, lrzip will recursively enter the directories
@@ -350,6 +355,11 @@ rzip(1),
 zip(1)
 
 .PP
+.SH "DIAGNOSTICS"
+.PP
+Exit status is normally 0; if an error occurs, exit status is 1.
+
+.PP
 .SH "AUTHOR and CREDITS"
 .br
 lrzip is being extensively bastardised from rzip by Con Kolivas.
@@ -365,8 +375,9 @@ zpaq was written by Matt Mahoney.
 Peter Hyman added informational output, updated LZMA SDK,
 and added lzma multi-threading capabilities.
 .PP
-If you wish to report a problem, or make a suggestion, then please email Con at
-kernel@kolivas.org
+If you wish to report a problem, or make a suggestion, then please consult the
+git repository at:
+https://github.com/ckolivas/lrzip
 .PP
 lrzip is released under the GNU General Public License version 2.
 Please see the file COPYING for license details.
