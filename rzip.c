@@ -1247,8 +1247,8 @@ retry:
 	       (1.0 + st->stats.match_bytes) / st->stats.literal_bytes);
 
 	if (!STDIN)
-		print_progress("%s - ", control->infile);
-	print_progress("Compression Ratio: %.3f. Average Compression Speed: %6.3fMB/s.\n",
+		print_output("%s - ", control->infile);
+	print_output("Compression Ratio: %.3f. Average Compression Speed: %6.3fMB/s.\n",
 		       1.0 * s.st_size / s2.st_size, chunkmbs);
 
 	clear_sslist(st);

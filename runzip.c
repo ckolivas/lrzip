@@ -412,7 +412,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 		tdiff = end.tv_sec - start.tv_sec;
 		if (!tdiff)
 			tdiff = 1;
-		print_progress("\nAverage DeCompression Speed: %6.3fMB/s\n",
+		print_output("\nAverage DeCompression Speed: %6.3fMB/s\n",
 			       (total / 1024 / 1024) / tdiff);
 	}
 

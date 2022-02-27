@@ -314,7 +314,7 @@ int open_tmpoutfile(rzip_control *control)
 
 	fd_out = mkstemp(control->outfile);
 	if (fd_out == -1) {
-		print_progress("WARNING: Failed to create out tmpfile: %s, will fail if cannot perform %scompression entirely in ram\n",
+		print_output("WARNING: Failed to create out tmpfile: %s, will fail if cannot perform %scompression entirely in ram\n",
 			       control->outfile, DECOMPRESS ? "de" : "");
 	} else
 		register_outfile(control, control->outfile, TEST_ONLY || STDOUT || !KEEP_BROKEN);
@@ -478,7 +478,7 @@ int open_tmpinfile(rzip_control *control)
 	}
 
 	if (fd_in == -1) {
-		print_progress("WARNING: Failed to create in tmpfile: %s, will fail if cannot perform %scompression entirely in ram\n",
+		print_output("WARNING: Failed to create in tmpfile: %s, will fail if cannot perform %scompression entirely in ram\n",
 			       control->infile, DECOMPRESS ? "de" : "");
 	} else {
 		register_infile(control, control->infile, (DECOMPRESS || TEST_ONLY) && STDIN);
@@ -774,7 +774,7 @@ bool decompress_file(rzip_control *control)
 		}
 
 		if (!STDOUT)
-			print_progress("Output filename is: %s\n", control->outfile);
+			print_output("Output filename is: %s\n", control->outfile);
 	}
 
 	if ( IS_FROM_FILE ) {
@@ -871,7 +871,7 @@ bool decompress_file(rzip_control *control)
 		if (unlikely(!get_hash(control, 0)))
 			return false;
 
-	print_progress("Decompressing...\n");
+	print_output("Decompressing...\n");
 
 	if (unlikely(runzip_fd(control, fd_in, fd_hist, expected_size) < 0)) {
 		clear_rulist(control);
@@ -885,13 +885,13 @@ bool decompress_file(rzip_control *control)
 	/* if we get here, no fatal_return(( errors during decompression */
 	print_progress("\r");
 	if (!(STDOUT | TEST_ONLY))
-		print_progress("Output filename is: %s: ", control->outfile);
+		print_output("Output filename is: %s: ", control->outfile);
 	if (!expected_size)
 		expected_size = control->st_size;
 	if (!ENCRYPT)
-		print_progress("[OK] - %lld bytes                                \n", expected_size);
+		print_output("[OK] - %lld bytes                                \n", expected_size);
 	else
-		print_progress("[OK]                                             \n");
+		print_output("[OK]                                             \n");
 
 	if (TMP_OUTBUF)
 		close_tmpoutbuf(control);
@@ -1310,7 +1310,7 @@ bool compress_file(rzip_control *control)
 			} else
 				strcpy(control->outfile, tmpinfile);
 			strcat(control->outfile, control->suffix);
-			print_progress("Output filename is: %s\n", control->outfile);
+			print_output("Output filename is: %s\n", control->outfile);
 		}
 
 		fd_out = open(control->outfile, O_RDWR | O_CREAT | O_EXCL, 0666);

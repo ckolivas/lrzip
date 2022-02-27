@@ -723,7 +723,7 @@ recursion:
 		minutes = (int)(total_time / 60) % 60;
 		seconds = total_time - hours * 3600 - minutes * 60;
 		if (!INFO)
-			print_progress("Total time: %02d:%02d:%05.2f\n", hours, minutes, seconds);
+			print_output("Total time: %02d:%02d:%05.2f\n", hours, minutes, seconds);
 		if (recurse)
 			goto recursion;
 	}
