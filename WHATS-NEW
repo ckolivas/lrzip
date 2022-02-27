@@ -1,5 +1,20 @@
 Changelog will be moved to git entirely from this point forward.
 
+lrzip-0.650
+
+Minor optimisations.
+Exit status fixes.
+Update and beautify information output.
+Fix Android build.
+Enable MD5 on Apple build.
+Deprecate and remove liblrzip which was unused and at risk of bitrot.
+Fix failures with compressing to STDOUT with inadequate memory.
+Fix possible race conditions.
+Fix memory leaks.
+Fix -q to only hide progress.
+Add -Q option for very quiet.
+
+
 lrzip-0.641
 
 Critical bugfix for broken lz4 testing which would prevent secondary
