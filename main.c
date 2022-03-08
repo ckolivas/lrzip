@@ -57,7 +57,6 @@
 #include "lrzip_core.h"
 #include "util.h"
 #include "stream.h"
-#include <locale.h>
 
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
@@ -319,8 +318,6 @@ int main(int argc, char *argv[])
 	extern int optind;
 	char *eptr, *av; /* for environment */
 	char *endptr = NULL;
-
-	setlocale(LC_ALL, "");	/* for printf features */
 
         control = &base_control;
 
