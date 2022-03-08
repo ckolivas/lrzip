@@ -937,9 +937,10 @@ bool close_streamout_threads(rzip_control *control)
 void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_limit, char cbytes)
 {
 	struct stream_info *sinfo;
+	unsigned int i, testbufs;
+	bool threadlimit = false;
 	i64 testsize, limit;
 	uchar *testmalloc;
-	unsigned int i, testbufs;
 
 	sinfo = calloc(sizeof(struct stream_info), 1);
 	if (unlikely(!sinfo))
@@ -975,12 +976,17 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	/* If we don't have enough ram for the number of threads, decrease the
 	 * number of threads till we do, or only have one thread. */
 	while (limit < STREAM_BUFSIZE && limit < chunk_limit) {
-		if (control->threads > 1)
+		if (control->threads > 1) {
 			--control->threads;
-		else
+			threadlimit = true;
+		} else
 			break;
 		limit = (control->usable_ram - (control->overhead * control->threads)) / testbufs;
 		limit = MIN(limit, chunk_limit);
+	}
+	if (threadlimit) {
+		print_output("Minimising number of threads to %d to limit memory usage\n",
+			     control->threads);
 	}
 	if (BITS32) {
 		limit = MIN(limit, one_g);
@@ -988,7 +994,10 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 			limit = one_g - (control->overhead * control->threads);
 	}
 	/* Use a nominal minimum size should we fail all previous shrinking */
-	limit = MAX(limit, STREAM_BUFSIZE);
+	if (limit < STREAM_BUFSIZE) {
+		limit = MAX(limit, STREAM_BUFSIZE);
+		print_output("Warning, low memory for chosen compression settings\n");
+	}
 	limit = MIN(limit, chunk_limit);
 retest_malloc:
 	testsize = limit + (control->overhead * control->threads);
