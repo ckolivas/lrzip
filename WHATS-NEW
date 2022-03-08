@@ -1,4 +1,8 @@
-Changelog will be moved to git entirely from this point forward.
+lrzip-0.651
+
+Remove redundant files
+Revert locale dependent output
+Add warnings for low memory and threads
 
 lrzip-0.650
 
