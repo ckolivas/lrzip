@@ -1093,7 +1093,7 @@ next_chunk:
 		do {
 			i64 head_off;
 
-			if (unlikely(last_head && last_head < second_last))
+			if (unlikely(last_head && last_head <= second_last))
 				failure_goto(("Invalid earlier last_head position, corrupt archive.\n"), error);
 			second_last = last_head;
 			if (unlikely(last_head + ofs > infile_size))
