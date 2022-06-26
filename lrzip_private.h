@@ -144,7 +144,7 @@ extern int errno;
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #define __maybe_unused	__attribute__((unused))
 
-#if defined(__MINGW32__) || defined(__CYGWIN__) || defined(__ANDROID__) || defined(__APPLE__)
+#if defined(__MINGW32__) || defined(__CYGWIN__) || defined(__ANDROID__) || defined(__APPLE__) || defined(__OpenBSD__)
 # define ffsll __builtin_ffsll
 #endif
 
