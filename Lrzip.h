@@ -29,6 +29,10 @@
 # include <inttypes.h>
 #endif
 
+#if defined (__OpenBSD__) || (__NetBSD__)
+# include <stdarg.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

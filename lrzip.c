@@ -90,6 +90,32 @@ i64 get_ram(rzip_control *control)
 
 	return ramsize;
 }
+#elif defined(__OpenBSD__)
+# include <sys/resource.h>
+i64 get_ram(rzip_control *control)
+{
+	struct rlimit rl;
+	i64 ramsize = (i64)sysconf(_SC_PHYS_PAGES) * PAGE_SIZE;
+
+	/* Raise limits all the way to the max */
+
+	if (getrlimit(RLIMIT_DATA, &rl) == -1)
+		fatal_return(("Failed to get limits in get_ram\n"), -1);
+
+	rl.rlim_cur = rl.rlim_max;
+	if (setrlimit(RLIMIT_DATA, &rl) == -1)
+		fatal_return(("Failed to set limits in get_ram\n"), -1);
+
+	/* Declare detected RAM to be either the max RAM available from
+	physical memory or the max RAM allowed by RLIMIT_DATA, whatever
+	is smaller, to prevent the heuristics from selecting
+	compression windows which cause lrzip to go into deep swap */
+
+	if (rl.rlim_max < ramsize)
+		return rl.rlim_max;
+
+	return ramsize;
+}
 #else /* __APPLE__ */
 i64 get_ram(rzip_control *control)
 {
