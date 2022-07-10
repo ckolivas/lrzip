@@ -56,6 +56,7 @@
 #include "stream.h"
 
 #define MAGIC_LEN (24)
+#define STDIO_TMPFILE_BUFFER_SIZE (65536) // used in read_tmpinfile and dump_tmpoutfile
 
 static void release_hashes(rzip_control *control);
 
@@ -412,7 +413,7 @@ static bool flush_tmpoutbuf(rzip_control *control)
 /* Dump temporary outputfile to perform stdout */
 static bool dump_tmpoutfile(rzip_control *control)
 {
-	int tmpchar, fd_out = control->fd_out;
+	int fd_out = control->fd_out;
 	FILE *tmpoutfp;
 
 	if (unlikely(fd_out == -1))
@@ -425,9 +426,35 @@ static bool dump_tmpoutfile(rzip_control *control)
 	rewind(tmpoutfp);
 
 	if (!TEST_ONLY) {
+		char* buf;
+
 		print_verbose("Dumping temporary file to control->outFILE.\n");
-		while ((tmpchar = fgetc(tmpoutfp)) != EOF)
-			putchar(tmpchar);
+		fflush(control->outFILE);
+
+		buf = malloc(STDIO_TMPFILE_BUFFER_SIZE);
+		if (unlikely(!buf))
+			fatal_return(("Failed to allocate buffer in dump_tmpoutfile\n"), false);
+
+		while (1) {
+			ssize_t num_read, num_written;
+			num_read = fread(buf, 1, STDIO_TMPFILE_BUFFER_SIZE, tmpoutfp);
+			if (unlikely(num_read == 0)) {
+				if (ferror(tmpoutfp)) {
+					dealloc(buf);
+					fatal_return(("Failed read in dump_tmpoutfile\n"), false);
+				} else {
+					break; // must be at EOF
+				}
+			}
+
+			num_written = fwrite(buf, 1, num_read, control->outFILE);
+			if (unlikely(num_written != num_read)) {
+				dealloc(buf);
+				fatal_return(("Failed write in dump_tmpoutfile\n"), false);
+			}
+		}
+
+		dealloc(buf);
 		fflush(control->outFILE);
 		rewind(tmpoutfp);
 	}
@@ -539,6 +566,7 @@ bool read_tmpinfile(rzip_control *control, int fd_in)
 {
 	FILE *tmpinfp;
 	int tmpchar;
+	char* buf;
 
 	if (fd_in == -1)
 		return false;
@@ -548,9 +576,30 @@ bool read_tmpinfile(rzip_control *control, int fd_in)
 	if (unlikely(tmpinfp == NULL))
 		fatal_return(("Failed to fdopen in tmpfile\n"), false);
 
-	while ((tmpchar = getchar()) != EOF)
-		fputc(tmpchar, tmpinfp);
+	buf = malloc(STDIO_TMPFILE_BUFFER_SIZE);
+	if (unlikely(!buf))
+		fatal_return(("Failed to allocate buffer in read_tmpinfile\n"), false);
 
+	while (1) {
+		ssize_t num_read, num_written;
+		num_read = fread(buf, 1, STDIO_TMPFILE_BUFFER_SIZE, stdin);
+		if (unlikely(num_read == 0)) {
+			if (ferror(stdin)) {
+				dealloc(buf);
+				fatal_return(("Failed read in read_tmpinfile\n"), false);
+			} else {
+				break; // must be at EOF
+			}
+		}
+
+		num_written = fwrite(buf, 1, num_read, tmpinfp);
+		if (unlikely(num_written != num_read)) {
+			dealloc(buf);
+			fatal_return(("Failed write in read_tmpinfile\n"), false);
+		}
+	}
+
+	dealloc(buf);
 	fflush(tmpinfp);
 	rewind(tmpinfp);
 	return true;
