@@ -76,7 +76,6 @@ dist_doc_DATA = \
   TODO \
   WHATS-NEW
 
-noinst_HEADERS = Lrzip.h
 lrzipdir = $(includedir)
 
 EXTRA_DIST = \
