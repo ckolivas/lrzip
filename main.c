@@ -712,7 +712,7 @@ recursion:
 
 		gettimeofday(&start_time, NULL);
 
-		if (unlikely((STDIN || STDOUT) && ENCRYPT))
+		if (!control->passphrase && (unlikely((STDIN || STDOUT) && ENCRYPT)))
 			failure("Unable to work from STDIO while reading password\n");
 
 		memcpy(&local_control, &base_control, sizeof(rzip_control));
