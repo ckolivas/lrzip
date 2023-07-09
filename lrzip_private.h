@@ -233,7 +233,7 @@ typedef sem_t cksem_t;
 
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
-#define BITS32		(sizeof(long) == 4)
+#define BITS32		(sizeof(void*) == 4)
 
 #define CTYPE_NONE 3
 #define CTYPE_BZIP2 4
