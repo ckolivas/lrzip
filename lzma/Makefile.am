@@ -1,4 +1,4 @@
-SUBDIRS = C ASM/x86
+SUBDIRS = C
 MAINTAINERCLEANFILES = Makefile.in
 
 lzmadocdir = @docdir@/lzma
