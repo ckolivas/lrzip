@@ -15,7 +15,7 @@ m4_define([lt_age], v_min)
 
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT([lrzip],[v_ver],[kernel@kolivas.org])
-AC_PREREQ([2.59])
+AC_PREREQ([2.71])
 AC_CONFIG_SRCDIR([configure.ac])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -24,7 +24,7 @@ AM_INIT_AUTOMAKE([1.6 dist-bzip2 foreign subdir-objects])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AC_USE_SYSTEM_EXTENSIONS
 
-AC_PROG_LIBTOOL
+LT_INIT
 ##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
 ##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
 m4_ifdef([v_rev], , [m4_define([v_rev], [0])])
@@ -53,17 +53,14 @@ AC_SUBST(SHELL)
 AC_SYS_LARGEFILE
 AC_FUNC_FSEEKO
 AC_FUNC_ALLOCA
-AC_PROG_CC_C99
-AS_IF([test x"$ac_cv_prog_cc_c99" = x"no"],
-	AC_MSG_ERROR([C compiler does not support C99], 1))
+
 AC_CHECK_PROG([HAVE_POD2MAN], [pod2man], [yes])
 AS_IF([test "$HAVE_POD2MAN" != "yes"],
 	AC_MSG_FAILURE([pod2man is needed to generate manual from POD]))
 
-
 AC_ARG_ENABLE(
 		asm,
-		[AC_HELP_STRING([--enable-asm],[Enable native Assembly code])],
+		[AS_HELP_STRING([--enable-asm],[Enable native Assembly code])],
 		ASM=$enableval,
 		ASM=yes
              )
@@ -77,7 +74,7 @@ fi
 
 static=no
 AC_ARG_ENABLE([static-bin],
-	[AC_HELP_STRING([--enable-static-bin],[Build statically linked binary @<:@default=no@:>@])],
+	[AS_HELP_STRING([--enable-static-bin],[Build statically linked binary @<:@default=no@:>@])],
 	[static=$enableval]
 	)
 AM_CONDITIONAL([STATIC], [test x"$static" = x"yes"])
