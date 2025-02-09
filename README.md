@@ -26,7 +26,7 @@ gets rid of the temporary tarfile. Uses a tempvar `lrzdir` which is unset automa
 #### Decompression for the kind of file from above:
 
 ```bash
-lrzdir=directory; lrunzip -cdivvp `nproc` -o $lrzdir.tar $lrzdir.tar.bzip2-lrz; tar xvf $lrzdir.tar; rm -vf $lrzdir.tar
+lrzdir=directory; lrunzip -cdivvp `nproc` -d -o $lrzdir.tar $lrzdir.tar.bzip2-lrz; tar xvf $lrzdir.tar; rm -vf $lrzdir.tar
 ```
 
 Checks integrity, then decompresses the directory using all of the 
