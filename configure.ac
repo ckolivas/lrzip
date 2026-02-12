@@ -44,6 +44,17 @@ AC_SUBST(VMAJ)
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 
+# Disable JIT on unsupported architectures
+case "${host_cpu}" in
+  i686|amd64|x86_64)
+    # JIT supported on x86/x86_64 - do nothing
+    ;;
+  *)
+    CPPFLAGS="${CPPFLAGS} -DNOJIT"
+    AC_MSG_NOTICE([Disabling JIT - not supported on ${host_cpu} architecture])
+    ;;
+esac
+
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
