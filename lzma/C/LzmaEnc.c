@@ -2126,6 +2126,8 @@ SRes LzmaEnc_CodeOneMemBlock(CLzmaEncHandle pp, Bool reInit,
   UInt64 nowPos64;
   SRes res;
   CSeqOutStreamBuf outStream;
+  /* Save original output stream */
+  ISeqOutStream *saved_outStream = p->rc.outStream;
 
   outStream.funcTable.Write = MyWrite;
   outStream.data = dest;
@@ -2147,6 +2149,10 @@ SRes LzmaEnc_CodeOneMemBlock(CLzmaEncHandle pp, Bool reInit,
   
   *unpackSize = (UInt32)(p->nowPos64 - nowPos64);
   *destLen -= outStream.rem;
+
+  /* Restore original output stream before return */
+  p->rc.outStream = saved_outStream;
+
   if (outStream.overflow)
     return SZ_ERROR_OUTPUT_EOF;
 
