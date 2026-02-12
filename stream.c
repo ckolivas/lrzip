@@ -1690,7 +1690,7 @@ fill_another:
 	fsync(control->fd_out);
 
 	if (unlikely(u_len > control->maxram))
-		print_output("Warning, attempting to malloc very large buffer for this environment of size %"PRId64"\n", u_len);
+		fatal_return(("Unable to allocate enough memory for %"PRId64" specified in possibly corrupt archive\n"), -1);
 	max_len = MAX(u_len, MIN_SIZE);
 	max_len = MAX(max_len, c_len);
 	s_buf = malloc(max_len);
