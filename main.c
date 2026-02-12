@@ -572,6 +572,9 @@ int main(int argc, char *argv[])
 			failure("Cannot specify output filename with recursive\n");
 	}
 
+	if (INFO && !SHOW_OUTPUT)
+		failure("Cannot show info and have no output.\n");
+
 	if (VERBOSE && !SHOW_PROGRESS) {
 		print_err("Cannot have -v and -q options. -v wins.\n");
 		control->flags |= FLAG_SHOW_PROGRESS;
