@@ -438,6 +438,8 @@ int main(int argc, char *argv[])
 				license();
 				exit(0);
 			}
+			if (!optarg)
+				failure("No level specified with -L\n");
 			control->compression_level = strtol(optarg, &endptr, 10);
 			if (control->compression_level < 1 || control->compression_level > 9)
 				failure("Invalid compression level (must be 1-9)\n");
