@@ -17,10 +17,8 @@ jobs:
       run: git fetch --prune --unshallow
     - name: autogen
       run: ./autogen.sh
-    - name: install liblzo2-dev
-      run: sudo apt install -y liblzo2-dev
-    - name: install liblz4-dev
-      run: sudo apt install -y liblz4-dev
+    - name: Install dependencies
+      run: sudo apt update && sudo apt install -y liblzo2-dev liblz4-dev libbz2-dev zlib1g-dev
     - name: configure
       run: ./configure
     - name: make
