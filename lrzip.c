@@ -565,7 +565,6 @@ static bool read_tmpinmagic(rzip_control *control)
 bool read_tmpinfile(rzip_control *control, int fd_in)
 {
 	FILE *tmpinfp;
-	int tmpchar;
 	char* buf;
 
 	if (fd_in == -1)
