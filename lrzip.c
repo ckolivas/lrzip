@@ -229,10 +229,14 @@ static bool get_magic(rzip_control *control, char *magic)
 
 	/* Support the convoluted way we described size in versions < 0.40 */
 	if (control->major_version == 0 && control->minor_version < 4) {
+		i64 ormask;
 		memcpy(&v, &magic[6], 4);
 		expected_size = ntohl(v);
 		memcpy(&v, &magic[10], 4);
-		expected_size |= ((i64)ntohl(v)) << 32;
+		ormask = ((i64)ntohl(v));
+		if (ormask >  0x7FFFFFFF)
+			failure_return(("Invalid expected size encoded in magic header\n"), false);
+		expected_size |= ormask << 32;
 	} else {
 		memcpy(&expected_size, &magic[6], 8);
 		expected_size = le64toh(expected_size);
