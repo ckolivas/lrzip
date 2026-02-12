@@ -370,7 +370,7 @@ bool lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *sa
 	* stealing to not have to pad the block */
 	uchar key[HASH_LEN], iv[HASH_LEN];
 	uchar tmp0[CBC_LEN], tmp1[CBC_LEN];
-	aes_context aes_ctx;
+	aes_context aes_ctx = {};
 	i64 N, M;
 	bool ret = false;
 
@@ -433,7 +433,7 @@ error:
 
 void lrz_stretch(rzip_control *control)
 {
-	sha4_context ctx;
+	sha4_context ctx = {};
 	i64 j, n, counter;
 
 	mlock(&ctx, sizeof(ctx));
