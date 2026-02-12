@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016,2018,2021-2022 Con Kolivas
+   Copyright (C) 2006-2016,2018,2021-2022,2026 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -66,7 +66,7 @@ static i64 fdout_seekto(rzip_control *control, i64 pos)
 		pos -= control->out_relofs;
 		control->out_ofs = pos;
 		if (unlikely(pos > control->out_len || pos < 0)) {
-			print_err("Trying to seek to %lld outside tmp outbuf in fdout_seekto\n", pos);
+			print_err("Trying to seek to %"PRId64" outside tmp outbuf in fdout_seekto\n", pos);
 			return -1;
 		}
 		return 0;
@@ -270,7 +270,7 @@ static bool get_magic(rzip_control *control, char *magic)
 		memcpy(&control->salt, &magic[6], 8);
 		control->st_size = expected_size = 0;
 		control->encloops = enc_loops(control->salt[0], control->salt[1]);
-		print_maxverbose("Encryption hash loops %lld\n", control->encloops);
+		print_maxverbose("Encryption hash loops %"PRId64"\n", control->encloops);
 	} else if (ENCRYPT) {
 		print_output("Asked to decrypt a non-encrypted archive. Bypassing decryption.\n");
 		control->flags &= ~FLAG_ENCRYPT;
@@ -914,7 +914,7 @@ bool decompress_file(rzip_control *control)
 		if (unlikely(!read_magic(control, fd_in, &expected_size)))
 			return false;
 		if (unlikely(expected_size < 0))
-			fatal_return(("Invalid expected size %lld\n", expected_size), false);
+			fatal_return(("Invalid expected size %"PRId64"\n", expected_size), false);
 	}
 
 	if (!STDOUT && !TEST_ONLY) {
@@ -963,7 +963,7 @@ bool decompress_file(rzip_control *control)
 	if (!expected_size)
 		expected_size = control->st_size;
 	if (!ENCRYPT)
-		print_output("[OK] - %lld bytes                                \n", expected_size);
+		print_output("[OK] - %"PRId64" bytes                                \n", expected_size);
 	else
 		print_output("[OK]                                             \n");
 
@@ -1116,7 +1116,7 @@ bool get_fileinfo(rzip_control *control)
 				fatal_goto(("Failed to read chunk_size in get_fileinfo\n"), error);
 			chunk_size = le64toh(chunk_size);
 			if (unlikely(chunk_size < 0))
-				fatal_goto(("Invalid chunk size %lld\n", chunk_size), error);
+				fatal_goto(("Invalid chunk size %"PRId64"\n", chunk_size), error);
 		}
 	}
 
@@ -1228,7 +1228,7 @@ next_chunk:
 				fatal_goto(("Failed to read chunk_size in get_fileinfo\n"), error);
 			chunk_size = le64toh(chunk_size);
 			if (unlikely(chunk_size < 0))
-				fatal_goto(("Invalid chunk size %lld\n", chunk_size), error);
+				fatal_goto(("Invalid chunk size %"PRId64"\n", chunk_size), error);
 			ofs += 1 + chunk_byte;
 			header_length = 1 + (chunk_byte * 3);
 		}

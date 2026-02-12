@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016,2018,2021-2022 Con Kolivas
+   Copyright (C) 2006-2016,2018,2021-2022,2026 Con Kolivas
    Copyright (C) 1998-2003 Andrew Tridgell
 
    This program is free software; you can redistribute it and/or modify
@@ -39,6 +39,8 @@
 #ifdef HAVE_ARPA_INET_H
 # include <arpa/inet.h>
 #endif
+
+#include <inttypes.h>
 
 #include "md5.h"
 #include "runzip.h"
@@ -97,7 +99,7 @@ static i64 seekto_fdhist(rzip_control *control, i64 pos)
 	if (control->hist_ofs > control->out_len)
 		control->out_len = control->hist_ofs;
 	if (unlikely(control->hist_ofs < 0 || control->hist_ofs > control->out_maxlen)) {
-		print_err("Trying to seek outside tmpoutbuf to %lld in seekto_fdhist\n", control->hist_ofs);
+		print_err("Trying to seek outside tmpoutbuf to %"PRId64" in seekto_fdhist\n", control->hist_ofs);
 		return -1;
 	}
 	return pos;
@@ -115,7 +117,7 @@ static i64 seekto_fdin(rzip_control *control, i64 pos)
 	if (!TMP_INBUF)
 		return lseek(control->fd_in, pos, SEEK_SET);
 	if (unlikely(pos > control->in_len || pos < 0)) {
-		print_err("Trying to seek outside tmpinbuf to %lld in seekto_fdin\n", pos);
+		print_err("Trying to seek outside tmpinbuf to %"PRId64" in seekto_fdin\n", pos);
 		return -1;
 	}
 	control->in_ofs = pos;
@@ -153,11 +155,11 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum
 	uchar *buf;
 
 	if (unlikely(len < 0))
-		failure_return(("len %lld is negative in unzip_literal!\n",len), -1);
+		failure_return(("len %"PRId64" is negative in unzip_literal!\n",len), -1);
 
 	buf = (uchar *)malloc(len);
 	if (unlikely(!buf))
-		fatal_return(("Failed to malloc literal buffer of size %lld\n", len), -1);
+		fatal_return(("Failed to malloc literal buffer of size %"PRId64"\n", len), -1);
 
 	stream_read = read_stream(control, ss, 1, buf, len);
 	if (unlikely(stream_read == -1 )) {
@@ -167,7 +169,7 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum
 
 	if (unlikely(write_1g(control, buf, (size_t)stream_read) != (ssize_t)stream_read)) {
 		dealloc(buf);
-		fatal_return(("Failed to write literal buffer of size %lld\n", stream_read), -1);
+		fatal_return(("Failed to write literal buffer of size %"PRId64"\n", stream_read), -1);
 	}
 
 	if (!HAS_MD5)
@@ -197,7 +199,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 	uchar *buf;
 
 	if (unlikely(len < 0))
-		failure_return(("len %lld is negative in unzip_match!\n",len), -1);
+		failure_return(("len %"PRId64" is negative in unzip_match!\n",len), -1);
 
 	total = 0;
 	cur_pos = seekcur_fdout(control);
@@ -218,7 +220,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 
 	buf = (uchar *)malloc(n);
 	if (unlikely(!buf))
-		fatal_return(("Failed to malloc match buffer of size %lld\n", len), -1);
+		fatal_return(("Failed to malloc match buffer of size %"PRId64"\n", len), -1);
 
 	if (unlikely(read_fdhist(control, buf, (size_t)n) != (ssize_t)n)) {
 		dealloc(buf);
@@ -288,7 +290,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	else if (control->major_version == 0 && control->minor_version == 4)
 		chunk_bytes = 8;
 	else {
-		print_maxverbose("Reading chunk_bytes at %lld\n", get_readseek(control, fd_in));
+		print_maxverbose("Reading chunk_bytes at %"PRId64"\n", get_readseek(control, fd_in));
 		/* Read in the stored chunk byte width from the file */
 		if (unlikely(read_1g(control, fd_in, &chunk_bytes, 1) != 1))
 			fatal_return(("Failed to read chunk_bytes size in runzip_chunk\n"), -1);
@@ -296,7 +298,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 			failure_return(("chunk_bytes %d is invalid in runzip_chunk\n", chunk_bytes), -1);
 	}
 	if (!tally && expected_size)
-		print_maxverbose("Expected size: %lld\n", expected_size);
+		print_maxverbose("Expected size: %"PRId64"\n", expected_size);
 	print_maxverbose("Chunk byte width: %d\n", chunk_bytes);
 
 	ofs = seekcur_fdin(control);

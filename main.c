@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016,2021-2022 Con Kolivas
+   Copyright (C) 2006-2016,2021-2022,2026 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -52,6 +52,7 @@
 #include <dirent.h>
 #include <getopt.h>
 #include <libgen.h>
+#include <inttypes.h>
 
 #include "rzip.h"
 #include "lrzip_core.h"
@@ -164,7 +165,7 @@ static void show_summary(void)
 				      DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
 		print_verbose("Threading is %s. Number of CPUs detected: %d\n", control->threads > 1? "ENABLED" : "DISABLED",
 			      control->threads);
-		print_verbose("Detected %lld bytes ram\n", control->ramsize);
+		print_verbose("Detected %"PRId64" bytes ram\n", control->ramsize);
 		print_verbose("Compression level %d\n", control->compression_level);
 		print_verbose("Nice Value: %d\n", control->nice_val);
 		print_verbose("Show Progress\n");
@@ -199,7 +200,7 @@ static void show_summary(void)
 			else if (NO_COMPRESS)
 				print_verbose("RZIP pre-processing only\n");
 			if (control->window)
-				print_verbose("Compression Window: %lld = %lldMB\n", control->window, control->window * 100ull);
+				print_verbose("Compression Window: %"PRId64" = %lldMB\n", control->window, control->window * 100ull);
 			/* show heuristically computed window size */
 			if (!control->window && !UNLIMITED) {
 				i64 temp_chunk, temp_window;
@@ -209,15 +210,15 @@ static void show_summary(void)
 				else
 					temp_chunk = control->ramsize * 2 / 3;
 				temp_window = temp_chunk / (100 * 1024 * 1024);
-				print_verbose("Heuristically Computed Compression Window: %lld = %lldMB\n", temp_window, temp_window * 100ull);
+				print_verbose("Heuristically Computed Compression Window: %"PRId64" = %lldMB\n", temp_window, temp_window * 100ull);
 			}
 			if (UNLIMITED)
 				print_verbose("Using Unlimited Window size\n");
 		}
 		if (!DECOMPRESS && !TEST_ONLY)
-			print_maxverbose("Storage time in seconds %lld\n", control->secs);
+			print_maxverbose("Storage time in seconds %"PRId64"\n", control->secs);
 		if (ENCRYPT)
-			print_maxverbose("Encryption hash loops %lld\n", control->encloops);
+			print_maxverbose("Encryption hash loops %"PRId64"\n", control->encloops);
 	}
 }
 

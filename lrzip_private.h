@@ -514,7 +514,7 @@ struct stream_info {
 	char chunk_bytes;
 };
 
-static inline void print_stuff(const rzip_control *control, int level, unsigned int line, const char *file, const char *func, const char *format, ...)
+static inline void __attribute__((format(printf, 6, 7))) print_stuff(const rzip_control *control, int level, unsigned int line, const char *file, const char *func, const char *format, ...)
 {
 	va_list ap;
 	if (control->library_mode && control->log_cb && (control->log_level >= level)) {
@@ -529,7 +529,7 @@ static inline void print_stuff(const rzip_control *control, int level, unsigned 
 	}
 }
 
-static inline void print_err(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)
+static inline void __attribute__((format(printf, 5, 6))) print_err(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)
 {
 	va_list ap;
 	if (control->library_mode && control->log_cb && (control->log_level >= 0)) {

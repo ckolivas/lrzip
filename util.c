@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016,2021-2022 Con Kolivas
+   Copyright (C) 2006-2016,2021-2022,2026 Con Kolivas
    Copyright (C) 2011 Serge Belyshev
    Copyright (C) 2008, 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
@@ -58,6 +58,7 @@
 #ifdef HAVE_CTYPE_H
 # include <ctype.h>
 #endif
+#include <inttypes.h>
 
 /* Macros for testing parameters */
 #define isparameter( parmstring, value )	(!strcasecmp( parmstring, value ))
@@ -440,7 +441,7 @@ void lrz_stretch(rzip_control *control)
 	sha4_starts(&ctx, 0);
 
 	n = control->encloops * HASH_LEN / (control->salt_pass_len + sizeof(i64));
-	print_maxverbose("Hashing passphrase %lld (%lld) times \n", control->encloops, n);
+	print_maxverbose("Hashing passphrase %"PRId64" (%"PRId64") times \n", control->encloops, n);
 	for (j = 0; j < n; j ++) {
 		counter = htole64(j);
 		sha4_update(&ctx, (uchar *)&counter, sizeof(counter));

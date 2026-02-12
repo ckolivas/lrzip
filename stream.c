@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016,2018,2021-2022 Con Kolivas
+   Copyright (C) 2006-2016,2018,2021-2022,2026 Con Kolivas
    Copyright (C) 2011 Serge Belyshev
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
@@ -54,6 +54,8 @@
 #ifdef HAVE_ARPA_INET_H
 # include <arpa/inet.h>
 #endif
+
+#include <inttypes.h>
 
 /* LZMA C Wrapper */
 #include "lzma/C/LzmaLib.h"
@@ -447,7 +449,7 @@ static int zpaq_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 			control->msgout, SHOW_PROGRESS ? true: false, thread);
 
 	if (unlikely(dlen != ucthread->u_len)) {
-		print_err("Inconsistent length after decompression. Got %ld bytes, expected %lld\n", dlen, ucthread->u_len);
+		print_err("Inconsistent length after decompression. Got %ld bytes, expected %"PRId64"\n", dlen, ucthread->u_len);
 		ret = -1;
 	} else
 		dealloc(c_buf);
@@ -481,7 +483,7 @@ static int bzip2_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_
 	}
 
 	if (unlikely(dlen != ucthread->u_len)) {
-		print_err("Inconsistent length after decompression. Got %d bytes, expected %lld\n", dlen, ucthread->u_len);
+		print_err("Inconsistent length after decompression. Got %d bytes, expected %"PRId64"\n", dlen, ucthread->u_len);
 		ret = -1;
 	} else
 		dealloc(c_buf);
@@ -515,7 +517,7 @@ static int gzip_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
-		print_err("Inconsistent length after decompression. Got %ld bytes, expected %lld\n", dlen, ucthread->u_len);
+		print_err("Inconsistent length after decompression. Got %ld bytes, expected %"PRId64"\n", dlen, ucthread->u_len);
 		ret = -1;
 	} else
 		dealloc(c_buf);
@@ -537,7 +539,7 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 	c_buf = ucthread->s_buf;
 	ucthread->s_buf = malloc(round_up_page(control, dlen));
 	if (unlikely(!ucthread->s_buf)) {
-		print_err("Failed to allocate %lld bytes for decompression\n", (i64)dlen);
+		print_err("Failed to allocate %"PRId64" bytes for decompression\n", (i64)dlen);
 		ret = -1;
 		goto out;
 	}
@@ -552,7 +554,7 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
-		print_err("Inconsistent length after decompression. Got %lld bytes, expected %lld\n", (i64)dlen, ucthread->u_len);
+		print_err("Inconsistent length after decompression. Got %"PRId64" bytes, expected %"PRId64"\n", (i64)dlen, ucthread->u_len);
 		ret = -1;
 	} else
 		dealloc(c_buf);
@@ -586,7 +588,7 @@ static int lzo_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_th
 	}
 
 	if (unlikely((i64)dlen != ucthread->u_len)) {
-		print_err("Inconsistent length after decompression. Got %lu bytes, expected %lld\n", (unsigned long)dlen, ucthread->u_len);
+		print_err("Inconsistent length after decompression. Got %lu bytes, expected %"PRId64"\n", (unsigned long)dlen, ucthread->u_len);
 		ret = -1;
 	} else
 		dealloc(c_buf);
@@ -667,7 +669,7 @@ static bool read_fdin(struct rzip_control *control, i64 len)
 	for (i = 0; i < len; i++) {
 		tmpchar = getchar();
 		if (unlikely(tmpchar == EOF))
-			failure_return(("Reached end of file on STDIN prematurely on read_fdin, asked for %lld got %lld\n",
+			failure_return(("Reached end of file on STDIN prematurely on read_fdin, asked for %"PRId64" got %"PRId64"\n",
 				len, i), false);
 		control->tmp_inbuf[control->in_ofs + i] = (char)tmpchar;
 	}
@@ -744,11 +746,11 @@ static int write_buf(rzip_control *control, uchar *p, i64 len)
 
 	ret = write_1g(control, p, (size_t)len);
 	if (unlikely(ret == -1)) {
-		print_err("Write of length %lld failed - %s\n", len, strerror(errno));
+		print_err("Write of length %"PRId64" failed - %s\n", len, strerror(errno));
 		return -1;
 	}
 	if (unlikely(ret != (ssize_t)len)) {
-		print_err("Partial write!? asked for %lld bytes but got %lld\n", len, (i64)ret);
+		print_err("Partial write!? asked for %"PRId64" bytes but got %"PRId64"\n", len, (i64)ret);
 		return -1;
 	}
 	return 0;
@@ -772,11 +774,11 @@ static int read_buf(rzip_control *control, int f, uchar *p, i64 len)
 
 	ret = read_1g(control, f, p, (size_t)len);
 	if (unlikely(ret == -1)) {
-		print_err("Read of length %lld failed - %s\n", len, strerror(errno));
+		print_err("Read of length %"PRId64" failed - %s\n", len, strerror(errno));
 		return -1;
 	}
 	if (unlikely(ret != (ssize_t)len)) {
-		print_err("Partial read!? asked for %lld bytes but got %lld\n", len, (i64)ret);
+		print_err("Partial read!? asked for %"PRId64" bytes but got %"PRId64"\n", len, (i64)ret);
 		return -1;
 	}
 	return 0;
@@ -808,7 +810,7 @@ static inline int read_val(rzip_control *control, int f, i64 *v, int len)
 static int fd_seekto(rzip_control *control, struct stream_info *sinfo, i64 spos, i64 pos)
 {
 	if (unlikely(lseek(sinfo->fd, spos, SEEK_SET) != spos)) {
-		print_err("Failed to seek to %lld in stream\n", pos);
+		print_err("Failed to seek to %"PRId64" in stream\n", pos);
 		return -1;
 	}
 	return 0;
@@ -823,7 +825,7 @@ static int seekto(rzip_control *control, struct stream_info *sinfo, i64 pos)
 		spos -= control->out_relofs;
 		control->out_ofs = spos;
 		if (unlikely(spos > control->out_len || spos < 0)) {
-			print_err("Trying to seek to %lld outside tmp outbuf in seekto\n", spos);
+			print_err("Trying to seek to %"PRId64" outside tmp outbuf in seekto\n", spos);
 			return -1;
 		}
 		return 0;
@@ -851,7 +853,7 @@ static int read_seekto(rzip_control *control, struct stream_info *sinfo, i64 pos
 		}
 		control->in_ofs = spos;
 		if (unlikely(spos < 0)) {
-			print_err("Trying to seek to %lld outside tmp inbuf in read_seekto\n", spos);
+			print_err("Trying to seek to %"PRId64" outside tmp inbuf in read_seekto\n", spos);
 			return -1;
 		}
 		return 0;
@@ -1025,7 +1027,7 @@ retest_malloc:
 		dealloc(testmalloc2);
 	}
 	dealloc(testmalloc);
-	print_maxverbose("Succeeded in testing %lld sized malloc for back end compression\n", testsize);
+	print_maxverbose("Succeeded in testing %"PRId64" sized malloc for back end compression\n", testsize);
 
 	/* Make the bufsize no smaller than STREAM_BUFSIZE. Round up the
 	 * bufsize to fit X threads into it */
@@ -1033,16 +1035,16 @@ retest_malloc:
 					STREAM_BUFSIZE));
 
 	if (control->threads > 1)
-		print_maxverbose("Using up to %d threads to compress up to %lld bytes each.\n",
+		print_maxverbose("Using up to %d threads to compress up to %"PRId64" bytes each.\n",
 			control->threads, sinfo->bufsize);
 	else
-		print_maxverbose("Using only 1 thread to compress up to %lld bytes\n",
+		print_maxverbose("Using only 1 thread to compress up to %"PRId64" bytes\n",
 			sinfo->bufsize);
 
 	for (i = 0; i < n; i++) {
 		sinfo->s[i].buf = calloc(sinfo->bufsize , 1);
 		if (unlikely(!sinfo->s[i].buf)) {
-			fatal("Unable to malloc buffer of size %lld in open_stream_out\n", sinfo->bufsize);
+			fatal("Unable to malloc buffer of size %"PRId64" in open_stream_out\n", sinfo->bufsize);
 			dealloc(sinfo->s);
 			dealloc(sinfo);
 			return NULL;
@@ -1123,7 +1125,7 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 	if (control->major_version == 0 && control->minor_version > 5) {
 		/* Read in flag that tells us if there are more chunks after
 		 * this. Ignored if we know the final file size */
-		print_maxverbose("Reading eof flag at %lld\n", get_readseek(control, f));
+		print_maxverbose("Reading eof flag at %"PRId64"\n", get_readseek(control, f));
 		if (unlikely(read_u8(control, f, &control->eof))) {
 			print_err("Failed to read eof flag in open_stream_in\n");
 			goto failed;
@@ -1132,16 +1134,16 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 
 		/* Read in the expected chunk size */
 		if (!ENCRYPT) {
-			print_maxverbose("Reading expected chunksize at %lld\n", get_readseek(control, f));
+			print_maxverbose("Reading expected chunksize at %"PRId64"\n", get_readseek(control, f));
 			if (unlikely(read_val(control, f, &sinfo->size, sinfo->chunk_bytes))) {
 				print_err("Failed to read in chunk size in open_stream_in\n");
 				goto failed;
 			}
 			sinfo->size = le64toh(sinfo->size);
-			print_maxverbose("Chunk size: %lld\n", sinfo->size);
+			print_maxverbose("Chunk size: %"PRId64"\n", sinfo->size);
 			control->st_size += sinfo->size;
 			if (unlikely(sinfo->chunk_bytes < 1 || sinfo->chunk_bytes > 8 || sinfo->size < 0)) {
-				print_err("Invalid chunk data size %d bytes %lld\n", sinfo->size, sinfo->chunk_bytes);
+				print_err("Invalid chunk data size %"PRId64" bytes %d\n", sinfo->size, sinfo->chunk_bytes);
 				goto failed;
 			}
 		}
@@ -1182,7 +1184,7 @@ again:
 		} else {
 			int read_len;
 
-			print_maxverbose("Reading stream %d header at %lld\n", i, get_readseek(control, f));
+			print_maxverbose("Reading stream %d header at %"PRId64"\n", i, get_readseek(control, f));
 			if ((control->major_version == 0 && control->minor_version < 6) ||
 				ENCRYPT)
 					read_len = 8;
@@ -1221,11 +1223,11 @@ again:
 			goto failed;
 		}
 		if (unlikely(v1)) {
-			print_err("Unexpected initial c_len %lld in streams %lld\n", v1, v2);
+			print_err("Unexpected initial c_len %"PRId64" in streams %"PRId64"\n", v1, v2);
 			goto failed;
 		}
 		if (unlikely(v2)) {
-			print_err("Unexpected initial u_len %lld in streams\n", v2);
+			print_err("Unexpected initial u_len %"PRId64" in streams\n", v2);
 			goto failed;
 		}
 	}
@@ -1386,7 +1388,7 @@ retry:
 			unlock_mutex(control, &control->control_lock);
 		}
 
-		print_maxverbose("Writing initial chunk bytes value %d at %lld\n",
+		print_maxverbose("Writing initial chunk bytes value %d at %"PRId64"\n",
 				 ctis->chunk_bytes, get_seek(control, ctis->fd));
 		/* Write chunk bytes of this block */
 		write_u8(control, ctis->chunk_bytes);
@@ -1403,7 +1405,7 @@ retry:
 		if (unlikely(ctis->initial_pos == -1))
 			goto error;
 
-		print_maxverbose("Writing initial header at %lld\n", ctis->initial_pos);
+		print_maxverbose("Writing initial header at %"PRId64"\n", ctis->initial_pos);
 		for (j = 0; j < ctis->num_streams; j++) {
 			/* If encrypting, we leave SALT_LEN room to write in salt
 			* later */
@@ -1421,7 +1423,7 @@ retry:
 		}
 	}
 
-	print_maxverbose("Compthread %ld seeking to %lld to store length %d\n", i, ctis->s[cti->streamno].last_head, write_len);
+	print_maxverbose("Compthread %ld seeking to %"PRId64" to store length %d\n", i, ctis->s[cti->streamno].last_head, write_len);
 
 	if (unlikely(seekto(control, ctis, ctis->s[cti->streamno].last_head)))
 		fatal_goto(("Failed to seekto in compthread %d\n", i), error);
@@ -1434,12 +1436,12 @@ retry:
 
 	ctis->s[cti->streamno].last_head = ctis->cur_pos + 1 + (write_len * 2) + (ENCRYPT ? SALT_LEN : 0);
 
-	print_maxverbose("Compthread %ld seeking to %lld to write header\n", i, ctis->cur_pos);
+	print_maxverbose("Compthread %ld seeking to %"PRId64" to write header\n", i, ctis->cur_pos);
 
 	if (unlikely(seekto(control, ctis, ctis->cur_pos)))
 		fatal_goto(("Failed to seekto cur_pos in compthread %d\n", i), error);
 
-	print_maxverbose("Thread %ld writing %lld compressed bytes from stream %d\n", i, padded_len, cti->streamno);
+	print_maxverbose("Thread %ld writing %"PRId64" compressed bytes from stream %d\n", i, padded_len, cti->streamno);
 
 	if (ENCRYPT) {
 		if (unlikely(write_val(control, 0, SALT_LEN)))
@@ -1466,7 +1468,7 @@ retry:
 		ctis->cur_pos += SALT_LEN;
 	}
 
-	print_maxverbose("Compthread %ld writing data at %lld\n", i, ctis->cur_pos);
+	print_maxverbose("Compthread %ld writing data at %"PRId64"\n", i, ctis->cur_pos);
 
 	if (unlikely(write_buf(control, cti->s_buf, padded_len)))
 		fatal_goto(("Failed to write_buf s_buf in compthread %d\n", i), error);
@@ -1500,7 +1502,7 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 	cthreads[i].s_buf = sinfo->s[streamno].buf;
 	cthreads[i].s_len = sinfo->s[streamno].buflen;
 
-	print_maxverbose("Starting thread %ld to compress %lld bytes from stream %d\n",
+	print_maxverbose("Starting thread %d to compress %"PRId64" bytes from stream %d\n",
 			 i, cthreads[i].s_len, streamno);
 
 	s = malloc(sizeof(stream_thread_struct));
@@ -1519,7 +1521,7 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 		 * new one. */
 		sinfo->s[streamno].buf = malloc(sinfo->bufsize);
 		if (unlikely(!sinfo->s[streamno].buf))
-			failure("Unable to malloc buffer of size %lld in flush_buffer\n", sinfo->bufsize);
+			failure("Unable to malloc buffer of size %"PRId64" in flush_buffer\n", sinfo->bufsize);
 		sinfo->s[streamno].buflen = 0;
 	}
 
@@ -1588,7 +1590,7 @@ retry:
 		goto retry;
 	}
 
-	print_maxverbose("Thread %ld decompressed %lld bytes from stream %d\n", i, uci->u_len, uci->streamno);
+	print_maxverbose("Thread %d decompressed %"PRId64" bytes from stream %d\n", i, uci->u_len, uci->streamno);
 
 	return NULL;
 }
@@ -1640,7 +1642,7 @@ fill_another:
 	} else {
 		int read_len;
 
-		print_maxverbose("Reading ucomp header at %lld\n", get_readseek(control, sinfo->fd));
+		print_maxverbose("Reading ucomp header at %"PRId64"\n", get_readseek(control, sinfo->fd));
 		if ((control->major_version == 0 && control->minor_version < 6) || ENCRYPT)
 			read_len = 8;
 		else
@@ -1665,7 +1667,7 @@ fill_another:
 	c_len = le64toh(c_len);
 	u_len = le64toh(u_len);
 	last_head = le64toh(last_head);
-	print_maxverbose("Fill_buffer stream %d c_len %lld u_len %lld last_head %lld\n", streamno, c_len, u_len, last_head);
+	print_maxverbose("Fill_buffer stream %d c_len %"PRId64" u_len %"PRId64" last_head %"PRId64"\n", streamno, c_len, u_len, last_head);
 
 	/* It is possible for there to be an empty match block at the end of
 	 * incompressible data */
@@ -1677,7 +1679,7 @@ fill_another:
 	/* Check for invalid data and that the last_head is actually moving
 	 * forward correctly. */
 	if (unlikely(c_len < 1 || u_len < 1 || last_head < 0 || (last_head && last_head <= s->last_head))) {
-		fatal_return(("Invalid data compressed len %lld uncompressed %lld last_head %lld\n",
+		fatal_return(("Invalid data compressed len %"PRId64" uncompressed %"PRId64" last_head %"PRId64"\n",
 			     c_len, u_len, last_head), -1);
 	}
 
@@ -1686,12 +1688,12 @@ fill_another:
 	fsync(control->fd_out);
 
 	if (unlikely(u_len > control->maxram))
-		print_output("Warning, attempting to malloc very large buffer for this environment of size %lld\n", u_len);
+		print_output("Warning, attempting to malloc very large buffer for this environment of size %"PRId64"\n", u_len);
 	max_len = MAX(u_len, MIN_SIZE);
 	max_len = MAX(max_len, c_len);
 	s_buf = malloc(max_len);
 	if (unlikely(!s_buf))
-		fatal_return(("Unable to malloc buffer of size %lld in fill_buffer\n", u_len), -1);
+		fatal_return(("Unable to malloc buffer of size %"PRId64" in fill_buffer\n", u_len), -1);
 	sinfo->ram_alloced += u_len;
 
 	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len))) {
@@ -1713,7 +1715,7 @@ fill_another:
 
 	/* List this thread as busy */
 	ucthreads[s->uthread_no].busy = 1;
-	print_maxverbose("Starting thread %ld to decompress %lld bytes from stream %d\n",
+	print_maxverbose("Starting thread %ld to decompress %"PRId64" bytes from stream %d\n",
 			 s->uthread_no, padded_len, streamno);
 
 	sts = malloc(sizeof(stream_thread_struct));
@@ -1875,7 +1877,7 @@ int close_stream_in(rzip_control *control, void *ss)
 	struct stream_info *sinfo = ss;
 	int i;
 
-	print_maxverbose("Closing stream at %lld, want to seek to %lld\n",
+	print_maxverbose("Closing stream at %"PRId64", want to seek to %"PRId64"\n",
 			 get_readseek(control, control->fd_in),
 			 sinfo->initial_pos + sinfo->total_read);
 	if (unlikely(read_seekto(control, sinfo, sinfo->total_read)))
@@ -1933,7 +1935,7 @@ static int lz4_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 	} while (test_len <= dlen);
 
 	if (!ret)
-		print_maxverbose("lz4 testing FAILED for chunk %ld. %d Passes\n", workcounter);
+		print_maxverbose("lz4 testing FAILED for chunk %ld. %d Passes\n", s_len, workcounter);
 	else {
 		print_maxverbose("lz4 testing OK for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
 				s_len, 100 * ((double) best_dlen / (double) test_len), workcounter);

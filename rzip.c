@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016,2018,2022 Con Kolivas
+   Copyright (C) 2006-2016,2018,2022,2026 Con Kolivas
    Copyright (C) 1998 Andrew Tridgell
 
    Modified to use flat hash, memory limit and variable hash culling
@@ -105,7 +105,7 @@ static void remap_low_sb(rzip_control *control, struct sliding_buffer *sb)
 
 	new_offset = sb->offset_search;
 	round_to_page(&new_offset);
-	print_maxverbose("Sliding main buffer to offset %lld\n", new_offset);
+	print_maxverbose("Sliding main buffer to offset %"PRId64"\n", new_offset);
 	if (unlikely(munmap(sb->buf_low, sb->size_low)))
 		failure("Failed to munmap in remap_low_sb\n");
 	if (new_offset + sb->size_low > sb->orig_size)
@@ -568,12 +568,12 @@ static void show_distrib(rzip_control *control, struct rzip_state *st)
 	}
 
 	if (total != st->hash_count)
-		print_err("WARNING: hash_count says total %lld\n", st->hash_count);
+		print_err("WARNING: hash_count says total %"PRId64"\n", st->hash_count);
 
 	if (!total)
 		print_output("0 total hashes\n");
 	else {
-		print_output("%lld total hashes -- %lld in primary bucket (%-2.3f%%)\n",
+		print_output("%"PRId64" total hashes -- %"PRId64" in primary bucket (%-2.3f%%)\n",
 			     total, primary, primary * 100.0 / total);
 	}
 }
@@ -620,7 +620,7 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 				(1024 * 1024 / sizeof(st->hash_table[0]));
 		for (st->hash_bits = 0; (1U << st->hash_bits) < hashsize; st->hash_bits++);
 
-		print_maxverbose("hashsize = %lld.  bits = %lld. %luMB\n",
+		print_maxverbose("hashsize = %"PRId64".  bits = %d. %luMB\n",
 				 hashsize, st->hash_bits, st->level->mb_used);
 
 		/* 66% full at max. */
@@ -661,7 +661,7 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 			if (pct != lastpct || chunk_pct != last_chunkpct) {
 				if (!STDIN || st->stdin_eof)
 					print_progress("Total: %2d%%  ", pct);
-				print_progress("Chunk: %2d%%\r", chunk_pct);
+				print_progress("Chunk: %2"PRId64"%%\r", chunk_pct);
 				if (control->info_cb)
 					control->info_cb(control->info_data,
 						(!STDIN || st->stdin_eof) ? pct : -1, chunk_pct);
@@ -829,7 +829,7 @@ static inline void mmap_stdin(rzip_control *control, uchar *buf,
 		total += ret;
 		if (ret == 0) {
 			/* Should be EOF */
-			print_maxverbose("Shrinking chunk to %lld\n", total);
+			print_maxverbose("Shrinking chunk to %"PRId64"\n", total);
 			if (likely(total)) {
 				buf = (uchar *)mremap(buf, st->chunk_size, total, 0);
 				st->mmap_size = st->chunk_size = total;
@@ -977,7 +977,7 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 
 	if (!STDIN) {
 		len = control->st_size = s.st_size;
-		print_verbose("File size: %lld\n", len);
+		print_verbose("File size: %"PRId64"\n", len);
 	} else
 		control->st_size = 0;
 
@@ -1106,14 +1106,14 @@ retry:
 				goto retry;
 			}
 			if (st->mmap_size < st->chunk_size) {
-				print_maxverbose("Enabling sliding mmap mode and using mmap of %lld bytes with window of %lld bytes\n", st->mmap_size, st->chunk_size);
+				print_maxverbose("Enabling sliding mmap mode and using mmap of %"PRId64" bytes with window of %"PRId64" bytes\n", st->mmap_size, st->chunk_size);
 				control->do_mcpy = &sliding_mcpy;
 				control->next_tag = &sliding_next_tag;
 				control->full_tag = &sliding_full_tag;
 				control->match_len = &sliding_match_len;
 			}
 		}
-		print_maxverbose("Succeeded in testing %lld sized mmap for rzip pre-processing\n", st->mmap_size);
+		print_maxverbose("Succeeded in testing %"PRId64" sized mmap for rzip pre-processing\n", st->mmap_size);
 
 		if (st->chunk_size > control->ramsize)
 			print_verbose("Compression window is larger than ram, will proceed with unlimited mode possibly much slower\n");
@@ -1127,7 +1127,7 @@ retry:
 		}
 
 		sb->orig_offset = offset;
-		print_maxverbose("Chunk size: %lld\n", st->chunk_size);
+		print_maxverbose("Chunk size: %"PRId64"\n", st->chunk_size);
 
 		/* Determine the chunk byte width to write to the file
 		 * This allows archives of different chunk sizes to have
