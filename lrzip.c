@@ -782,6 +782,12 @@ static void release_hashes(rzip_control *control)
 
 static void clear_rulist(rzip_control *control)
 {
+	/* If we're unable to safely clean up thread-related memory due to
+	 * a failure in decompression, let the small memory leak be cleaned
+	 * up by process exit */
+	if (unlikely(control->thread_count > 0)) {
+		return;
+	}
 	while (control->ruhead) {
 		struct runzip_node *node = control->ruhead;
 		struct stream_info *sinfo = node->sinfo;

@@ -31,6 +31,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <semaphore.h>
+#include <stdatomic.h>
 
 #ifdef HAVE_PTHREAD_H
 # include <pthread.h>
@@ -467,6 +468,7 @@ struct rzip_control {
 
 	pthread_t *pthreads;
 	struct runzip_node *ruhead;
+	atomic_int thread_count;
 };
 
 struct uncomp_thread {

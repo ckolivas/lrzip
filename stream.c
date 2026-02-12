@@ -56,6 +56,7 @@
 #endif
 
 #include <inttypes.h>
+#include <stdatomic.h>
 
 /* LZMA C Wrapper */
 #include "lzma/C/LzmaLib.h"
@@ -124,8 +125,11 @@ static bool cond_broadcast(rzip_control *control, pthread_cond_t *cond)
 bool create_pthread(rzip_control *control, pthread_t *thread, pthread_attr_t * attr,
 	void * (*start_routine)(void *), void *arg)
 {
-	if (unlikely(pthread_create(thread, attr, start_routine, arg)))
+	atomic_fetch_add(&control->thread_count, 1);
+	if (unlikely(pthread_create(thread, attr, start_routine, arg))) {
+		atomic_fetch_sub(&control->thread_count, 1);
 		fatal_return(("Failed to pthread_create\n"), false);
+	}
 	return true;
 }
 
@@ -140,6 +144,7 @@ bool join_pthread(rzip_control *control, pthread_t th, void **thread_return)
 {
 	if (pthread_join(th, thread_return))
 		fatal_return(("Failed to pthread_join\n"), false);
+	atomic_fetch_sub(&control->thread_count, 1);
 	return true;
 }
 
