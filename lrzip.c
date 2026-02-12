@@ -1464,6 +1464,27 @@ error:
 	return false;
 }
 
+static int get_available_cpus(void)
+{
+	long sys;
+#ifdef __linux__
+	cpu_set_t mask;
+	CPU_ZERO(&mask);
+
+	if (sched_getaffinity(0, sizeof(mask), &mask) == 0) {
+		int count = CPU_COUNT(&mask);
+		if (count > 0)
+		    return count;
+	}
+#endif
+	/* Fallback to system-wide online CPUs */
+	sys = sysconf(_SC_NPROCESSORS_ONLN);
+	if (sys > 0)
+		return (int)sys;
+
+	return 1;  /* Absolute minimum */
+}
+
 bool initialise_control(rzip_control *control)
 {
 	time_t now_t, tdiff;
@@ -1481,7 +1502,7 @@ bool initialise_control(rzip_control *control)
 	if (unlikely(control->ramsize == -1))
 		return false;
 	/* for testing single CPU */
-	control->threads = PROCESSORS;	/* get CPUs for LZMA */
+	control->threads = get_available_cpus();	/* get CPUs for LZMA */
 	control->page_size = PAGE_SIZE;
 	control->nice_val = 19;
 

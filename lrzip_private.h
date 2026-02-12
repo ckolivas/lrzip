@@ -249,12 +249,6 @@ typedef sem_t cksem_t;
 
 #define one_g (1000 * 1024 * 1024)
 
-#if defined(NOTHREAD) || !defined(_SC_NPROCESSORS_ONLN)
-# define PROCESSORS (1)
-#else
-# define PROCESSORS (sysconf(_SC_NPROCESSORS_ONLN))
-#endif
-
 #ifndef PAGE_SIZE
 # ifdef _SC_PAGE_SIZE
 #  define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))

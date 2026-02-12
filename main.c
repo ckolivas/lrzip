@@ -163,7 +163,7 @@ static void show_summary(void)
 		if (!TEST_ONLY)
 			print_verbose("The following options are in effect for this %s.\n",
 				      DECOMPRESS ? "DECOMPRESSION" : "COMPRESSION");
-		print_verbose("Threading is %s. Number of CPUs detected: %d\n", control->threads > 1? "ENABLED" : "DISABLED",
+		print_verbose("Threading is %s. Number of CPUs available detected: %d\n", control->threads > 1? "ENABLED" : "DISABLED",
 			      control->threads);
 		print_verbose("Detected %"PRId64" bytes ram\n", control->ramsize);
 		print_verbose("Compression level %d\n", control->compression_level);
