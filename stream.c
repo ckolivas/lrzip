@@ -166,7 +166,9 @@ static int zpaq_compress_buf(rzip_control *control, struct compress_thread *cthr
 	if (!lz4_compresses(control, cthread->s_buf, cthread->s_len))
 		return 0;
 
-	c_size = round_up_page(control, cthread->s_len + 10000);
+	/* zpaq needs even more ram than other algorithms for relatively
+	 * incompressible data. */
+	c_size = round_up_page(control, (cthread->s_len + 10000) * 1.02);
 	c_buf = malloc(c_size);
 	if (!c_buf) {
 		print_err("Unable to allocate c_buf in zpaq_compress_buf\n");
