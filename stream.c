@@ -940,7 +940,7 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 {
 	struct stream_info *sinfo;
 	unsigned int i, testbufs;
-	bool threadlimit = false;
+	bool threadlimit = false, memlimit = false;
 	i64 testsize, limit;
 	uchar *testmalloc;
 
@@ -998,13 +998,15 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	/* Use a nominal minimum size should we fail all previous shrinking */
 	if (limit < STREAM_BUFSIZE) {
 		limit = MAX(limit, STREAM_BUFSIZE);
-		print_output("Warning, low memory for chosen compression settings\n");
+		if (threadlimit || memlimit)
+			print_output("Warning, low memory for chosen compression settings\n");
 	}
 	limit = MIN(limit, chunk_limit);
 retest_malloc:
 	testsize = limit + (control->overhead * control->threads);
 	testmalloc = malloc(testsize);
 	if (!testmalloc) {
+		memlimit = true;
 		limit = limit / 10 * 9;
 		if (limit < 100000000) {
 			/* If we can't even allocate 100MB then we'll never
