@@ -800,8 +800,11 @@ void Predictor::init() {
         cr.ht.resize(64, cp[1]);
         cr.cm.resize(512);
         for (int j=0; j<256; ++j) {
+          int stretched;
           cr.cm[j*2]=1<<15;
-          cr.cm[j*2+1]=clamp512k(stretch(st.cminit(j)>>8)<<10);
+          stretched = stretch(st.cminit(j)>>8);
+          if (stretched < 10) error("negative stretched value");
+          cr.cm[j*2+1]=clamp512k(stretched << 10);
         }
         break;
       case SSE: // sizebits j start limit
