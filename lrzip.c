@@ -867,7 +867,7 @@ bool decompress_file(rzip_control *control)
 	else if (STDIN) {
 		fd_in = open_tmpinfile(control);
 		read_tmpinmagic(control);
-		if (ENCRYPT)
+		if (ENCRYPT && !control->passphrase)
 			failure_return(("Cannot decompress encrypted file from STDIN\n"), false);
 		expected_size = control->st_size;
 		if (unlikely(!open_tmpinbuf(control)))
