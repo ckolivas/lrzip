@@ -801,7 +801,11 @@ void Predictor::init() {
         cr.cm.resize(512);
         for (int j=0; j<256; ++j) {
           cr.cm[j*2]=1<<15;
-          cr.cm[j*2+1]=clamp512k(stretch(st.cminit(j)>>8)<<10);
+          // Left shift of negative values is undefined strictly speaking so
+          // cast it back and forth to safely perform left shift and avoid
+          // compiler issues. Original code:
+          // cr.cm[j*2+1]=clamp512k(stretch(st.cminit(j)>>8)<<10);
+          cr.cm[j*2+1]=clamp512k(static_cast<int>(static_cast<unsigned int>(stretch(st.cminit(j) >> 8)) << 10));
         }
         break;
       case SSE: // sizebits j start limit
