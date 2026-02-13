@@ -1420,7 +1420,7 @@ retry:
 			* later */
 			if (ENCRYPT) {
 				if (unlikely(write_val(control, 0, SALT_LEN)))
-					fatal_goto(("Failed to write_buf blank salt in compthread %d\n", i), error);
+					fatal_goto(("Failed to write_buf blank salt in compthread %ld\n", i), error);
 				ctis->cur_pos += SALT_LEN;
 			}
 			ctis->s[j].last_head = ctis->cur_pos + 1 + (write_len * 2);
@@ -1435,10 +1435,10 @@ retry:
 	print_maxverbose("Compthread %ld seeking to %"PRId64" to store length %d\n", i, ctis->s[cti->streamno].last_head, write_len);
 
 	if (unlikely(seekto(control, ctis, ctis->s[cti->streamno].last_head)))
-		fatal_goto(("Failed to seekto in compthread %d\n", i), error);
+		fatal_goto(("Failed to seekto in compthread %ld\n", i), error);
 
 	if (unlikely(write_val(control, ctis->cur_pos, write_len)))
-		fatal_goto(("Failed to write_val cur_pos in compthread %d\n", i), error);
+		fatal_goto(("Failed to write_val cur_pos in compthread %ld\n", i), error);
 
 	if (ENCRYPT)
 		rewrite_encrypted(control, ctis, ctis->s[cti->streamno].last_head - 17);
@@ -1448,13 +1448,13 @@ retry:
 	print_maxverbose("Compthread %ld seeking to %"PRId64" to write header\n", i, ctis->cur_pos);
 
 	if (unlikely(seekto(control, ctis, ctis->cur_pos)))
-		fatal_goto(("Failed to seekto cur_pos in compthread %d\n", i), error);
+		fatal_goto(("Failed to seekto cur_pos in compthread %ld\n", i), error);
 
 	print_maxverbose("Thread %ld writing %"PRId64" compressed bytes from stream %d\n", i, padded_len, cti->streamno);
 
 	if (ENCRYPT) {
 		if (unlikely(write_val(control, 0, SALT_LEN)))
-			fatal_goto(("Failed to write_buf header salt in compthread %d\n", i), error);
+			fatal_goto(("Failed to write_buf header salt in compthread %ld\n", i), error);
 		ctis->cur_pos += SALT_LEN;
 		ctis->s[cti->streamno].last_headofs = ctis->cur_pos;
 	}
@@ -1463,7 +1463,7 @@ retry:
 		write_val(control, cti->c_len, write_len) ||
 		write_val(control, cti->s_len, write_len) ||
 		write_val(control, 0, write_len))) {
-			fatal_goto(("Failed write in compthread %d\n", i), error);
+			fatal_goto(("Failed write in compthread %ld\n", i), error);
 	}
 	ctis->cur_pos += 1 + (write_len * 3);
 
@@ -1471,7 +1471,7 @@ retry:
 		if (unlikely(!get_rand(control, cti->salt, SALT_LEN)))
 			goto error;
 		if (unlikely(write_buf(control, cti->salt, SALT_LEN)))
-			fatal_goto(("Failed to write_buf block salt in compthread %d\n", i), error);
+			fatal_goto(("Failed to write_buf block salt in compthread %ld\n", i), error);
 		if (unlikely(!lrz_encrypt(control, cti->s_buf, padded_len, cti->salt)))
 			goto error;
 		ctis->cur_pos += SALT_LEN;
@@ -1480,7 +1480,7 @@ retry:
 	print_maxverbose("Compthread %ld writing data at %"PRId64"\n", i, ctis->cur_pos);
 
 	if (unlikely(write_buf(control, cti->s_buf, padded_len)))
-		fatal_goto(("Failed to write_buf s_buf in compthread %d\n", i), error);
+		fatal_goto(("Failed to write_buf s_buf in compthread %ld\n", i), error);
 
 	ctis->cur_pos += padded_len;
 	dealloc(cti->s_buf);
@@ -1697,7 +1697,7 @@ fill_another:
 	fsync(control->fd_out);
 
 	if (unlikely(u_len > control->maxram))
-		fatal_return(("Unable to allocate enough memory for %"PRId64" specified in possibly corrupt archive\n"), -1);
+		fatal_return(("Unable to allocate enough memory for %"PRId64" specified in possibly corrupt archive\n", u_len), -1);
 	max_len = MAX(u_len, MIN_SIZE);
 	max_len = MAX(max_len, c_len);
 	s_buf = malloc(max_len);

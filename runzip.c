@@ -211,7 +211,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 	if (unlikely(offset == -1))
 		return -1;
 	if (unlikely(seekto_fdhist(control, cur_pos - offset) == -1))
-		fatal_return(("Seek failed by %d from %d on history file in unzip_match\n",
+		fatal_return(("Seek failed by %"PRId64" from %"PRId64" on history file in unzip_match\n",
 		      offset, cur_pos), -1);
 
 	n = MIN(len, offset);
@@ -224,7 +224,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 
 	if (unlikely(read_fdhist(control, buf, (size_t)n) != (ssize_t)n)) {
 		dealloc(buf);
-		fatal_return(("Failed to read %d bytes in unzip_match\n", n), -1);
+		fatal_return(("Failed to read %"PRId64" bytes in unzip_match\n", n), -1);
 	}
 
 	while (len) {
@@ -234,7 +234,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 
 		if (unlikely(write_1g(control, buf, (size_t)n) != (ssize_t)n)) {
 			dealloc(buf);
-			fatal_return(("Failed to write %d bytes in unzip_match\n", n), -1);
+			fatal_return(("Failed to write %"PRId64" bytes in unzip_match\n", n), -1);
 		}
 
 		if (!HAS_MD5)

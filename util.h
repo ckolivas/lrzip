@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016 Con Kolivas
+   Copyright (C) 2006-2016,2026 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998 Andrew Tridgell
 
@@ -32,7 +32,7 @@ void unlink_files(rzip_control *control);
 void register_outputfile(rzip_control *control, FILE *f);
 void fatal_exit(rzip_control *control);
 /* Failure when there is likely to be a meaningful error in perror */
-static inline void fatal(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)
+static inline void __attribute__((format(printf, 5, 6))) fatal(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)
 {
 	va_list ap;
 
