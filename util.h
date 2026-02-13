@@ -58,7 +58,7 @@ static inline void __attribute__((format(printf, 5, 6))) fatal(const rzip_contro
 	fatal stuff; \
 	goto label; \
 } while (0)
-static inline void failure(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)
+static inline void __attribute__((format(printf, 5, 6))) failure(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)
 {
 	va_list ap;
 
