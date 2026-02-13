@@ -509,7 +509,7 @@ struct stream_info {
 	char chunk_bytes;
 };
 
-static inline void __attribute__((format(printf, 6, 7))) print_stuff(const rzip_control *control, int level, unsigned int line, const char *file, const char *func, const char *format, ...)
+static inline void __attribute__((format(printf, 2, 3))) print_stuff(const rzip_control *control, const char *format, ...)
 {
 	va_list ap;
 	if (control->msgout) {
@@ -520,7 +520,7 @@ static inline void __attribute__((format(printf, 6, 7))) print_stuff(const rzip_
 	}
 }
 
-static inline void __attribute__((format(printf, 5, 6))) print_err(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)
+static inline void __attribute__((format(printf, 2, 3))) print_err(const rzip_control *control, const char *format, ...)
 {
 	va_list ap;
 	if (control->msgerr) {
@@ -531,31 +531,31 @@ static inline void __attribute__((format(printf, 5, 6))) print_err(const rzip_co
 	}
 }
 
-#define print_stuff(level, ...) do {\
-	print_stuff(control, level, __LINE__, __FILE__, __func__, __VA_ARGS__); \
+#define print_stuff(...) do {\
+	print_stuff(control, __VA_ARGS__); \
 } while (0)
 
 #define print_output(...)	do {\
 	if (SHOW_OUTPUT)	\
-	print_stuff(1, __VA_ARGS__); \
+	print_stuff(__VA_ARGS__); \
 } while (0)
 
 #define print_progress(...)	do {\
 	if (SHOW_PROGRESS)	\
-		print_stuff(2, __VA_ARGS__); \
+		print_stuff(__VA_ARGS__); \
 } while (0)
 
 #define print_verbose(...)	do {\
 	if (VERBOSE)	\
-		print_stuff(3, __VA_ARGS__); \
+		print_stuff(__VA_ARGS__); \
 } while (0)
 
 #define print_maxverbose(...)	do {\
 	if (MAX_VERBOSE)	\
-		print_stuff(4, __VA_ARGS__); \
+		print_stuff(__VA_ARGS__); \
 } while (0)
 
 #define print_err(...) do {\
-	print_err(control, __LINE__, __FILE__, __func__, __VA_ARGS__); \
+	print_err(control, __VA_ARGS__); \
 } while (0)
 #endif
