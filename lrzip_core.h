@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2006-2016,2022 Con Kolivas
+   Copyright (C) 2006-2016,2022,2026 Con Kolivas
    Copyright (C) 2011 Peter Hyman
    Copyright (C) 1998-2003 Andrew Tridgell
 
@@ -44,7 +44,7 @@ bool initialise_control(rzip_control *control);
 #define initialize_control(_control) initialise_control(_control)
 extern void zpaq_compress(uchar *c_buf, i64 *c_len, uchar *s_buf, i64 s_len, int level,
 			  FILE *msgout, bool progress, long thread);
-extern void zpaq_decompress(uchar *s_buf, i64 *d_len, uchar *c_buf, i64 c_len,
-			    FILE *msgout, bool progress, long thread);
+extern int zpaq_decompress(uchar *s_buf, i64 *d_len, uchar *c_buf, i64 c_len,
+			    FILE *msgout, bool progress, long thread, i64 expected_len);
 
 #endif

@@ -441,7 +441,7 @@ static int zpaq_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 {
 	i64 dlen = ucthread->u_len;
 	uchar *c_buf;
-	int ret = 0;
+	int zd_ret, ret = 0;
 
 	c_buf = ucthread->s_buf;
 	ucthread->s_buf = malloc(round_up_page(control, dlen));
@@ -452,9 +452,15 @@ static int zpaq_decompress_buf(rzip_control *control __UNUSED__, struct uncomp_t
 	}
 
 	dlen = 0;
-	zpaq_decompress(ucthread->s_buf, &dlen, c_buf, ucthread->c_len,
-			control->msgout, SHOW_PROGRESS ? true: false, thread);
+	zd_ret = zpaq_decompress(ucthread->s_buf, &dlen, c_buf, ucthread->c_len,
+			control->msgout, SHOW_PROGRESS ? true: false, thread,
+				ucthread->u_len);
 
+	if (unlikely(zd_ret < 0)) {
+		print_err("Attempted to write beyond expected output size, corrupted input.\n");
+		ret = -1;
+		goto out;
+	}
 	if (unlikely(dlen != ucthread->u_len)) {
 		print_err("Inconsistent length after decompression. Got %ld bytes, expected %"PRId64"\n", dlen, ucthread->u_len);
 		ret = -1;

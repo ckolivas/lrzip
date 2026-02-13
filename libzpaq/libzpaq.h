@@ -503,13 +503,35 @@ struct bufRead: public libzpaq::Reader {
 struct bufWrite: public libzpaq::Writer {
 	uchar *c_buf;
 	i64 *c_len;
-	bufWrite(uchar *buf_, i64 *n_): c_buf(buf_), c_len(n_) {}
+        i64 max_len;
+	bufWrite(uchar *buf_, i64 *n_, i64 max_ = -1LL): c_buf(buf_), c_len(n_), max_len(max_) {}
 
 	void put(int c) {
-		c_buf[(*c_len)++] = (uchar)c;
+		//c_buf[(*c_len)++] = (uchar)c;
+                if (*c_len < 0) return;
+                if (max_len >= 0 && *c_len >= max_len) {
+                    *c_len = -1;
+                    return;
+                }
+                c_buf[(*c_len)++] = static_cast<uchar>(c);
 	}
 
 	void write(const char *buf, int n) {
+                if (n <= 0 || *c_len < 0) return;
+                if (max_len < 0) {
+                    memcpy(c_buf + *c_len, buf, n);
+                    *c_len += n;
+                    return;
+                }
+                i64 avail = max_len - *c_len;
+                if (avail <= 0) {
+                    *c_len = -1;
+                    return;
+                }
+                if ((i64)n > avail) {
+                    *c_len = -1;
+                    return;
+                }
 		memcpy(c_buf + *c_len, buf, n);
 		*c_len += n;
 	}
@@ -527,16 +549,19 @@ extern "C" void zpaq_compress(uchar *c_buf, i64 *c_len, uchar *s_buf, i64 s_len,
 	compress (&bufR, &bufW, level);
 }
 
-extern "C" void zpaq_decompress(uchar *s_buf, i64 *d_len, uchar *c_buf, i64 c_len,
-				FILE *msgout, bool progress, long thread)
+extern "C" int zpaq_decompress(uchar *s_buf, i64 *d_len, uchar *c_buf, i64 c_len,
+				FILE *msgout, bool progress, long thread,
+                               i64 expected_len)
 {
 	i64 total_len = c_len;
 	int last_pct = 100;
 
 	bufRead bufR(c_buf, &c_len, total_len, &last_pct, progress, thread, msgout);
-	bufWrite bufW(s_buf, d_len);
+	bufWrite bufW(s_buf, d_len, expected_len);
 
 	decompress(&bufR, &bufW);
+        if (*d_len < 0) return -1;  // overflow attempt detected
+        return 0;
 }
 
 #endif  // LIBZPAQ_H
