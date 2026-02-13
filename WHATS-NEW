@@ -1,3 +1,12 @@
+lrzip-0.660
+
+Address multiple potential security issues with crafted or corrupt archives.
+Accept password usage as a parameter on decompressing encrypted files.
+Fix CPU detection not respecting affinity.
+Fix segfault with zpaq and incompressible blocks.
+Fix inappropriate warnings being displayed.
+Minor cleanups and extra code sanity checks.
+
 lrzip-0.651
 
 Remove redundant files
