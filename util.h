@@ -43,8 +43,6 @@ static inline void __attribute__((format(printf, 5, 6))) fatal(const rzip_contro
 	} else
 		control->log_cb(control->log_data, 0, line, file, func, format, ap);
 	va_end(ap);
-	if (!control->library_mode)
-		fatal_exit((rzip_control*)control);
 }
 #ifdef fatal
 # undef fatal
@@ -68,8 +66,6 @@ static inline void __attribute__((format(printf, 5, 6))) failure(const rzip_cont
 	else
 		control->log_cb(control->log_data, 0, line, file, func, format, ap);
 	va_end(ap);
-	if (!control->library_mode)
-		fatal_exit((rzip_control*)control);
 }
 #ifdef failure
 # undef failure
