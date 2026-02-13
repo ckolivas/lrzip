@@ -403,6 +403,19 @@ almost 3 times slower.
 > A: For reasons that are unclear the later versions of libzpaq create
 corrupt archives when included with lrzip
 
+> Q: When limiting processors with the -p option, lrzip still spawns twice as
+many threads as specified with LZMA compression.
+
+> A: LZMA compression uses a separate set of threads of its own. Should the
+number of threads be critical for your application, set it to half the amount
+you wish it to use.
+
+> Q: Lrzip uses enormous amounts of resources.
+
+> A: That is by design to obtain the maximum amount of compression in the
+minimum amount of time. It should not be used on a production server unless
+coupled with options to limit both its processor and ram resources.
+
 #### LIMITATIONS
 Due to mmap limitations the maximum size a window can be set to is currently
 2GB on 32bit unless the -U option is specified. Files generated on 64 bit
