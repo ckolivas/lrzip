@@ -14,13 +14,14 @@ Magic data:
 0->3	LRZI
 4	LRZIP Major Version Number
 5	LRZIP Minor Version Number
-6->14	Source File Size or 0 if unknown, or salt in encrypted file
+6->13	Source File Size or 0 if unknown, or salt in encrypted file
+14->15	Unused
 16->20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
 21	1 = md5sum hash is stored at the end of the archive
 22	1 = data is encrypted with sha512/aes128
 23	Unused
 
-Encrypted salt (bytes 6->14 in magic if encrypted):
+Encrypted salt (bytes 6->13 in magic if encrypted):
 0->1	Encoded number of loops to hash password
 2->7	Random data
 (RCD0 is set to 8 bytes always on encrypted files)
@@ -60,7 +61,8 @@ Magic data:
 0->3	LRZI
 4	LRZIP Major Version Number
 5	LRZIP Minor Version Number
-6->14	Source File Size
+6->13	Source File Size
+14->15	Unused
 16->20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
 21	Flag that md5sum hash is stored at the end of the archive
 22-23	not used
@@ -90,7 +92,8 @@ Byte	Content
 0-3	LRZI
 4	LRZIP Major Version Number
 5	LRZIP Minor Version Number
-6-14	Source File Size
+6-13	Source File Size
+14->15	Unused
 16-20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
 21-24	not used
 24-48	Stream 1 header data
@@ -117,7 +120,8 @@ Byte	Content
 4	LRZIP Major Version Number
 5	LRZIP Minor Version Number
 6-9	Source File Size (no HAVE_LARGE_FILES)
-6-14	Source File Size
+6-13	Source File Size
+14->15	Unused
 16-20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
 21-23	not used
 24-36	Stream 1 header data
