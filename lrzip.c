@@ -340,6 +340,7 @@ int open_tmpoutfile(rzip_control *control)
 		if (unlikely(!control->outfile))
 			fatal_return(("Failed to allocate outfile name\n"), -1);
 		strcpy(control->outfile, control->tmpdir);
+		print_maxverbose("Writing temporary file to %s\n", control->tmpdir);
 		strcat(control->outfile, "lrzipout.XXXXXX");
 	}
 
