@@ -457,6 +457,9 @@ struct rzip_control {
 	/* v0.7: magic[23] / LRZC last-block as read from headers */
 	unsigned char last_block;
 	bool lzma_prop_set;
+	/* LZ4 prefilter: test first backend block only, reuse for the rest */
+	bool lz4_test_done;
+	bool lz4_compressible;
 
 	cksem_t cksumsem;
 	md5_ctx ctx;

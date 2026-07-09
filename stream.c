@@ -2028,7 +2028,9 @@ int close_stream_in(rzip_control *control, void *ss)
 /* As others are slow and lz4 very fast, it is worth doing a quick lz4 pass
    to see if there is any compression at all with lz4 first. It is unlikely
    that others will be able to compress if lz4 is unable to drop a single byte
-   so do not compress any block that is incompressible by lz4. */
+   so do not compress any block that is incompressible by lz4.
+   The test runs only on the first backend block that reaches here; the
+   result is reused for all later blocks in this compression job. */
 static int lz4_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 {
 	int dlen, test_len;
@@ -2040,11 +2042,21 @@ static int lz4_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 	if (!LZ4_TEST)
 		return 1;
 
+	/* Serialise the one-shot test so only a single block is measured. */
+	lock_mutex(control, &control->control_lock);
+	if (control->lz4_test_done) {
+		ret = control->lz4_compressible ? 1 : 0;
+		unlock_mutex(control, &control->control_lock);
+		return ret;
+	}
+
 	dlen = MIN(s_len, STREAM_BUFSIZE);
 	test_len = MIN(dlen, STREAM_BUFSIZE >> 8);
 	c_buf = malloc(dlen);
-	if (unlikely(!c_buf))
+	if (unlikely(!c_buf)) {
+		unlock_mutex(control, &control->control_lock);
 		fatal_return(("Unable to allocate c_buf in lz4_compresses\n"), 0);
+	}
 
 	/* Test progressively larger blocks at a time and as soon as anything
 	   compressible is found, jump out as a success */
@@ -2066,13 +2078,18 @@ static int lz4_compresses(rzip_control *control, uchar *s_buf, i64 s_len)
 	} while (test_len <= dlen);
 
 	if (!ret)
-		print_maxverbose("lz4 testing FAILED for chunk %ld. %d Passes\n", s_len, workcounter);
+		print_maxverbose("lz4 testing FAILED for chunk %ld. %d Passes (applied to all blocks)\n",
+				 s_len, workcounter);
 	else {
-		print_maxverbose("lz4 testing OK for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes\n",
+		print_maxverbose("lz4 testing OK for chunk %ld. Compressed size = %5.2F%% of chunk, %d Passes (applied to all blocks)\n",
 				s_len, 100 * ((double) best_dlen / (double) test_len), workcounter);
 	}
 
 	dealloc(c_buf);
+
+	control->lz4_compressible = ret ? true : false;
+	control->lz4_test_done = true;
+	unlock_mutex(control, &control->control_lock);
 
 	return ret;
 }
