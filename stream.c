@@ -1289,13 +1289,14 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 	else
 		sinfo->payload_end = 0;
 
+	/* Only trust fstat on regular files. TMP_INBUF / pipes do not have a
+	 * reliable final size yet; last_head is still bounded by payload_end. */
 	if (!TMP_INBUF) {
 		struct stat st;
 
 		if (fstat(f, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0)
 			sinfo->infile_size = st.st_size;
-	} else if (control->in_len > 0)
-		sinfo->infile_size = control->in_len;
+	}
 
 	for (i = 0; i < n; i++) {
 		uchar c, enc_head[25 + SALT_LEN], hdr_tag[LRZ_HMAC_LEN];
@@ -1945,9 +1946,33 @@ fill_another:
 	print_maxverbose("Fill_buffer stream %d c_len %"PRId64" u_len %"PRId64" last_head %"PRId64"\n", streamno, c_len, u_len, last_head);
 
 	/* It is possible for there to be an empty match block at the end of
-	 * incompressible data */
+	 * incompressible data. Encrypted writers still emit data salt +
+	 * CBC_LEN pad (+ optional data HMAC); consume them so the next RCD
+	 * stays aligned. */
 	if (unlikely(c_len == 0 && u_len == 0 && streamno == 1 && last_head == 0)) {
 		print_maxverbose("Skipping empty match block\n");
+		if (ENCRYPT) {
+			i64 pad = MIN_SIZE; /* CBC_LEN when encrypting */
+			uchar *throw;
+
+			/* blocksalt already read into blocksalt[] above */
+			throw = malloc((size_t)pad + (ENCRYPT_HMAC ? LRZ_HMAC_LEN : 0));
+			if (unlikely(!throw))
+				fatal_return(("Failed to malloc empty-block pad\n"), -1);
+			if (unlikely(read_buf(control, sinfo->fd, throw, pad))) {
+				dealloc(throw);
+				return -1;
+			}
+			sinfo->total_read += pad;
+			if (ENCRYPT_HMAC) {
+				if (unlikely(read_buf(control, sinfo->fd, throw, LRZ_HMAC_LEN))) {
+					dealloc(throw);
+					return -1;
+				}
+				sinfo->total_read += LRZ_HMAC_LEN;
+			}
+			dealloc(throw);
+		}
 		goto skip_empty;
 	}
 

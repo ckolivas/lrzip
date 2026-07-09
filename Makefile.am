@@ -83,7 +83,16 @@ EXTRA_DIST = \
 		description-pak \
 		autogen.sh \
 		INSTALL \
+		regressiontest.sh \
+		tests/regression.sh \
+		tests/regression.good \
+		tests/roundtrip_suite.sh \
 		$(dist_doc_DATA)
+
+# Combined gold + round-trip regression suite.
+check-local: lrzip$(EXEEXT)
+	$(AM_V_at)LRZIP='$(abs_builddir)/lrzip$(EXEEXT)' \
+		$(srcdir)/tests/regression.sh
 
 install-exec-hook:
 	$(LN_S) -f lrzip$(EXEEXT) $(DESTDIR)$(bindir)/lrunzip$(EXEEXT)
