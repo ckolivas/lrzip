@@ -1437,13 +1437,15 @@ static void *compthread(void *data)
 	cti->c_type = CTYPE_NONE;
 	cti->c_len = cti->s_len;
 
-	/* This is a cludge in case we are compressing to stdout and our first
-	 * stream is not compressed, but subsequent ones are compressed by
-	 * lzma and we can no longer seek back to the beginning of the file
-	 * to write the lzma properties which are effectively always starting
-	 * with 93. */
-	if (TMP_OUTBUF && LZMA_COMPRESS)
-		control->lzma_properties[0] = 93;
+	/* Cludge for STDOUT: default lc/lp/pb byte to 93 if magic must be
+	 * written before any LZMA job has published real properties. Guard
+	 * with control_lock so we do not race other workers or write_magic. */
+	if (TMP_OUTBUF && LZMA_COMPRESS) {
+		lock_mutex(control, &control->control_lock);
+		if (!control->lzma_prop_set)
+			control->lzma_properties[0] = 93;
+		unlock_mutex(control, &control->control_lock);
+	}
 retry:
 	/* Very small buffers have issues to do with minimum amounts of ram
 	 * allocatable to a buffer combined with the MINIMUM_MATCH of rzip
