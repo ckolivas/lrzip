@@ -1867,7 +1867,8 @@ fill_another:
 
 	padded_len = MAX(c_len, MIN_SIZE);
 	sinfo->total_read += padded_len;
-	fsync(control->fd_out);
+	/* No fsync of fd_out here: same-inode writes are visible to fd_hist via
+	 * the page cache without forcing dirty data to disk each block. */
 
 	if (unlikely(u_len > control->maxram))
 		fatal_return(("Unable to allocate enough memory for %"PRId64" specified in possibly corrupt archive\n", u_len), -1);
