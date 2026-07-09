@@ -248,16 +248,38 @@ static i64 read_fdhist(rzip_control *control, void *buf, i64 len)
 	return len;
 }
 
+static inline void match_cksum(rzip_control *control, uint32 *cksum,
+			       const uchar *buf, i64 n)
+{
+	if (!HAS_MD5)
+		*cksum = CrcUpdate(*cksum, buf, n);
+	if (!NO_MD5)
+		md5_process_bytes(buf, n, &control->ctx);
+}
+
+/* Expand RLE match of period `offset` from the first `period` bytes of buf
+ * out to `len` bytes (period == min(len, offset)). */
+static void match_expand(uchar *buf, i64 period, i64 offset, i64 len)
+{
+	i64 pos = period;
+
+	while (pos < len) {
+		i64 n = MIN(len - pos, offset);
+
+		memcpy(buf + pos, buf + pos - offset, (size_t)n);
+		pos += n;
+	}
+}
+
 static i64 unzip_match(rzip_control *control, void *ss, struct runzip_s0 *s0,
 		       i64 len, uint32 *cksum, int chunk_bytes, i64 *out_pos)
 {
-	i64 offset, n, total, cur_pos;
+	i64 offset, period, cur_pos, hist;
 	uchar *buf;
 
 	if (unlikely(len < 0))
 		failure_return(("len %"PRId64" is negative in unzip_match!\n",len), -1);
 
-	total = 0;
 	/* Tracked write position — avoids lseek(SEEK_CUR) every match. */
 	cur_pos = *out_pos;
 
@@ -265,40 +287,61 @@ static i64 unzip_match(rzip_control *control, void *ss, struct runzip_s0 *s0,
 	offset = s0_vchars(control, ss, s0, chunk_bytes);
 	if (unlikely(offset == -1))
 		return -1;
+
+	period = MIN(len, offset);
+	if (unlikely(period < 1))
+		fatal_return(("Failed fd history in unzip_match due to corrupt archive\n"), -1);
+
+	/*
+	 * In-RAM history (stdout / tmp buffer): expand the match directly in
+	 * tmp_outbuf — no intermediate scratch, one integrity pass.
+	 * Source for the first period is hist; further periods copy from the
+	 * just-written output (standard RLE expand, non-overlapping chunks).
+	 */
+	if (TMP_OUTBUF) {
+		i64 dest = control->out_ofs;
+
+		hist = cur_pos - offset - control->out_relofs;
+		if (unlikely(hist < 0 || dest != cur_pos - control->out_relofs))
+			fatal_return(("Bad hist/dest in unzip_match: hist %"PRId64" dest %"PRId64"\n",
+				     hist, dest), -1);
+
+		if (dest + len <= control->out_maxlen) {
+			uchar *out = control->tmp_outbuf;
+
+			memcpy(out + dest, out + hist, (size_t)period);
+			match_expand(out + dest, period, offset, len);
+			match_cksum(control, cksum, out + dest, len);
+			control->out_ofs = dest + len;
+			if (control->out_ofs > control->out_len)
+				control->out_len = control->out_ofs;
+			*out_pos += len;
+			return len;
+		}
+		/* Falls through when the match will not fit in tmp_outbuf. */
+	}
+
 	if (unlikely(seekto_fdhist(control, cur_pos - offset) == -1))
 		fatal_return(("Seek failed by %"PRId64" from %"PRId64" on history file in unzip_match\n",
 		      offset, cur_pos), -1);
 
-	n = MIN(len, offset);
-	if (unlikely(n < 1))
-		fatal_return(("Failed fd history in unzip_match due to corrupt archive\n"), -1);
-
-	buf = runzip_get_buf(control, n);
+	/* File path (or tmp overflow): pull one period, expand full match in
+	 * scratch (len ≤ 0xFFFF), one write + one integrity pass. */
+	buf = runzip_get_buf(control, len);
 	if (unlikely(!buf))
-		fatal_return(("Failed to malloc match buffer of size %"PRId64"\n", n), -1);
+		fatal_return(("Failed to malloc match buffer of size %"PRId64"\n", len), -1);
 
-	if (unlikely(read_fdhist(control, buf, (size_t)n) != (ssize_t)n))
-		fatal_return(("Failed to read %"PRId64" bytes in unzip_match\n", n), -1);
+	if (unlikely(read_fdhist(control, buf, period) != period))
+		fatal_return(("Failed to read %"PRId64" bytes in unzip_match\n", period), -1);
 
-	while (len) {
-		n = MIN(len, offset);
-		if (unlikely(n < 1))
-			fatal_return(("Failed fd history in unzip_match due to corrupt archive\n"), -1);
+	match_expand(buf, period, offset, len);
 
-		if (unlikely(write_all(control, buf, (size_t)n) != (ssize_t)n))
-			fatal_return(("Failed to write %"PRId64" bytes in unzip_match\n", n), -1);
+	if (unlikely(write_all(control, buf, len) != (ssize_t)len))
+		fatal_return(("Failed to write %"PRId64" bytes in unzip_match\n", len), -1);
 
-		if (!HAS_MD5)
-			*cksum = CrcUpdate(*cksum, buf, n);
-		if (!NO_MD5)
-			md5_process_bytes(buf, n, &control->ctx);
-
-		len -= n;
-		total += n;
-	}
-
-	*out_pos += total;
-	return total;
+	match_cksum(control, cksum, buf, len);
+	*out_pos += len;
+	return len;
 }
 
 /* decompress a section of an open file. Call fatal_return(() on error
