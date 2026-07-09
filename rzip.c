@@ -51,6 +51,7 @@
 # include <arpa/inet.h>
 #endif
 #include <inttypes.h>
+#include <string.h>
 
 #include "md5.h"
 #include "stream.h"
@@ -392,7 +393,7 @@ again:
 	goto again;
 }
 
-static void single_next_tag(rzip_control *control, struct rzip_state *st, i64 p, tag *t)
+static inline void single_next_tag(rzip_control *control, struct rzip_state *st, i64 p, tag *t)
 {
 	uchar u;
 
@@ -402,7 +403,7 @@ static void single_next_tag(rzip_control *control, struct rzip_state *st, i64 p,
 	*t ^= st->hash_index[u];
 }
 
-static void sliding_next_tag(rzip_control *control, struct rzip_state *st, i64 p, tag *t)
+static inline void sliding_next_tag(rzip_control *control, struct rzip_state *st, i64 p, tag *t)
 {
 	uchar *u;
 
@@ -412,94 +413,167 @@ static void sliding_next_tag(rzip_control *control, struct rzip_state *st, i64 p
 	*t ^= st->hash_index[*u];
 }
 
-static tag single_full_tag(rzip_control *control, struct rzip_state *st, i64 p)
+static inline tag single_full_tag(rzip_control *control, struct rzip_state *st, i64 p)
 {
 	tag ret = 0;
 	int i;
-	uchar u;
 
-	for (i = 0; i < MINIMUM_MATCH; i++) {
-		u = control->sb.buf_low[p + i];
-		ret ^= st->hash_index[u];
-	}
+	for (i = 0; i < MINIMUM_MATCH; i++)
+		ret ^= st->hash_index[control->sb.buf_low[p + i]];
 	return ret;
 }
 
-static tag sliding_full_tag(rzip_control *control, struct rzip_state *st, i64 p)
+static inline tag sliding_full_tag(rzip_control *control, struct rzip_state *st, i64 p)
 {
 	tag ret = 0;
 	int i;
-	uchar *u;
 
-	for (i = 0; i < MINIMUM_MATCH; i++) {
-		u = sliding_get_sb(control, p + i);
-		ret ^= st->hash_index[*u];
-	}
+	for (i = 0; i < MINIMUM_MATCH; i++)
+		ret ^= st->hash_index[*sliding_get_sb(control, p + i)];
 	return ret;
 }
 
+/* Forward match using word-sized strides; reverse is usually short. */
 static i64
 single_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
-		 i64 end, i64 *rev)
+		 i64 end, i64 *rev, i64 best)
 {
-	i64 p, len;
+	const uchar *buf = control->sb.buf_low;
+	const uchar *a, *b;
+	i64 max_fwd, f, max_rev, rev_end, op0, p, o, len;
 
 	if (op >= p0)
 		return 0;
 
-	p = p0;
-	while (p < end && control->sb.buf_low[p] == control->sb.buf_low[op]) {
-		p++;
-		op++;
+	op0 = op;
+	max_fwd = end - p0;
+	a = buf + p0;
+	b = buf + op0;
+	f = 0;
+
+	while (f + (i64)sizeof(size_t) <= max_fwd) {
+		size_t xa, xb;
+
+		memcpy(&xa, a + f, sizeof(size_t));
+		memcpy(&xb, b + f, sizeof(size_t));
+		if (xa != xb)
+			break;
+		f += (i64)sizeof(size_t);
 	}
-	len = p - p0;
-	p = p0;
-	op -= len;
+	while (f < max_fwd && a[f] == b[f])
+		f++;
 
-	end = MAX(0, st->last_match);
+	rev_end = MAX((i64)0, st->last_match);
+	max_rev = p0 - rev_end;
+	if (max_rev > op0)
+		max_rev = op0;
 
-	while (p > end && op > 0 && control->sb.buf_low[op - 1] == control->sb.buf_low[p - 1]) {
-		op--;
-		p--;
-	}
-
-	len += *rev = p0 - p;
-	if (len < MINIMUM_MATCH)
+	/* Cannot beat best or reach MINIMUM_MATCH even with full reverse. */
+	if (f + max_rev < MINIMUM_MATCH || f + max_rev <= best)
 		return 0;
 
+	p = p0;
+	o = op0;
+	while (p > rev_end && o > 0 && buf[o - 1] == buf[p - 1]) {
+		o--;
+		p--;
+	}
+	*rev = p0 - p;
+
+	len = f + *rev;
+	if (len < MINIMUM_MATCH || len <= best)
+		return 0;
 	return len;
 }
 
+/* Sliding forward match: memcmp within contiguous mapped spans. */
 static i64
 sliding_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
-		  i64 end, i64 *rev)
+		  i64 end, i64 *rev, i64 best)
 {
-	i64 p, len;
+	i64 max_fwd, f, max_rev, rev_end, p, len, op0;
 
 	if (op >= p0)
 		return 0;
 
-	p = p0;
-	while (p < end && *sliding_get_sb(control, p) == *sliding_get_sb(control, op)) {
-		p++;
-		op++;
+	max_fwd = end - p0;
+	f = 0;
+	while (f < max_fwd) {
+		uchar *a = sliding_get_sb(control, p0 + f);
+		uchar *b = sliding_get_sb(control, op + f);
+		i64 n = sliding_get_sb_range(control, p0 + f);
+		i64 n2 = sliding_get_sb_range(control, op + f);
+		i64 m;
+
+		if (n2 < n)
+			n = n2;
+		if (n > max_fwd - f)
+			n = max_fwd - f;
+		if (n <= 0)
+			break;
+		if (memcmp(a, b, (size_t)n) == 0) {
+			f += n;
+			continue;
+		}
+		m = 0;
+		while (m < n && a[m] == b[m])
+			m++;
+		f += m;
+		break;
 	}
-	len = p - p0;
+
+	rev_end = MAX((i64)0, st->last_match);
+	max_rev = p0 - rev_end;
+	if (max_rev > op)
+		max_rev = op;
+
+	if (f + max_rev < MINIMUM_MATCH)
+		return 0;
+	if (f + max_rev <= best)
+		return 0;
+
+	op0 = op;
 	p = p0;
-	op -= len;
-
-	end = MAX(0, st->last_match);
-
-	while (p > end && op > 0 && *sliding_get_sb(control, op - 1) == *sliding_get_sb(control, p - 1)) {
+	op = op0;
+	while (p > rev_end && op > 0 &&
+	       *sliding_get_sb(control, op - 1) == *sliding_get_sb(control, p - 1)) {
 		op--;
 		p--;
 	}
+	*rev = p0 - p;
 
-	len += *rev = p0 - p;
+	len = f + *rev;
 	if (len < MINIMUM_MATCH)
 		return 0;
-
+	if (len <= best)
+		return 0;
 	return len;
+}
+
+static inline i64
+match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
+	  i64 end, i64 *rev, i64 best)
+{
+	if (st->sliding)
+		return sliding_match_len(control, st, p0, op, end, rev, best);
+	return single_match_len(control, st, p0, op, end, rev, best);
+}
+
+static inline void
+next_tag(rzip_control *control, struct rzip_state *st, i64 p, tag *t)
+{
+	if (st->sliding)
+		sliding_next_tag(control, st, p, t);
+	else
+		single_next_tag(control, st, p, t);
+}
+
+static inline tag
+full_tag(rzip_control *control, struct rzip_state *st, i64 p)
+{
+	if (st->sliding)
+		return sliding_full_tag(control, st, p);
+	return single_full_tag(control, st, p);
 }
 
 static inline i64
@@ -508,35 +582,37 @@ find_best_match(rzip_control *control, struct rzip_state *st, tag t, i64 p,
 {
 	struct hash_entry *he;
 	i64 length = 0;
-	i64 rev;
-	i64 h;
+	i64 rev = 0;
+	i64 h, probes = 0, tag_hits = 0;
+	i64 mask = (1 << st->hash_bits) - 1;
+	/* Cap probes: same-tag hits like insert_hash, plus a modest total walk. */
+	const i64 max_tag = st->level->max_chain_len;
+	const i64 max_probes = max_tag * 4 + 16;
 
-	rev = 0;
 	*reverse = 0;
+	*offset = 0;
 
-	/* Could optimise: if lesser goodness, can stop search.  But
-	 * chains are usually short anyway. */
 	h = primary_hash(st, t);
 	he = &st->hash_table[h];
-	while (!empty_hash(he)) {
-		i64 mlen;
-
+	while (!empty_hash(he) && probes < max_probes) {
+		probes++;
 		if (t == he->t) {
-			mlen = control->match_len(control, st, p, he->offset, end,
-						  &rev);
+			i64 mlen;
+
+			if (tag_hits >= max_tag)
+				break;
+			tag_hits++;
+			mlen = match_len(control, st, p, he->offset, end, &rev, length);
 			if (mlen) {
-				if (mlen > length) {
-					length = mlen;
-					(*offset) = he->offset - rev;
-					(*reverse) = rev;
-				}
+				length = mlen;
+				*offset = he->offset - rev;
+				*reverse = rev;
 				st->stats.tag_hits++;
 			} else
 				st->stats.tag_misses++;
 		}
 
-		h++;
-		h &= ((1 << st->hash_bits) - 1);
+		h = (h + 1) & mask;
 		he = &st->hash_table[h];
 	}
 
@@ -633,7 +709,7 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 	current.ofs = 0;
 
 	if (likely(end > 0))
-		t = control->full_tag(control, st, p);
+		t = full_tag(control, st, p);
 
 	while (p < end) {
 		i64 reverse, mlen, offset;
@@ -660,7 +736,7 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 			}
 		}
 
-		control->next_tag(control, st, p, &t);
+		next_tag(control, st, p, &t);
 
 		/* Don't look for a match if there are no tags with
 		   this number of bits in the hash table. */
@@ -693,7 +769,7 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 			st->last_match = current.p + current.len;
 			current.p = p = st->last_match;
 			current.len = 0;
-			t = control->full_tag(control, st, p);
+			t = full_tag(control, st, p);
 		}
 
 		/* Feed MD5 (if enabled) in page-sized pieces off the main search. */
@@ -1024,9 +1100,7 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 
 	prepare_streamout_threads(control);
 	control->do_mcpy = single_mcpy;
-	control->next_tag = &single_next_tag;
-	control->full_tag = &single_full_tag;
-	control->match_len = &single_match_len;
+	st->sliding = 0;
 
 	while (!pass || len > 0 || (STDIN && !st->stdin_eof)) {
 		double pct_base, pct_multiple;
@@ -1090,9 +1164,7 @@ retry:
 			if (st->mmap_size < st->chunk_size) {
 				print_maxverbose("Enabling sliding mmap mode and using mmap of %"PRId64" bytes with window of %"PRId64" bytes\n", st->mmap_size, st->chunk_size);
 				control->do_mcpy = &sliding_mcpy;
-				control->next_tag = &sliding_next_tag;
-				control->full_tag = &sliding_full_tag;
-				control->match_len = &sliding_match_len;
+				st->sliding = 1;
 			}
 		}
 		print_maxverbose("Succeeded in testing %"PRId64" sized mmap for rzip pre-processing\n", st->mmap_size);

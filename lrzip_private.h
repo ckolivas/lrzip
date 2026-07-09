@@ -381,6 +381,7 @@ struct rzip_state {
 	i64 chunk_size;
 	i64 mmap_size;
 	char chunk_bytes;
+	char sliding;	/* non-zero: sliding mmap match path */
 	int fd_in, fd_out;
 	char stdin_eof;
 	struct {
@@ -479,9 +480,6 @@ struct rzip_control {
 	char chunk_bytes;
 	struct sliding_buffer sb;
 	void (*do_mcpy)(rzip_control *, unsigned char *, i64, i64);
-	void (*next_tag)(rzip_control *, struct rzip_state *, i64, tag *);
-	tag (*full_tag)(rzip_control *, struct rzip_state *, i64);
-	i64 (*match_len)(rzip_control *, struct rzip_state *, i64, i64, i64, i64 *);
 
 	pthread_t *pthreads;
 	struct runzip_node *ruhead;
