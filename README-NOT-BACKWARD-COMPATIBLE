@@ -1,3 +1,13 @@
+lrzip-0.70 update
+
+Some files created with lrzip 0.7x may not be backward compatible with version
+0.6x. Many compressed files will be decompressible with the following
+exceptions:
+Large files compressed via stdio on relatively low RAM machines use a new
+streaming format which is incompatible. Files compressed with zpaq use a more
+efficient zpaq algorithm which is mostly incompatible. Encrypted files use
+a more secure algorithm which is not compatible.
+
 lrzip-0.60 update
 
 All files created with lrzip 0.6x are not backward compatible with versions
