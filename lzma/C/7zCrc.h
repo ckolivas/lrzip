@@ -1,30 +1,28 @@
 /* 7zCrc.h -- CRC32 calculation
-2009-02-07 : Igor Pavlov : Public domain */
+2024-01-22 : Igor Pavlov : Public domain */
 
-#ifndef __7Z_CRC_H
-#define __7Z_CRC_H
+#ifndef ZIP7_INC_7Z_CRC_H
+#define ZIP7_INC_7Z_CRC_H
 
-#include <stddef.h>
+#include "7zTypes.h"
 
-#include "Types.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+EXTERN_C_BEGIN
 
 extern UInt32 g_CrcTable[];
 
-void MY_FAST_CALL CrcGenerateTable(void);
+/* Call CrcGenerateTable one time before other CRC functions */
+void Z7_FASTCALL CrcGenerateTable(void);
 
 #define CRC_INIT_VAL 0xFFFFFFFF
-#define CRC_GET_DIGEST(crc) ((crc) ^ 0xFFFFFFFF)
+#define CRC_GET_DIGEST(crc) ((crc) ^ CRC_INIT_VAL)
 #define CRC_UPDATE_BYTE(crc, b) (g_CrcTable[((crc) ^ (b)) & 0xFF] ^ ((crc) >> 8))
 
-UInt32 MY_FAST_CALL CrcUpdate(UInt32 crc, const void *data, size_t size);
-UInt32 MY_FAST_CALL CrcCalc(const void *data, size_t size);
+UInt32 Z7_FASTCALL CrcUpdate(UInt32 crc, const void *data, size_t size);
+UInt32 Z7_FASTCALL CrcCalc(const void *data, size_t size);
 
-#ifdef __cplusplus
-}
-#endif
+typedef UInt32 (Z7_FASTCALL *Z7_CRC_UPDATE_FUNC)(UInt32 v, const void *data, size_t size);
+Z7_CRC_UPDATE_FUNC z7_GetFunc_CrcUpdate(unsigned algo);
+
+EXTERN_C_END
 
 #endif

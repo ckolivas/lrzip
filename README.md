@@ -309,8 +309,7 @@ previously. Whether the commercial compilers help or not, I could not tell you.
 
 > Q: What codebase are you basing this on?
 
-> A: rzip v2.1 and lzma sdk920, but it should be possible to stay in sync with
-each of these in the future.
+> A: rzip v2.1, **LZMA SDK 26.02**, and **libzpaq 7.15**.
 
 > Q: Do we really need yet another compression format?
 
@@ -429,8 +428,8 @@ rzip:
 lzo:
 <http://www.oberhumer.com/opensource/lzo/>
 
-lzma:
-<http://www.7-zip.org/>
+lzma / LZMA SDK 26.02:
+<https://www.7-zip.org/sdk.html>
 
 zpaq / libzpaq 7.15:
 <http://mattmahoney.net/dc/zpaq.html>
@@ -441,7 +440,7 @@ zpaq / libzpaq 7.15:
 |---|---|
 |`Andrew Tridgell`|`rzip`|
 |`Markus Oberhumer`|`lzo`|
-|`Igor Pavlov`|`lzma`|
+|`Igor Pavlov`|`lzma` / LZMA SDK (lrzip embeds 26.02)|
 |`Jean-Loup Gailly & Mark Adler`|`zlib`|
 |***`Con Kolivas`***|***Original Code, binding all of this together, managing the project, original `README`***|
 |`Christian Leber`|`lzma` compatibility layer|

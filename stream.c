@@ -320,8 +320,9 @@ retry:
 		return -1;
 	}
 
-	/* with LZMA SDK 4.63, we pass compression level and threads only
-	 * and receive properties in lzma_properties */
+	/* LZMA SDK 26.02 LzmaCompress: level + threads; props returned in
+	 * lzma_properties (5 bytes). Default dict size per level is larger
+	 * than the old 4.63/9.x tables. */
 
 	lzma_ret = LzmaCompress(c_buf, &dlen, cthread->s_buf,
 		(size_t)cthread->s_len, lzma_properties, &prop_size,
@@ -559,7 +560,7 @@ static int lzma_decompress_buf(rzip_control *control, struct uncomp_thread *ucth
 		goto out;
 	}
 
-	/* With LZMA SDK 4.63 we pass control->lzma_properties
+	/* LZMA SDK: pass control->lzma_properties
 	 * which is needed for proper uncompress */
 	lzmaerr = LzmaUncompress(ucthread->s_buf, &dlen, c_buf, &c_len, control->lzma_properties, 5);
 	if (unlikely(lzmaerr)) {

@@ -4,8 +4,12 @@ Update embedded libzpaq from 5.00 to 7.15 (Matt Mahoney). New C++ glue in
 libzpaq/zpaq_lrzip.cpp maps lrzip compression levels to method strings and
 keeps write-bounds checks. New -z archives use ZPAQ level 2; older lrzip
 with libzpaq 5.x can still be decompressed by this release, but may not
-decompress archives created with 7.15. Streaming block (STDIO) framing and
-other v0.7 format work.
+decompress archives created with 7.15.
+
+Update embedded LZMA SDK from ~4.63/9.x to 26.02 (Igor Pavlov). LzmaLib
+API (LzmaCompress/LzmaUncompress) unchanged; default dictionary sizes per
+level are larger. Old and new .lrz LZMA streams remain mutually
+decompressible. Streaming block (STDIO) framing and other v0.7 format work.
 
 lrzip-0.660
 

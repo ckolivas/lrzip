@@ -1,31 +1,21 @@
-JANUARY 2009
+LZMA SDK 26.02 integration for lrzip
+====================================
 
-This is an updated LZMA library wrapper provided with SDK 4.63.
-The SDK is available here: http://www.7-zip.org/sdk.html.
+This tree embeds a subset of Igor Pavlov's LZMA SDK 26.02 (2026-06-25),
+public domain, from https://www.7-zip.org/sdk.html
 
-It is written completely in C and compilation and integration
-is much simpler. To enable multithreading support, compile
-with COMPRESS_MF_MT and _REENTRANT defined. MF=Match Finder, 
-MT=Multi Thread. In addition, link in pthread. This is default
-behavior in lrzip. For single thread support, remove these
-defines in the Makefile.
+Files under C/ are the LzmaLib / encoder-decoder / match-finder sources
+needed for LzmaCompress() and LzmaUncompress() as used by stream.c.
+Full SDK staging (for reference only, not built) may live at
+../lzma-sdk-26.02/ in a developer tree.
 
-Some additional documentation is provided from the SDK.
+Previous lrzip integration was based on SDK ~4.63 / 9.x with a zlib-like
+wrapper. The LzmaCompress/LzmaUncompress API is unchanged in shape;
+internal code, default dictionary sizes per level, and build deps differ.
 
-File ./C/7zCrcT8.c is added to support ASM CRC code. Taken
-from p7zip.org.
+Build: automake liblzma.la in C/ (see C/Makefile.am). Optional ASM CRC
+from older trees is no longer used; the match finder carries its own CRC
+table.
 
-Original README text follows.
-
-This is a zlib like library for the lzma encoder/decoder originally created
-by Oleg I. Vdovikin <oleg@cs.msu.su> and modified for lrzip by Con Kolivas
-<kernel@kolivas.org>
-It is based on a stripped down source tree of the lzma SDK by Igor Pavlov.
-http://www.7-zip.org
-
-You can build a standalone library called liblzma.a which gives functions
-equivalent to compress2() and uncompress() called lzma_compress() and
-lzma_uncompress().
-
-Updated for recent SDK 4.57 and added assembler routines for crc
-using p7zip.org variant by Peter Hyman
+Docs from the SDK (DOC/) are installed as lzma documentation where the
+parent Makefile.am lists them.
