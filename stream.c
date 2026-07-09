@@ -1436,10 +1436,6 @@ static void *compthread(void *data)
 	cti->c_type = CTYPE_NONE;
 	cti->c_len = cti->s_len;
 
-	/* Flushing writes to disk frees up any dirty ram, improving chances
-	 * of succeeding in allocating more ram */
-	fsync(ctis->fd);
-
 	/* This is a cludge in case we are compressing to stdout and our first
 	 * stream is not compressed, but subsequent ones are compressed by
 	 * lzma and we can no longer seek back to the beginning of the file
