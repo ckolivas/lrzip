@@ -41,6 +41,7 @@
 #endif
 
 #include <inttypes.h>
+#include <string.h>
 
 #include "md5.h"
 #include "runzip.h"
@@ -50,38 +51,72 @@
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
 
-static inline uchar read_u8(rzip_control *control, void *ss, int stream, bool *err)
-{
-	uchar b;
+/* Batched stream-0 window: token headers are tiny (1–3B + offset) and
+ * millions of them thrash read_stream; fill a few KiB at a time instead. */
+#define RUNZIP_S0_WIN 4096
 
-	if (unlikely(read_stream(control, ss, stream, &b, 1) != 1)) {
-		*err = true;
-		fatal_return(("Stream read u8 failed\n"), 0);
+struct runzip_s0 {
+	uchar buf[RUNZIP_S0_WIN];
+	unsigned pos;
+	unsigned end;
+};
+
+/* Ensure at least need bytes are buffered from stream 0. */
+static int s0_need(rzip_control *control, void *ss, struct runzip_s0 *s0,
+		   unsigned need)
+{
+	unsigned have = s0->end - s0->pos;
+	i64 got, space;
+
+	if (likely(have >= need))
+		return 0;
+	if (s0->pos) {
+		if (have)
+			memmove(s0->buf, s0->buf + s0->pos, have);
+		s0->pos = 0;
+		s0->end = have;
 	}
-	return b;
+	while (s0->end - s0->pos < need) {
+		space = RUNZIP_S0_WIN - s0->end;
+		if (unlikely(space <= 0))
+			return -1;
+		got = read_stream(control, ss, 0, s0->buf + s0->end, space);
+		if (unlikely(got < 0))
+			return -1;
+		if (got == 0)
+			break;
+		s0->end += (unsigned)got;
+		/* Short read: stream 0 is drained for now. */
+		if (got < space)
+			break;
+	}
+	return (s0->end - s0->pos >= need) ? 0 : -1;
 }
 
-static inline u32 read_u32(rzip_control *control, void *ss, int stream, bool *err)
-{
-	u32 ret;
-
-	if (unlikely(read_stream(control, ss, stream, (uchar *)&ret, 4) != 4)) {
-		*err = true;
-		fatal_return(("Stream read u32 failed\n"), 0);
-	}
-	ret = le32toh(ret);
-	return ret;
-}
-
-/* Read a variable length of chars dependant on how big the chunk was */
-static inline i64 read_vchars(rzip_control *control, void *ss, int stream, int length)
+static inline i64 s0_vchars(rzip_control *control, void *ss,
+			    struct runzip_s0 *s0, int length)
 {
 	i64 s = 0;
 
-	if (unlikely(read_stream(control, ss, stream, (uchar *)&s, length) != length))
+	if (unlikely(s0_need(control, ss, s0, (unsigned)length)))
 		fatal_return(("Stream read of %d bytes failed\n", length), -1);
-	s = le64toh(s);
-	return s;
+	memcpy(&s, s0->buf + s0->pos, (size_t)length);
+	s0->pos += (unsigned)length;
+	return le64toh(s);
+}
+
+static inline u32 s0_u32(rzip_control *control, void *ss, struct runzip_s0 *s0,
+			 bool *err)
+{
+	u32 ret;
+
+	if (unlikely(s0_need(control, ss, s0, 4))) {
+		*err = true;
+		fatal_return(("Stream read u32 failed\n"), 0);
+	}
+	memcpy(&ret, s0->buf + s0->pos, 4);
+	s0->pos += 4;
+	return le32toh(ret);
 }
 
 static i64 seekcur_fdout(rzip_control *control)
@@ -139,14 +174,19 @@ static i64 seekto_fdinend(rzip_control *control)
 	return control->in_ofs;
 }
 
-static i64 read_header(rzip_control *control, void *ss, uchar *head)
+/* head (1) + length (control->chunk_bytes, usually 2) in one window fill. */
+static i64 read_header(rzip_control *control, void *ss, struct runzip_s0 *s0,
+		       uchar *head)
 {
-	bool err = false;
+	int lb = control->chunk_bytes;
+	i64 s = 0;
 
-	*head = read_u8(control, ss, 0, &err);
-	if (err)
+	if (unlikely(s0_need(control, ss, s0, (unsigned)(1 + lb))))
 		return -1;
-	return read_vchars(control, ss, 0, control->chunk_bytes);
+	*head = s0->buf[s0->pos++];
+	memcpy(&s, s0->buf + s0->pos, (size_t)lb);
+	s0->pos += (unsigned)lb;
+	return le64toh(s);
 }
 
 /* Grow-only scratch for literal/match tokens — avoids malloc/free per token. */
@@ -208,8 +248,8 @@ static i64 read_fdhist(rzip_control *control, void *buf, i64 len)
 	return len;
 }
 
-static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum,
-		       int chunk_bytes, i64 *out_pos)
+static i64 unzip_match(rzip_control *control, void *ss, struct runzip_s0 *s0,
+		       i64 len, uint32 *cksum, int chunk_bytes, i64 *out_pos)
 {
 	i64 offset, n, total, cur_pos;
 	uchar *buf;
@@ -222,7 +262,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum,
 	cur_pos = *out_pos;
 
 	/* Note the offset is in a different format v0.40+ */
-	offset = read_vchars(control, ss, 0, chunk_bytes);
+	offset = s0_vchars(control, ss, s0, chunk_bytes);
 	if (unlikely(offset == -1))
 		return -1;
 	if (unlikely(seekto_fdhist(control, cur_pos - offset) == -1))
@@ -270,6 +310,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	i64 len, ofs, total = 0, out_pos;
 	int l = -1, p = 0;
 	char chunk_bytes;
+	struct runzip_s0 s0;
 	struct stat st;
 	uchar head;
 	void *ss;
@@ -335,7 +376,9 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 		fatal_return(("Seek failed on out file in runzip_chunk\n"), -1);
 	}
 
-	while ((len = read_header(control, ss, &head)) || head) {
+	memset(&s0, 0, sizeof(s0));
+
+	while ((len = read_header(control, ss, &s0, &head)) || head) {
 		i64 u;
 		if (unlikely(len == -1))
 			return -1;
@@ -350,7 +393,8 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 				break;
 
 			default:
-				u = unzip_match(control, ss, len, &cksum, chunk_bytes, &out_pos);
+				u = unzip_match(control, ss, &s0, len, &cksum, chunk_bytes,
+						&out_pos);
 				if (unlikely(u == -1)) {
 					close_stream_in(control, ss);
 					return -1;
@@ -370,7 +414,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	}
 
 	if (!HAS_MD5) {
-		good_cksum = read_u32(control, ss, 0, &err);
+		good_cksum = s0_u32(control, ss, &s0, &err);
 		if (unlikely(err)) {
 			close_stream_in(control, ss);
 			return -1;

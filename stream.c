@@ -1789,8 +1789,13 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, struct 
 	void *thr_return;
 
 	dealloc(s->buf);
+	s->buf = NULL;
+	s->buflen = 0;
+	s->bufp = 0;
+	/* Already drained: do not re-join a finished thread (read_stream may
+	 * ask again after a large batched pull of the last block). */
 	if (s->eos)
-		goto out;
+		return 0;
 fill_another:
 	if (unlikely(ucthreads[s->uthread_no].busy))
 		failure_return(("Trying to start a busy thread, this shouldn't happen!\n"), -1);
@@ -1924,7 +1929,7 @@ skip_empty:
 	else if (s->uthread_no != s->unext_thread && !ucthreads[s->uthread_no].busy &&
 		 sinfo->ram_alloced < control->maxram)
 			goto fill_another;
-out:
+
 	lock_mutex(control, &output_lock);
 	output_thread = s->unext_thread;
 	cond_broadcast(control, &output_cond);
