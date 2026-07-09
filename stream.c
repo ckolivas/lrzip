@@ -1410,8 +1410,10 @@ error:
 	return false;
 }
 
-/* Enter with s_buf allocated,s_buf points to the compressed data after the
- * backend compression and is then freed here */
+/* Enter with s_buf allocated; s_buf points to the data (possibly compressed)
+ * and is freed here. Output to the archive is strictly ordered by
+ * output_thread so last_head links stay consistent. Every exit path must
+ * claim and release that ordering slot so other workers cannot hang. */
 static void *compthread(void *data)
 {
 	stream_thread_struct *s = data;
@@ -1419,11 +1421,10 @@ static void *compthread(void *data)
 	long i = s->i;
 	struct compress_thread *cti;
 	struct stream_info *ctis;
-	int waited = 0, ret = 0;
+	int waited = 0, ret = 0, turn_released = 0;
+	const char *fatal_msg = NULL;
 	i64 padded_len;
 	int write_len;
-
-	/* Make sure this thread doesn't already exist */
 
 	dealloc(data);
 	cti = &cthreads[i];
@@ -1459,7 +1460,10 @@ retry:
 			ret = gzip_compress_buf(control, cti);
 		else if (ZPAQ_COMPRESS)
 			ret = zpaq_compress_buf(control, cti, i);
-		else failure_goto(("Dunno wtf compression to use!\n"), error);
+		else {
+			fatal_msg = "Dunno wtf compression to use!\n";
+			goto out;
+		}
 	}
 
 	padded_len = cti->c_len;
@@ -1469,17 +1473,21 @@ retry:
 		 * data */
 		padded_len = MIN_SIZE;
 		cti->s_buf = realloc(cti->s_buf, MIN_SIZE);
-		if (unlikely(!cti->s_buf))
-			fatal_goto(("Failed to realloc s_buf in compthread\n"), error);
+		if (unlikely(!cti->s_buf)) {
+			fatal_msg = "Failed to realloc s_buf in compthread\n";
+			goto out;
+		}
 		if (unlikely(!get_rand(control, cti->s_buf + cti->c_len, MIN_SIZE - cti->c_len)))
-			goto error;
+			goto out;
 	}
 
 	/* If compression fails for whatever reason multithreaded, then wait
 	 * for the previous thread to finish, serialising the work to decrease
 	 * the memory requirements, increasing the chance of success */
-	if (unlikely(ret && waited))
-		failure_goto(("Failed to compress in compthread\n"), error);
+	if (unlikely(ret && waited)) {
+		fatal_msg = "Failed to compress in compthread\n";
+		goto out;
+	}
 
 	if (!waited) {
 		lock_mutex(control, &output_lock);
@@ -1513,7 +1521,7 @@ retry:
 				if (unlikely(!write_lrzc_header(control, ctis->fd,
 						ctis->size, control->eof))) {
 					unlock_mutex(control, &control->control_lock);
-					goto error;
+					goto out;
 				}
 			}
 			unlock_mutex(control, &control->control_lock);
@@ -1534,15 +1542,17 @@ retry:
 		/* First chunk of this stream, write headers */
 		ctis->initial_pos = get_seek(control, ctis->fd);
 		if (unlikely(ctis->initial_pos == -1))
-			goto error;
+			goto out;
 
 		print_maxverbose("Writing initial header at %"PRId64"\n", ctis->initial_pos);
 		for (j = 0; j < ctis->num_streams; j++) {
 			/* If encrypting, we leave SALT_LEN room to write in salt
 			* later */
 			if (ENCRYPT) {
-				if (unlikely(write_val(control, 0, SALT_LEN)))
-					fatal_goto(("Failed to write_buf blank salt in compthread %ld\n", i), error);
+				if (unlikely(write_val(control, 0, SALT_LEN))) {
+					fatal_msg = "Failed to write blank salt in compthread\n";
+					goto out;
+				}
 				ctis->cur_pos += SALT_LEN;
 			}
 			ctis->s[j].last_head = ctis->cur_pos + 1 + (write_len * 2);
@@ -1556,11 +1566,15 @@ retry:
 
 	print_maxverbose("Compthread %ld seeking to %"PRId64" to store length %d\n", i, ctis->s[cti->streamno].last_head, write_len);
 
-	if (unlikely(seekto(control, ctis, ctis->s[cti->streamno].last_head)))
-		fatal_goto(("Failed to seekto in compthread %ld\n", i), error);
+	if (unlikely(seekto(control, ctis, ctis->s[cti->streamno].last_head))) {
+		fatal_msg = "Failed to seekto in compthread\n";
+		goto out;
+	}
 
-	if (unlikely(write_val(control, ctis->cur_pos, write_len)))
-		fatal_goto(("Failed to write_val cur_pos in compthread %ld\n", i), error);
+	if (unlikely(write_val(control, ctis->cur_pos, write_len))) {
+		fatal_msg = "Failed to write_val cur_pos in compthread\n";
+		goto out;
+	}
 
 	if (ENCRYPT)
 		rewrite_encrypted(control, ctis, ctis->s[cti->streamno].last_head - 17);
@@ -1569,14 +1583,18 @@ retry:
 
 	print_maxverbose("Compthread %ld seeking to %"PRId64" to write header\n", i, ctis->cur_pos);
 
-	if (unlikely(seekto(control, ctis, ctis->cur_pos)))
-		fatal_goto(("Failed to seekto cur_pos in compthread %ld\n", i), error);
+	if (unlikely(seekto(control, ctis, ctis->cur_pos))) {
+		fatal_msg = "Failed to seekto cur_pos in compthread\n";
+		goto out;
+	}
 
 	print_maxverbose("Thread %ld writing %"PRId64" compressed bytes from stream %d\n", i, padded_len, cti->streamno);
 
 	if (ENCRYPT) {
-		if (unlikely(write_val(control, 0, SALT_LEN)))
-			fatal_goto(("Failed to write_buf header salt in compthread %ld\n", i), error);
+		if (unlikely(write_val(control, 0, SALT_LEN))) {
+			fatal_msg = "Failed to write header salt in compthread\n";
+			goto out;
+		}
 		ctis->cur_pos += SALT_LEN;
 		ctis->s[cti->streamno].last_headofs = ctis->cur_pos;
 	}
@@ -1585,36 +1603,67 @@ retry:
 		write_val(control, cti->c_len, write_len) ||
 		write_val(control, cti->s_len, write_len) ||
 		write_val(control, 0, write_len))) {
-			fatal_goto(("Failed write in compthread %ld\n", i), error);
+			fatal_msg = "Failed write in compthread\n";
+			goto out;
 	}
 	ctis->cur_pos += 1 + (write_len * 3);
 
 	if (ENCRYPT) {
 		if (unlikely(!get_rand(control, cti->salt, SALT_LEN)))
-			goto error;
-		if (unlikely(write_buf(control, cti->salt, SALT_LEN)))
-			fatal_goto(("Failed to write_buf block salt in compthread %ld\n", i), error);
+			goto out;
+		if (unlikely(write_buf(control, cti->salt, SALT_LEN))) {
+			fatal_msg = "Failed to write block salt in compthread\n";
+			goto out;
+		}
 		if (unlikely(!lrz_encrypt(control, cti->s_buf, padded_len, cti->salt)))
-			goto error;
+			goto out;
 		ctis->cur_pos += SALT_LEN;
 	}
 
 	print_maxverbose("Compthread %ld writing data at %"PRId64"\n", i, ctis->cur_pos);
 
-	if (unlikely(write_buf(control, cti->s_buf, padded_len)))
-		fatal_goto(("Failed to write_buf s_buf in compthread %ld\n", i), error);
+	if (unlikely(write_buf(control, cti->s_buf, padded_len))) {
+		fatal_msg = "Failed to write_buf s_buf in compthread\n";
+		goto out;
+	}
 
 	ctis->cur_pos += padded_len;
 	dealloc(cti->s_buf);
 
-	lock_mutex(control, &output_lock);
-	if (++output_thread == control->threads)
-		output_thread = 0;
-	cond_broadcast(control, &output_cond);
-	unlock_mutex(control, &output_lock);
+out:
+	/*
+	 * Always take and release our place in the output order.
+	 * - Success path already waited (waited==1) and wrote.
+	 * - Failure before wait: wait now (no write), then advance.
+	 * - Failure after wait: advance without a successful write.
+	 * Without this, other workers block forever on output_thread.
+	 */
+	if (!turn_released) {
+		lock_mutex(control, &output_lock);
+		if (!waited) {
+			while (output_thread != i)
+				cond_wait(control, &output_cond, &output_lock);
+			waited = 1;
+		}
+		/* We own the slot when output_thread == i */
+		if (output_thread == i) {
+			if (++output_thread == control->threads)
+				output_thread = 0;
+			cond_broadcast(control, &output_cond);
+		}
+		unlock_mutex(control, &output_lock);
+		turn_released = 1;
+	}
 
-error:
+	if (cti->s_buf)
+		dealloc(cti->s_buf);
+
 	cksem_post(control, &cti->cksem);
+
+	/* Fatal after releasing the chain so peers are not left blocked if
+	 * fatal_exit is ever changed to not terminate the process. */
+	if (fatal_msg)
+		failure("%s", fatal_msg);
 
 	return NULL;
 }
