@@ -439,7 +439,7 @@ static i64 unzip_match(rzip_control *control, void *ss, struct runzip_s0 *s0,
 static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64 tally)
 {
 	uint32 good_cksum, cksum = 0;
-	i64 len, ofs, total = 0, out_pos;
+	i64 len, ofs, total = 0, out_pos, progress_at = 0;
 	int l = -1, p = 0;
 	char chunk_bytes;
 	struct runzip_s0 s0;
@@ -447,6 +447,8 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	uchar head;
 	void *ss;
 	bool err = false;
+	/* Progress at most every 64KiB (same cadence as compress). */
+	const i64 progress_bytes = 64 * 1024;
 
 	/* for display of progress */
 	unsigned long divisor[] = {1,1024,1048576,1073741824U};
@@ -509,6 +511,8 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	}
 
 	memset(&s0, 0, sizeof(s0));
+	if (expected_size)
+		progress_at = tally + progress_bytes;
 
 	while ((len = read_header(control, ss, &s0, &head)) || head) {
 		i64 u;
@@ -534,14 +538,34 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 				total += u;
 				break;
 		}
-		if (expected_size) {
-			p = 100 * ((double)(tally + total) / (double)expected_size);
-			if (p / 10 != l / 10)  {
-				prog_done = (double)(tally + total) / (double)divisor[divisor_index];
+		/* Avoid double divide every token — check every 64KiB only. */
+		if (expected_size && tally + total >= progress_at) {
+			p = (int)((100 * (tally + total)) / expected_size);
+			if (p > 100)
+				p = 100;
+			if (p / 10 != l / 10) {
+				prog_done = (double)(tally + total) /
+					    (double)divisor[divisor_index];
 				print_progress("%3d%%  %9.2f / %9.2f %s\r",
-						p, prog_done, prog_tsize, suffix[divisor_index] );
+						p, prog_done, prog_tsize,
+						suffix[divisor_index]);
 				l = p;
 			}
+			progress_at = tally + total + progress_bytes;
+		}
+	}
+
+	/* Final progress for the chunk if we ended mid-interval. */
+	if (expected_size && total > 0) {
+		p = (int)((100 * (tally + total)) / expected_size);
+		if (p > 100)
+			p = 100;
+		if (p / 10 != l / 10) {
+			prog_done = (double)(tally + total) /
+				    (double)divisor[divisor_index];
+			print_progress("%3d%%  %9.2f / %9.2f %s\r",
+					p, prog_done, prog_tsize,
+					suffix[divisor_index]);
 		}
 	}
 
