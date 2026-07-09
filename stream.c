@@ -1641,7 +1641,8 @@ retry:
 		goto out;
 	}
 
-	print_maxverbose("Thread %ld writing %"PRId64" compressed bytes from stream %d\n", i, padded_len, cti->streamno);
+	print_maxverbose("Thread %ld writing %"PRId64"/%"PRId64" compressed bytes from stream %d\n",
+			 i, cti->c_len, cti->s_len, cti->streamno);
 
 	if (ENCRYPT) {
 		if (unlikely(write_val(control, 0, SALT_LEN))) {
