@@ -55,7 +55,6 @@
 #include "util.h"
 #include "stream.h"
 
-#define MAGIC_LEN (24)
 #define STDIO_TMPFILE_BUFFER_SIZE (65536) // used in read_tmpinfile and dump_tmpoutfile
 
 static void release_hashes(rzip_control *control);
@@ -170,7 +169,8 @@ bool write_magic(rzip_control *control)
 
 	/* File size is stored as zero for streaming STDOUT blocks when the
 	 * file size is unknown. In encrypted files, the size is left unknown
-	 * and instead the salt is stored here to preserve space. */
+	 * and instead the salt is stored here to preserve space. Total size
+	 * meaning is unchanged from v0.6 (whole archive when known). */
 	if (ENCRYPT)
 		memcpy(&magic[6], &control->salt, 8);
 	else if (!STDIN || !STDOUT || control->eof) {
@@ -195,6 +195,23 @@ bool write_magic(rzip_control *control)
 		magic[21] = 1;
 	if (ENCRYPT)
 		magic[22] = 1;
+
+	/* v0.7 streaming flags in formerly unused bytes 14 and 23.
+	 * Mode B (LRZC multi-block) when progressive STDOUT and this is not
+	 * the last block. Single-block / seekable archives use mode A. */
+	if (STDOUT && !control->eof) {
+		magic[14] = 1; /* streaming multi-block */
+		magic[23] = 0; /* not last block */
+		control->flags |= FLAG_STREAMING_BLOCKS;
+	} else {
+		magic[14] = 0;
+		magic[23] = 1; /* sole / last block container */
+	}
+
+	/* Never rewrite magic after the first block has been flushed to a
+	 * non-seekable consumer. */
+	if (control->blocks_done > 0)
+		return true;
 
 	if (unlikely(fdout_seekto(control, 0)))
 		fatal_return(("Failed to seek to BOF to write Magic Header\n"), false);
@@ -278,6 +295,30 @@ static bool get_magic(rzip_control *control, char *magic)
 	} else if (ENCRYPT) {
 		print_output("Asked to decrypt a non-encrypted archive. Bypassing decryption.\n");
 		control->flags &= ~FLAG_ENCRYPT;
+	}
+
+	/* v0.7 streaming / last-block flags (bytes 14 and 23) */
+	if (control->major_version == 0 && control->minor_version >= 7) {
+		uchar stream_flag = (uchar)magic[14];
+		uchar last_flag = (uchar)magic[23];
+
+		if (stream_flag > 1 || last_flag > 1)
+			failure_return(("Invalid streaming flags in magic header\n"), false);
+		if (stream_flag == 0 && last_flag == 0)
+			failure_return(("Invalid magic flags (truncated or corrupt archive)\n"), false);
+		if (stream_flag)
+			control->flags |= FLAG_STREAMING_BLOCKS;
+		else
+			control->flags &= ~FLAG_STREAMING_BLOCKS;
+		control->last_block = last_flag;
+		/* Mode A (stream_flag=0): magic[23]=1 means no LRZC framing;
+		 * multiple RCDs may still follow (classic v0.6 multi-chunk).
+		 * Do not seed control->eof from magic — RCD eof drives the loop.
+		 * Mode B: magic[23]/RCD eof/LRZC last-bit agree per block. */
+		print_maxverbose("v0.7 streaming=%u last_block=%u\n", stream_flag, last_flag);
+	} else {
+		control->last_block = 1;
+		control->flags &= ~FLAG_STREAMING_BLOCKS;
 	}
 	return true;
 }
@@ -466,6 +507,9 @@ static bool dump_tmpoutfile(rzip_control *control)
 
 	if (unlikely(ftruncate(fd_out, 0)))
 		fatal_return(("Failed to ftruncate fd_out in dump_tmpoutfile\n"), false);
+	/* Next streaming block must start at offset 0 of the temp file. */
+	if (unlikely(lseek(fd_out, 0, SEEK_SET)))
+		fatal_return(("Failed to lseek fd_out in dump_tmpoutfile\n"), false);
 	return true;
 }
 
@@ -660,7 +704,16 @@ static bool open_tmpinbuf(rzip_control *control)
 
 void clear_tmpinbuf(rzip_control *control)
 {
-	control->in_len = control->in_ofs = 0;
+	/* Preserve any already-buffered bytes past the current read offset
+	 * (next LRZC / RCD / MD5) so multi-chunk STDIN decompress works. */
+	if (control->in_ofs < control->in_len) {
+		i64 tail = control->in_len - control->in_ofs;
+
+		memmove(control->tmp_inbuf, control->tmp_inbuf + control->in_ofs, (size_t)tail);
+		control->in_len = tail;
+		control->in_ofs = 0;
+	} else
+		control->in_len = control->in_ofs = 0;
 }
 
 bool clear_tmpinfile(rzip_control *control)
@@ -1225,6 +1278,16 @@ next_chunk:
 
 	if (ofs >= infile_size - (HAS_MD5 ? MD5_DIGEST_SIZE : 0))
 		goto done;
+	/* v0.7 streaming: LRZC sits between non-final blocks and the next RCD */
+	if (STREAMING_BLOCKS && !control->eof) {
+		i64 lrzc_c = 0, lrzc_u = 0;
+
+		if (unlikely(!read_lrzc_header(control, fd_in, &lrzc_c, &lrzc_u)))
+			goto error;
+		ofs += LRZC_LEN;
+		print_verbose("LRZC continuation: u=%"PRId64" c=%"PRId64" last=%u\n",
+			      lrzc_u, lrzc_c, control->last_block);
+	}
 	/* Chunk byte entry */
 	if (control->major_version == 0 && control->minor_version > 4) {
 		if (unlikely(read(fd_in, &chunk_byte, 1) != 1))

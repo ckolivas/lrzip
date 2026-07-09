@@ -394,6 +394,25 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 			}
 		}
 		total += u;
+		control->blocks_done++;
+
+		/* v0.7 streaming mode B: after a non-final block, consume the
+		 * LRZC continuation header before the next RCD. RCD eof and
+		 * LRZC last-bit must agree. */
+		if (STREAMING_BLOCKS && !control->eof) {
+			i64 c_size = 0, u_size = 0;
+
+			if (unlikely(!read_lrzc_header(control, fd_in, &c_size, &u_size))) {
+				print_err("Failed to read LRZC in runzip_fd\n");
+				return -1;
+			}
+			/* Next RCD eof must match this header's last flag when
+			 * that chunk is read; if LRZC says last already, the
+			 * following chunk must set eof. */
+			if (control->last_block)
+				print_maxverbose("LRZC marks final block; next RCD must be last\n");
+		}
+
 		if (unlikely(!flush_tmpout(control))) {
 			print_err("Failed to flush_tmpout in runzip_fd\n");
 				return -1;
@@ -408,6 +427,12 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 			}
 		}
 	} while (total < expected_size || (!expected_size && !control->eof));
+
+	/* Streaming multi-block with last never seen is truncated. */
+	if (STREAMING_BLOCKS && !control->eof && !control->last_block) {
+		print_err("Truncated streaming archive: no final block\n");
+		return -1;
+	}
 
 	gettimeofday(&end,NULL);
 	if (!ENCRYPT) {

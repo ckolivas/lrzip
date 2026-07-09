@@ -231,6 +231,11 @@ typedef sem_t cksem_t;
 #define FLAG_TMP_INBUF		(1 << 22)
 #define FLAG_ENCRYPT		(1 << 23)
 #define FLAG_OUTPUT		(1 << 24)
+/* Archive uses v0.7 streaming blocks (LRZC framing / progressive STDOUT) */
+#define FLAG_STREAMING_BLOCKS	(1 << 25)
+
+#define MAGIC_LEN	24
+#define LRZC_LEN	24
 
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
@@ -305,6 +310,7 @@ typedef sem_t cksem_t;
 #define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
 #define ENCRYPT		(control->flags & FLAG_ENCRYPT)
 #define SHOW_OUTPUT	(control->flags & FLAG_OUTPUT)
+#define STREAMING_BLOCKS (control->flags & FLAG_STREAMING_BLOCKS)
 
 #define IS_FROM_FILE ( !!(control->inFILE) && !STDIN )
 
@@ -439,6 +445,12 @@ struct rzip_control {
 	pthread_mutex_t control_lock;
 	unsigned char eof;
 	unsigned char magic_written;
+	/* v0.7: number of completed streaming blocks written/read */
+	unsigned int blocks_done;
+	/* v0.7: absolute output position of current LRZC header (for c_size patch) */
+	i64 lrzc_pos;
+	/* v0.7: magic[23] / LRZC last-block as read from headers */
+	unsigned char last_block;
 	bool lzma_prop_set;
 
 	cksem_t cksumsem;

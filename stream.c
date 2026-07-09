@@ -57,6 +57,7 @@
 
 #include <inttypes.h>
 #include <stdatomic.h>
+#include <string.h>
 
 /* LZMA C Wrapper */
 #include "lzma/C/LzmaLib.h"
@@ -376,8 +377,9 @@ retry:
 		memcpy(control->lzma_properties, lzma_properties, 5);
 		control->lzma_prop_set = true;
 		/* Reset the magic written flag so we write it again if we
-		 * get lzma properties and haven't written them yet. */
-		if (TMP_OUTBUF)
+		 * get lzma properties and haven't written them yet. Do not
+		 * rewrite after the first streaming block has been flushed. */
+		if (TMP_OUTBUF && !control->blocks_done)
 			control->magic_written = 0;
 	}
 	unlock_mutex(control, &control->control_lock);
@@ -930,6 +932,22 @@ bool prepare_streamout_threads(rzip_control *control)
 }
 
 
+/* Wait until all compress output threads have finished their current work
+ * without tearing the thread pool down. Used before progressive STDOUT flush
+ * so the block is complete and LRZC compressed_size can be patched. */
+bool wait_streamout_threads(rzip_control *control)
+{
+	int i, close_thread = output_thread;
+
+	for (i = 0; i < control->threads; i++) {
+		cksem_wait(control, &cthreads[close_thread].cksem);
+		cksem_post(control, &cthreads[close_thread].cksem);
+		if (++close_thread == control->threads)
+			close_thread = 0;
+	}
+	return true;
+}
+
 bool close_streamout_threads(rzip_control *control)
 {
 	int i, close_thread = output_thread;
@@ -944,6 +962,113 @@ bool close_streamout_threads(rzip_control *control)
 	}
 	dealloc(cthreads);
 	dealloc(control->pthreads);
+	return true;
+}
+
+/* Write a v0.7 LRZC continuation header with compressed_size left as zero
+ * for later patching once the block payload is fully written. */
+static bool write_lrzc_header(rzip_control *control, int fd, i64 u_size, int last)
+{
+	uchar hdr[LRZC_LEN];
+	i64 ule, cle = 0;
+
+	memset(hdr, 0, sizeof(hdr));
+	hdr[0] = 'L';
+	hdr[1] = 'R';
+	hdr[2] = 'Z';
+	hdr[3] = 'C';
+	if (!ENCRYPT) {
+		ule = htole64(u_size);
+		memcpy(hdr + 4, &ule, 8);
+	}
+	/* bytes 12-19 compressed size: patched later */
+	memcpy(hdr + 12, &cle, 8);
+	if (last)
+		hdr[20] = 1;
+
+	control->lrzc_pos = get_seek(control, fd);
+	if (unlikely(control->lrzc_pos == -1))
+		return false;
+	if (unlikely(write_buf(control, hdr, LRZC_LEN)))
+		failure_return(("Failed to write LRZC header\n"), false);
+	print_maxverbose("Wrote LRZC header at %"PRId64" u_size=%"PRId64" last=%d\n",
+			 control->lrzc_pos, ENCRYPT ? 0 : u_size, last);
+	return true;
+}
+
+/* Patch LRZC compressed_size after the block payload is complete. */
+bool patch_lrzc_c_size(rzip_control *control, int fd)
+{
+	i64 end, c_size, cle;
+	i64 saved_ofs = -1;
+
+	if (TMP_OUTBUF)
+		end = control->out_relofs + control->out_len;
+	else {
+		end = lseek(fd, 0, SEEK_CUR);
+		if (unlikely(end == -1))
+			fatal_return(("Failed to lseek end in patch_lrzc_c_size\n"), false);
+		saved_ofs = end;
+	}
+
+	c_size = end - control->lrzc_pos - LRZC_LEN;
+	if (unlikely(c_size < 0))
+		failure_return(("Invalid LRZC compressed size %"PRId64"\n", c_size), false);
+
+	cle = htole64(c_size);
+	if (TMP_OUTBUF) {
+		i64 ofs = control->lrzc_pos - control->out_relofs + 12;
+
+		if (unlikely(ofs < 0 || ofs + 8 > control->out_len))
+			failure_return(("LRZC c_size patch outside tmp outbuf\n"), false);
+		memcpy(control->tmp_outbuf + ofs, &cle, 8);
+	} else {
+		if (unlikely(lseek(fd, control->lrzc_pos + 12, SEEK_SET) == -1))
+			fatal_return(("Failed to seek LRZC c_size in patch_lrzc_c_size\n"), false);
+		if (unlikely(write(fd, &cle, 8) != 8))
+			fatal_return(("Failed to write LRZC c_size\n"), false);
+		if (unlikely(lseek(fd, saved_ofs, SEEK_SET) == -1))
+			fatal_return(("Failed to restore fd offset after LRZC patch\n"), false);
+	}
+	print_maxverbose("Patched LRZC c_size=%"PRId64" at %"PRId64"\n", c_size, control->lrzc_pos);
+	return true;
+}
+
+/* Read and validate a v0.7 LRZC header. Sets control->last_block from flags.
+ * Returns compressed_size via *c_size_out when non-NULL. */
+bool read_lrzc_header(rzip_control *control, int fd_in, i64 *c_size_out, i64 *u_size_out)
+{
+	uchar hdr[LRZC_LEN];
+	i64 u_size, c_size;
+
+	if (unlikely(read_1g(control, fd_in, hdr, LRZC_LEN) != LRZC_LEN))
+		fatal_return(("Failed to read LRZC header\n"), false);
+	if (unlikely(strncmp((char *)hdr, "LRZC", 4)))
+		failure_return(("Expected LRZC continuation header\n"), false);
+
+	memcpy(&u_size, hdr + 4, 8);
+	u_size = le64toh(u_size);
+	memcpy(&c_size, hdr + 12, 8);
+	c_size = le64toh(c_size);
+
+	if (hdr[20] & ~1)
+		failure_return(("Invalid LRZC flag bits\n"), false);
+	if (hdr[21] || hdr[22] || hdr[23])
+		failure_return(("Invalid LRZC reserved bytes\n"), false);
+
+	control->last_block = hdr[20] & 1;
+	if (unlikely(c_size <= 0))
+		failure_return(("Invalid LRZC compressed size %"PRId64"\n", c_size), false);
+	if (ENCRYPT && u_size != 0)
+		failure_return(("Encrypted LRZC has non-zero uncompressed size\n"), false);
+
+	print_maxverbose("LRZC u_size=%"PRId64" c_size=%"PRId64" last=%u\n",
+			 u_size, c_size, control->last_block);
+
+	if (c_size_out)
+		*c_size_out = c_size;
+	if (u_size_out)
+		*u_size_out = u_size;
 	return true;
 }
 
@@ -1398,8 +1523,18 @@ retry:
 
 		if (STDOUT) {
 			lock_mutex(control, &control->control_lock);
-			if (!control->magic_written)
+			/* Magic only for the first block; may be rewritten until
+			 * that block is flushed (lzma props). */
+			if (!control->magic_written && !control->blocks_done)
 				write_magic(control);
+			/* Continuation streaming block: LRZC before RCD */
+			if (control->blocks_done > 0) {
+				if (unlikely(!write_lrzc_header(control, ctis->fd,
+						ctis->size, control->eof))) {
+					unlock_mutex(control, &control->control_lock);
+					goto error;
+				}
+			}
 			unlock_mutex(control, &control->control_lock);
 		}
 
@@ -1409,7 +1544,7 @@ retry:
 		write_u8(control, ctis->chunk_bytes);
 
 		/* Write whether this is the last chunk, followed by the size
-		 * of this chunk */
+		 * of this chunk. In streaming mode this matches block-last. */
 		print_maxverbose("Writing EOF flag as %d\n", control->eof);
 		write_u8(control, control->eof);
 		if (!ENCRYPT)

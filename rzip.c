@@ -1191,6 +1191,47 @@ retry:
 			dealloc(st);
 			failure("Wrote EOF to file yet chunk_size was shrunk, corrupting archive.\n");
 		}
+
+		/* Progressive STDOUT: finish all compress threads for this
+		 * block, finalise magic / patch LRZC c_size, flush immutable
+		 * block to the pipe, then continue with the next block. */
+		if (STDOUT) {
+			if (unlikely(!wait_streamout_threads(control))) {
+				close_streamout_threads(control);
+				dealloc(st->hash_table);
+				dealloc(st);
+				failure("Failed to wait_streamout_threads in rzip_fd\n");
+			}
+			/* LZMA props may clear magic_written after the first
+			 * header write; rewrite once before the first flush. */
+			if (!control->blocks_done && !control->magic_written) {
+				if (unlikely(!write_magic(control))) {
+					close_streamout_threads(control);
+					dealloc(st->hash_table);
+					dealloc(st);
+					failure("Failed to finalise magic before flush\n");
+				}
+			}
+			if (control->blocks_done > 0) {
+				if (unlikely(!patch_lrzc_c_size(control, fd_out))) {
+					close_streamout_threads(control);
+					dealloc(st->hash_table);
+					dealloc(st);
+					failure("Failed to patch LRZC c_size in rzip_fd\n");
+				}
+			}
+			if (unlikely(!flush_tmpout(control))) {
+				close_streamout_threads(control);
+				dealloc(st->hash_table);
+				dealloc(st);
+				failure("Failed to flush_tmpout after streaming block\n");
+			}
+			control->blocks_done++;
+			/* Magic is immutable after the first block is emitted */
+			control->magic_written = 1;
+			print_maxverbose("Flushed streaming block %u (eof=%u)\n",
+					 control->blocks_done, control->eof);
+		}
 	}
 
 	if (likely(st->hash_table))
