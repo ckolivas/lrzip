@@ -650,7 +650,7 @@ ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
 }
 
 /* Write len bytes, looping on short writes. */
-ssize_t write_1g(rzip_control *control, void *buf, i64 len)
+ssize_t write_all(rzip_control *control, void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
 	ssize_t ret;
@@ -697,8 +697,8 @@ static int dump_stdin(rzip_control *control)
 	return 0;
 }
 
-/* Ditto for read */
-ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
+/* Read len bytes, looping on short reads. */
+ssize_t read_all(rzip_control *control, int fd, void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
 	ssize_t ret;
@@ -749,7 +749,7 @@ static int write_buf(rzip_control *control, uchar *p, i64 len)
 {
 	ssize_t ret;
 
-	ret = write_1g(control, p, (size_t)len);
+	ret = write_all(control, p, (size_t)len);
 	if (unlikely(ret == -1)) {
 		print_err("Write of length %"PRId64" failed - %s\n", len, strerror(errno));
 		return -1;
@@ -777,7 +777,7 @@ static int read_buf(rzip_control *control, int f, uchar *p, i64 len)
 {
 	ssize_t ret;
 
-	ret = read_1g(control, f, p, (size_t)len);
+	ret = read_all(control, f, p, (size_t)len);
 	if (unlikely(ret == -1)) {
 		print_err("Read of length %"PRId64" failed - %s\n", len, strerror(errno));
 		return -1;
@@ -1031,7 +1031,7 @@ bool read_lrzc_header(rzip_control *control, int fd_in, i64 *c_size_out, i64 *u_
 	uchar hdr[LRZC_LEN];
 	i64 u_size, c_size;
 
-	if (unlikely(read_1g(control, fd_in, hdr, LRZC_LEN) != LRZC_LEN))
+	if (unlikely(read_all(control, fd_in, hdr, LRZC_LEN) != LRZC_LEN))
 		fatal_return(("Failed to read LRZC header\n"), false);
 	if (unlikely(strncmp((char *)hdr, "LRZC", 4)))
 		failure_return(("Expected LRZC continuation header\n"), false);

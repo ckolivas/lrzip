@@ -1573,7 +1573,7 @@ retry:
 				dealloc(st);
 				failure("Failed to lrz_encrypt in rzip_fd\n");
 			}
-		if (unlikely(write_1g(control, control->md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE)) {
+		if (unlikely(write_all(control, control->md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE)) {
 			dealloc(st);
 			failure("Failed to write md5 in rzip_fd\n");
 		}

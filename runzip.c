@@ -183,7 +183,7 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum
 	if (unlikely(stream_read == -1 ))
 		fatal_return(("Failed to read_stream in unzip_literal\n"), -1);
 
-	if (unlikely(write_1g(control, buf, (size_t)stream_read) != (ssize_t)stream_read))
+	if (unlikely(write_all(control, buf, (size_t)stream_read) != (ssize_t)stream_read))
 		fatal_return(("Failed to write literal buffer of size %"PRId64"\n", stream_read), -1);
 
 	if (!HAS_MD5)
@@ -197,7 +197,7 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum
 static i64 read_fdhist(rzip_control *control, void *buf, i64 len)
 {
 	if (!TMP_OUTBUF)
-		return read_1g(control, control->fd_hist, buf, len);
+		return read_all(control, control->fd_hist, buf, len);
 	if (unlikely(len + control->hist_ofs > control->out_maxlen)) {
 		print_err("Trying to read beyond end of tmpoutbuf in read_fdhist\n");
 		return -1;
@@ -243,7 +243,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 		if (unlikely(n < 1))
 			fatal_return(("Failed fd history in unzip_match due to corrupt archive\n"), -1);
 
-		if (unlikely(write_1g(control, buf, (size_t)n) != (ssize_t)n))
+		if (unlikely(write_all(control, buf, (size_t)n) != (ssize_t)n))
 			fatal_return(("Failed to write %"PRId64" bytes in unzip_match\n", n), -1);
 
 		if (!HAS_MD5)
@@ -299,7 +299,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	else {
 		print_maxverbose("Reading chunk_bytes at %"PRId64"\n", get_readseek(control, fd_in));
 		/* Read in the stored chunk byte width from the file */
-		if (unlikely(read_1g(control, fd_in, &chunk_bytes, 1) != 1))
+		if (unlikely(read_all(control, fd_in, &chunk_bytes, 1) != 1))
 			fatal_return(("Failed to read chunk_bytes size in runzip_chunk\n"), -1);
 		if (unlikely(chunk_bytes < 1 || chunk_bytes > 8))
 			failure_return(("chunk_bytes %d is invalid in runzip_chunk\n", chunk_bytes), -1);
@@ -462,7 +462,7 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 			if (unlikely(seekto_fdin(control, fdinend - MD5_DIGEST_SIZE) == -1))
 				failure_return(("Failed to seekto_fdin in rzip_fd\n"), -1);
 
-			if (unlikely(read_1g(control, fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
+			if (unlikely(read_all(control, fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
 				fatal_return(("Failed to read md5 data in runzip_fd\n"), -1);
 			if (ENCRYPT)
 				if (unlikely(!lrz_decrypt(control, md5_stored, MD5_DIGEST_SIZE, control->salt_pass)))
