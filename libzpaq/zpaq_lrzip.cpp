@@ -31,18 +31,23 @@ void error(const char* msg)
 }
 }
 
-/* Map lrzip level 1..3 (from compression_level/4+1) to zpaq method "1".."5".
- * 7.15 uses string methods; "1"/"2"/"3" remain the classic built-in tiers. */
-static const char *zpaq_method(int level)
+/*
+ * Clamp to classic Compressor::startBlock levels 1..3 (min/mid/max.cfg).
+ *
+ * libzpaq 7.x method strings "1".."5" are a *different* family (fast LZ77 /
+ * mixed methods for the zpaq archiver). Using those made -z much faster and
+ * weaker than pre-7.15 lrzip (and often weaker than LZMA). Docs map classic
+ * levels ~ to methods "3"/"4"/"5", but startBlock(level) is the real old path.
+ *
+ * lrzip still passes compression_level/4+1 (1..3) from stream.c.
+ */
+static int zpaq_classic_level(int level)
 {
 	if (level < 1)
-		level = 1;
-	if (level > 5)
-		level = 5;
-	static const char *const methods[] = {
-		"1", "1", "2", "3", "4", "5"
-	};
-	return methods[level];
+		return 1;
+	if (level > 3)
+		return 3;
+	return level;
 }
 
 struct bufRead: public libzpaq::Reader {
@@ -148,12 +153,24 @@ extern "C" void zpaq_compress(uchar *c_buf, i64 *c_len, uchar *s_buf, i64 s_len,
 {
 	i64 total_len = s_len;
 	int last_pct = 100;
+	int classic = zpaq_classic_level(level);
 
 	bufRead bufR(s_buf, &s_len, total_len, &last_pct, progress, thread, msgout);
 	bufWrite bufW(c_buf, c_len);
 
-	/* dosha1=false: lrzip has its own integrity; skip extra SHA-1 cost */
-	libzpaq::compress(&bufR, &bufW, zpaq_method(level), 0, 0, false);
+	/* Classic min/mid/max models (same family as pre-7.15 lrzip -z).
+	 * Do not use libzpaq::compress(..., "1".."5") — those are the
+	 * archiver's fast methods, not the old context-mixing levels. */
+	libzpaq::Compressor c;
+
+	c.setInput(&bufR);
+	c.setOutput(&bufW);
+	c.startBlock(classic);
+	c.startSegment();
+	c.postProcess();
+	c.compress();
+	c.endSegment(); /* no SHA-1; lrzip has its own integrity */
+	c.endBlock();
 }
 
 extern "C" int zpaq_decompress(uchar *s_buf, i64 *d_len, uchar *c_buf, i64 c_len,

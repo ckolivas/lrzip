@@ -390,10 +390,10 @@ almost 3 times slower.
 > Q: Which version of libzpaq does lrzip use?
 
 > A: lrzip embeds **libzpaq 7.15** (Matt Mahoney; public domain / Unlicense)
-via a small C++ glue layer (`libzpaq/zpaq_lrzip.cpp`). Newer libzpaq can
-decompress older lrzip `-z` streams (ZPAQ level 1). Archives produced with
-this backend use ZPAQ level 2 and may not decompress with very old lrzip
-builds that still ship libzpaq 5.x.
+via `libzpaq/zpaq_lrzip.cpp`. Compression still uses the classic
+context-mixing levels 1–3 (`Compressor::startBlock`), not the 7.x archiver
+fast method strings `"1"`–`"5"` (those are a different, much weaker family).
+Decompress accepts any valid ZPAQ stream produced by older lrzip `-z`.
 
 > Q: When limiting processors with the -p option, lrzip still spawns twice as
 many threads as specified with LZMA compression.
