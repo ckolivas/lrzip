@@ -315,23 +315,14 @@ run_one() {
 	stdout)
 		"$LRZIP" "${cflags[@]}" -o - "$in" >"$lrz" 2>/dev/null || rc=$?
 		if [[ $rc -eq 0 ]]; then
-			if [[ "$encrypt" -eq 1 ]]; then
-				"$LRZIP" "${dflags[@]}" -d -o "$out" "$lrz" >/dev/null 2>&1 || rc=$?
-			else
-				"$LRZIP" "${dflags[@]}" -d -o "$out" - <"$lrz" >/dev/null 2>&1 || rc=$?
-			fi
+			# Decrypt from stdin when password is on the command line
+			"$LRZIP" "${dflags[@]}" -d -o "$out" - <"$lrz" >/dev/null 2>&1 || rc=$?
 		fi
 		;;
 	stdio)
-		if [[ "$encrypt" -eq 1 ]]; then
-			"$LRZIP" "${cflags[@]}" -o - <"$in" >"$lrz" 2>/dev/null || rc=$?
-			if [[ $rc -eq 0 ]]; then
-				"$LRZIP" "${dflags[@]}" -d -o "$out" "$lrz" >/dev/null 2>&1 || rc=$?
-			fi
-		else
-			"$LRZIP" "${cflags[@]}" <"$in" 2>/dev/null |
-				"$LRZIP" "${dflags[@]}" -d -o "$out" - >/dev/null 2>&1 || rc=$?
-		fi
+		# Full pipe; encrypted decrypt works with --encrypt=PASSWORD
+		"$LRZIP" "${cflags[@]}" <"$in" 2>/dev/null |
+			"$LRZIP" "${dflags[@]}" -d -o "$out" - >/dev/null 2>&1 || rc=$?
 		;;
 	*)
 		die "unknown mode: $mode"

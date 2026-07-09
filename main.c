@@ -407,9 +407,12 @@ int main(int argc, char *argv[])
 			control->flags &= ~FLAG_KEEP_FILES;
 			break;
 		case 'e':
-			/* New archives: AES-CBC + per-payload HMAC (magic[22]=2) */
-			control->flags |= FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC;
+			/* On compress: enable encryption (HMAC for new archives).
+			 * On decompress/test: only supplies the password; ENCRYPT*
+			 * flags are taken from the archive magic instead so stdin
+			 * decrypt works with --encrypt=PASSWORD. */
 			control->passphrase = optarg;
+			control->flags |= FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC;
 			break;
 		case 'f':
 			control->flags |= FLAG_FORCE_REPLACE;
@@ -578,6 +581,11 @@ int main(int argc, char *argv[])
 	if (INFO && !SHOW_OUTPUT)
 		failure("Cannot show info and have no output.\n");
 
+	/* -e / --encrypt on decompress/test/info only provides the passphrase.
+	 * Whether the stream is encrypted (and HMAC) comes from magic. */
+	if (DECOMPRESS || TEST_ONLY || INFO)
+		control->flags &= ~(FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC);
+
 	if (VERBOSE && !SHOW_PROGRESS) {
 		print_err("Cannot have -v and -q options. -v wins.\n");
 		control->flags |= FLAG_SHOW_PROGRESS;
@@ -719,8 +727,10 @@ recursion:
 
 		gettimeofday(&start_time, NULL);
 
+		/* Interactive password prompt needs a TTY; STDIO encrypt/decrypt
+		 * requires the password on the command line (--encrypt=PASSWORD). */
 		if (!control->passphrase && (unlikely((STDIN || STDOUT) && ENCRYPT)))
-			failure("Unable to work from STDIO while reading password\n");
+			failure("Unable to work from STDIO without a password; use --encrypt=PASSWORD\n");
 
 		{
 			bool ok;

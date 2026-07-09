@@ -921,8 +921,12 @@ bool decompress_file(rzip_control *control)
 	else if (STDIN) {
 		fd_in = open_tmpinfile(control);
 		read_tmpinmagic(control);
-		if (ENCRYPT && !control->passphrase)
-			failure_return(("Cannot decompress encrypted file from STDIN\n"), false);
+		/* Encrypted stdin is fine when the password was passed with
+		 * --encrypt=PASSWORD (or -epassword). Interactive prompt is
+		 * not possible while stdin is the archive stream. */
+		if (ENCRYPT && (!control->passphrase || !control->passphrase[0]))
+			failure_return(("Cannot decompress encrypted archive from STDIN without a password.\n"
+					"Pass it as --encrypt=PASSWORD (or -ePASSWORD).\n"), false);
 		expected_size = control->st_size;
 		if (unlikely(!open_tmpinbuf(control)))
 			return false;
