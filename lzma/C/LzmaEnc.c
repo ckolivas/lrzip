@@ -3069,7 +3069,13 @@ SRes LzmaEnc_WriteProperties(CLzmaEncHandle p, Byte *props, SizeT *size)
       while (v < dictSize);
     }
 
-    SetUi32(props + 1, v)
+    /* props[0] holds lc/lp/pb; dict size is little-endian at props[1..4].
+     * Must not use SetUi32(props+1): that is intentionally unaligned and
+     * trips -fsanitize=undefined (misaligned UInt32 store) on x86-64. */
+    props[1] = (Byte)v;
+    props[2] = (Byte)(v >> 8);
+    props[3] = (Byte)(v >> 16);
+    props[4] = (Byte)(v >> 24);
     return SZ_OK;
   }
 }

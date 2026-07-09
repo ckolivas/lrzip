@@ -470,6 +470,29 @@ problem-4 : performace:
   #endif
 #endif
 
+/*
+ * MY_CPU_LE_UNALIGN enables typed loads/stores through unaligned pointers.
+ * That is valid on many CPUs but is C undefined behavior, so
+ * -fsanitize=undefined reports it (e.g. GetUi16(p+1) in LzFindMt).
+ * Use portable byte-wise accessors under sanitizers or when forced.
+ */
+#if defined(LRZIP_PORTABLE_UNALIGNED) \
+ || defined(Z7_NO_UNALIGNED) \
+ || defined(__SANITIZE_ADDRESS__) \
+ || defined(__SANITIZE_THREAD__) \
+ || defined(__SANITIZE_UNDEFINED__) \
+ || (defined(__has_feature) \
+     && (__has_feature(address_sanitizer) \
+         || __has_feature(thread_sanitizer) \
+         || __has_feature(undefined_behavior_sanitizer)))
+  #ifdef MY_CPU_LE_UNALIGN
+    #undef MY_CPU_LE_UNALIGN
+  #endif
+  #ifdef MY_CPU_LE_UNALIGN_64
+    #undef MY_CPU_LE_UNALIGN_64
+  #endif
+#endif
+
 
 #ifdef MY_CPU_LE_UNALIGN
 

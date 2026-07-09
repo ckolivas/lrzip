@@ -334,8 +334,11 @@ else
                 {
                   // SPEC code
                   CLzRef *dest = son + ((size_t)(_cyclicBufferPos) << 1);
-                  const CLzRef *src = dest + ((diff
-                      + (ptrdiff_t)(UInt32)((_cyclicBufferPos < delta) ? cbs : 0)) << 1);
+                  /* diff is -delta (negative). Do not use << on a signed
+                   * negative value (C UB; -fsanitize=undefined). * 2 is OK. */
+                  const ptrdiff_t src_off = diff
+                      + (ptrdiff_t)(UInt32)((_cyclicBufferPos < delta) ? cbs : 0);
+                  const CLzRef *src = dest + (src_off * 2);
                   // CLzRef *ptr = son + ((size_t)(pos) << 1) - CYC_TO_POS_OFFSET * 2;
                   #if 0
                   *(UInt64 *)(void *)dest = *((const UInt64 *)(const void *)src);
@@ -508,8 +511,11 @@ else
                 _cyclicBufferPos++;
                 {
                   CLzRef *dest = son + ((size_t)_cyclicBufferPos << 1);
-                  const CLzRef *src = dest + ((diff +
-                      (ptrdiff_t)(UInt32)(_cyclicBufferPos < delta ? cbs : 0)) << 1);
+                  // diff is -delta; avoid left shift of negative (C UB).
+                  // (This block is inside a file-level comment; use // only.)
+                  const ptrdiff_t src_off = diff +
+                      (ptrdiff_t)(UInt32)(_cyclicBufferPos < delta ? cbs : 0);
+                  const CLzRef *src = dest + (src_off * 2);
                 #if 0
                   *(UInt64 *)(void *)dest = *((const UInt64 *)(const void *)src);
                 #else

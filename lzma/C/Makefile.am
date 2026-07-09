@@ -2,6 +2,8 @@ MAINTAINERCLEANFILES = Makefile.in
 
 # LZMA SDK 26.02 (Igor Pavlov, public domain) — LzmaLib subset for lrzip.
 # Multithreaded match finder needs pthreads (_REENTRANT).
+# Pure -fsanitize=undefined builds (no ASan) should also pass
+# -DLRZIP_PORTABLE_UNALIGNED so CpuArch uses byte-wise unaligned access.
 AM_CFLAGS = \
   -D_REENTRANT \
   -D_FILE_OFFSET_BITS=64 \
