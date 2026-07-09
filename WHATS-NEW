@@ -1,3 +1,12 @@
+lrzip-0.700
+
+Update embedded libzpaq from 5.00 to 7.15 (Matt Mahoney). New C++ glue in
+libzpaq/zpaq_lrzip.cpp maps lrzip compression levels to method strings and
+keeps write-bounds checks. New -z archives use ZPAQ level 2; older lrzip
+with libzpaq 5.x can still be decompressed by this release, but may not
+decompress archives created with 7.15. Streaming block (STDIO) framing and
+other v0.7 format work.
+
 lrzip-0.660
 
 Address multiple potential security issues with crafted or corrupt archives.

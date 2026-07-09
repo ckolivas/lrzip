@@ -388,10 +388,13 @@ a backup mode of compression will be used.
 > A: Make sure you have set CFLAGS and CXXFLAGS. An unoptimised build will be
 almost 3 times slower.
 
-> Q: Why not update to the latest version of libzpaq?
+> Q: Which version of libzpaq does lrzip use?
 
-> A: For reasons that are unclear the later versions of libzpaq create
-corrupt archives when included with lrzip
+> A: lrzip embeds **libzpaq 7.15** (Matt Mahoney; public domain / Unlicense)
+via a small C++ glue layer (`libzpaq/zpaq_lrzip.cpp`). Newer libzpaq can
+decompress older lrzip `-z` streams (ZPAQ level 1). Archives produced with
+this backend use ZPAQ level 2 and may not decompress with very old lrzip
+builds that still ship libzpaq 5.x.
 
 > Q: When limiting processors with the -p option, lrzip still spawns twice as
 many threads as specified with LZMA compression.
@@ -429,8 +432,8 @@ lzo:
 lzma:
 <http://www.7-zip.org/>
 
-zpaq:
-<http://mattmahoney.net/dc/>
+zpaq / libzpaq 7.15:
+<http://mattmahoney.net/dc/zpaq.html>
 
 ### Thanks (CONTRIBUTORS)
 
@@ -450,7 +453,7 @@ zpaq:
 |`^^^^^^^^^^^`|All sorts of other features
 |`René Rhéaume`|Fixing executable stacks|
 |`Ed Avis`|Various fixes|
-|`Matt Mahoney`|`zpaq` integration code|
+|`Matt Mahoney`|`zpaq` / libzpaq (lrzip embeds 7.15)|
 |`Jukka Laurila`|Additional Darwin/OSX support|
 |`George Makrydakis`|`lrztar` wrapper|
 |`Ulrich Drepper`|*special* implementation of md5|
