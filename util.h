@@ -30,6 +30,12 @@ void register_infile(rzip_control *control, const char *name, char delete);
 void register_outfile(rzip_control *control, const char *name, char delete);
 void unlink_files(rzip_control *control);
 void register_outputfile(rzip_control *control, FILE *f);
+
+/* Process exit statuses — all fatal failures go through fatal_exit(). */
+#define LRZIP_EXIT_SUCCESS	0	/* completed successfully / help / version */
+#define LRZIP_EXIT_FAILURE	1	/* runtime, I/O, or archive error */
+#define LRZIP_EXIT_USAGE	2	/* invalid command-line options */
+
 void fatal_exit(rzip_control *control);
 /* Failure when there is likely to be a meaningful error in perror */
 static inline void __attribute__((format(printf, 5, 6))) fatal(const rzip_control *control, unsigned int line, const char *file, const char *func, const char *format, ...)

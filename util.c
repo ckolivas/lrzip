@@ -110,7 +110,7 @@ void fatal_exit(rzip_control *control)
 	}
 	fprintf(control->outputfile, "Fatal error - exiting\n");
 	fflush(control->outputfile);
-	exit(1);
+	exit(LRZIP_EXIT_FAILURE);
 }
 
 void setup_overhead(rzip_control *control)

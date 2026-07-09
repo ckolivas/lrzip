@@ -1109,8 +1109,9 @@ static inline void init_hash_indexes(struct rzip_state *st)
 static inline void *fake_mremap(void *old_address, size_t old_size, size_t new_size, int flags __UNUSED__)
 {
 	if (new_size > old_size) {
-		fprintf(stderr, "fake_mremap: This should only be used to shrink things. I'm not bothering with this.\n");
-		exit(1);
+		/* No control pointer here; match process-wide failure status. */
+		fprintf(stderr, "fake_mremap: This should only be used to shrink things.\n");
+		exit(LRZIP_EXIT_FAILURE);
 	} else {
 		/* new_size occupies N pages; old_size occupies M > N pages;
 		 we want to unmap the M - N pages at the end.

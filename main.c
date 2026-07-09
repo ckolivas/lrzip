@@ -415,7 +415,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'h':
 			usage(compat);
-			exit(0);
+			exit(LRZIP_EXIT_SUCCESS);
 			break;
 		case 'H':
 			control->flags |= FLAG_HASH;
@@ -436,7 +436,7 @@ int main(int argc, char *argv[])
 		case 'L':
 			if (compat) {
 				license();
-				exit(0);
+				exit(LRZIP_EXIT_SUCCESS);
 			}
 			if (!optarg)
 				failure("No level specified with -L\n");
@@ -535,7 +535,7 @@ int main(int argc, char *argv[])
 		case 'V':
 			control->msgout = stdout;
 			print_output("lrzip version %s\n", PACKAGE_VERSION);
-			exit(0);
+			exit(LRZIP_EXIT_SUCCESS);
 			break;
 		case 'w':
 			control->window = strtol(optarg, &endptr, 10);
@@ -557,7 +557,7 @@ int main(int argc, char *argv[])
 			break;
 		default:
 			usage(compat);
-			return 2;
+			return LRZIP_EXIT_USAGE;
 		}
 	}
 
@@ -694,12 +694,12 @@ recursion:
 			if (STDIN && isatty(fileno((FILE *)stdin))) {
 				print_err("Will not read stdin from a terminal. Use -f to override.\n");
 				usage(compat);
-				exit (1);
+				exit(LRZIP_EXIT_FAILURE);
 			}
 			if (!TEST_ONLY && STDOUT && isatty(fileno((FILE *)stdout)) && !compat) {
 				print_err("Will not write stdout to a terminal. Use -f to override.\n");
 				usage(compat);
-				exit (1);
+				exit(LRZIP_EXIT_FAILURE);
 			}
 		}
 
@@ -721,13 +721,22 @@ recursion:
 		if (!control->passphrase && (unlikely((STDIN || STDOUT) && ENCRYPT)))
 			failure("Unable to work from STDIO while reading password\n");
 
-		memcpy(&local_control, &base_control, sizeof(rzip_control));
-		if (DECOMPRESS || TEST_ONLY)
-			decompress_file(&local_control);
-		else if (INFO)
-			get_fileinfo(&local_control);
-		else
-			compress_file(&local_control);
+		{
+			bool ok;
+
+			memcpy(&local_control, &base_control, sizeof(rzip_control));
+			if (DECOMPRESS || TEST_ONLY)
+				ok = decompress_file(&local_control);
+			else if (INFO)
+				ok = get_fileinfo(&local_control);
+			else
+				ok = compress_file(&local_control);
+
+			/* Fatal paths already exit via fatal_exit(); soft failures
+			 * return false and must still fail the process. */
+			if (!ok)
+				exit(LRZIP_EXIT_FAILURE);
+		}
 
 		/* compute total time */
 		gettimeofday(&end_time, NULL);
@@ -742,5 +751,5 @@ recursion:
 			goto recursion;
 	}
 
-	return 0;
+	return LRZIP_EXIT_SUCCESS;
 }
