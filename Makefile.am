@@ -48,6 +48,8 @@ libtmplrzip_la_SOURCES = \
   md5.h \
   aes.c \
   aes.h \
+  gcm.c \
+  gcm.h \
   sha4.c \
   sha4.h \
   libzpaq/libzpaq.cpp \

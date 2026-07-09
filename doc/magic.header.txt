@@ -46,15 +46,30 @@ formerly unused bytes):
 22	Encryption:
 	0 = not encrypted
 	1 = AES-128-CBC (legacy; sha512 KDF); bytes 6->13 are salt
+	    Written with --legacy-encrypt; 0.6-compatible.
 	2 = AES-128-CBC + HMAC-SHA512/256 after each ciphertext payload
-	    (same KDF/salt layout as 1). Tag is 32 bytes after each
-	    encrypted data block (not after encrypted headers).
+	    (same KDF/salt layout as 1). Readable; not written by default.
+	3 = AES-256-GCM + PBKDF2-HMAC-SHA512 (default for -e).
+	    CryptoDesc (32 bytes) follows magic; not 0.6-readable.
 23	1 = this is the last (or only) block; no LRZC follows
 	0 = one or more LRZC continuation blocks follow
 
 Flag bytes must be exactly 0 or 1 where defined as flags, except byte 22
-which may be 0, 1, or 2. Other values are reserved and must be treated as
+which may be 0, 1, 2, or 3. Other values are reserved and must be treated as
 an error.
+
+CryptoDesc (32 bytes, only if magic[22]==3), immediately after magic:
+0	suite_id = 1 (AES-256-GCM + PBKDF2-HMAC-SHA512)
+1	salt_len = 16
+2->5	PBKDF2 iteration count (uint32 LE); default write 600000; max 5000000
+6->7	reserved = 0
+8->23	salt (16 bytes); magic[6..13] duplicates salt[0..7]
+24->31	reserved = 0
+
+Encrypted layouts when magic[22]=3 (per stream block):
+	Header:  [nonce 12][ciphertext 25][tag 16]
+	Payload: [nonce 12][ciphertext c_len][tag 16]
+	MD5 EOF: [nonce 12][ciphertext 16][tag 16]  (when magic[21]=1)
 
 Encrypted layouts when magic[22]=2 (per stream block):
 	Header:  [header_salt 8][header_ciphertext 25][header_HMAC 32]
@@ -64,7 +79,7 @@ HMAC message is salt || ciphertext; key is the session hash from password
 stretch. Verify each tag before the corresponding decrypt. magic[22]=1
 archives omit both HMAC tags (legacy).
 
-Encrypted salt (bytes 6->13 in magic if encrypted):
+Encrypted salt (bytes 6->13 in magic if encrypted modes 1/2):
 0->1	Encoded number of loops to hash password
 2->7	Random data
 (RCD0 is set to 8 bytes always on encrypted files)

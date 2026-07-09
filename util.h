@@ -120,6 +120,55 @@ bool lrz_hmac_data(const rzip_control *control, const uchar *salt,
 bool lrz_hmac_ok(const rzip_control *control, const uchar *salt,
 		 const uchar *data, i64 len, const uchar tag[LRZ_HMAC_LEN]);
 
+/* Secure wipe */
+void lrz_secure_wipe(void *p, size_t n);
+
+/* Suite-3: derive aead_key_hdr / aead_key_data from password + CryptoDesc salt */
+bool lrz_aead_kdf_setup(rzip_control *control);
+
+/* AEAD seal/open: key_id 0 = header key, 1 = data key.
+ * On seal: writes nonce||ct||tag into out (out_len must be >= 12+pt_len+16).
+ * On open: in is nonce||ct||tag; pt_out length is in_len - 28. */
+#define LRZ_AEAD_KEY_HDR	0
+#define LRZ_AEAD_KEY_DATA	1
+bool lrz_aead_seal(rzip_control *control, int key_id,
+		   const uchar *aad, size_t aad_len,
+		   const uchar *pt, size_t pt_len,
+		   uchar *out, size_t *out_len);
+bool lrz_aead_open(rzip_control *control, int key_id,
+		   const uchar *aad, size_t aad_len,
+		   const uchar *in, size_t in_len,
+		   uchar *pt_out, size_t *pt_len);
+
+/* On-disk overhead helpers for encrypt modes */
+static inline i64 lrz_enc_prefix_len(const rzip_control *control)
+{
+	if (!ENCRYPT)
+		return 0;
+	if (ENCRYPT_AEAD)
+		return LRZ_AEAD_NONCE_LEN;
+	return SALT_LEN;
+}
+
+static inline i64 lrz_enc_suffix_len(const rzip_control *control)
+{
+	if (!ENCRYPT)
+		return 0;
+	if (ENCRYPT_AEAD)
+		return LRZ_AEAD_TAG_LEN;
+	if (ENCRYPT_HMAC)
+		return LRZ_HMAC_LEN;
+	return 0;
+}
+
+/* Full on-disk size for an encrypted stream header record (25-byte clear). */
+static inline i64 lrz_enc_header_disk_len(const rzip_control *control)
+{
+	if (!ENCRYPT)
+		return 25;
+	return lrz_enc_prefix_len(control) + 25 + lrz_enc_suffix_len(control);
+}
+
 #define LRZ_DECRYPT	(0)
 #define LRZ_ENCRYPT	(1)
 

@@ -80,7 +80,9 @@ static void usage(bool compat)
 	} else
 		print_output("	-c, -C, --check		check integrity of file written on decompression\n");
 	print_output("	-d, --decompress	decompress\n");
-	print_output("	-e, --encrypt[=password] password protected sha512/aes128 encryption on compression\n");
+	print_output("	-e, --encrypt[=password] password protected encryption on compression\n");
+	print_output("				default: AES-256-GCM + PBKDF2 (not 0.6-readable)\n");
+	print_output("	--legacy-encrypt	with -e, write 0.6-compatible AES-128-CBC (weaker)\n");
 	print_output("	-h, -?, --help		show help\n");
 	print_output("	-H, --hash		display md5 hash integrity information\n");
 	print_output("	-i, --info		show compressed file information\n");
@@ -229,6 +231,7 @@ static struct option long_options[] = {
 	{"decompress",	no_argument,	0,	'd'},
 	{"delete",	no_argument,	0,	'D'},
 	{"encrypt",	optional_argument,	0,	'e'}, /* 5 */
+	{"legacy-encrypt",	no_argument,	0,	'E'},
 	{"force",	no_argument,	0,	'f'},
 	{"gzip",	no_argument,	0,	'g'},
 	{"help",	no_argument,	0,	'h'},
@@ -407,12 +410,21 @@ int main(int argc, char *argv[])
 			control->flags &= ~FLAG_KEEP_FILES;
 			break;
 		case 'e':
-			/* On compress: enable encryption (HMAC for new archives).
-			 * On decompress/test: only supplies the password; ENCRYPT*
-			 * flags are taken from the archive magic instead so stdin
-			 * decrypt works with --encrypt=PASSWORD. */
+			/* On compress: default modern AEAD (magic[22]=3).
+			 * --legacy-encrypt → 0.6 AES-128-CBC; interim HMAC is
+			 * still readable but not written by default.
+			 * On decompress/test: only supplies the password;
+			 * ENCRYPT* flags come from archive magic. */
 			control->passphrase = optarg;
-			control->flags |= FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC;
+			control->flags |= FLAG_ENCRYPT;
+			if (!ENCRYPT_LEGACY) {
+				control->flags |= FLAG_ENCRYPT_AEAD;
+				control->flags &= ~FLAG_ENCRYPT_HMAC;
+			}
+			break;
+		case 'E':
+			control->flags |= FLAG_ENCRYPT_LEGACY;
+			control->flags &= ~(FLAG_ENCRYPT_AEAD | FLAG_ENCRYPT_HMAC);
 			break;
 		case 'f':
 			control->flags |= FLAG_FORCE_REPLACE;
@@ -581,10 +593,18 @@ int main(int argc, char *argv[])
 	if (INFO && !SHOW_OUTPUT)
 		failure("Cannot show info and have no output.\n");
 
+	if (ENCRYPT_LEGACY && !ENCRYPT)
+		failure("--legacy-encrypt requires -e / --encrypt\n");
+	if (ENCRYPT && ENCRYPT_LEGACY)
+		control->flags &= ~(FLAG_ENCRYPT_AEAD | FLAG_ENCRYPT_HMAC);
+	else if (ENCRYPT && !ENCRYPT_AEAD && !ENCRYPT_HMAC && !ENCRYPT_LEGACY)
+		control->flags |= FLAG_ENCRYPT_AEAD;
+
 	/* -e / --encrypt on decompress/test/info only provides the passphrase.
-	 * Whether the stream is encrypted (and HMAC) comes from magic. */
+	 * Whether the stream is encrypted (and mode) comes from magic. */
 	if (DECOMPRESS || TEST_ONLY || INFO)
-		control->flags &= ~(FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC);
+		control->flags &= ~(FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC |
+				   FLAG_ENCRYPT_AEAD | FLAG_ENCRYPT_LEGACY);
 
 	if (VERBOSE && !SHOW_PROGRESS) {
 		print_err("Cannot have -v and -q options. -v wins.\n");

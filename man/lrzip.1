@@ -104,15 +104,16 @@ the name used to launch the program. If it contains the string
 .IP
 .IP "\fB-e\fP"
 .IP "\fB\-\-encrypt\fP[=\fIpassword\fP]"
-Encrypt. This option enables high grade password encryption using a combination
-of multiply sha512 hashed password, random salt and aes128 CBC encryption.
-Passwords up to 500 characters long are supported, and the encryption mechanism
-used virtually guarantees that the same file created with the same password
-will never be the same. Furthermore, the password hashing is increased
-according to the date the file is encrypted, increasing the number of CPU
-cycles required for each password attempt in accordance with Moore's law, thus
-making the difficulty of attempting brute force attacks proportional to the
-power of modern computers.
+Encrypt. By default this writes a modern authenticated suite:
+PBKDF2-HMAC-SHA512, HKDF key separation, and AES-256-GCM (magic byte 22 = 3).
+These archives are \fBnot\fP readable by lrzip 0.6.x. Passwords up to 500
+characters are supported. Use \fB\-\-legacy-encrypt\fP for 0.6-compatible
+output.
+.IP
+.IP "\fB\-\-legacy-encrypt\fP"
+With \fB\-e\fP, write 0.6-compatible encryption (magic byte 22 = 1):
+SHA-512 password stretching and AES-128-CBC. Weaker (no AEAD); prefer the
+default unless you must interoperate with lrzip 0.6.x.
 .IP
 .IP "\fB-h|-?\fP"
 Print an options summary page

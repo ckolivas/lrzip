@@ -1568,14 +1568,38 @@ retry:
 			print_output("\n");
 		}
 		/* When encrypting data, we encrypt the MD5 value as well */
-		if (ENCRYPT)
-			if (unlikely(!lrz_encrypt(control, control->md5_resblock, MD5_DIGEST_SIZE, control->salt_pass))) {
+		if (ENCRYPT_AEAD) {
+			uchar sealed[LRZ_AEAD_NONCE_LEN + MD5_DIGEST_SIZE + LRZ_AEAD_TAG_LEN];
+			uchar aad[8];
+			size_t aad_len = 0, slen = sizeof(sealed);
+
+			/* Match stream AAD layout: ctx 0x03 = MD5 trailer */
+			aad[0] = 'L'; aad[1] = 'R'; aad[2] = 'Z'; aad[3] = 'I';
+			aad[4] = (uchar)control->major_version;
+			aad[5] = (uchar)control->minor_version;
+			aad[6] = 3;
+			aad[7] = 0x03;
+			aad_len = 8;
+			if (unlikely(!lrz_aead_seal(control, LRZ_AEAD_KEY_DATA, aad, aad_len,
+						    control->md5_resblock, MD5_DIGEST_SIZE,
+						    sealed, &slen))) {
 				dealloc(st);
-				failure("Failed to lrz_encrypt in rzip_fd\n");
+				failure("Failed to AEAD-seal MD5 in rzip_fd\n");
 			}
-		if (unlikely(write_all(control, control->md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE)) {
-			dealloc(st);
-			failure("Failed to write md5 in rzip_fd\n");
+			if (unlikely(write_all(control, sealed, (i64)slen) != (i64)slen)) {
+				dealloc(st);
+				failure("Failed to write AEAD MD5 in rzip_fd\n");
+			}
+		} else {
+			if (ENCRYPT)
+				if (unlikely(!lrz_encrypt(control, control->md5_resblock, MD5_DIGEST_SIZE, control->salt_pass))) {
+					dealloc(st);
+					failure("Failed to lrz_encrypt in rzip_fd\n");
+				}
+			if (unlikely(write_all(control, control->md5_resblock, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE)) {
+				dealloc(st);
+				failure("Failed to write md5 in rzip_fd\n");
+			}
 		}
 	}
 

@@ -710,17 +710,39 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 		md5_finish_ctx (&control->ctx, control->md5_resblock);
 		if (HAS_MD5) {
 			i64 fdinend = seekto_fdinend(control);
+			i64 md5_wire = MD5_DIGEST_SIZE;
+
+			if (ENCRYPT_AEAD)
+				md5_wire = LRZ_AEAD_NONCE_LEN + MD5_DIGEST_SIZE + LRZ_AEAD_TAG_LEN;
 
 			if (unlikely(fdinend == -1))
 				failure_return(("Failed to seekto_fdinend in rzip_fd\n"), -1);
-			if (unlikely(seekto_fdin(control, fdinend - MD5_DIGEST_SIZE) == -1))
+			if (unlikely(seekto_fdin(control, fdinend - md5_wire) == -1))
 				failure_return(("Failed to seekto_fdin in rzip_fd\n"), -1);
 
-			if (unlikely(read_all(control, fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
-				fatal_return(("Failed to read md5 data in runzip_fd\n"), -1);
-			if (ENCRYPT)
-				if (unlikely(!lrz_decrypt(control, md5_stored, MD5_DIGEST_SIZE, control->salt_pass)))
+			if (ENCRYPT_AEAD) {
+				uchar sealed[LRZ_AEAD_NONCE_LEN + MD5_DIGEST_SIZE + LRZ_AEAD_TAG_LEN];
+				uchar aad[8];
+				size_t aad_len = 8, pt_len = MD5_DIGEST_SIZE;
+
+				if (unlikely(read_all(control, fd_in, sealed, md5_wire) != md5_wire))
+					fatal_return(("Failed to read AEAD md5 data in runzip_fd\n"), -1);
+				aad[0] = 'L'; aad[1] = 'R'; aad[2] = 'Z'; aad[3] = 'I';
+				aad[4] = (uchar)control->major_version;
+				aad[5] = (uchar)control->minor_version;
+				aad[6] = 3;
+				aad[7] = 0x03;
+				if (unlikely(!lrz_aead_open(control, LRZ_AEAD_KEY_DATA, aad, aad_len,
+							    sealed, (size_t)md5_wire,
+							    md5_stored, &pt_len)))
 					return -1;
+			} else {
+				if (unlikely(read_all(control, fd_in, md5_stored, MD5_DIGEST_SIZE) != MD5_DIGEST_SIZE))
+					fatal_return(("Failed to read md5 data in runzip_fd\n"), -1);
+				if (ENCRYPT)
+					if (unlikely(!lrz_decrypt(control, md5_stored, MD5_DIGEST_SIZE, control->salt_pass)))
+						return -1;
+			}
 			for (i = 0; i < MD5_DIGEST_SIZE; i++)
 				if (md5_stored[i] != control->md5_resblock[i]) {
 					print_output("MD5 CHECK FAILED.\nStored:");

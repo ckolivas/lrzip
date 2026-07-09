@@ -197,9 +197,19 @@ bool write_magic(rzip_control *control)
 	 */
 	if (!NO_MD5)
 		magic[21] = 1;
-	/* 1 = AES-CBC only (legacy); 2 = AES-CBC + per-payload HMAC */
-	if (ENCRYPT)
-		magic[22] = ENCRYPT_HMAC ? 2 : 1;
+	/* Encryption mode byte:
+	 * 1 = AES-128-CBC only (0.6-compatible / --legacy-encrypt)
+	 * 2 = AES-128-CBC + HMAC (0.7 interim; still readable)
+	 * 3 = AES-256-GCM + PBKDF2 (default -e)
+	 */
+	if (ENCRYPT) {
+		if (ENCRYPT_LEGACY)
+			magic[22] = 1;
+		else if (ENCRYPT_HMAC)
+			magic[22] = 2;
+		else
+			magic[22] = 3; /* AEAD default */
+	}
 
 	/* v0.7 streaming flags in formerly unused bytes 14 and 23.
 	 * Mode B (LRZC multi-block) when progressive STDOUT and this is not
@@ -223,7 +233,47 @@ bool write_magic(rzip_control *control)
 
 	if (unlikely(put_fdout(control, magic, MAGIC_LEN) != MAGIC_LEN))
 		fatal_return(("Failed to write magic header\n"), false);
+
+	/* Suite-3 CryptoDesc immediately after LRZI */
+	if (ENCRYPT_AEAD) {
+		uchar desc[LRZ_CRYPTO_DESC_LEN];
+		uint32_t iters;
+
+		memset(desc, 0, sizeof(desc));
+		desc[0] = LRZ_SUITE_AES256_GCM_PBKDF2;
+		desc[1] = LRZ_AEAD_SALT_LEN;
+		iters = htole32(control->aead_iters);
+		memcpy(desc + 2, &iters, 4);
+		memcpy(desc + 8, control->aead_salt, LRZ_AEAD_SALT_LEN);
+		if (unlikely(put_fdout(control, desc, LRZ_CRYPTO_DESC_LEN) != LRZ_CRYPTO_DESC_LEN))
+			fatal_return(("Failed to write encryption descriptor\n"), false);
+	}
+
 	control->magic_written = 1;
+	return true;
+}
+
+/* Read suite-3 CryptoDesc after magic; populate aead_salt / aead_iters. */
+static bool read_crypto_desc(rzip_control *control, int fd_in)
+{
+	uchar desc[LRZ_CRYPTO_DESC_LEN];
+	uint32_t iters;
+
+	if (unlikely(read(fd_in, desc, LRZ_CRYPTO_DESC_LEN) != LRZ_CRYPTO_DESC_LEN))
+		fatal_return(("Failed to read encryption descriptor\n"), false);
+	if (desc[0] != LRZ_SUITE_AES256_GCM_PBKDF2)
+		failure_return(("Unsupported encryption suite %u\n", desc[0]), false);
+	if (desc[1] != LRZ_AEAD_SALT_LEN)
+		failure_return(("Invalid encryption salt length %u\n", desc[1]), false);
+	memcpy(&iters, desc + 2, 4);
+	iters = le32toh(iters);
+	if (iters < 1 || iters > LRZ_PBKDF2_ITERS_MAX)
+		failure_return(("Invalid PBKDF2 iteration count %u\n", iters), false);
+	control->aead_iters = iters;
+	memcpy(control->aead_salt, desc + 8, LRZ_AEAD_SALT_LEN);
+	/* Keep salt[0..7] in sync for any code that still peeks at control->salt */
+	memcpy(control->salt, control->aead_salt, SALT_LEN);
+	print_maxverbose("AEAD PBKDF2 iterations %u\n", control->aead_iters);
 	return true;
 }
 
@@ -295,24 +345,33 @@ static bool get_magic(rzip_control *control, char *magic)
 	}
 	encrypted = magic[22];
 	if (encrypted) {
+		control->flags &= ~(FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC |
+				    FLAG_ENCRYPT_AEAD | FLAG_ENCRYPT_LEGACY);
 		if (encrypted == 1)
-			control->flags |= FLAG_ENCRYPT;
+			control->flags |= FLAG_ENCRYPT | FLAG_ENCRYPT_LEGACY;
 		else if (encrypted == 2)
 			control->flags |= FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC;
+		else if (encrypted == 3)
+			control->flags |= FLAG_ENCRYPT | FLAG_ENCRYPT_AEAD;
 		else
 			failure_return(("Unknown encryption\n"), false);
-		/* In encrypted files, the size field is used to store the salt
-		 * instead and the size is unknown, just like a STDOUT chunked
-		 * file */
+		/* In encrypted files, the size field is used to store salt
+		 * (legacy) or salt prefix (AEAD); archive size is unknown. */
 		memcpy(&control->salt, &magic[6], 8);
 		control->st_size = expected_size = 0;
-		control->encloops = enc_loops(control->salt[0], control->salt[1]);
-		if (unlikely(control->encloops < 1))
-			failure_return(("Invalid encryption parameters in archive header\n"), false);
-		print_maxverbose("Encryption hash loops %"PRId64"\n", control->encloops);
+		if (ENCRYPT_AEAD) {
+			/* Full CryptoDesc (salt + iters) follows magic; read later. */
+			print_maxverbose("AES-256-GCM encrypted archive (suite 3)\n");
+		} else {
+			control->encloops = enc_loops(control->salt[0], control->salt[1]);
+			if (unlikely(control->encloops < 1))
+				failure_return(("Invalid encryption parameters in archive header\n"), false);
+			print_maxverbose("Encryption hash loops %"PRId64"\n", control->encloops);
+		}
 	} else if (ENCRYPT) {
 		print_output("Asked to decrypt a non-encrypted archive. Bypassing decryption.\n");
-		control->flags &= ~FLAG_ENCRYPT;
+		control->flags &= ~(FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC |
+				    FLAG_ENCRYPT_AEAD | FLAG_ENCRYPT_LEGACY);
 	}
 
 	/* v0.7 streaming / last-block flags (bytes 14 and 23) */
@@ -351,6 +410,8 @@ bool read_magic(rzip_control *control, int fd_in, i64 *expected_size)
 		fatal_return(("Failed to read magic header\n"), false);
 
 	if (unlikely(!get_magic(control, magic)))
+		return false;
+	if (ENCRYPT_AEAD && unlikely(!read_crypto_desc(control, fd_in)))
 		return false;
 	*expected_size = control->st_size;
 	return true;
@@ -609,7 +670,31 @@ static bool read_tmpinmagic(rzip_control *control)
 			failure_return(("Reached end of file on STDIN prematurely on v05 magic read\n"), false);
 		magic[i] = (char)tmpchar;
 	}
-	return get_magic(control, magic);
+	if (unlikely(!get_magic(control, magic)))
+		return false;
+	if (ENCRYPT_AEAD) {
+		uchar desc[LRZ_CRYPTO_DESC_LEN];
+		uint32_t iters;
+
+		for (i = 0; i < LRZ_CRYPTO_DESC_LEN; i++) {
+			tmpchar = getchar();
+			if (unlikely(tmpchar == EOF))
+				failure_return(("EOF reading encryption descriptor from STDIN\n"), false);
+			desc[i] = (uchar)tmpchar;
+		}
+		if (desc[0] != LRZ_SUITE_AES256_GCM_PBKDF2)
+			failure_return(("Unsupported encryption suite %u\n", desc[0]), false);
+		if (desc[1] != LRZ_AEAD_SALT_LEN)
+			failure_return(("Invalid encryption salt length\n"), false);
+		memcpy(&iters, desc + 2, 4);
+		iters = le32toh(iters);
+		if (iters < 1 || iters > LRZ_PBKDF2_ITERS_MAX)
+			failure_return(("Invalid PBKDF2 iteration count\n"), false);
+		control->aead_iters = iters;
+		memcpy(control->aead_salt, desc + 8, LRZ_AEAD_SALT_LEN);
+		memcpy(control->salt, control->aead_salt, SALT_LEN);
+	}
+	return true;
 }
 
 /* Read data from stdin into temporary inputfile */
@@ -678,8 +763,13 @@ static bool open_tmpoutbuf(rzip_control *control)
 	 * fall back to a real temporary file */
 	control->out_maxlen = maxlen - control->page_size;
 	control->tmp_outbuf = buf;
-	if (!DECOMPRESS && !TEST_ONLY)
-		control->out_ofs = control->out_len = MAGIC_LEN;\
+	if (!DECOMPRESS && !TEST_ONLY) {
+		i64 hdr = MAGIC_LEN;
+
+		if (ENCRYPT_AEAD)
+			hdr += LRZ_CRYPTO_DESC_LEN;
+		control->out_ofs = control->out_len = hdr;
+	}
 	return true;
 }
 
@@ -815,7 +905,17 @@ retry_pass:
 	}
 	memcpy(control->salt_pass, control->salt, SALT_LEN);
 	memcpy(control->salt_pass + SALT_LEN, passphrase, PASS_LEN - SALT_LEN);
-	lrz_stretch(control);
+	if (ENCRYPT_AEAD) {
+		if (unlikely(!lrz_aead_kdf_setup(control))) {
+			memset(passphrase, 0, PASS_LEN);
+			munlock(passphrase, PASS_LEN);
+			munlock(testphrase, PASS_LEN);
+			dealloc(testphrase);
+			dealloc(passphrase);
+			failure_return(("Failed AEAD key derivation\n"), false);
+		}
+	} else
+		lrz_stretch(control);
 	memset(passphrase, 0, PASS_LEN);
 	munlock(passphrase, PASS_LEN);
 	munlock(testphrase, PASS_LEN);
@@ -828,6 +928,9 @@ static void release_hashes(rzip_control *control)
 {
 	memset(control->salt_pass, 0, PASS_LEN);
 	memset(control->hash, 0, HASH_LEN);
+	lrz_secure_wipe(control->aead_key_hdr, LRZ_AEAD_KEY_LEN);
+	lrz_secure_wipe(control->aead_key_data, LRZ_AEAD_KEY_LEN);
+	lrz_secure_wipe(control->aead_salt, LRZ_AEAD_SALT_LEN);
 	munlock(control->salt_pass, PASS_LEN);
 	munlock(control->hash, HASH_LEN);
 	dealloc(control->salt_pass);
@@ -1407,9 +1510,23 @@ bool compress_file(rzip_control *control)
 	char header[MAGIC_LEN];
 
 	control->flags |= FLAG_MD5;
-	if (ENCRYPT)
+	if (ENCRYPT) {
+		/* Default modern AEAD unless user requested legacy 0.6 or interim HMAC. */
+		if (!ENCRYPT_LEGACY && !ENCRYPT_HMAC)
+			control->flags |= FLAG_ENCRYPT_AEAD;
+		/* AAD binds major/minor; match bytes written into magic. */
+		control->major_version = LRZIP_MAJOR_VERSION;
+		control->minor_version = LRZIP_MINOR_VERSION;
+		if (ENCRYPT_AEAD) {
+			if (unlikely(!get_rand(control, control->aead_salt, LRZ_AEAD_SALT_LEN)))
+				return false;
+			memcpy(control->salt, control->aead_salt, SALT_LEN);
+			if (!control->aead_iters)
+				control->aead_iters = LRZ_PBKDF2_ITERS_DEFAULT;
+		}
 		if (unlikely(!get_hash(control, 1)))
 			return false;
+	}
 	memset(header, 0, sizeof(header));
 
 	if ( IS_FROM_FILE )
@@ -1493,9 +1610,19 @@ bool compress_file(rzip_control *control)
 			goto error;
 	}
 
-	/* Write zeroes to header at beginning of file */
-	if (unlikely(!STDOUT && write(fd_out, header, sizeof(header)) != sizeof(header)))
-		fatal_goto(("Cannot write file header\n"), error);
+	/* Write zeroes to header at beginning of file (magic [+ CryptoDesc]) */
+	if (!STDOUT) {
+		i64 hdr = MAGIC_LEN + (ENCRYPT_AEAD ? LRZ_CRYPTO_DESC_LEN : 0);
+		uchar *zeros = calloc(1, (size_t)hdr);
+
+		if (unlikely(!zeros))
+			fatal_goto(("Cannot allocate file header\n"), error);
+		if (unlikely(write(fd_out, zeros, hdr) != hdr)) {
+			dealloc(zeros);
+			fatal_goto(("Cannot write file header\n"), error);
+		}
+		dealloc(zeros);
+	}
 
 	rzip_fd(control, fd_in, fd_out);
 
@@ -1597,6 +1724,8 @@ bool initialise_control(rzip_control *control)
 	control->encloops = nloops(control->secs, control->salt, control->salt + 1);
 	if (unlikely(!get_rand(control, control->salt + 2, 6)))
 		return false;
+	/* Suite-3 salt prepared on first encrypt; filled in compress_file. */
+	control->aead_iters = LRZ_PBKDF2_ITERS_DEFAULT;
 
 	/* Get Temp Dir. Try variations on canonical unix environment variable */
 	eptr = getenv("TMPDIR");

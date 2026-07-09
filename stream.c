@@ -1181,32 +1181,65 @@ retest_malloc:
 	return (void *)sinfo;
 }
 
-/* The block headers are all encrypted so we read the data and salt associated
- * with them, decrypt the data, then return the decrypted version of the
- * values. head is SALT_LEN + 25 bytes: salt then ciphertext. Optional HMAC
- * tag is verified before decrypt when ENCRYPT_HMAC. */
+/* AAD for suite-3: "LRZI" + major + minor + enc_mode + context */
+static void aead_fill_aad(const rzip_control *control, uchar ctx,
+			  uchar aad[8], size_t *aad_len)
+{
+	aad[0] = 'L';
+	aad[1] = 'R';
+	aad[2] = 'Z';
+	aad[3] = 'I';
+	aad[4] = (uchar)control->major_version;
+	aad[5] = (uchar)control->minor_version;
+	aad[6] = ENCRYPT_AEAD ? 3 : (ENCRYPT_HMAC ? 2 : 1);
+	aad[7] = ctx; /* 1=header, 2=data, 3=md5 */
+	*aad_len = 8;
+}
+
+/* Decrypt a stream header.
+ *   AEAD: head is nonce||ct25||tag (53 bytes)
+ *   legacy/HMAC: head is salt8||ct25; optional hmac_tag verified first
+ */
 static bool decrypt_header(rzip_control *control, uchar *head, uchar *c_type,
 			   i64 *c_len, i64 *u_len, i64 *last_head,
 			   const uchar *hmac_tag)
 {
-	uchar *buf = head + SALT_LEN;
+	if (ENCRYPT_AEAD) {
+		uchar clear[25], aad[8];
+		size_t aad_len = 0, pt_len = sizeof(clear);
 
-	if (ENCRYPT_HMAC) {
-		if (unlikely(!hmac_tag ||
-			     !lrz_hmac_ok(control, head, buf, 25, hmac_tag))) {
-			print_err("Header HMAC check failed (corrupt or wrong password)\n");
+		aead_fill_aad(control, 0x01, aad, &aad_len);
+		if (unlikely(!lrz_aead_open(control, LRZ_AEAD_KEY_HDR, aad, aad_len,
+					    head, LRZ_AEAD_NONCE_LEN + 25 + LRZ_AEAD_TAG_LEN,
+					    clear, &pt_len))) {
+			print_err("Header AEAD check failed (corrupt or wrong password)\n");
 			return false;
 		}
+		memcpy(c_type, clear, 1);
+		memcpy(c_len, clear + 1, 8);
+		memcpy(u_len, clear + 9, 8);
+		memcpy(last_head, clear + 17, 8);
+		return true;
+	} else {
+		uchar *buf = head + SALT_LEN;
+
+		if (ENCRYPT_HMAC) {
+			if (unlikely(!hmac_tag ||
+				     !lrz_hmac_ok(control, head, buf, 25, hmac_tag))) {
+				print_err("Header HMAC check failed (corrupt or wrong password)\n");
+				return false;
+			}
+		}
+
+		if (unlikely(!lrz_decrypt(control, buf, 25, head)))
+			return false;
+
+		memcpy(c_type, buf, 1);
+		memcpy(c_len, buf + 1, 8);
+		memcpy(u_len, buf + 9, 8);
+		memcpy(last_head, buf + 17, 8);
+		return true;
 	}
-
-	if (unlikely(!lrz_decrypt(control, buf, 25, head)))
-		return false;
-
-	memcpy(c_type, buf, 1);
-	memcpy(c_len, buf + 1, 8);
-	memcpy(u_len, buf + 9, 8);
-	memcpy(last_head, buf + 17, 8);
-	return true;
 }
 
 /* prepare a set of n streams for reading on file descriptor f */
@@ -1300,7 +1333,8 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 	}
 
 	for (i = 0; i < n; i++) {
-		uchar c, enc_head[25 + SALT_LEN], hdr_tag[LRZ_HMAC_LEN];
+		/* Max header wire size: AEAD 53 or salt+25+HMAC 65 */
+		uchar c, enc_head[SALT_LEN + 25 + LRZ_HMAC_LEN];
 		i64 v1, v2;
 
 		sinfo->s[i].base_thread = i;
@@ -1308,18 +1342,16 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 		sinfo->s[i].unext_thread = sinfo->s[i].base_thread;
 
 		if (ENCRYPT) {
-			/* Read salt + 25-byte ciphertext as one blob for HMAC. */
-			if (unlikely(read_buf(control, f, enc_head, SALT_LEN + 25)))
+			i64 hlen = lrz_enc_header_disk_len(control);
+
+			if (unlikely(hlen > (i64)sizeof(enc_head)))
 				goto failed;
-			sinfo->total_read += SALT_LEN + 25;
-			if (ENCRYPT_HMAC) {
-				if (unlikely(read_buf(control, f, hdr_tag, LRZ_HMAC_LEN)))
-					goto failed;
-				sinfo->total_read += LRZ_HMAC_LEN;
-			}
+			if (unlikely(read_buf(control, f, enc_head, hlen)))
+				goto failed;
+			sinfo->total_read += hlen;
 			if (unlikely(!decrypt_header(control, enc_head, &c, &v1, &v2,
 						     &sinfo->s[i].last_head,
-						     ENCRYPT_HMAC ? hdr_tag : NULL)))
+						     ENCRYPT_HMAC ? enc_head + SALT_LEN + 25 : NULL)))
 				goto failed;
 			header_length = 0; /* already counted */
 		} else {
@@ -1398,28 +1430,49 @@ failed:
 	return NULL;
 }
 
-#define MIN_SIZE (ENCRYPT ? CBC_LEN : 0)
+#define MIN_SIZE (ENCRYPT_AEAD ? 0 : (ENCRYPT ? CBC_LEN : 0))
 
 /* Once the final data has all been written to the block header, we go back
- * and write SALT_LEN bytes of salt before it, and encrypt the header in place
- * by reading what has been written, encrypting it, and writing back over it.
- * With ENCRYPT_HMAC, a 32-byte tag is written immediately after the 25-byte
- * ciphertext (placeholder space must already exist in the stream). */
+ * and write salt/nonce before it, and encrypt the header in place.
+ * ofs is the start of the 25-byte clear header relative to initial_pos. */
 static bool rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, i64 ofs)
 {
 	uchar *buf, *head;
-	i64 cur_ofs;
+	i64 cur_ofs, prefix;
 
 	cur_ofs = get_seek(control, sinfo->fd) - sinfo->initial_pos;
 	if (unlikely(cur_ofs == -1))
 		return false;
+
+	if (ENCRYPT_AEAD) {
+		uchar clear[25], sealed[LRZ_AEAD_NONCE_LEN + 25 + LRZ_AEAD_TAG_LEN];
+		uchar aad[8];
+		size_t aad_len = 0, slen = sizeof(sealed);
+
+		if (unlikely(seekto(control, sinfo, ofs)))
+			failure_return(("Failed to seek clear header in rewrite_encrypted\n"), false);
+		if (unlikely(read_buf(control, sinfo->fd, clear, 25)))
+			failure_return(("Failed to read clear header in rewrite_encrypted\n"), false);
+		aead_fill_aad(control, 0x01, aad, &aad_len);
+		if (unlikely(!lrz_aead_seal(control, LRZ_AEAD_KEY_HDR, aad, aad_len,
+					    clear, 25, sealed, &slen)))
+			failure_return(("Failed to AEAD-seal header\n"), false);
+		if (unlikely(seekto(control, sinfo, ofs - LRZ_AEAD_NONCE_LEN)))
+			failure_return(("Failed to seek sealed header in rewrite_encrypted\n"), false);
+		if (unlikely(write_buf(control, sealed, (i64)slen)))
+			failure_return(("Failed to write sealed header\n"), false);
+		seekto(control, sinfo, cur_ofs);
+		return true;
+	}
+
+	prefix = SALT_LEN;
 	head = malloc(25 + SALT_LEN);
 	if (unlikely(!head))
 		fatal_return(("Failed to malloc head in rewrite_encrypted\n"), false);
 	buf = head + SALT_LEN;
 	if (unlikely(!get_rand(control, head, SALT_LEN)))
 		goto error;
-	if (unlikely(seekto(control, sinfo, ofs - SALT_LEN)))
+	if (unlikely(seekto(control, sinfo, ofs - prefix)))
 		failure_goto(("Failed to seekto buf ofs in rewrite_encrypted\n"), error);
 	if (unlikely(write_buf(control, head, SALT_LEN)))
 		failure_goto(("Failed to write_buf head in rewrite_encrypted\n"), error);
@@ -1589,14 +1642,16 @@ retry:
 
 		print_maxverbose("Writing initial header at %"PRId64"\n", ctis->initial_pos);
 		for (j = 0; j < ctis->num_streams; j++) {
-			/* If encrypting, we leave SALT_LEN room to write in salt
-			* later */
+			i64 pref = lrz_enc_prefix_len(control);
+			i64 suf = lrz_enc_suffix_len(control);
+
+			/* Room for salt (legacy/HMAC) or nonce (AEAD) before body */
 			if (ENCRYPT) {
-				if (unlikely(write_val(control, 0, SALT_LEN))) {
-					fatal_msg = "Failed to write blank salt in compthread\n";
+				if (unlikely(write_val(control, 0, pref))) {
+					fatal_msg = "Failed to write blank salt/nonce in compthread\n";
 					goto out;
 				}
-				ctis->cur_pos += SALT_LEN;
+				ctis->cur_pos += pref;
 			}
 			ctis->s[j].last_head = ctis->cur_pos + 1 + (write_len * 2);
 			write_u8(control, CTYPE_NONE);
@@ -1604,15 +1659,13 @@ retry:
 			write_val(control, 0, write_len);
 			write_val(control, 0, write_len);
 			ctis->cur_pos += 1 + (write_len * 3);
-			/* Placeholder for header HMAC after 25-byte ciphertext. */
-			if (ENCRYPT && ENCRYPT_HMAC) {
-				uchar ztag[LRZ_HMAC_LEN] = { 0 };
-
-				if (unlikely(write_buf(control, ztag, LRZ_HMAC_LEN))) {
-					fatal_msg = "Failed to write blank header HMAC in compthread\n";
+			/* Placeholder for HMAC or GCM tag after 25-byte body */
+			if (ENCRYPT && suf) {
+				if (unlikely(write_val(control, 0, suf))) {
+					fatal_msg = "Failed to write blank header auth tag in compthread\n";
 					goto out;
 				}
-				ctis->cur_pos += LRZ_HMAC_LEN;
+				ctis->cur_pos += suf;
 			}
 		}
 	}
@@ -1632,7 +1685,8 @@ retry:
 	if (ENCRYPT)
 		rewrite_encrypted(control, ctis, ctis->s[cti->streamno].last_head - 17);
 
-	ctis->s[cti->streamno].last_head = ctis->cur_pos + 1 + (write_len * 2) + (ENCRYPT ? SALT_LEN : 0);
+	ctis->s[cti->streamno].last_head = ctis->cur_pos + 1 + (write_len * 2) +
+					   lrz_enc_prefix_len(control);
 
 	print_maxverbose("Compthread %ld seeking to %"PRId64" to write header\n", i, ctis->cur_pos);
 
@@ -1645,11 +1699,13 @@ retry:
 			 i, cti->c_len, cti->s_len, cti->streamno);
 
 	if (ENCRYPT) {
-		if (unlikely(write_val(control, 0, SALT_LEN))) {
-			fatal_msg = "Failed to write header salt in compthread\n";
+		i64 pref = lrz_enc_prefix_len(control);
+
+		if (unlikely(write_val(control, 0, pref))) {
+			fatal_msg = "Failed to write header salt/nonce in compthread\n";
 			goto out;
 		}
-		ctis->cur_pos += SALT_LEN;
+		ctis->cur_pos += pref;
 		ctis->s[cti->streamno].last_headofs = ctis->cur_pos;
 	}
 	/* We store the actual c_len even though we might pad it out */
@@ -1662,18 +1718,42 @@ retry:
 	}
 	ctis->cur_pos += 1 + (write_len * 3);
 
-	/* Reserve space for header HMAC (filled in rewrite_encrypted). */
-	if (ENCRYPT && ENCRYPT_HMAC) {
-		uchar ztag[LRZ_HMAC_LEN] = { 0 };
+	/* Reserve space for HMAC/GCM tag (filled in rewrite_encrypted). */
+	if (ENCRYPT && lrz_enc_suffix_len(control)) {
+		i64 suf = lrz_enc_suffix_len(control);
 
-		if (unlikely(write_buf(control, ztag, LRZ_HMAC_LEN))) {
-			fatal_msg = "Failed to write blank header HMAC in compthread\n";
+		if (unlikely(write_val(control, 0, suf))) {
+			fatal_msg = "Failed to write blank header auth tag in compthread\n";
 			goto out;
 		}
-		ctis->cur_pos += LRZ_HMAC_LEN;
+		ctis->cur_pos += suf;
 	}
 
-	if (ENCRYPT) {
+	if (ENCRYPT_AEAD) {
+		size_t slen = LRZ_AEAD_NONCE_LEN + (size_t)padded_len + LRZ_AEAD_TAG_LEN;
+		uchar *sealed, aad[8];
+		size_t aad_len = 0;
+
+		sealed = malloc(slen);
+		if (unlikely(!sealed)) {
+			fatal_msg = "Failed to malloc AEAD payload buffer in compthread\n";
+			goto out;
+		}
+		aead_fill_aad(control, 0x02, aad, &aad_len);
+		if (unlikely(!lrz_aead_seal(control, LRZ_AEAD_KEY_DATA, aad, aad_len,
+					    cti->s_buf, (size_t)padded_len, sealed, &slen))) {
+			dealloc(sealed);
+			fatal_msg = "Failed to AEAD-seal payload in compthread\n";
+			goto out;
+		}
+		if (unlikely(write_buf(control, sealed, (i64)slen))) {
+			dealloc(sealed);
+			fatal_msg = "Failed to write AEAD payload in compthread\n";
+			goto out;
+		}
+		ctis->cur_pos += (i64)slen;
+		dealloc(sealed);
+	} else if (ENCRYPT) {
 		if (unlikely(!get_rand(control, cti->salt, SALT_LEN)))
 			goto out;
 		if (unlikely(write_buf(control, cti->salt, SALT_LEN))) {
@@ -1683,28 +1763,36 @@ retry:
 		if (unlikely(!lrz_encrypt(control, cti->s_buf, padded_len, cti->salt)))
 			goto out;
 		ctis->cur_pos += SALT_LEN;
-	}
 
-	print_maxverbose("Compthread %ld writing data at %"PRId64"\n", i, ctis->cur_pos);
+		print_maxverbose("Compthread %ld writing data at %"PRId64"\n", i, ctis->cur_pos);
 
-	if (unlikely(write_buf(control, cti->s_buf, padded_len))) {
-		fatal_msg = "Failed to write_buf s_buf in compthread\n";
-		goto out;
-	}
-	ctis->cur_pos += padded_len;
-
-	if (ENCRYPT && ENCRYPT_HMAC) {
-		uchar tag[LRZ_HMAC_LEN];
-
-		if (unlikely(!lrz_hmac_data(control, cti->salt, cti->s_buf, padded_len, tag))) {
-			fatal_msg = "Failed to HMAC ciphertext in compthread\n";
+		if (unlikely(write_buf(control, cti->s_buf, padded_len))) {
+			fatal_msg = "Failed to write_buf s_buf in compthread\n";
 			goto out;
 		}
-		if (unlikely(write_buf(control, tag, LRZ_HMAC_LEN))) {
-			fatal_msg = "Failed to write HMAC tag in compthread\n";
+		ctis->cur_pos += padded_len;
+
+		if (ENCRYPT_HMAC) {
+			uchar tag[LRZ_HMAC_LEN];
+
+			if (unlikely(!lrz_hmac_data(control, cti->salt, cti->s_buf, padded_len, tag))) {
+				fatal_msg = "Failed to HMAC ciphertext in compthread\n";
+				goto out;
+			}
+			if (unlikely(write_buf(control, tag, LRZ_HMAC_LEN))) {
+				fatal_msg = "Failed to write HMAC tag in compthread\n";
+				goto out;
+			}
+			ctis->cur_pos += LRZ_HMAC_LEN;
+		}
+	} else {
+		print_maxverbose("Compthread %ld writing data at %"PRId64"\n", i, ctis->cur_pos);
+
+		if (unlikely(write_buf(control, cti->s_buf, padded_len))) {
+			fatal_msg = "Failed to write_buf s_buf in compthread\n";
 			goto out;
 		}
-		ctis->cur_pos += LRZ_HMAC_LEN;
+		ctis->cur_pos += padded_len;
 	}
 
 	dealloc(cti->s_buf);
@@ -1858,7 +1946,7 @@ retry:
 static int fill_buffer(rzip_control *control, struct stream_info *sinfo, struct stream *s, int streamno)
 {
 	i64 u_len, c_len, last_head, padded_len, header_length = 0, max_len;
-	uchar enc_head[25 + SALT_LEN], blocksalt[SALT_LEN];
+	uchar enc_head[SALT_LEN + 25 + LRZ_HMAC_LEN], blocksalt[SALT_LEN];
 	struct uncomp_thread *ucthreads = sinfo->ucthreads;
 	pthread_t *threads = control->pthreads;
 	stream_thread_struct *sts;
@@ -1889,24 +1977,23 @@ fill_another:
 		return -1;
 
 	if (ENCRYPT) {
-		uchar hdr_tag[LRZ_HMAC_LEN];
+		i64 hlen = lrz_enc_header_disk_len(control);
 
-		/* salt + 25-byte ciphertext (+ optional header HMAC) */
-		if (unlikely(read_buf(control, sinfo->fd, enc_head, SALT_LEN + 25)))
+		/* AEAD: nonce||ct||tag; legacy: salt||ct [||HMAC] */
+		if (unlikely(hlen > (i64)sizeof(enc_head)))
 			return -1;
-		sinfo->total_read += SALT_LEN + 25;
-		if (ENCRYPT_HMAC) {
-			if (unlikely(read_buf(control, sinfo->fd, hdr_tag, LRZ_HMAC_LEN)))
-				return -1;
-			sinfo->total_read += LRZ_HMAC_LEN;
-		}
+		if (unlikely(read_buf(control, sinfo->fd, enc_head, hlen)))
+			return -1;
+		sinfo->total_read += hlen;
 		if (unlikely(!decrypt_header(control, enc_head, &c_type, &c_len,
 					     &u_len, &last_head,
-					     ENCRYPT_HMAC ? hdr_tag : NULL)))
+					     ENCRYPT_HMAC ? enc_head + SALT_LEN + 25 : NULL)))
 			return -1;
-		if (unlikely(read_buf(control, sinfo->fd, blocksalt, SALT_LEN)))
-			return -1;
-		sinfo->total_read += SALT_LEN;
+		if (!ENCRYPT_AEAD) {
+			if (unlikely(read_buf(control, sinfo->fd, blocksalt, SALT_LEN)))
+				return -1;
+			sinfo->total_read += SALT_LEN;
+		}
 	} else if (control->major_version == 0 && control->minor_version < 4) {
 		u32 c_len32, u_len32, last_head32;
 
@@ -1949,11 +2036,24 @@ fill_another:
 
 	/* It is possible for there to be an empty match block at the end of
 	 * incompressible data. Encrypted writers still emit data salt +
-	 * CBC_LEN pad (+ optional data HMAC); consume them so the next RCD
-	 * stays aligned. */
+	 * CBC_LEN pad (+ optional data HMAC), or AEAD nonce||ct||tag;
+	 * consume them so the next RCD stays aligned. */
 	if (unlikely(c_len == 0 && u_len == 0 && streamno == 1 && last_head == 0)) {
 		print_maxverbose("Skipping empty match block\n");
-		if (ENCRYPT) {
+		if (ENCRYPT_AEAD) {
+			/* payload already not read; wire is nonce||0||tag */
+			i64 rem = LRZ_AEAD_NONCE_LEN + LRZ_AEAD_TAG_LEN;
+			uchar *throw = malloc((size_t)rem);
+
+			if (unlikely(!throw))
+				fatal_return(("Failed to malloc empty AEAD pad\n"), -1);
+			if (unlikely(read_buf(control, sinfo->fd, throw, rem))) {
+				dealloc(throw);
+				return -1;
+			}
+			sinfo->total_read += rem;
+			dealloc(throw);
+		} else if (ENCRYPT) {
 			i64 pad = MIN_SIZE; /* CBC_LEN when encrypting */
 			uchar *throw;
 
@@ -2023,20 +2123,22 @@ fill_another:
 
 	padded_len = MAX(c_len, MIN_SIZE);
 	/* total_read already includes this header (+ header salt if any).
-	 * Remaining for this block: data salt + ciphertext + optional HMAC. */
+	 * Remaining for this block depends on encrypt mode. */
 	{
 		i64 rem = padded_len;
 
-		if (ENCRYPT)
+		if (ENCRYPT_AEAD)
+			rem = LRZ_AEAD_NONCE_LEN + padded_len + LRZ_AEAD_TAG_LEN;
+		else if (ENCRYPT) {
 			rem += SALT_LEN;
-		if (ENCRYPT && ENCRYPT_HMAC)
-			rem += LRZ_HMAC_LEN;
+			if (ENCRYPT_HMAC)
+				rem += LRZ_HMAC_LEN;
+		}
 		if (sinfo->payload_end > 0 &&
 		    sinfo->initial_pos + sinfo->total_read + rem > sinfo->payload_end) {
 			fatal_return(("Stream block would exceed framed c_size\n"), -1);
 		}
 	}
-	sinfo->total_read += padded_len;
 	/* No fsync of fd_out here: same-inode writes are visible to fd_hist via
 	 * the page cache without forcing dirty data to disk each block. */
 
@@ -2051,33 +2153,64 @@ fill_another:
 	/* Count full allocation toward prefetch budget (not just u_len). */
 	sinfo->ram_alloced += max_len;
 
-	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len))) {
-		dealloc(s_buf);
-		sinfo->ram_alloced -= max_len;
-		return -1;
-	}
+	if (ENCRYPT_AEAD) {
+		size_t slen = LRZ_AEAD_NONCE_LEN + (size_t)padded_len + LRZ_AEAD_TAG_LEN;
+		size_t pt_len = (size_t)max_len;
+		uchar *sealed, aad[8];
+		size_t aad_len = 0;
 
-	if (ENCRYPT && ENCRYPT_HMAC) {
-		uchar tag[LRZ_HMAC_LEN];
-
-		if (unlikely(read_buf(control, sinfo->fd, tag, LRZ_HMAC_LEN))) {
+		sealed = malloc(slen);
+		if (unlikely(!sealed)) {
+			dealloc(s_buf);
+			sinfo->ram_alloced -= max_len;
+			fatal_return(("Unable to malloc AEAD ciphertext in fill_buffer\n"), -1);
+		}
+		if (unlikely(read_buf(control, sinfo->fd, sealed, (i64)slen))) {
+			dealloc(sealed);
 			dealloc(s_buf);
 			sinfo->ram_alloced -= max_len;
 			return -1;
 		}
-		sinfo->total_read += LRZ_HMAC_LEN;
-		/* Verify before decrypt so bit-flips never reach backends. */
-		if (unlikely(!lrz_hmac_ok(control, blocksalt, s_buf, padded_len, tag))) {
+		sinfo->total_read += (i64)slen;
+		aead_fill_aad(control, 0x02, aad, &aad_len);
+		if (unlikely(!lrz_aead_open(control, LRZ_AEAD_KEY_DATA, aad, aad_len,
+					    sealed, slen, s_buf, &pt_len))) {
+			dealloc(sealed);
 			dealloc(s_buf);
 			sinfo->ram_alloced -= max_len;
-			failure_return(("Ciphertext HMAC check failed (corrupt or wrong password)\n"), -1);
+			failure_return(("Payload AEAD check failed (corrupt or wrong password)\n"), -1);
 		}
-	}
+		dealloc(sealed);
+	} else {
+		if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len))) {
+			dealloc(s_buf);
+			sinfo->ram_alloced -= max_len;
+			return -1;
+		}
+		sinfo->total_read += padded_len;
 
-	if (unlikely(ENCRYPT && !lrz_decrypt(control, s_buf, padded_len, blocksalt))) {
-		dealloc(s_buf);
-		sinfo->ram_alloced -= max_len;
-		return -1;
+		if (ENCRYPT && ENCRYPT_HMAC) {
+			uchar tag[LRZ_HMAC_LEN];
+
+			if (unlikely(read_buf(control, sinfo->fd, tag, LRZ_HMAC_LEN))) {
+				dealloc(s_buf);
+				sinfo->ram_alloced -= max_len;
+				return -1;
+			}
+			sinfo->total_read += LRZ_HMAC_LEN;
+			/* Verify before decrypt so bit-flips never reach backends. */
+			if (unlikely(!lrz_hmac_ok(control, blocksalt, s_buf, padded_len, tag))) {
+				dealloc(s_buf);
+				sinfo->ram_alloced -= max_len;
+				failure_return(("Ciphertext HMAC check failed (corrupt or wrong password)\n"), -1);
+			}
+		}
+
+		if (unlikely(ENCRYPT && !lrz_decrypt(control, s_buf, padded_len, blocksalt))) {
+			dealloc(s_buf);
+			sinfo->ram_alloced -= max_len;
+			return -1;
+		}
 	}
 
 	ucthreads[s->uthread_no].s_buf = s_buf;

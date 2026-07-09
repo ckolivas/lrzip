@@ -244,11 +244,25 @@ typedef sem_t cksem_t;
 #define FLAG_STREAMING_BLOCKS	(1 << 25)
 /* Encrypted archive uses HMAC-SHA512/256 after each ciphertext payload */
 #define FLAG_ENCRYPT_HMAC	(1 << 26)
+/* Writer: force 0.6-compatible AES-128-CBC (magic[22]=1), no AEAD/HMAC */
+#define FLAG_ENCRYPT_LEGACY	(1 << 27)
+/* Session uses AES-256-GCM suite (magic[22]=3) */
+#define FLAG_ENCRYPT_AEAD	(1 << 28)
 
 #define MAGIC_LEN	24
 #define LRZC_LEN	24
 /* Truncated HMAC-SHA512 tag after each encrypted data payload (magic[22]=2) */
 #define LRZ_HMAC_LEN	32
+
+/* Suite-3 AEAD (magic[22]=3) */
+#define LRZ_AEAD_NONCE_LEN	12
+#define LRZ_AEAD_TAG_LEN	16
+#define LRZ_AEAD_KEY_LEN	32
+#define LRZ_CRYPTO_DESC_LEN	32
+#define LRZ_AEAD_SALT_LEN	16
+#define LRZ_SUITE_AES256_GCM_PBKDF2	1
+#define LRZ_PBKDF2_ITERS_DEFAULT	600000u
+#define LRZ_PBKDF2_ITERS_MAX		5000000u
 
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
@@ -317,6 +331,8 @@ typedef sem_t cksem_t;
 #define LZ4_TEST	(control->flags & FLAG_THRESHOLD)
 #define TMP_OUTBUF	(control->flags & FLAG_TMP_OUTBUF)
 #define ENCRYPT_HMAC	(control->flags & FLAG_ENCRYPT_HMAC)
+#define ENCRYPT_LEGACY	(control->flags & FLAG_ENCRYPT_LEGACY)
+#define ENCRYPT_AEAD	(control->flags & FLAG_ENCRYPT_AEAD)
 #define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
 #define ENCRYPT		(control->flags & FLAG_ENCRYPT)
 #define SHOW_OUTPUT	(control->flags & FLAG_OUTPUT)
@@ -469,6 +485,15 @@ struct rzip_control {
 	void (*pass_cb)(void *, char *, size_t); /* callback to get password in lib */
 	void *pass_data;
 	uchar salt[SALT_LEN];
+	/* Suite-3: full 16-byte salt + PBKDF2 params (CryptoDesc) */
+	uchar aead_salt[LRZ_AEAD_SALT_LEN];
+	unsigned int aead_iters;
+	uchar aead_key_hdr[LRZ_AEAD_KEY_LEN];
+	uchar aead_key_data[LRZ_AEAD_KEY_LEN];
+	/* Nonce uniqueness: random prefix + counters */
+	uchar aead_nonce_prefix[4];
+	uint64_t aead_hdr_seq;
+	uint64_t aead_data_seq;
 	uchar *salt_pass;
 	int salt_pass_len;
 	uchar *hash;

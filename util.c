@@ -305,8 +305,18 @@ bool read_config(rzip_control *control)
 			if (strcmp(parametervalue + strlen(parametervalue) - 1, "/"))
 				strcat(control->tmpdir, "/");
 		} else if (isparameter(parameter, "encrypt")) {
-			if (isparameter(parameter, "YES"))
+			if (isparameter(parametervalue, "YES")) {
 				control->flags |= FLAG_ENCRYPT;
+				if (!ENCRYPT_LEGACY) {
+					control->flags |= FLAG_ENCRYPT_AEAD;
+					control->flags &= ~FLAG_ENCRYPT_HMAC;
+				}
+			}
+		} else if (isparameter(parameter, "legacy_encrypt")) {
+			if (isparameter(parametervalue, "YES")) {
+				control->flags |= FLAG_ENCRYPT_LEGACY;
+				control->flags &= ~(FLAG_ENCRYPT_AEAD | FLAG_ENCRYPT_HMAC);
+			}
 		} else
 			/* oops, we have an invalid parameter, display */
 			print_err("lrzip.conf: Unrecognized parameter value, %s = %s. Continuing.\n",\
@@ -504,4 +514,246 @@ void lrz_stretch(rzip_control *control)
 	sha4_finish(&ctx, control->hash);
 	memset(&ctx, 0, sizeof(ctx));
 	munlock(&ctx, sizeof(ctx));
+}
+
+#include "gcm.h"
+
+void lrz_secure_wipe(void *p, size_t n)
+{
+	if (p && n)
+		memset(p, 0, n);
+}
+
+/* HMAC-SHA512 one-shot for PBKDF2/HKDF (key any length). */
+static void hmac_sha512(const uchar *key, size_t key_len,
+			const uchar *msg, size_t msg_len,
+			uchar out[64])
+{
+	sha4_context ctx;
+	uchar k_ipad[128], k_opad[128], tk[64], full[64];
+	size_t i;
+
+	memset(k_ipad, 0, sizeof(k_ipad));
+	memset(k_opad, 0, sizeof(k_opad));
+	if (key_len > 128) {
+		sha4(key, (int)key_len, tk, 0);
+		key = tk;
+		key_len = 64;
+	}
+	memcpy(k_ipad, key, key_len);
+	memcpy(k_opad, key, key_len);
+	for (i = 0; i < 128; i++) {
+		k_ipad[i] ^= 0x36;
+		k_opad[i] ^= 0x5c;
+	}
+	sha4_starts(&ctx, 0);
+	sha4_update(&ctx, k_ipad, 128);
+	if (msg_len) {
+		size_t off = 0;
+		while (off < msg_len) {
+			int chunk = (int)MIN(msg_len - off, (size_t)(1 << 30));
+			sha4_update(&ctx, msg + off, chunk);
+			off += (size_t)chunk;
+		}
+	}
+	sha4_finish(&ctx, full);
+	sha4_starts(&ctx, 0);
+	sha4_update(&ctx, k_opad, 128);
+	sha4_update(&ctx, full, 64);
+	sha4_finish(&ctx, out);
+	lrz_secure_wipe(k_ipad, sizeof(k_ipad));
+	lrz_secure_wipe(k_opad, sizeof(k_opad));
+	lrz_secure_wipe(tk, sizeof(tk));
+	lrz_secure_wipe(full, sizeof(full));
+	lrz_secure_wipe(&ctx, sizeof(ctx));
+}
+
+/* PBKDF2-HMAC-SHA512 (RFC 8018) → dk_len bytes in out. */
+static bool pbkdf2_sha512(const uchar *pass, size_t pass_len,
+			  const uchar *salt, size_t salt_len,
+			  unsigned int iters, uchar *out, size_t dk_len)
+{
+	uchar U[64], T[64], block[256];
+	unsigned int block_index = 1;
+	size_t offset = 0;
+
+	if (!pass || !salt || !out || iters < 1 || dk_len < 1 || salt_len > 200)
+		return false;
+
+	while (offset < dk_len) {
+		size_t i, j, take;
+		size_t blen;
+
+		/* U1 = HMAC(pass, salt || INT(block_index)) */
+		memcpy(block, salt, salt_len);
+		block[salt_len] = (uchar)(block_index >> 24);
+		block[salt_len + 1] = (uchar)(block_index >> 16);
+		block[salt_len + 2] = (uchar)(block_index >> 8);
+		block[salt_len + 3] = (uchar)block_index;
+		blen = salt_len + 4;
+		hmac_sha512(pass, pass_len, block, blen, U);
+		memcpy(T, U, 64);
+		for (i = 1; i < iters; i++) {
+			hmac_sha512(pass, pass_len, U, 64, U);
+			for (j = 0; j < 64; j++)
+				T[j] ^= U[j];
+		}
+		take = MIN(dk_len - offset, (size_t)64);
+		memcpy(out + offset, T, take);
+		offset += take;
+		block_index++;
+	}
+	lrz_secure_wipe(U, sizeof(U));
+	lrz_secure_wipe(T, sizeof(T));
+	lrz_secure_wipe(block, sizeof(block));
+	return true;
+}
+
+/* HKDF-Expand-SHA512 (RFC 5869) with empty salt extract skipped:
+ * OKM = Expand(PRK=master, info, L). */
+static bool hkdf_expand_sha512(const uchar *prk, size_t prk_len,
+			       const char *info, size_t info_len,
+			       uchar *okm, size_t okm_len)
+{
+	uchar T[64], block[128];
+	uchar counter = 1;
+	size_t offset = 0, tlen = 0;
+
+	if (!prk || !okm || okm_len < 1 || okm_len > 255 * 64)
+		return false;
+	while (offset < okm_len) {
+		size_t blen = 0, take;
+		if (tlen) {
+			memcpy(block, T, tlen);
+			blen = tlen;
+		}
+		if (info && info_len) {
+			memcpy(block + blen, info, info_len);
+			blen += info_len;
+		}
+		block[blen++] = counter++;
+		hmac_sha512(prk, prk_len, block, blen, T);
+		tlen = 64;
+		take = MIN(okm_len - offset, (size_t)64);
+		memcpy(okm + offset, T, take);
+		offset += take;
+	}
+	lrz_secure_wipe(T, sizeof(T));
+	lrz_secure_wipe(block, sizeof(block));
+	return true;
+}
+
+bool lrz_aead_kdf_setup(rzip_control *control)
+{
+	uchar master[HASH_LEN];
+	const uchar *pass;
+	size_t pass_len;
+
+	if (!control || !control->salt_pass || control->salt_pass_len < SALT_LEN)
+		return false;
+	if (control->aead_iters < 1 || control->aead_iters > LRZ_PBKDF2_ITERS_MAX)
+		return false;
+
+	/* salt_pass layout for AEAD: [salt 16][password...] after we set it;
+	 * for setup we use aead_salt + password after SALT_LEN legacy region.
+	 * get_hash currently does salt_pass = salt8 || password.
+	 * For AEAD we store password starting at salt_pass+SALT_LEN still,
+	 * and full aead_salt separately. */
+	pass = control->salt_pass + SALT_LEN;
+	pass_len = (size_t)control->salt_pass_len - SALT_LEN;
+	if (pass_len < 1)
+		return false;
+
+	print_maxverbose("PBKDF2-HMAC-SHA512 iterations %u\n", control->aead_iters);
+	if (!pbkdf2_sha512(pass, pass_len, control->aead_salt, LRZ_AEAD_SALT_LEN,
+			   control->aead_iters, master, HASH_LEN))
+		return false;
+	if (!hkdf_expand_sha512(master, HASH_LEN, "lrzip-v3-hdr", 12,
+				control->aead_key_hdr, LRZ_AEAD_KEY_LEN))
+		return false;
+	if (!hkdf_expand_sha512(master, HASH_LEN, "lrzip-v3-data", 13,
+				control->aead_key_data, LRZ_AEAD_KEY_LEN))
+		return false;
+	if (!get_rand(control, control->aead_nonce_prefix, 4)) {
+		lrz_secure_wipe(master, sizeof(master));
+		return false;
+	}
+	control->aead_hdr_seq = 0;
+	control->aead_data_seq = 0;
+	lrz_secure_wipe(master, sizeof(master));
+	return true;
+}
+
+static void aead_next_nonce(rzip_control *control, int key_id,
+			    uchar nonce[LRZ_AEAD_NONCE_LEN])
+{
+	uint64_t seq;
+	int i;
+
+	memcpy(nonce, control->aead_nonce_prefix, 4);
+	if (key_id == LRZ_AEAD_KEY_HDR)
+		seq = ++control->aead_hdr_seq;
+	else
+		seq = ++control->aead_data_seq;
+	/* seq as little-endian in nonce[4..11] */
+	for (i = 0; i < 8; i++)
+		nonce[4 + i] = (uchar)(seq >> (8 * i));
+}
+
+static const uchar *aead_key(const rzip_control *control, int key_id)
+{
+	return key_id == LRZ_AEAD_KEY_HDR ? control->aead_key_hdr
+					  : control->aead_key_data;
+}
+
+bool lrz_aead_seal(rzip_control *control, int key_id,
+		   const uchar *aad, size_t aad_len,
+		   const uchar *pt, size_t pt_len,
+		   uchar *out, size_t *out_len)
+{
+	uchar nonce[LRZ_AEAD_NONCE_LEN], tag[LRZ_AEAD_TAG_LEN];
+	size_t need = LRZ_AEAD_NONCE_LEN + pt_len + LRZ_AEAD_TAG_LEN;
+
+	if (!control || !out || !out_len || *out_len < need || (pt_len && !pt))
+		return false;
+	if (key_id != LRZ_AEAD_KEY_HDR && key_id != LRZ_AEAD_KEY_DATA)
+		return false;
+
+	aead_next_nonce(control, key_id, nonce);
+	if (gcm_aes_encrypt(aead_key(control, key_id), 256, nonce,
+			    aad, aad_len, pt, pt_len,
+			    out + LRZ_AEAD_NONCE_LEN, tag) != 0)
+		return false;
+	memcpy(out, nonce, LRZ_AEAD_NONCE_LEN);
+	memcpy(out + LRZ_AEAD_NONCE_LEN + pt_len, tag, LRZ_AEAD_TAG_LEN);
+	*out_len = need;
+	lrz_secure_wipe(nonce, sizeof(nonce));
+	lrz_secure_wipe(tag, sizeof(tag));
+	return true;
+}
+
+bool lrz_aead_open(rzip_control *control, int key_id,
+		   const uchar *aad, size_t aad_len,
+		   const uchar *in, size_t in_len,
+		   uchar *pt_out, size_t *pt_len)
+{
+	size_t clen;
+
+	if (!control || !in || !pt_out || !pt_len)
+		return false;
+	if (in_len < LRZ_AEAD_NONCE_LEN + LRZ_AEAD_TAG_LEN)
+		return false;
+	if (key_id != LRZ_AEAD_KEY_HDR && key_id != LRZ_AEAD_KEY_DATA)
+		return false;
+	clen = in_len - LRZ_AEAD_NONCE_LEN - LRZ_AEAD_TAG_LEN;
+	if (*pt_len < clen)
+		return false;
+	if (gcm_aes_decrypt(aead_key(control, key_id), 256, in,
+			    aad, aad_len,
+			    in + LRZ_AEAD_NONCE_LEN, clen,
+			    in + LRZ_AEAD_NONCE_LEN + clen,
+			    pt_out) != 0)
+		return false;
+	*pt_len = clen;
+	return true;
 }

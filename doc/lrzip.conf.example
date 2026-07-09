@@ -51,5 +51,10 @@
 # TMPDIR = /tmp
 
 # Whether to use encryption on compression YES, NO (-e)
+# Default suite is modern AES-256-GCM (not readable by lrzip 0.6.x)
 # ENCRYPT = NO
+
+# Write 0.6-compatible AES-128-CBC when encrypting (weaker, no AEAD)
+# Same as --legacy-encrypt; only meaningful with ENCRYPT = YES
+# LEGACY_ENCRYPT = NO
 

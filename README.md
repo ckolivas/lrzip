@@ -156,19 +156,13 @@ what kind of data lrzip is good with.
 
 ### FAQ
 
-> Q: What  kind of encryption does lrzip use?
+> Q: What kind of encryption does lrzip use?
 
-> A: lrzip uses SHA2-512 repetitive hashing of the password along with a salt
-> to provide a key which is used by AES-128 to do block encryption. Each block
-> has more random salts added to the block key. The amount of initial hashing
-> increases as the timestamp goes forward, in direct relation to Moore's law,
-> which means that the amount of time required to encrypt/decrypt the file
-> stays the same on a contemporary computer. It is virtually
-> guaranteed that the same file encrypted with the same password will never
-> be the same twice. The weakest link in this encryption mode by far is the
-> password chosen by the user. There is currently no known attack or backdoor
-> for this encryption mechanism, and there is absolutely no way of retrieving
-> your password should you forget it.
+> A: By default (`-e`), lrzip uses AES-256-GCM with PBKDF2-HMAC-SHA512 and HKDF
+> (`magic[22]=3`). These archives are not readable by lrzip 0.6.x. For 0.6
+> interoperability use `--legacy-encrypt` with `-e` (`magic[22]=1`: SHA2-512
+> stretch + AES-128-CBC). Mode 2 (CBC+HMAC) archives remain readable. The
+> weakest link is the password; there is no way to recover a forgotten one.
 
 > Q: How do I make a static build?
 
