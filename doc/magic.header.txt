@@ -56,11 +56,13 @@ Flag bytes must be exactly 0 or 1 where defined as flags, except byte 22
 which may be 0, 1, or 2. Other values are reserved and must be treated as
 an error.
 
-Encrypted data block layout (per stream payload, after block salt):
-	[ciphertext padded_len][optional HMAC tag 32 if magic[22]=2]
+Encrypted layouts when magic[22]=2 (per stream block):
+	Header:  [header_salt 8][header_ciphertext 25][header_HMAC 32]
+	Payload: [data_salt 8][data_ciphertext padded_len][data_HMAC 32]
 
 HMAC message is salt || ciphertext; key is the session hash from password
-stretch. Verify tag before decrypt.
+stretch. Verify each tag before the corresponding decrypt. magic[22]=1
+archives omit both HMAC tags (legacy).
 
 Encrypted salt (bytes 6->13 in magic if encrypted):
 0->1	Encoded number of loops to hash password

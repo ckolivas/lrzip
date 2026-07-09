@@ -1182,16 +1182,21 @@ retest_malloc:
 
 /* The block headers are all encrypted so we read the data and salt associated
  * with them, decrypt the data, then return the decrypted version of the
- * values */
+ * values. head is SALT_LEN + 25 bytes: salt then ciphertext. Optional HMAC
+ * tag is verified before decrypt when ENCRYPT_HMAC. */
 static bool decrypt_header(rzip_control *control, uchar *head, uchar *c_type,
-			   i64 *c_len, i64 *u_len, i64 *last_head)
+			   i64 *c_len, i64 *u_len, i64 *last_head,
+			   const uchar *hmac_tag)
 {
 	uchar *buf = head + SALT_LEN;
 
-	memcpy(buf, c_type, 1);
-	memcpy(buf + 1, c_len, 8);
-	memcpy(buf + 9, u_len, 8);
-	memcpy(buf + 17, last_head, 8);
+	if (ENCRYPT_HMAC) {
+		if (unlikely(!hmac_tag ||
+			     !lrz_hmac_ok(control, head, buf, 25, hmac_tag))) {
+			print_err("Header HMAC check failed (corrupt or wrong password)\n");
+			return false;
+		}
+	}
 
 	if (unlikely(!lrz_decrypt(control, buf, 25, head)))
 		return false;
@@ -1293,15 +1298,29 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 		sinfo->infile_size = control->in_len;
 
 	for (i = 0; i < n; i++) {
-		uchar c, enc_head[25 + SALT_LEN];
+		uchar c, enc_head[25 + SALT_LEN], hdr_tag[LRZ_HMAC_LEN];
 		i64 v1, v2;
 
 		sinfo->s[i].base_thread = i;
 		sinfo->s[i].uthread_no = sinfo->s[i].base_thread;
 		sinfo->s[i].unext_thread = sinfo->s[i].base_thread;
 
-		if (unlikely(ENCRYPT && read_buf(control, f, enc_head, SALT_LEN)))
-			goto failed;
+		if (ENCRYPT) {
+			/* Read salt + 25-byte ciphertext as one blob for HMAC. */
+			if (unlikely(read_buf(control, f, enc_head, SALT_LEN + 25)))
+				goto failed;
+			sinfo->total_read += SALT_LEN + 25;
+			if (ENCRYPT_HMAC) {
+				if (unlikely(read_buf(control, f, hdr_tag, LRZ_HMAC_LEN)))
+					goto failed;
+				sinfo->total_read += LRZ_HMAC_LEN;
+			}
+			if (unlikely(!decrypt_header(control, enc_head, &c, &v1, &v2,
+						     &sinfo->s[i].last_head,
+						     ENCRYPT_HMAC ? hdr_tag : NULL)))
+				goto failed;
+			header_length = 0; /* already counted */
+		} else {
 again:
 		if (unlikely(read_u8(control, f, &c)))
 			goto failed;
@@ -1325,8 +1344,7 @@ again:
 			int read_len;
 
 			print_maxverbose("Reading stream %d header at %"PRId64"\n", i, get_readseek(control, f));
-			if ((control->major_version == 0 && control->minor_version < 6) ||
-				ENCRYPT)
+			if (control->major_version == 0 && control->minor_version < 6)
 					read_len = 8;
 			else
 				read_len = sinfo->chunk_bytes;
@@ -1339,18 +1357,14 @@ again:
 			header_length = 1 + (read_len * 3);
 		}
 		sinfo->total_read += header_length;
-
-		if (ENCRYPT) {
-			if (unlikely(!decrypt_header(control, enc_head, &c, &v1, &v2, &sinfo->s[i].last_head)))
-				goto failed;
-			sinfo->total_read += SALT_LEN;
 		}
 
 		v1 = le64toh(v1);
 		v2 = le64toh(v2);
 		sinfo->s[i].last_head = le64toh(sinfo->s[i].last_head);
 
-		if (unlikely(c == CTYPE_NONE && v1 == 0 && v2 == 0 && sinfo->s[i].last_head == 0 && i == 0)) {
+		if (unlikely(!ENCRYPT && c == CTYPE_NONE && v1 == 0 && v2 == 0 &&
+			     sinfo->s[i].last_head == 0 && i == 0)) {
 			print_err("Enabling stream close workaround\n");
 			sinfo->initial_pos += header_length;
 			goto again;
@@ -1387,8 +1401,8 @@ failed:
 /* Once the final data has all been written to the block header, we go back
  * and write SALT_LEN bytes of salt before it, and encrypt the header in place
  * by reading what has been written, encrypting it, and writing back over it.
- * This is very convoluted depending on whether a last_head value is written
- * to this block or not. See the callers of this function */
+ * With ENCRYPT_HMAC, a 32-byte tag is written immediately after the 25-byte
+ * ciphertext (placeholder space must already exist in the stream). */
 static bool rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, i64 ofs)
 {
 	uchar *buf, *head;
@@ -1417,6 +1431,16 @@ static bool rewrite_encrypted(rzip_control *control, struct stream_info *sinfo, 
 		failure_goto(("Failed to seek back to ofs in rewrite_encrypted\n"), error);
 	if (unlikely(write_buf(control, buf, 25)))
 		failure_goto(("Failed to write_buf encrypted buf in rewrite_encrypted\n"), error);
+
+	if (ENCRYPT_HMAC) {
+		uchar tag[LRZ_HMAC_LEN];
+
+		if (unlikely(!lrz_hmac_data(control, head, buf, 25, tag)))
+			failure_goto(("Failed to HMAC header in rewrite_encrypted\n"), error);
+		if (unlikely(write_buf(control, tag, LRZ_HMAC_LEN)))
+			failure_goto(("Failed to write header HMAC in rewrite_encrypted\n"), error);
+	}
+
 	dealloc(head);
 	seekto(control, sinfo, cur_ofs);
 	return true;
@@ -1578,6 +1602,16 @@ retry:
 			write_val(control, 0, write_len);
 			write_val(control, 0, write_len);
 			ctis->cur_pos += 1 + (write_len * 3);
+			/* Placeholder for header HMAC after 25-byte ciphertext. */
+			if (ENCRYPT && ENCRYPT_HMAC) {
+				uchar ztag[LRZ_HMAC_LEN] = { 0 };
+
+				if (unlikely(write_buf(control, ztag, LRZ_HMAC_LEN))) {
+					fatal_msg = "Failed to write blank header HMAC in compthread\n";
+					goto out;
+				}
+				ctis->cur_pos += LRZ_HMAC_LEN;
+			}
 		}
 	}
 
@@ -1624,6 +1658,17 @@ retry:
 			goto out;
 	}
 	ctis->cur_pos += 1 + (write_len * 3);
+
+	/* Reserve space for header HMAC (filled in rewrite_encrypted). */
+	if (ENCRYPT && ENCRYPT_HMAC) {
+		uchar ztag[LRZ_HMAC_LEN] = { 0 };
+
+		if (unlikely(write_buf(control, ztag, LRZ_HMAC_LEN))) {
+			fatal_msg = "Failed to write blank header HMAC in compthread\n";
+			goto out;
+		}
+		ctis->cur_pos += LRZ_HMAC_LEN;
+	}
 
 	if (ENCRYPT) {
 		if (unlikely(!get_rand(control, cti->salt, SALT_LEN)))
@@ -1809,7 +1854,7 @@ retry:
 /* fill a buffer from a stream - return -1 on failure */
 static int fill_buffer(rzip_control *control, struct stream_info *sinfo, struct stream *s, int streamno)
 {
-	i64 u_len, c_len, last_head, padded_len, header_length, max_len;
+	i64 u_len, c_len, last_head, padded_len, header_length = 0, max_len;
 	uchar enc_head[25 + SALT_LEN], blocksalt[SALT_LEN];
 	struct uncomp_thread *ucthreads = sinfo->ucthreads;
 	pthread_t *threads = control->pthreads;
@@ -1841,18 +1886,29 @@ fill_another:
 		return -1;
 
 	if (ENCRYPT) {
-		if (unlikely(read_buf(control, sinfo->fd, enc_head, SALT_LEN)))
+		uchar hdr_tag[LRZ_HMAC_LEN];
+
+		/* salt + 25-byte ciphertext (+ optional header HMAC) */
+		if (unlikely(read_buf(control, sinfo->fd, enc_head, SALT_LEN + 25)))
+			return -1;
+		sinfo->total_read += SALT_LEN + 25;
+		if (ENCRYPT_HMAC) {
+			if (unlikely(read_buf(control, sinfo->fd, hdr_tag, LRZ_HMAC_LEN)))
+				return -1;
+			sinfo->total_read += LRZ_HMAC_LEN;
+		}
+		if (unlikely(!decrypt_header(control, enc_head, &c_type, &c_len,
+					     &u_len, &last_head,
+					     ENCRYPT_HMAC ? hdr_tag : NULL)))
+			return -1;
+		if (unlikely(read_buf(control, sinfo->fd, blocksalt, SALT_LEN)))
 			return -1;
 		sinfo->total_read += SALT_LEN;
-	}
-
-	if (unlikely(read_u8(control, sinfo->fd, &c_type)))
-		return -1;
-
-	/* Compatibility crap for versions < 0.4 */
-	if (control->major_version == 0 && control->minor_version < 4) {
+	} else if (control->major_version == 0 && control->minor_version < 4) {
 		u32 c_len32, u_len32, last_head32;
 
+		if (unlikely(read_u8(control, sinfo->fd, &c_type)))
+			return -1;
 		if (unlikely(read_u32(control, sinfo->fd, &c_len32)))
 			return -1;
 		if (unlikely(read_u32(control, sinfo->fd, &u_len32)))
@@ -1863,11 +1919,14 @@ fill_another:
 		u_len = u_len32;
 		last_head = last_head32;
 		header_length = 13;
+		sinfo->total_read += header_length;
 	} else {
 		int read_len;
 
+		if (unlikely(read_u8(control, sinfo->fd, &c_type)))
+			return -1;
 		print_maxverbose("Reading ucomp header at %"PRId64"\n", get_readseek(control, sinfo->fd));
-		if ((control->major_version == 0 && control->minor_version < 6) || ENCRYPT)
+		if (control->major_version == 0 && control->minor_version < 6)
 			read_len = 8;
 		else
 			read_len = sinfo->chunk_bytes;
@@ -1878,15 +1937,7 @@ fill_another:
 		if (unlikely(read_val(control, sinfo->fd, &last_head, read_len)))
 			return -1;
 		header_length = 1 + (read_len * 3);
-	}
-	sinfo->total_read += header_length;
-
-	if (ENCRYPT) {
-		if (unlikely(!decrypt_header(control, enc_head, &c_type, &c_len, &u_len, &last_head)))
-			return -1;
-		if (unlikely(read_buf(control, sinfo->fd, blocksalt, SALT_LEN)))
-			return -1;
-		sinfo->total_read += SALT_LEN;
+		sinfo->total_read += header_length;
 	}
 	c_len = le64toh(c_len);
 	u_len = le64toh(u_len);
