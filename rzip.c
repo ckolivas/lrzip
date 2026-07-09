@@ -646,31 +646,84 @@ static void show_distrib(rzip_control *control, struct rzip_state *st)
 	}
 }
 
-/* MD5 (when enabled) is updated in a helper thread during the hash search. */
-static void *cksumthread(void *data)
+/* Dedicated MD5 worker: one long-lived thread, large batches, reused buffer. */
+static void *md5_worker(void *data)
 {
 	rzip_control *control = (rzip_control *)data;
 
-	pthread_detach(pthread_self());
-
-	if (!NO_MD5)
-		md5_process_bytes(control->checksum.buf, control->checksum.len, &control->ctx);
-	dealloc(control->checksum.buf);
-	cksem_post(control, &control->cksumsem);
+	while (42) {
+		cksem_wait(control, &control->cksum_worksem);
+		if (control->checksum.shutdown) {
+			cksem_post(control, &control->cksumsem);
+			break;
+		}
+		if (control->checksum.len > 0)
+			md5_process_bytes(control->checksum.buf, control->checksum.len,
+					  &control->ctx);
+		cksem_post(control, &control->cksumsem);
+	}
 	return NULL;
 }
 
-static inline void cksum_update(rzip_control *control)
+static void md5_thread_start(rzip_control *control)
 {
-	pthread_t thread;
+	i64 cap = CKSUM_CHUNK;
 
-	create_pthread(control, &thread, NULL, cksumthread, control);
+	round_to_page(&cap);
+	control->checksum.capacity = cap;
+	control->checksum.buf = malloc((size_t)cap);
+	if (unlikely(!control->checksum.buf))
+		failure("Failed to allocate MD5 batch buffer\n");
+	control->checksum.len = 0;
+	control->checksum.shutdown = 0;
+
+	cksem_init(control, &control->cksumsem);
+	cksem_post(control, &control->cksumsem);
+	cksem_init(control, &control->cksum_worksem);
+
+	if (unlikely(!create_pthread(control, &control->md5_thread, NULL, md5_worker, control)))
+		failure("Failed to start MD5 worker thread\n");
+}
+
+static void md5_thread_stop(rzip_control *control)
+{
+	/* Wait until the worker is idle, then ask it to exit. */
+	cksem_wait(control, &control->cksumsem);
+	control->checksum.shutdown = 1;
+	control->checksum.len = 0;
+	cksem_post(control, &control->cksum_worksem);
+	if (unlikely(!join_pthread(control, control->md5_thread, NULL)))
+		failure("Failed to join MD5 worker thread\n");
+	dealloc(control->checksum.buf);
+	control->checksum.capacity = 0;
+}
+
+/* Queue [offset, offset+len) from the sliding/single map for MD5. */
+static void md5_queue(rzip_control *control, i64 offset, i64 len)
+{
+	while (len > 0) {
+		i64 n = MIN(len, control->checksum.capacity);
+
+		cksem_wait(control, &control->cksumsem);
+		control->do_mcpy(control, control->checksum.buf, offset, n);
+		control->checksum.len = n;
+		cksem_post(control, &control->cksum_worksem);
+		offset += n;
+		len -= n;
+	}
+}
+
+/* Wait until all submitted MD5 work is finished. */
+static void md5_drain(rzip_control *control)
+{
+	cksem_wait(control, &control->cksumsem);
+	cksem_post(control, &control->cksumsem);
 }
 
 static inline void hash_search(rzip_control *control, struct rzip_state *st,
 			       double pct_base, double pct_multiple)
 {
-	i64 cksum_limit = 0, p, end, cksum_chunks, cksum_remains, i;
+	i64 cksum_limit = 0, p, end;
 	tag t = 0, tag_mask = (1 << st->level->initial_freq) - 1;
 	struct sliding_buffer *sb = &control->sb;
 	int lastpct = 0, last_chunkpct = 0;
@@ -772,16 +825,15 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 			t = full_tag(control, st, p);
 		}
 
-		/* Feed MD5 (if enabled) in page-sized pieces off the main search. */
-		if (!NO_MD5 && p > cksum_limit) {
-			cksem_wait(control, &control->cksumsem);
-			control->checksum.len = MIN(st->chunk_size - p, control->page_size);
-			control->checksum.buf = malloc(control->checksum.len);
-			if (unlikely(!control->checksum.buf))
-				failure("Failed to malloc ckbuf in hash_search\n");
-			control->do_mcpy(control, control->checksum.buf, cksum_limit, control->checksum.len);
-			cksum_limit += control->checksum.len;
-			cksum_update(control);
+		/* Feed MD5 in large batches on the worker thread as search advances. */
+		if (!NO_MD5) {
+			while (cksum_limit < st->chunk_size && p > cksum_limit) {
+				i64 n = MIN(control->checksum.capacity,
+					    st->chunk_size - cksum_limit);
+
+				md5_queue(control, cksum_limit, n);
+				cksum_limit += n;
+			}
 		}
 	}
 
@@ -791,42 +843,11 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 	if (st->last_match < st->chunk_size)
 		put_literal(control, st, st->last_match, st->chunk_size);
 
-	if (!NO_MD5 && st->chunk_size > cksum_limit) {
-		i64 cksum_len = control->maxram;
-		void *buf;
-
-		while (42) {
-			round_to_page(&cksum_len);
-			buf = malloc(cksum_len);
-			if (buf) {
-				print_maxverbose("Malloced %"PRId64" for checksum ckbuf\n", cksum_len);
-				break;
-			}
-			cksum_len = cksum_len / 3 * 2;
-			if (cksum_len < control->page_size)
-				failure("Failed to malloc any ram for checksum ckbuf\n");
-		}
-
-		/* Finish MD5. If the remaining chunk is longer than maxram,
-		 * do it in parts. */
-		cksem_wait(control, &control->cksumsem);
-		control->checksum.buf = buf;
-		control->checksum.len = st->chunk_size - cksum_limit;
-		cksum_chunks = control->checksum.len / cksum_len;
-		cksum_remains = control->checksum.len % cksum_len;
-
-		for (i = 0; i < cksum_chunks; i++) {
-			control->do_mcpy(control, control->checksum.buf, cksum_limit, cksum_len);
-			cksum_limit += cksum_len;
-			md5_process_bytes(control->checksum.buf, cksum_len, &control->ctx);
-		}
-		control->do_mcpy(control, control->checksum.buf, cksum_limit, cksum_remains);
-		md5_process_bytes(control->checksum.buf, cksum_remains, &control->ctx);
-		dealloc(control->checksum.buf);
-		cksem_post(control, &control->cksumsem);
-	} else if (!NO_MD5) {
-		cksem_wait(control, &control->cksumsem);
-		cksem_post(control, &control->cksumsem);
+	/* Finish any unhashed tail of this chunk, then wait for the worker. */
+	if (!NO_MD5) {
+		if (cksum_limit < st->chunk_size)
+			md5_queue(control, cksum_limit, st->chunk_size - cksum_limit);
+		md5_drain(control);
 	}
 
 	/* End-of-stream marker only (head=0, len=0). No trailing CRC32;
@@ -1014,8 +1035,6 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	init_mutex(control, &control->control_lock);
 	if (!NO_MD5)
 		md5_init_ctx(&control->ctx);
-	cksem_init(control, &control->cksumsem);
-	cksem_post(control, &control->cksumsem);
 
 	st = calloc(sizeof(*st), 1);
 	if (unlikely(!st))
@@ -1032,6 +1051,10 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 		dealloc(st);
 		failure("Failed to stat fd_in in rzip_fd\n");
 	}
+
+	/* Start MD5 worker after early setup so failures above need no join. */
+	if (!NO_MD5)
+		md5_thread_start(control);
 
 	if (!STDIN) {
 		len = control->st_size = s.st_size;
@@ -1296,6 +1319,7 @@ retry:
 	}
 
 	if (!NO_MD5) {
+		md5_thread_stop(control);
 		/* Temporary workaround till someone fixes apple md5 */
 		md5_finish_ctx(&control->ctx, control->md5_resblock);
 		if (HASH_CHECK || MAX_VERBOSE) {

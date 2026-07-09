@@ -350,6 +350,8 @@ struct sliding_buffer {
 struct checksum {
 	uchar *buf;
 	i64 len;
+	i64 capacity;
+	int shutdown;
 };
 
 typedef i64 tag;
@@ -460,7 +462,9 @@ struct rzip_control {
 	bool lz4_test_done;
 	bool lz4_compressible;
 
-	cksem_t cksumsem;
+	cksem_t cksumsem;	/* MD5 producer: buffer free */
+	cksem_t cksum_worksem;	/* MD5 worker: job ready */
+	pthread_t md5_thread;
 	md5_ctx ctx;
 	uchar md5_resblock[MD5_DIGEST_SIZE];
 	i64 md5_read; // How far into the file the md5 has done so far

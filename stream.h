@@ -25,7 +25,7 @@
 
 bool create_pthread(rzip_control *control, pthread_t *thread, pthread_attr_t * attr,
 	void * (*start_routine)(void *), void *arg);
-bool join_pthread(pthread_t th, void **thread_return);
+bool join_pthread(rzip_control *control, pthread_t th, void **thread_return);
 bool init_mutex(rzip_control *control, pthread_mutex_t *mutex);
 bool unlock_mutex(rzip_control *control, pthread_mutex_t *mutex);
 bool lock_mutex(rzip_control *control, pthread_mutex_t *mutex);
