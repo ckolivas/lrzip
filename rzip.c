@@ -72,15 +72,18 @@
  * which don't have lower bits set to one (ie. first we eliminate all
  * even tags, then all tags divisible by four, etc.).  This ensures
  * that on average, all parts of the file are covered by the hash, if
- * sparsely. */
+ * sparsely.
+ *
+ * Slot size is 8 bytes (uint32 tag + uint32 offset) when the chunk fits
+ * in 32 bits, else 16-byte wide entries. Table length targets the same
+ * slot count rzip-2.1 used for a given mb_used (computed as if entries
+ * were 8 bytes), capped by chunk size so small files do not build huge
+ * tables.
+ */
 
-/* All zero means empty.  We might miss the first chunk this way. */
-struct hash_entry {
-	i64 offset;
-	tag t;
-};
-
-/* Levels control hashtable size and bzip2 level. */
+/* Levels control hashtable size. mb_used is the historical "megabytes of
+ * hash" knob from rzip (8-byte entries); we map it to a slot count and
+ * allocate with the real entry size. */
 static struct level {
 	unsigned long mb_used;
 	unsigned initial_freq;
@@ -97,6 +100,9 @@ static struct level {
 	{ 64, 1, 32 },
 	{ 64, 1, 128 },
 };
+
+#define HASH_ENTRY_SIZE_NARROW	8
+/* rzip-2.1 entry was u32+u32 = 8 bytes; use that for target slot density */
 
 static void remap_low_sb(rzip_control *control, struct sliding_buffer *sb)
 {
@@ -275,15 +281,15 @@ static void put_literal(rzip_control *control, struct rzip_state *st, i64 last, 
 	} while (p > last);
 }
 
-/* Could give false positive on offset 0.  Who cares. */
-static inline bool empty_hash(struct hash_entry *he)
+/* All zero means empty.  We might miss the first chunk this way. */
+static inline bool empty_hash_n(uint32_t t, i64 offset)
 {
-	return !(he->offset | he->t);
+	return !(offset | t);
 }
 
 static i64 primary_hash(struct rzip_state *st, tag t)
 {
-	return t & ((1 << st->hash_bits) - 1);
+	return t & ((1U << st->hash_bits) - 1);
 }
 
 static inline tag increase_mask(tag tag_mask)
@@ -296,18 +302,55 @@ static inline bool minimum_bitness(struct rzip_state *st, tag t)
 {
 	tag better_than_min = increase_mask(st->minimum_tag_mask);
 
-	if ((t & better_than_min) != better_than_min)
-		return true;
-	return false;
+	return (t & better_than_min) != better_than_min;
 }
 
-/* Is a going to be cleaned before b?  ie. does a have fewer low bits
- * set than b? */
+/* Is a going to be cleaned before b?  ie. does a have fewer low bits set? */
 static inline bool lesser_bitness(tag a, tag b)
 {
-	a ^= 0xffffffffffffffff;
-	b ^= 0xffffffffffffffff;
-	return (ffsll(a) < ffsll(b));
+	a = ~a;
+	b = ~b;
+	return (__builtin_ffs((int)a) < __builtin_ffs((int)b));
+}
+
+static inline size_t hash_entry_bytes(struct rzip_state *st)
+{
+	return st->hash_wide ? sizeof(struct hash_entry_wide) : sizeof(struct hash_entry);
+}
+
+static inline void hash_get(struct rzip_state *st, i64 h, tag *t, i64 *offset)
+{
+	if (st->hash_wide) {
+		struct hash_entry_wide *he = &((struct hash_entry_wide *)st->hash_table)[h];
+
+		*t = he->t;
+		*offset = he->offset;
+	} else {
+		struct hash_entry *he = &((struct hash_entry *)st->hash_table)[h];
+
+		*t = he->t;
+		*offset = he->offset;
+	}
+}
+
+static inline void hash_set(struct rzip_state *st, i64 h, tag t, i64 offset)
+{
+	if (st->hash_wide) {
+		struct hash_entry_wide *he = &((struct hash_entry_wide *)st->hash_table)[h];
+
+		he->t = t;
+		he->offset = offset;
+	} else {
+		struct hash_entry *he = &((struct hash_entry *)st->hash_table)[h];
+
+		he->t = t;
+		he->offset = (uint32_t)offset;
+	}
+}
+
+static inline void hash_clear_slot(struct rzip_state *st, i64 h)
+{
+	hash_set(st, h, 0, 0);
 }
 
 /* If hash bucket is taken, we spill into next bucket(s).  Secondary hashing
@@ -317,14 +360,16 @@ static void insert_hash(struct rzip_state *st, tag t, i64 offset)
 	i64 h, victim_h = 0, round = 0;
 	/* If we need to kill one, this will be it. */
 	static i64 victim_round = 0;
-	struct hash_entry *he;
+	i64 mask = (1U << st->hash_bits) - 1;
+	tag he_t;
+	i64 he_off;
 
 	h = primary_hash(st, t);
-	he = &st->hash_table[h];
-	while (!empty_hash(he)) {
+	hash_get(st, h, &he_t, &he_off);
+	while (!empty_hash_n(he_t, he_off)) {
 		/* If this due for cleaning anyway, just replace it:
 		   rehashing might move it behind tag_clean_ptr. */
-		if (minimum_bitness(st, he->t)) {
+		if (minimum_bitness(st, he_t)) {
 			st->hash_count--;
 			break;
 		}
@@ -332,20 +377,18 @@ static void insert_hash(struct rzip_state *st, tag t, i64 offset)
 		   jump over it: it will be cleaned before us, and
 		   noone would then find us in the hash table.  Rehash
 		   it, then take its place. */
-		if (lesser_bitness(he->t, t)) {
-			insert_hash(st, he->t,
-				    he->offset);
+		if (lesser_bitness(he_t, t)) {
+			insert_hash(st, he_t, he_off);
 			break;
 		}
 
 		/* If we have lots of identical patterns, we end up
 		   with lots of the same hash number.  Discard random. */
-		if (he->t == t) {
+		if (he_t == t) {
 			if (round == victim_round)
 				victim_h = h;
 			if (++round == st->level->max_chain_len) {
 				h = victim_h;
-				he = &st->hash_table[h];
 				st->hash_count--;
 				victim_round++;
 				if (victim_round == st->level->max_chain_len)
@@ -354,21 +397,20 @@ static void insert_hash(struct rzip_state *st, tag t, i64 offset)
 			}
 		}
 
-		h++;
-		h &= ((1 << st->hash_bits) - 1);
-		he = &st->hash_table[h];
+		h = (h + 1) & mask;
+		hash_get(st, h, &he_t, &he_off);
 	}
 
-	he->t = t;
-	he->offset = offset;
+	hash_set(st, h, t, offset);
 }
 
 /* Eliminate one hash entry with minimum number of lower bits set.
    Returns tag requirement for any new entries. */
 static inline tag clean_one_from_hash(rzip_control *control, struct rzip_state *st)
 {
-	struct hash_entry *he;
 	tag better_than_min;
+	tag he_t;
+	i64 he_off;
 
 again:
 	better_than_min = increase_mask(st->minimum_tag_mask);
@@ -376,12 +418,11 @@ again:
 		print_maxverbose("Starting sweep for mask %u\n", (unsigned int)st->minimum_tag_mask);
 
 	for (; st->tag_clean_ptr < (1U << st->hash_bits); st->tag_clean_ptr++) {
-		he = &st->hash_table[st->tag_clean_ptr];
-		if (empty_hash(he))
+		hash_get(st, st->tag_clean_ptr, &he_t, &he_off);
+		if (empty_hash_n(he_t, he_off))
 			continue;
-		if ((he->t & better_than_min) != better_than_min) {
-			he->offset = 0;
-			he->t = 0;
+		if ((he_t & better_than_min) != better_than_min) {
+			hash_clear_slot(st, st->tag_clean_ptr);
 			st->hash_count--;
 			return better_than_min;
 		}
@@ -580,32 +621,33 @@ static inline i64
 find_best_match(rzip_control *control, struct rzip_state *st, tag t, i64 p,
 		i64 end, i64 *offset, i64 *reverse)
 {
-	struct hash_entry *he;
 	i64 length = 0;
 	i64 rev = 0;
 	i64 h, probes = 0, tag_hits = 0;
-	i64 mask = (1 << st->hash_bits) - 1;
+	i64 mask = (1U << st->hash_bits) - 1;
 	/* Cap probes: same-tag hits like insert_hash, plus a modest total walk. */
 	const i64 max_tag = st->level->max_chain_len;
 	const i64 max_probes = max_tag * 4 + 16;
+	tag he_t;
+	i64 he_off;
 
 	*reverse = 0;
 	*offset = 0;
 
 	h = primary_hash(st, t);
-	he = &st->hash_table[h];
-	while (!empty_hash(he) && probes < max_probes) {
+	hash_get(st, h, &he_t, &he_off);
+	while (!empty_hash_n(he_t, he_off) && probes < max_probes) {
 		probes++;
-		if (t == he->t) {
+		if (t == he_t) {
 			i64 mlen;
 
 			if (tag_hits >= max_tag)
 				break;
 			tag_hits++;
-			mlen = match_len(control, st, p, he->offset, end, &rev, length);
+			mlen = match_len(control, st, p, he_off, end, &rev, length);
 			if (mlen) {
 				length = mlen;
-				*offset = he->offset - rev;
+				*offset = he_off - rev;
 				*reverse = rev;
 				st->stats.tag_hits++;
 			} else
@@ -613,7 +655,7 @@ find_best_match(rzip_control *control, struct rzip_state *st, tag t, i64 p,
 		}
 
 		h = (h + 1) & mask;
-		he = &st->hash_table[h];
+		hash_get(st, h, &he_t, &he_off);
 	}
 
 	return length;
@@ -621,17 +663,18 @@ find_best_match(rzip_control *control, struct rzip_state *st, tag t, i64 p,
 
 static void show_distrib(rzip_control *control, struct rzip_state *st)
 {
-	struct hash_entry *he;
 	i64 primary = 0;
 	i64 total = 0;
 	i64 i;
+	tag he_t;
+	i64 he_off;
 
 	for (i = 0; i < (1U << st->hash_bits); i++) {
-		he = &st->hash_table[i];
-		if (empty_hash(he))
+		hash_get(st, i, &he_t, &he_off);
+		if (empty_hash_n(he_t, he_off))
 			continue;
 		total++;
-		if (primary_hash(st, he->t) == i)
+		if (primary_hash(st, he_t) == i)
 			primary++;
 	}
 
@@ -733,21 +776,45 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 		i64 len;
 	} current;
 
-	if (st->hash_table)
-		memset(st->hash_table, 0, sizeof(st->hash_table[0]) * (1<<st->hash_bits));
-	else {
-		i64 hashsize = st->level->mb_used *
-				(1024 * 1024 / sizeof(st->hash_table[0]));
-		for (st->hash_bits = 0; (1U << st->hash_bits) < hashsize; st->hash_bits++);
+	{
+		/* Target slot count as in rzip-2.1 (8-byte entries per mb_used). */
+		i64 hashsize = (i64)st->level->mb_used *
+				(1024 * 1024 / HASH_ENTRY_SIZE_NARROW);
+		/* Do not build a table larger than the chunk can use. */
+		i64 cap = st->chunk_size;
+		int bits;
+		int wide;
+		size_t esize;
+		i64 nslots, mem;
 
-		print_maxverbose("hashsize = %"PRId64".  bits = %d. %luMB\n",
-				 hashsize, st->hash_bits, st->level->mb_used);
+		if (cap < (1 << 16))
+			cap = 1 << 16;
+		if (hashsize > cap)
+			hashsize = cap;
+
+		wide = (st->chunk_size > (i64)UINT32_MAX);
+		esize = wide ? sizeof(struct hash_entry_wide) : sizeof(struct hash_entry);
+
+		for (bits = 0; (1U << bits) < hashsize; bits++)
+			;
+		nslots = (i64)1 << bits;
+		mem = nslots * (i64)esize;
+
+		if (!st->hash_table || st->hash_bits != bits || st->hash_wide != wide) {
+			dealloc(st->hash_table);
+			st->hash_bits = bits;
+			st->hash_wide = wide;
+			st->hash_table = calloc((size_t)nslots, esize);
+			if (unlikely(!st->hash_table))
+				failure("Failed to allocate hash table in hash_search\n");
+			print_maxverbose("hash slots = %"PRId64" bits = %d wide = %d (%.1fMB, level %luMB)\n",
+					 nslots, bits, wide, mem / (1024.0 * 1024.0),
+					 st->level->mb_used);
+		} else
+			memset(st->hash_table, 0, (size_t)mem);
 
 		/* 66% full at max. */
-		st->hash_limit = (1 << st->hash_bits) / 3 * 2;
-		st->hash_table = calloc(sizeof(st->hash_table[0]), (1 << st->hash_bits));
-		if (unlikely(!st->hash_table))
-			failure("Failed to allocate hash table in hash_search\n");
+		st->hash_limit = nslots / 3 * 2;
 	}
 
 	st->minimum_tag_mask = tag_mask;
@@ -862,7 +929,7 @@ static inline void init_hash_indexes(struct rzip_state *st)
 	int i;
 
 	for (i = 0; i < 256; i++)
-		st->hash_index[i] = ((random() << 16) ^ random());
+		st->hash_index[i] = (tag)(((unsigned)random() << 16) ^ (unsigned)random());
 }
 
 #if !defined(__linux)

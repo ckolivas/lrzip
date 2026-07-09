@@ -354,7 +354,8 @@ struct checksum {
 	int shutdown;
 };
 
-typedef i64 tag;
+/* Rolling hash tag: 32-bit is enough (hash_index is built from random()). */
+typedef uint32_t tag;
 
 struct node {
 	void *data;
@@ -367,14 +368,29 @@ struct runzip_node {
 	struct runzip_node *prev;
 };
 
+/* Compact hash slot: 8 bytes (was 16 with i64 tag + i64 offset).
+ * offset is a 32-bit chunk position; chunks larger than 4GiB-1 use a
+ * separate wide table (see rzip.c). */
+struct hash_entry {
+	uint32_t t;
+	uint32_t offset;
+};
+
+struct hash_entry_wide {
+	i64 offset;
+	uint32_t t;
+	uint32_t _pad;
+};
+
 struct rzip_state {
 	void *ss;
 	struct node *sslist;
 	struct node *head;
 	struct level *level;
 	tag hash_index[256];
-	struct hash_entry *hash_table;
+	void *hash_table;	/* hash_entry or hash_entry_wide */
 	char hash_bits;
+	char hash_wide;		/* non-zero: hash_entry_wide slots */
 	i64 hash_count;
 	i64 hash_limit;
 	tag minimum_tag_mask;
