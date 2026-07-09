@@ -1,5 +1,5 @@
 lrzip-0.7x file format
-Con Kolivas
+Copyright (C) 2026 Con Kolivas
 
 Introduces streaming block (STDIO) mode for progressive emit when the
 compressor cannot keep the entire compressed output seekable at once

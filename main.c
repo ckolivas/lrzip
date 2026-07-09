@@ -138,7 +138,7 @@ static void usage(bool compat)
 static void license(void)
 {
 	print_output("lrz version %s\n", PACKAGE_VERSION);
-	print_output("Copyright (C) Con Kolivas 2006-2016\n");
+	print_output("Copyright (C) Con Kolivas 2006-2026\n");
 	print_output("Based on rzip ");
 	print_output("Copyright (C) Andrew Tridgell 1998-2003\n\n");
 	print_output("This is free software.  You may redistribute copies of it under the terms of\n");
