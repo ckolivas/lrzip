@@ -904,11 +904,11 @@ bool prepare_streamout_threads(rzip_control *control)
 		++control->threads;
 	if (NO_COMPRESS)
 		control->threads = 1;
-	threads = control->pthreads = calloc(sizeof(pthread_t), control->threads);
+	threads = control->pthreads = calloc(control->threads, sizeof(pthread_t));
 	if (unlikely(!threads))
 		fatal_return(("Unable to calloc threads in prepare_streamout_threads\n"), false);
 
-	cthreads = calloc(sizeof(struct compress_thread), control->threads);
+	cthreads = calloc(control->threads, sizeof(struct compress_thread));
 	if (unlikely(!cthreads)) {
 		dealloc(threads);
 		fatal_return(("Unable to calloc cthreads in prepare_streamout_threads\n"), false);
@@ -1072,7 +1072,7 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	i64 testsize, limit;
 	uchar *testmalloc;
 
-	sinfo = calloc(sizeof(struct stream_info), 1);
+	sinfo = calloc(1, sizeof(struct stream_info));
 	if (unlikely(!sinfo))
 		return NULL;
 	if (chunk_limit < control->page_size)
@@ -1083,7 +1083,7 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	sinfo->num_streams = n;
 	sinfo->fd = f;
 
-	sinfo->s = calloc(sizeof(struct stream), n);
+	sinfo->s = calloc(n, sizeof(struct stream));
 	if (unlikely(!sinfo->s)) {
 		dealloc(sinfo);
 		return NULL;
@@ -1211,7 +1211,7 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 	pthread_t *threads;
 	i64 header_length;
 
-	sinfo = calloc(sizeof(struct stream_info), 1);
+	sinfo = calloc(1, sizeof(struct stream_info));
 	if (unlikely(!sinfo))
 		return NULL;
 
@@ -1221,11 +1221,11 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 		total_threads = control->threads + 2;
 	else
 		total_threads = control->threads + 1;
-	threads = control->pthreads = calloc(sizeof(pthread_t), total_threads);
+	threads = control->pthreads = calloc(total_threads, sizeof(pthread_t));
 	if (unlikely(!threads))
 		return NULL;
 
-	sinfo->ucthreads = ucthreads = calloc(sizeof(struct uncomp_thread), total_threads);
+	sinfo->ucthreads = ucthreads = calloc(total_threads, sizeof(struct uncomp_thread));
 	if (unlikely(!ucthreads)) {
 		dealloc(sinfo);
 		dealloc(threads);
@@ -1236,7 +1236,7 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 	sinfo->fd = f;
 	sinfo->chunk_bytes = chunk_bytes;
 
-	sinfo->s = calloc(sizeof(struct stream), n);
+	sinfo->s = calloc(n, sizeof(struct stream));
 	if (unlikely(!sinfo->s)) {
 		dealloc(sinfo);
 		dealloc(threads);
@@ -2046,7 +2046,7 @@ int close_stream_out(rzip_control *control, void *ss)
  * returned. */
 static void add_to_rulist(rzip_control *control, struct stream_info *sinfo)
 {
-	struct runzip_node *node = calloc(sizeof(struct runzip_node), 1);
+	struct runzip_node *node = calloc(1, sizeof(struct runzip_node));
 
 	if (unlikely(!node))
 		failure("Failed to calloc struct node in add_rulist\n");

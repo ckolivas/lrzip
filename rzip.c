@@ -1192,7 +1192,7 @@ init_sliding_mmap(rzip_control *control, struct rzip_state *st, int fd_in,
 
 static void add_to_sslist(rzip_control *control, struct rzip_state *st)
 {
-	struct node *node = calloc(sizeof(struct node), 1);
+	struct node *node = calloc(1, sizeof(struct node));
 
 	if (unlikely(!node))
 		failure("Failed to calloc struct node in add_to_sslist\n");
@@ -1275,7 +1275,7 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	if (!NO_MD5)
 		md5_init_ctx(&control->ctx);
 
-	st = calloc(sizeof(*st), 1);
+	st = calloc(1, sizeof(*st));
 	if (unlikely(!st))
 		failure("Failed to allocate control state in rzip_fd\n");
 
