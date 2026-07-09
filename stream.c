@@ -354,9 +354,8 @@ retry:
 				print_verbose("LZMA Warning: %d. Can't allocate enough RAM for compression window, trying smaller.\n", SZ_ERROR_MEM);
 				goto retry;
 			}
-			/* lzma compress can be fragile on 32 bit. If it fails,
-			 * fall back to bzip2 compression so the block doesn't
-			 * remain uncompressed */
+			/* If lzma cannot allocate any dictionary, fall back to
+			 * bzip2 so the block does not remain uncompressed. */
 			print_verbose("Unable to allocate enough RAM for any sized compression window, falling back to bzip2 compression.\n");
 			return bzip2_compress_buf(control, cthread);
 		} else if (lzma_ret == SZ_ERROR_OUTPUT_EOF)
@@ -650,8 +649,7 @@ ssize_t put_fdout(rzip_control *control, void *offset_buf, ssize_t ret)
 	return ret;
 }
 
-/* This is a custom version of write() which writes in 1GB chunks to avoid
-   the overflows at the >= 2GB mark thanks to 32bit fuckage. */
+/* Write len bytes, looping on short writes. */
 ssize_t write_1g(rzip_control *control, void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
@@ -660,11 +658,7 @@ ssize_t write_1g(rzip_control *control, void *buf, i64 len)
 
 	total = 0;
 	while (len > 0) {
-		if (BITS32)
-			ret = MIN(len, one_g);
-		else
-			ret = len;
-		ret = put_fdout(control, offset_buf, (size_t)ret);
+		ret = put_fdout(control, offset_buf, (size_t)len);
 		if (unlikely(ret <= 0))
 			return ret;
 		len -= ret;
@@ -740,11 +734,7 @@ ssize_t read_1g(rzip_control *control, int fd, void *buf, i64 len)
 read_fd:
 	total = 0;
 	while (len > 0) {
-		if (BITS32)
-			ret = MIN(len, one_g);
-		else
-			ret = len;
-		ret = read(fd, offset_buf, (size_t)ret);
+		ret = read(fd, offset_buf, (size_t)len);
 		if (unlikely(ret <= 0))
 			return ret;
 		len -= ret;
@@ -1127,11 +1117,6 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	if (threadlimit) {
 		print_output("Minimising number of threads to %d to limit memory usage\n",
 			     control->threads);
-	}
-	if (BITS32) {
-		limit = MIN(limit, one_g);
-		if (limit + (control->overhead * control->threads) > one_g)
-			limit = one_g - (control->overhead * control->threads);
 	}
 	/* Use a nominal minimum size should we fail all previous shrinking */
 	if (limit < STREAM_BUFSIZE) {

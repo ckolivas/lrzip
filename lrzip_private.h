@@ -33,6 +33,15 @@
 #include <semaphore.h>
 #include <stdatomic.h>
 
+/* lrzip requires a 64-bit platform (large windows, no 32-bit path left). */
+#if defined(__SIZEOF_POINTER__) && (__SIZEOF_POINTER__ < 8)
+# error "lrzip requires a 64-bit architecture"
+#elif defined(UINTPTR_MAX) && (UINTPTR_MAX < 0xffffffffffffffffULL)
+# error "lrzip requires a 64-bit architecture"
+#endif
+_Static_assert(sizeof(void *) >= 8, "lrzip requires a 64-bit architecture");
+_Static_assert(sizeof(long) >= 8, "lrzip requires a 64-bit architecture");
+
 #ifdef HAVE_PTHREAD_H
 # include <pthread.h>
 #endif
@@ -239,8 +248,6 @@ typedef sem_t cksem_t;
 
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
-#define BITS32		(sizeof(long) == 4)
-
 #define CTYPE_NONE 3
 #define CTYPE_BZIP2 4
 #define CTYPE_LZO 5
@@ -252,8 +259,6 @@ typedef sem_t cksem_t;
 #define HASH_LEN 64
 #define SALT_LEN 8
 #define CBC_LEN 16
-
-#define one_g (1000 * 1024 * 1024)
 
 #ifndef PAGE_SIZE
 # ifdef _SC_PAGE_SIZE

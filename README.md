@@ -203,19 +203,10 @@ other compression technique I have tried. Using the -n option will generate
 a .lrz file smaller than the original which should be more compressible, and
 since it is smaller it will compress faster than it otherwise would have.
 
-> Q: 32bit?
-
-> A: 32bit machines have a limit of 2GB sized compression windows due to
-userspace limitations on mmap and malloc, so even if you have much more ram
-you will not be able to use compression windows larger than 2GB. Also you
-may be unable to decompress files compressed on 64bit machines which have
-used windows larger than 2GB.
-
 > Q: How about 64bit?
 
-> A: 64bit machines with their ability to address massive amounts of ram will
-excel with lrzip due to being able to use compression windows limited only in
-size by the amount of physical ram.
+> A: lrzip requires a 64-bit platform. Large address spaces allow compression
+windows limited only by the amount of physical ram.
 
 > Q: Other operating systems?
 
@@ -268,8 +259,7 @@ generated file be decompressed on machines with less ram?
 
 > A: Yes. Ram requirements for decompression go up only by the -L compression
 option with lzma and are never anywhere near as large as the compression
-requirements. However if you're on 64bit and you use a compression window
-greater than 2GB, it might not be possible to decompress it on 32bit machines.
+requirements.
 
 > Q: Why are you including bzip2 compression?
 
@@ -417,11 +407,8 @@ minimum amount of time. It should not be used on a production server unless
 coupled with options to limit both its processor and ram resources.
 
 #### LIMITATIONS
-Due to mmap limitations the maximum size a window can be set to is currently
-2GB on 32bit unless the -U option is specified. Files generated on 64 bit
-machines with windows >2GB in size might not be decompressible on 32bit
-machines. Large files might not decompress on machines with less RAM if SWAP is
-disabled.
+lrzip targets 64-bit platforms only. Large files might not decompress on
+machines with less RAM if SWAP is disabled.
 
 #### BUGS:
 Probably lots. <https://github.com/ckolivas/lrzip/issues> if you spot any :D

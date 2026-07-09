@@ -398,23 +398,15 @@ int open_tmpoutfile(rzip_control *control)
 static bool fwrite_stdout(rzip_control *control, void *buf, i64 len)
 {
 	uchar *offset_buf = buf;
-	ssize_t ret;
-	i64 total;
 
-	total = 0;
 	while (len > 0) {
 		ssize_t wrote;
 
-		if (BITS32)
-			ret = MIN(len, one_g);
-		else
-			ret = len;
-		wrote = fwrite(offset_buf, 1, ret, control->outFILE);
-		if (unlikely(wrote != ret))
+		wrote = fwrite(offset_buf, 1, (size_t)len, control->outFILE);
+		if (unlikely(wrote <= 0))
 			fatal_return(("Failed to fwrite in fwrite_stdout\n"), false);
-		len -= ret;
-		offset_buf += ret;
-		total += ret;
+		len -= wrote;
+		offset_buf += wrote;
 	}
 	fflush(control->outFILE);
 	return true;
@@ -426,11 +418,7 @@ bool write_fdout(rzip_control *control, void *buf, i64 len)
 	ssize_t ret;
 
 	while (len > 0) {
-		if (BITS32)
-			ret = MIN(len, one_g);
-		else
-			ret = len;
-		ret = write(control->fd_out, offset_buf, (size_t)ret);
+		ret = write(control->fd_out, offset_buf, (size_t)len);
 		if (unlikely(ret <= 0))
 			fatal_return(("Failed to write to fd_out in write_fdout\n"), false);
 		len -= ret;
@@ -531,11 +519,7 @@ bool write_fdin(rzip_control *control)
 	ssize_t ret;
 
 	while (len > 0) {
-		if (BITS32)
-			ret = MIN(len, one_g);
-		else
-			ret = len;
-		ret = write(control->fd_in, offset_buf, (size_t)ret);
+		ret = write(control->fd_in, offset_buf, (size_t)len);
 		if (unlikely(ret <= 0))
 			fatal_return(("Failed to write to fd_in in write_fdin\n"), false);
 		len -= ret;
@@ -688,8 +672,7 @@ void close_tmpoutbuf(rzip_control *control)
 {
 	control->flags &= ~FLAG_TMP_OUTBUF;
 	dealloc(control->tmp_outbuf);
-	if (!BITS32)
-		control->usable_ram = control->maxram += control->ramsize / 18;
+	control->usable_ram = control->maxram += control->ramsize / 18;
 }
 
 static bool open_tmpinbuf(rzip_control *control)
@@ -730,8 +713,7 @@ void close_tmpinbuf(rzip_control *control)
 {
 	control->flags &= ~FLAG_TMP_INBUF;
 	dealloc(control->tmp_inbuf);
-	if (!BITS32)
-		control->usable_ram = control->maxram += control->ramsize / 18;
+	control->usable_ram = control->maxram += control->ramsize / 18;
 }
 
 static int get_pass(rzip_control *control, char *s)

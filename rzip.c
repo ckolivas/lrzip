@@ -822,8 +822,7 @@ static inline void mmap_stdin(rzip_control *control, uchar *buf,
 
 	total = 0;
 	while (len > 0) {
-		ret = MIN(len, one_g);
-		ret = read(fileno(control->inFILE), offset_buf, (size_t)ret);
+		ret = read(fileno(control->inFILE), offset_buf, (size_t)len);
 		if (unlikely(ret < 0))
 			failure("Failed to read in mmap_stdin\n");
 		total += ret;
