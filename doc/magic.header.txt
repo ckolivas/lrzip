@@ -1,3 +1,215 @@
+lrzip-0.7x file format
+Con Kolivas
+
+Introduces streaming block (STDIO) mode for progressive emit when the
+compressor cannot keep the entire compressed output seekable at once
+(typical of STDOUT pipes), and for clearer framing when decompressing
+from a non-seekable STDIN.
+
+Design goals
+------------
+1. After a block is fully written it is immutable. Seek is allowed only
+   inside the current block (needed for stream-header last_head patches
+   and encrypted header rewrite). Never seek into already-emitted data.
+2. One streaming block contains exactly one rzip chunk (one RCD + its
+   stream data). Block-last and RCD eof always agree.
+3. LRZI magic size keeps the v0.6 meaning: total uncompressed size if
+   known, else 0. Per-block sizes live on LRZC (and still in RCD).
+4. Session state is carried across blocks: one password->key derivation
+   from the first magic salt; running MD5 context; no re-init per block.
+5. Single-block archives (file-to-file, or stream that fits in one
+   block) remain layout-compatible with v0.6 aside from the version
+   byte and the use of previously unused magic flag bits.
+
+
+Byte	Content
+0-23	Magic (LRZI) — once only, at the start of the archive
+24+	First block: RCD + stream data
+--- if not last block ---
+[LRZC 24 bytes]
+RCD + stream data
+--- repeat LRZC + RCD + data for each further block ---
+(end-MD5_DIGEST_SIZE)->(end) md5 hash after final block if magic[21]=1
+
+
+Magic data (LRZI, 24 bytes — identical layout to v0.6 with flags in
+formerly unused bytes):
+0->3	LRZI
+4	LRZIP Major Version Number
+5	LRZIP Minor Version Number (0x07 for this format)
+6->13	Total uncompressed size of the whole archive if known,
+	0 if unknown (STDIN / pure stream), or salt if encrypted
+14	Streaming / multi-block flag (see below)
+15	Unused / reserved (must be 0)
+16->20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
+21	1 = md5sum hash is appended after the final block's data
+22	1 = data is encrypted with sha512/aes128; bytes 6->13 are salt
+23	1 = this is the last (or only) block; no LRZC follows
+	0 = one or more LRZC continuation blocks follow
+
+Flag bytes must be exactly 0 or 1 where defined as flags. Other values
+are reserved and must be treated as an error.
+
+Encrypted salt (bytes 6->13 in magic if encrypted):
+0->1	Encoded number of loops to hash password
+2->7	Random data
+(RCD0 is set to 8 bytes always on encrypted files)
+
+Streaming flag (byte 14) and last-block flag (byte 23):
+14=0, 23=1	Single-block archive. No LRZC. Layout matches v0.6
+		(RCD may still describe one rzip chunk only; multi-chunk
+		file-to-file may use either classic v0.6 multi-RCD under
+		one LRZI without LRZC when 14=0, or streaming blocks —
+		see "Modes" below).
+14=1, 23=0	Streaming multi-block: one or more LRZC blocks follow.
+14=1, 23=1	Streaming mode, but the first block is also the last
+		(single chunk that used streaming writer rules). Valid.
+14=0, 23=0	Invalid. Truncated write or corrupt header.
+
+Modes
+-----
+A) Classic multi-chunk (file-to-file, seekable output) — optional:
+   byte 14 = 0, byte 23 = 1 on magic. Multiple RCD chunks follow in
+   sequence as in v0.6 (RCD eof chains them). No LRZC. Magic size is
+   total size if known. Writers that can seek the whole output may keep
+   this mode.
+
+B) Streaming multi-block (required for progressive STDIO emit):
+   byte 14 = 1. Exactly one RCD (one rzip chunk) per block.
+   First block: LRZI + RCD + data.
+   Later blocks: LRZC + RCD + data.
+   RCD eof must equal the block-last flag of that block's header
+   (magic[23] for the first block, LRZC flags for later blocks).
+   After a block is complete it may be flushed permanently to the pipe.
+
+Writers producing progressive STDOUT SHOULD use mode B whenever more
+than one chunk is needed or the output cannot remain fully seekable.
+Mode A remains valid for seekable outputs.
+
+
+Continuation block header (LRZC, 24 bytes):
+0->3	LRZC
+4->11	Uncompressed size of this block (this rzip chunk only),
+	0 if unknown; must be zeroed if the archive is encrypted
+12->19	Compressed size of this block: number of bytes that follow
+	this LRZC header up to (but not including) the next LRZC
+	or the trailing MD5 (if any). This is the full framed payload
+	(RCD + all stream headers and data for this block). Required
+	and must be non-zero for a non-empty block.
+20	Flags:
+	bit 0	1 = final block; MD5 follows payload if magic[21]=1
+		0 = another LRZC follows after this block's payload
+	bits 1-7	Reserved, must be 0
+21->23	Reserved, must be 0
+
+All multi-byte integers are little-endian.
+
+Compressed size (bytes 12->19) lets a reader stage exactly one block
+from a non-seekable stream into a seekable buffer (RAM or a per-block
+temp file) without parsing stream headers first. After the block is
+decompressed the buffer may be discarded before the next LRZC.
+
+
+Rzip Chunk Data (follows LRZI for the first block, or LRZC for later
+blocks; structure same as v0.6x):
+0	Data offsets byte width RCD0 (1..8). Integer fields in this
+	chunk are stored in RCD0 little-endian bytes. Values must fit
+	in RCD0 bytes (maximum (2^(8*RCD0)) - 1). On encrypted files
+	RCD0 is always 8.
+1	EOF / last-chunk flag:
+	1 = no rzip chunk follows this one in the archive
+	0 = another rzip chunk follows
+	In streaming mode B this MUST match the block-last flag of the
+	enclosing block header (magic[23] or LRZC flags bit 0).
+(RCD0 bytes)	Chunk decompressed size (not stored in encrypted file)
+XX	Stream 0 header data
+XX	Stream 1 header data
+
+Stream Header Data:
+Byte:
+0	Compressed data type
+(RCD0 bytes)	Compressed data length
+(RCD0 bytes)	Uncompressed data length
+(RCD0 bytes)	Next head offset (last_head), relative to the start of
+		stream headers in this chunk (initial_pos). 0 = none.
+
+Data blocks:
+0->(end-2) data
+(end-1)->end crc data  (legacy per-block crc; MD5 preferred when set)
+
+
+Writer rules (streaming mode B)
+-------------------------------
+1. Finalise LRZI before the first byte of the first block is flushed to
+   a non-seekable consumer: version, flags, salt or total size, LZMA
+   properties (or leave props zero if not LZMA). Do not rewrite magic
+   after any payload has been emitted on a pipe.
+2. Total size in magic: set if known before emit; otherwise 0. Never
+   plan to patch total size later on a pipe.
+3. One rzip chunk per block. Set magic[23] / LRZC last-bit when the
+   block header is written, based on whether more input remains after
+   this chunk was filled (STDIN short read => last block).
+4. RCD eof must equal that last-block flag.
+5. While building a block, keep its compressed output seekable (RAM
+   buffer or temp). last_head patches and encrypt-header rewrite apply
+   only inside that buffer.
+6. When the block is complete, write LRZC (if not the first block) with
+   correct uncompressed size (0 if encrypted/unknown) and compressed
+   size, then the RCD payload. Flush the whole block. Do not seek into
+   it again. Advance any output base offset so later seeks are relative
+   to the next block only.
+7. Carry encryption key material and MD5 context across blocks. Do not
+   put a new salt in LRZC. Derive the session key once from magic salt.
+8. If magic[21]=1, append MD5 only after the final block's payload.
+   MD5 is over the full uncompressed plaintext of all blocks, same as
+   v0.6.
+
+Reader rules
+------------
+1. Read LRZI. If major/minor is newer than supported, may attempt with
+   caution; if minor >= 7, honour bytes 14 and 23.
+2. If magic[23]=1 and magic[14]=0: single classic block or classic
+   multi-RCD chain (mode A). Parse RCD eof as in v0.6. No LRZC.
+3. If magic[14]=1 or magic[23]=0: streaming framing.
+   - Decompress first block (RCD + data).
+   - If not last: next bytes must be "LRZC"; read 24-byte header;
+     read exactly compressed_size bytes as the block payload into a
+     seekable buffer; decompress; repeat until last-bit set.
+4. On each block, verify RCD eof matches block-last. Mismatch = corrupt.
+5. Flag values other than 0/1 (where flags are defined) = error.
+6. magic[14]=0 and magic[23]=0 = error (truncated/corrupt).
+7. End of stream with last-block never seen = truncated / incomplete.
+8. If magic[21]=1: after the final block, read and verify MD5. Missing
+   MD5 after a last block = error. Do not treat clean EOF before last
+   as success.
+9. Encryption: decrypt with the key from the first magic only. LRZC
+   sizes for uncompressed fields are zero; compressed_size remains
+   usable as a frame length.
+10. Carry MD5 and crypto session state across blocks without reset.
+
+Invariants and limits
+---------------------
+- Seek is required inside a block (last_head). Streaming removes the
+  need to keep the whole archive seekable, not the need for a per-block
+  buffer of size about compressed_size.
+- Decompress to STDOUT may still need seekable storage of recent
+  uncompressed history for match replay (window on the order of the
+  rzip chunk size). That is independent of this framing.
+- Empty archive / empty last chunk: follow existing v0.6 empty-chunk
+  behaviour; compressed_size must still describe the framed bytes
+  written (RCD and any empty stream headers).
+
+Compatibility
+-------------
+- v0.7 readers must read v0.6 and older archives (existing version
+  gates).
+- v0.6 and older readers will not understand LRZC or magic[14]/[23].
+  Files that use mode B or set those flags must use minor version 0x07
+  so older tools report a newer version rather than mis-parsing.
+- Mode A single-block with 14=0,23=1 and minor 0x07 is the closest to
+  a v0.6 file; only the version byte and reserved flag fields differ.
+
+
 lrzip-0.6x file format
 March 2011
 Con Kolivas
@@ -27,7 +239,8 @@ Encrypted salt (bytes 6->13 in magic if encrypted):
 (RCD0 is set to 8 bytes always on encrypted files)
 
 Rzip Chunk Data:
-0	Data offsets byte width (meaning length is < (2 * 8)^RCD0)
+0	Data offsets byte width RCD0 (1..8). Integer fields in this
+	chunk use RCD0 little-endian bytes (max value (2^(8*RCD0))-1).
 1	Flag that there is no chunk beyond this
 (RCD0 bytes)	Chunk decompressed size (not stored in encrypted file)
 XX	Stream 0 header data
@@ -38,7 +251,7 @@ Byte:
 0	Compressed data type
 (RCD0 bytes)	Compressed data length
 (RCD0 bytes)	Uncompressed data length
-(RCD0 bytes)	Next block head
+(RCD0 bytes)	Next head offset (last_head)
 
 Data blocks:
 0->(end-2) data
