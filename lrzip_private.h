@@ -402,6 +402,10 @@ struct rzip_state {
 	char sliding;	/* non-zero: sliding mmap match path */
 	int fd_in, fd_out;
 	char stdin_eof;
+	/* Batched writes to rzip control stream (stream 0). */
+#define RZIP_S0_BUFSIZE 4096
+	uchar s0_buf[RZIP_S0_BUFSIZE];
+	unsigned s0_len;
 	struct {
 		i64 inserts;
 		i64 literals;

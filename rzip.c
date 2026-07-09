@@ -261,23 +261,48 @@ static void sliding_mcpy(rzip_control *control, unsigned char *buf, i64 offset, 
 	}
 }
 
-/* All put_u8/u32/vchars go to stream 0 */
-static inline void put_u8(rzip_control *control, void *ss, uchar b)
+/* ---- Stream 0 (rzip control) write batching ---- */
+static void s0_flush(rzip_control *control, struct rzip_state *st)
 {
-	write_stream(control, ss, 0, &b, 1);
+	if (st->s0_len) {
+		write_stream(control, st->ss, 0, st->s0_buf, st->s0_len);
+		st->s0_len = 0;
+	}
+}
+
+static void s0_write(rzip_control *control, struct rzip_state *st,
+		     const uchar *p, unsigned len)
+{
+	while (len) {
+		unsigned n = RZIP_S0_BUFSIZE - st->s0_len;
+
+		if (n > len)
+			n = len;
+		memcpy(st->s0_buf + st->s0_len, p, n);
+		st->s0_len += n;
+		p += n;
+		len -= n;
+		if (st->s0_len == RZIP_S0_BUFSIZE)
+			s0_flush(control, st);
+	}
+}
+
+static inline void put_u8(rzip_control *control, struct rzip_state *st, uchar b)
+{
+	s0_write(control, st, &b, 1);
 }
 
 /* Put a variable length of bytes dependant on how big the chunk is */
-static void put_vchars(rzip_control *control, void *ss, i64 s, i64 length)
+static void put_vchars(rzip_control *control, struct rzip_state *st, i64 s, int length)
 {
 	s = htole64(s);
-	write_stream(control, ss, 0, (uchar *)&s, length);
+	s0_write(control, st, (uchar *)&s, (unsigned)length);
 }
 
-static void put_header(rzip_control *control, void *ss, uchar head, i64 len)
+static void put_header(rzip_control *control, struct rzip_state *st, uchar head, i64 len)
 {
-	put_u8(control, ss, head);
-	put_vchars(control, ss, len, 2);
+	put_u8(control, st, head);
+	put_vchars(control, st, len, 2);
 }
 
 static inline void put_match(rzip_control *control, struct rzip_state *st,
@@ -290,8 +315,8 @@ static inline void put_match(rzip_control *control, struct rzip_state *st,
 			n = 0xFFFF;
 
 		ofs = (p - offset);
-		put_header(control, st->ss, 1, n);
-		put_vchars(control, st->ss, ofs, st->chunk_bytes);
+		put_header(control, st, 1, n);
+		put_vchars(control, st, ofs, st->chunk_bytes);
 		st->stats.matches++;
 		st->stats.match_bytes += n;
 		len -= n;
@@ -331,7 +356,7 @@ static void put_literal(rzip_control *control, struct rzip_state *st, i64 last, 
 		st->stats.literals++;
 		st->stats.literal_bytes += len;
 
-		put_header(control, st->ss, 0, len);
+		put_header(control, st, 0, len);
 
 		if (len)
 			write_sbstream(control, st->ss, 1, last, len);
@@ -892,7 +917,7 @@ static void md5_drain(rzip_control *control)
 static inline void hash_search(rzip_control *control, struct rzip_state *st,
 			       double pct_base, double pct_multiple)
 {
-	i64 cksum_limit = 0, p, end;
+	i64 cksum_limit = 0, p, end, progress_at;
 	tag t = 0, tag_mask = (1 << st->level->initial_freq) - 1;
 	struct sliding_buffer *sb = &control->sb;
 	int lastpct = 0, last_chunkpct = 0;
@@ -901,6 +926,8 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 		i64 ofs;
 		i64 len;
 	} current;
+	/* Progress at most every 64KiB or each 1% of the chunk. */
+	const i64 progress_bytes = 64 * 1024;
 
 	{
 		/* Target slot count as in rzip-2.1 (8-byte entries per mb_used). */
@@ -946,6 +973,7 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 	st->minimum_tag_mask = tag_mask;
 	st->tag_clean_ptr = 0;
 	st->hash_count = 0;
+	st->s0_len = 0;
 
 	p = 0;
 	end = st->chunk_size - MINIMUM_MATCH;
@@ -953,6 +981,13 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 	current.len = 0;
 	current.p = p;
 	current.ofs = 0;
+	progress_at = progress_bytes;
+	if (end > 0) {
+		i64 one_pct = end / 100;
+
+		if (one_pct > 0 && one_pct < progress_at)
+			progress_at = one_pct;
+	}
 
 	if (likely(end > 0))
 		t = full_tag(control, st, p);
@@ -964,12 +999,13 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 		if (unlikely(sb->offset_search > sb->offset_low + sb->size_low))
 			remap_low_sb(control, &control->sb);
 
-		if (unlikely(p % 128 == 0 && st->chunk_size)) {
+		if (unlikely(st->chunk_size && p >= progress_at)) {
 			i64 chunk_pct;
 			int pct;
+			i64 one_pct, next_pct_at, next_byte_at;
 
-			pct = pct_base + (pct_multiple * (100.0 * p) / st->chunk_size );
-			chunk_pct = p * 100 / end;
+			pct = pct_base + (pct_multiple * (100.0 * p) / st->chunk_size);
+			chunk_pct = end ? (p * 100 / end) : 100;
 			if (pct != lastpct || chunk_pct != last_chunkpct) {
 				if (!STDIN || st->stdin_eof)
 					print_progress("Total: %2d%%  ", pct);
@@ -980,6 +1016,14 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 				lastpct = pct;
 				last_chunkpct = chunk_pct;
 			}
+			next_byte_at = p + progress_bytes;
+			one_pct = end / 100;
+			if (one_pct > 0) {
+				next_pct_at = ((p / one_pct) + 1) * one_pct;
+				if (next_pct_at < next_byte_at)
+					next_byte_at = next_pct_at;
+			}
+			progress_at = next_byte_at;
 		}
 
 		next_tag(control, st, p, &t);
@@ -1047,6 +1091,7 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 	 * integrity is MD5 when magic[21] is set. Match/literal offsets are
 	 * complete before this marker and do not depend on a CRC field. */
 	put_literal(control, st, 0, 0);
+	s0_flush(control, st);
 }
 
 
