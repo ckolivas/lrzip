@@ -149,6 +149,21 @@ static i64 read_header(rzip_control *control, void *ss, uchar *head)
 	return read_vchars(control, ss, 0, control->chunk_bytes);
 }
 
+/* Grow-only scratch for literal/match tokens — avoids malloc/free per token. */
+static uchar *runzip_get_buf(rzip_control *control, i64 len)
+{
+	uchar *nbuf;
+
+	if (likely(len <= control->runzip_buf_len))
+		return control->runzip_buf;
+	nbuf = realloc(control->runzip_buf, len);
+	if (unlikely(!nbuf))
+		return NULL;
+	control->runzip_buf = nbuf;
+	control->runzip_buf_len = len;
+	return nbuf;
+}
+
 static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum)
 {
 	i64 stream_read;
@@ -157,27 +172,25 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum
 	if (unlikely(len < 0))
 		failure_return(("len %"PRId64" is negative in unzip_literal!\n",len), -1);
 
-	buf = (uchar *)malloc(len);
+	if (!len)
+		return 0;
+
+	buf = runzip_get_buf(control, len);
 	if (unlikely(!buf))
 		fatal_return(("Failed to malloc literal buffer of size %"PRId64"\n", len), -1);
 
 	stream_read = read_stream(control, ss, 1, buf, len);
-	if (unlikely(stream_read == -1 )) {
-		dealloc(buf);
+	if (unlikely(stream_read == -1 ))
 		fatal_return(("Failed to read_stream in unzip_literal\n"), -1);
-	}
 
-	if (unlikely(write_1g(control, buf, (size_t)stream_read) != (ssize_t)stream_read)) {
-		dealloc(buf);
+	if (unlikely(write_1g(control, buf, (size_t)stream_read) != (ssize_t)stream_read))
 		fatal_return(("Failed to write literal buffer of size %"PRId64"\n", stream_read), -1);
-	}
 
 	if (!HAS_MD5)
 		*cksum = CrcUpdate(*cksum, buf, stream_read);
 	if (!NO_MD5)
 		md5_process_bytes(buf, stream_read, &control->ctx);
 
-	dealloc(buf);
 	return stream_read;
 }
 
@@ -218,24 +231,20 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 	if (unlikely(n < 1))
 		fatal_return(("Failed fd history in unzip_match due to corrupt archive\n"), -1);
 
-	buf = (uchar *)malloc(n);
+	buf = runzip_get_buf(control, n);
 	if (unlikely(!buf))
-		fatal_return(("Failed to malloc match buffer of size %"PRId64"\n", len), -1);
+		fatal_return(("Failed to malloc match buffer of size %"PRId64"\n", n), -1);
 
-	if (unlikely(read_fdhist(control, buf, (size_t)n) != (ssize_t)n)) {
-		dealloc(buf);
+	if (unlikely(read_fdhist(control, buf, (size_t)n) != (ssize_t)n))
 		fatal_return(("Failed to read %"PRId64" bytes in unzip_match\n", n), -1);
-	}
 
 	while (len) {
 		n = MIN(len, offset);
 		if (unlikely(n < 1))
 			fatal_return(("Failed fd history in unzip_match due to corrupt archive\n"), -1);
 
-		if (unlikely(write_1g(control, buf, (size_t)n) != (ssize_t)n)) {
-			dealloc(buf);
+		if (unlikely(write_1g(control, buf, (size_t)n) != (ssize_t)n))
 			fatal_return(("Failed to write %"PRId64" bytes in unzip_match\n", n), -1);
-		}
 
 		if (!HAS_MD5)
 			*cksum = CrcUpdate(*cksum, buf, n);
@@ -245,8 +254,6 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 		len -= n;
 		total += n;
 	}
-
-	dealloc(buf);
 
 	return total;
 }
@@ -511,5 +518,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 		}
 	}
 
+	dealloc(control->runzip_buf);
+	control->runzip_buf = NULL;
+	control->runzip_buf_len = 0;
 	return total;
 }
