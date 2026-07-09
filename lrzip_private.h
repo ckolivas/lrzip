@@ -348,7 +348,6 @@ struct sliding_buffer {
 };
 
 struct checksum {
-	uint32_t *cksum;
 	uchar *buf;
 	i64 len;
 };
@@ -382,7 +381,6 @@ struct rzip_state {
 	i64 chunk_size;
 	i64 mmap_size;
 	char chunk_bytes;
-	uint32_t cksum;
 	int fd_in, fd_out;
 	char stdin_eof;
 	struct {

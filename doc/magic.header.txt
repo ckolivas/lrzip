@@ -134,8 +134,12 @@ Byte:
 		stream headers in this chunk (initial_pos). 0 = none.
 
 Data blocks:
-0->(end-2) data
-(end-1)->end crc data  (legacy per-block crc; MD5 preferred when set)
+0->(end) data
+Stream 0 ends with an empty literal header (type 0, length 0).
+v0.7+ writers do not append a per-chunk CRC32 after that marker;
+integrity is the trailing MD5 when magic[21] is set. Older archives
+may still carry a 4-byte CRC after the empty literal; readers only
+consume it when magic[21] is clear.
 
 
 Writer rules (streaming mode B)

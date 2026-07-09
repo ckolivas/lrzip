@@ -187,9 +187,8 @@ bool write_magic(rzip_control *control)
 			magic[i + 16] = (char)control->lzma_properties[i];
 	}
 
-	/* This is a flag that the archive contains an md5 sum at the end
-	 * which can be used as an integrity check instead of crc check.
-	 * crc is still stored for compatibility with 0.5 versions.
+	/* Flag that an md5 sum is stored at the end of the archive for
+	 * integrity checking. Per-chunk CRC32 is no longer written.
 	 */
 	if (!NO_MD5)
 		magic[21] = 1;

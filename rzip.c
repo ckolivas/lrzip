@@ -56,8 +56,6 @@
 #include "stream.h"
 #include "util.h"
 #include "lrzip_core.h"
-/* needed for CRC routines */
-#include "lzma/C/7zCrc.h"
 
 #ifndef MAP_ANONYMOUS
 # define MAP_ANONYMOUS MAP_ANON
@@ -202,12 +200,6 @@ static void sliding_mcpy(rzip_control *control, unsigned char *buf, i64 offset, 
 static inline void put_u8(rzip_control *control, void *ss, uchar b)
 {
 	write_stream(control, ss, 0, &b, 1);
-}
-
-static inline void put_u32(rzip_control *control, void *ss, uint32_t s)
-{
-	s = htole32(s);
-	write_stream(control, ss, 0, (uchar *)&s, 4);
 }
 
 /* Put a variable length of bytes dependant on how big the chunk is */
@@ -578,14 +570,13 @@ static void show_distrib(rzip_control *control, struct rzip_state *st)
 	}
 }
 
-/* Perform all checksumming in a separate thread to speed up the hash search. */
+/* MD5 (when enabled) is updated in a helper thread during the hash search. */
 static void *cksumthread(void *data)
 {
 	rzip_control *control = (rzip_control *)data;
 
 	pthread_detach(pthread_self());
 
-	*control->checksum.cksum = CrcUpdate(*control->checksum.cksum, control->checksum.buf, control->checksum.len);
 	if (!NO_MD5)
 		md5_process_bytes(control->checksum.buf, control->checksum.len, &control->ctx);
 	dealloc(control->checksum.buf);
@@ -632,7 +623,6 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 
 	st->minimum_tag_mask = tag_mask;
 	st->tag_clean_ptr = 0;
-	st->cksum = 0;
 	st->hash_count = 0;
 
 	p = 0;
@@ -706,18 +696,14 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 			t = control->full_tag(control, st, p);
 		}
 
-		if (p > cksum_limit) {
-			/* We lock the mutex here and unlock it in the
-			 * cksumthread. This lock protects all the data in
-			 * control->checksum.
-			 */
+		/* Feed MD5 (if enabled) in page-sized pieces off the main search. */
+		if (!NO_MD5 && p > cksum_limit) {
 			cksem_wait(control, &control->cksumsem);
 			control->checksum.len = MIN(st->chunk_size - p, control->page_size);
 			control->checksum.buf = malloc(control->checksum.len);
 			if (unlikely(!control->checksum.buf))
 				failure("Failed to malloc ckbuf in hash_search\n");
 			control->do_mcpy(control, control->checksum.buf, cksum_limit, control->checksum.len);
-			control->checksum.cksum = &st->cksum;
 			cksum_limit += control->checksum.len;
 			cksum_update(control);
 		}
@@ -729,7 +715,7 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 	if (st->last_match < st->chunk_size)
 		put_literal(control, st, st->last_match, st->chunk_size);
 
-	if (st->chunk_size > cksum_limit) {
+	if (!NO_MD5 && st->chunk_size > cksum_limit) {
 		i64 cksum_len = control->maxram;
 		void *buf;
 
@@ -745,8 +731,8 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 				failure("Failed to malloc any ram for checksum ckbuf\n");
 		}
 
-		/* Compute checksum. If the entire chunk is longer than maxram,
-		 * do it "per-partes" */
+		/* Finish MD5. If the remaining chunk is longer than maxram,
+		 * do it in parts. */
 		cksem_wait(control, &control->cksumsem);
 		control->checksum.buf = buf;
 		control->checksum.len = st->chunk_size - cksum_limit;
@@ -756,24 +742,21 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 		for (i = 0; i < cksum_chunks; i++) {
 			control->do_mcpy(control, control->checksum.buf, cksum_limit, cksum_len);
 			cksum_limit += cksum_len;
-			st->cksum = CrcUpdate(st->cksum, control->checksum.buf, cksum_len);
-			if (!NO_MD5)
-				md5_process_bytes(control->checksum.buf, cksum_len, &control->ctx);
+			md5_process_bytes(control->checksum.buf, cksum_len, &control->ctx);
 		}
-		/* Process end of the checksum buffer */
 		control->do_mcpy(control, control->checksum.buf, cksum_limit, cksum_remains);
-		st->cksum = CrcUpdate(st->cksum, control->checksum.buf, cksum_remains);
-		if (!NO_MD5)
-			md5_process_bytes(control->checksum.buf, cksum_remains, &control->ctx);
+		md5_process_bytes(control->checksum.buf, cksum_remains, &control->ctx);
 		dealloc(control->checksum.buf);
 		cksem_post(control, &control->cksumsem);
-	} else {
+	} else if (!NO_MD5) {
 		cksem_wait(control, &control->cksumsem);
 		cksem_post(control, &control->cksumsem);
 	}
 
+	/* End-of-stream marker only (head=0, len=0). No trailing CRC32;
+	 * integrity is MD5 when magic[21] is set. Match/literal offsets are
+	 * complete before this marker and do not depend on a CRC field. */
 	put_literal(control, st, 0, 0);
-	put_u32(control, st->ss, st->cksum);
 }
 
 
