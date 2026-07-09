@@ -141,30 +141,88 @@ static inline void remap_high_sb(rzip_control *control, struct sliding_buffer *s
  * the beginning of the block which slides up once the hash search moves beyond
  * it, and a 64k mmap block that slides up and down as is required for any
  * offsets outside the range of the lower one. This is much slower than mmap
- * but makes it possible to have unlimited sized compression windows.
- * We use a pointer to the function we actually want to use and only enable
- * the sliding mmap version if we need sliding mmap functionality as this is
- * a hot function during the rzip phase */
+ * but makes it possible to have unlimited sized compression windows. */
+
+/* True if [p, p+len) lies entirely in the low map (len may be 0). */
+static inline int sliding_in_low(const struct sliding_buffer *sb, i64 p, i64 len)
+{
+	return p >= sb->offset_low && len >= 0 &&
+	       p + len <= sb->offset_low + sb->size_low;
+}
+
 static uchar *sliding_get_sb(rzip_control *control, i64 p)
 {
 	struct sliding_buffer *sb = &control->sb;
-	i64 sbo;
+	i64 sbo, sbs;
 
 	sbo = sb->offset_low;
-	if (p >= sbo && p < sbo + sb->size_low)
-		return (sb->buf_low + p - sbo);
+	sbs = sb->size_low;
+	if (p >= sbo && p < sbo + sbs)
+		return sb->buf_low + (p - sbo);
 	sbo = sb->offset_high;
-	if (p >= sbo && p < (sbo + sb->size_high))
-		return (sb->buf_high + (p - sbo));
+	sbs = sb->size_high;
+	if (p >= sbo && p < sbo + sbs)
+		return sb->buf_high + (p - sbo);
 	/* p is not within the low or high buffer range */
-	remap_high_sb(control, &control->sb, p);
-	/* Use sb->offset_high directly since it will have changed */
-	return (sb->buf_high + (p - sb->offset_high));
+	remap_high_sb(control, sb, p);
+	return sb->buf_high + (p - sb->offset_high);
 }
 
-/* The length of continous range of the sliding buffer,
- * starting from the offset P.
- */
+/* Ensure p is mapped; return pointer and contiguous forward length from p. */
+static inline uchar *sliding_map_fwd(rzip_control *control, i64 p, i64 *contig)
+{
+	struct sliding_buffer *sb = &control->sb;
+	i64 sbo, sbs;
+
+	sbo = sb->offset_low;
+	sbs = sb->size_low;
+	if (p >= sbo && p < sbo + sbs) {
+		*contig = sbs - (p - sbo);
+		return sb->buf_low + (p - sbo);
+	}
+	sbo = sb->offset_high;
+	sbs = sb->size_high;
+	if (p >= sbo && p < sbo + sbs) {
+		*contig = sbs - (p - sbo);
+		return sb->buf_high + (p - sbo);
+	}
+	remap_high_sb(control, sb, p);
+	*contig = sb->size_high - (p - sb->offset_high);
+	return sb->buf_high + (p - sb->offset_high);
+}
+
+/* Contiguous bytes available strictly before p (for reverse matching). */
+static inline i64 sliding_contig_before(rzip_control *control, i64 p)
+{
+	struct sliding_buffer *sb = &control->sb;
+	i64 pm1, sbo, sbs;
+
+	if (p <= 0)
+		return 0;
+	pm1 = p - 1;
+	sbo = sb->offset_low;
+	sbs = sb->size_low;
+	if (pm1 >= sbo && pm1 < sbo + sbs)
+		return pm1 - sbo + 1;
+	sbo = sb->offset_high;
+	sbs = sb->size_high;
+	if (pm1 >= sbo && pm1 < sbo + sbs)
+		return pm1 - sbo + 1;
+	/* Map the byte we need, then recompute. */
+	sliding_get_sb(control, pm1);
+	sbo = sb->offset_high;
+	sbs = sb->size_high;
+	if (pm1 >= sbo && pm1 < sbo + sbs)
+		return pm1 - sbo + 1;
+	sbo = sb->offset_low;
+	sbs = sb->size_low;
+	if (pm1 >= sbo && pm1 < sbo + sbs)
+		return pm1 - sbo + 1;
+	return 1;
+}
+
+/* The length of continuous range of the sliding buffer starting at P.
+ * P must already be mapped (via sliding_get_sb / sliding_map_fwd). */
 static inline i64 sliding_get_sb_range(rzip_control *control, i64 p)
 {
 	struct sliding_buffer *sb = &control->sb;
@@ -173,11 +231,11 @@ static inline i64 sliding_get_sb_range(rzip_control *control, i64 p)
 	sbo = sb->offset_low;
 	sbs = sb->size_low;
 	if (p >= sbo && p < sbo + sbs)
-		return (sbs - (p - sbo));
+		return sbs - (p - sbo);
 	sbo = sb->offset_high;
 	sbs = sb->size_high;
-	if (likely(p >= sbo && p < (sbo + sbs)))
-		return (sbs - (p - sbo));
+	if (likely(p >= sbo && p < sbo + sbs))
+		return sbs - (p - sbo);
 
 	fatal_return(("sliding_get_sb_range: the pointer is out of range\n"), 0);
 }
@@ -446,12 +504,18 @@ static inline void single_next_tag(rzip_control *control, struct rzip_state *st,
 
 static inline void sliding_next_tag(rzip_control *control, struct rzip_state *st, i64 p, tag *t)
 {
-	uchar *u;
+	struct sliding_buffer *sb = &control->sb;
+	i64 p1 = p - 1;
+	i64 p2 = p + MINIMUM_MATCH - 1;
 
-	u = sliding_get_sb(control, p - 1);
-	*t ^= st->hash_index[*u];
-	u = sliding_get_sb(control, p + MINIMUM_MATCH - 1);
-	*t ^= st->hash_index[*u];
+	/* Common case: both tag bytes sit in the low map — no high remap. */
+	if (sliding_in_low(sb, p1, 1) && sliding_in_low(sb, p2, 1)) {
+		*t ^= st->hash_index[sb->buf_low[p1 - sb->offset_low]];
+		*t ^= st->hash_index[sb->buf_low[p2 - sb->offset_low]];
+		return;
+	}
+	*t ^= st->hash_index[*sliding_get_sb(control, p1)];
+	*t ^= st->hash_index[*sliding_get_sb(control, p2)];
 }
 
 static inline tag single_full_tag(rzip_control *control, struct rzip_state *st, i64 p)
@@ -466,20 +530,53 @@ static inline tag single_full_tag(rzip_control *control, struct rzip_state *st, 
 
 static inline tag sliding_full_tag(rzip_control *control, struct rzip_state *st, i64 p)
 {
+	struct sliding_buffer *sb = &control->sb;
 	tag ret = 0;
 	int i;
+	i64 contig;
+	uchar *s;
 
-	for (i = 0; i < MINIMUM_MATCH; i++)
-		ret ^= st->hash_index[*sliding_get_sb(control, p + i)];
+	/* Whole MINIMUM_MATCH window in the low map. */
+	if (sliding_in_low(sb, p, MINIMUM_MATCH)) {
+		s = sb->buf_low + (p - sb->offset_low);
+		for (i = 0; i < MINIMUM_MATCH; i++)
+			ret ^= st->hash_index[s[i]];
+		return ret;
+	}
+
+	/* Prefer one contiguous high/low span when possible. */
+	s = sliding_map_fwd(control, p, &contig);
+	if (contig >= MINIMUM_MATCH) {
+		for (i = 0; i < MINIMUM_MATCH; i++)
+			ret ^= st->hash_index[s[i]];
+		return ret;
+	}
+
+	for (i = 0; i < MINIMUM_MATCH; ) {
+		i64 n;
+
+		s = sliding_map_fwd(control, p + i, &contig);
+		n = contig;
+		if (n > MINIMUM_MATCH - i)
+			n = MINIMUM_MATCH - i;
+		while (n--) {
+			ret ^= st->hash_index[s[0]];
+			s++;
+			i++;
+		}
+	}
 	return ret;
 }
 
-/* Forward match using word-sized strides; reverse is usually short. */
+/*
+ * Core match on a linear buffer where absolute position q is at
+ * base[q - base_off]. Used for the non-sliding path and the sliding
+ * fast path when both sides lie in the low map.
+ */
 static i64
-single_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
-		 i64 end, i64 *rev, i64 best)
+match_len_linear(const uchar *base, i64 base_off, struct rzip_state *st,
+		 i64 p0, i64 op, i64 end, i64 *rev, i64 best)
 {
-	const uchar *buf = control->sb.buf_low;
 	const uchar *a, *b;
 	i64 max_fwd, f, max_rev, rev_end, op0, p, o, len;
 
@@ -488,8 +585,8 @@ single_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
 
 	op0 = op;
 	max_fwd = end - p0;
-	a = buf + p0;
-	b = buf + op0;
+	a = base + (p0 - base_off);
+	b = base + (op0 - base_off);
 	f = 0;
 
 	while (f + (i64)sizeof(size_t) <= max_fwd) {
@@ -509,13 +606,13 @@ single_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
 	if (max_rev > op0)
 		max_rev = op0;
 
-	/* Cannot beat best or reach MINIMUM_MATCH even with full reverse. */
 	if (f + max_rev < MINIMUM_MATCH || f + max_rev <= best)
 		return 0;
 
 	p = p0;
 	o = op0;
-	while (p > rev_end && o > 0 && buf[o - 1] == buf[p - 1]) {
+	while (p > rev_end && o > 0 &&
+	       base[(o - 1) - base_off] == base[(p - 1) - base_off]) {
 		o--;
 		p--;
 	}
@@ -527,27 +624,42 @@ single_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
 	return len;
 }
 
-/* Sliding forward match: memcmp within contiguous mapped spans. */
+static i64
+single_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
+		 i64 end, i64 *rev, i64 best)
+{
+	return match_len_linear(control->sb.buf_low, 0, st, p0, op, end, rev, best);
+}
+
+/* Sliding match: low-map fast path, else span-wise forward/reverse compares. */
 static i64
 sliding_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
 		  i64 end, i64 *rev, i64 best)
 {
-	i64 max_fwd, f, max_rev, rev_end, p, len, op0;
+	struct sliding_buffer *sb = &control->sb;
+	i64 max_fwd, f, max_rev, rev_end, p, o, len, op0;
+	i64 low = sb->offset_low, lsz = sb->size_low;
 
 	if (op >= p0)
 		return 0;
 
+	rev_end = MAX((i64)0, st->last_match);
 	max_fwd = end - p0;
+
+	/* Both sides fully in the low map (forward + reverse extent). */
+	if (rev_end >= low && p0 >= low && end <= low + lsz &&
+	    op >= low && op + max_fwd <= low + lsz) {
+		return match_len_linear(sb->buf_low, low, st, p0, op, end, rev, best);
+	}
+
+	op0 = op;
 	f = 0;
 	while (f < max_fwd) {
-		uchar *a = sliding_get_sb(control, p0 + f);
-		uchar *b = sliding_get_sb(control, op + f);
-		i64 n = sliding_get_sb_range(control, p0 + f);
-		i64 n2 = sliding_get_sb_range(control, op + f);
-		i64 m;
+		i64 c1, c2, n, m;
+		uchar *a = sliding_map_fwd(control, p0 + f, &c1);
+		uchar *b = sliding_map_fwd(control, op0 + f, &c2);
 
-		if (n2 < n)
-			n = n2;
+		n = c1 < c2 ? c1 : c2;
 		if (n > max_fwd - f)
 			n = max_fwd - f;
 		if (n <= 0)
@@ -563,30 +675,44 @@ sliding_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
 		break;
 	}
 
-	rev_end = MAX((i64)0, st->last_match);
 	max_rev = p0 - rev_end;
-	if (max_rev > op)
-		max_rev = op;
+	if (max_rev > op0)
+		max_rev = op0;
 
-	if (f + max_rev < MINIMUM_MATCH)
-		return 0;
-	if (f + max_rev <= best)
+	if (f + max_rev < MINIMUM_MATCH || f + max_rev <= best)
 		return 0;
 
-	op0 = op;
+	/* Reverse-extend using contiguous runs ending at p-1 / o-1. */
 	p = p0;
-	op = op0;
-	while (p > rev_end && op > 0 &&
-	       *sliding_get_sb(control, op - 1) == *sliding_get_sb(control, p - 1)) {
-		op--;
-		p--;
+	o = op0;
+	while (p > rev_end && o > 0) {
+		i64 n1 = sliding_contig_before(control, p);
+		i64 n2 = sliding_contig_before(control, o);
+		i64 n = n1 < n2 ? n1 : n2;
+		uchar *a, *b;
+		i64 m;
+
+		if (n > p - rev_end)
+			n = p - rev_end;
+		if (n > o)
+			n = o;
+		if (n <= 0)
+			break;
+
+		a = sliding_get_sb(control, p - 1);
+		b = sliding_get_sb(control, o - 1);
+		m = 0;
+		while (m < n && a[-m] == b[-m])
+			m++;
+		p -= m;
+		o -= m;
+		if (m < n)
+			break;
 	}
 	*rev = p0 - p;
 
 	len = f + *rev;
-	if (len < MINIMUM_MATCH)
-		return 0;
-	if (len <= best)
+	if (len < MINIMUM_MATCH || len <= best)
 		return 0;
 	return len;
 }
