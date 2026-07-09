@@ -161,18 +161,18 @@ size_t round_up_page(rzip_control *control, size_t len)
 
 bool get_rand(rzip_control *control, uchar *buf, int len)
 {
-	int fd, i;
+	int fd;
 
+	/* Fail closed: weak PRNG fallback is unsafe for salts/IVs. */
 	fd = open("/dev/urandom", O_RDONLY);
-	if (fd == -1) {
-		for (i = 0; i < len; i++)
-			buf[i] = (uchar)random();
-	} else {
-		if (unlikely(read(fd, buf, len) != len))
-			fatal_return(("Failed to read fd in get_rand\n"), false);
-		if (unlikely(close(fd)))
-			fatal_return(("Failed to close fd in get_rand\n"), false);
+	if (unlikely(fd == -1))
+		fatal_return(("Failed to open /dev/urandom in get_rand\n"), false);
+	if (unlikely(read(fd, buf, len) != len)) {
+		close(fd);
+		fatal_return(("Failed to read fd in get_rand\n"), false);
 	}
+	if (unlikely(close(fd)))
+		fatal_return(("Failed to close fd in get_rand\n"), false);
 	return true;
 }
 

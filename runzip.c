@@ -189,14 +189,17 @@ static i64 read_header(rzip_control *control, void *ss, struct runzip_s0 *s0,
 	return le64toh(s);
 }
 
-/* Grow-only scratch for literal/match tokens — avoids malloc/free per token. */
+/* Grow-only scratch for literal/match tokens — avoids malloc/free per token.
+ * Token lengths are format-capped at LRZIP_MAX_TOKEN_LEN (0xFFFF). */
 static uchar *runzip_get_buf(rzip_control *control, i64 len)
 {
 	uchar *nbuf;
 
+	if (unlikely(!lrzip_size_ok(len, LRZIP_MAX_TOKEN_LEN)))
+		return NULL;
 	if (likely(len <= control->runzip_buf_len))
 		return control->runzip_buf;
-	nbuf = realloc(control->runzip_buf, len);
+	nbuf = realloc(control->runzip_buf, (size_t)len);
 	if (unlikely(!nbuf))
 		return NULL;
 	control->runzip_buf = nbuf;
@@ -305,6 +308,9 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len,
 	if (!len)
 		return 0;
 
+	if (unlikely(len > LRZIP_MAX_TOKEN_LEN))
+		failure_return(("Literal length %"PRId64" exceeds format max\n", len), -1);
+
 	buf = runzip_get_buf(control, len);
 	if (unlikely(!buf))
 		fatal_return(("Failed to malloc literal buffer of size %"PRId64"\n", len), -1);
@@ -312,8 +318,11 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len,
 	stream_read = read_stream(control, ss, 1, buf, len);
 	if (unlikely(stream_read == -1 ))
 		fatal_return(("Failed to read_stream in unzip_literal\n"), -1);
+	if (unlikely(stream_read != len))
+		failure_return(("Short literal read %"PRId64" of %"PRId64" (corrupt archive)\n",
+			       stream_read, len), -1);
 
-	if (unlikely(write_all(control, buf, (size_t)stream_read) != (ssize_t)stream_read))
+	if (unlikely(write_all(control, buf, stream_read) != stream_read))
 		fatal_return(("Failed to write literal buffer of size %"PRId64"\n", stream_read), -1);
 
 	if (!HAS_MD5)
@@ -369,6 +378,9 @@ static i64 unzip_match(rzip_control *control, void *ss, struct runzip_s0 *s0,
 	if (unlikely(len < 0))
 		failure_return(("len %"PRId64" is negative in unzip_match!\n",len), -1);
 
+	if (unlikely(len > LRZIP_MAX_TOKEN_LEN))
+		failure_return(("Match length %"PRId64" exceeds format max\n", len), -1);
+
 	/* Tracked write position — avoids lseek(SEEK_CUR) every match. */
 	cur_pos = *out_pos;
 
@@ -376,6 +388,10 @@ static i64 unzip_match(rzip_control *control, void *ss, struct runzip_s0 *s0,
 	offset = s0_vchars(control, ss, s0, chunk_bytes);
 	if (unlikely(offset == -1))
 		return -1;
+
+	if (unlikely(offset < 1 || offset > cur_pos))
+		failure_return(("Match offset %"PRId64" out of range at pos %"PRId64"\n",
+			       offset, cur_pos), -1);
 
 	period = MIN(len, offset);
 	if (unlikely(period < 1))

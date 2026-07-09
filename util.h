@@ -21,6 +21,8 @@
 
 #include "lrzip_private.h"
 #include <errno.h>
+#include <limits.h>
+#include <stdint.h>
 #include <semaphore.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -92,6 +94,22 @@ void setup_ram(rzip_control *control);
 void round_to_page(i64 *size);
 size_t round_up_page(rzip_control *control, size_t len);
 bool get_rand(rzip_control *control, uchar *buf, int len);
+
+/* Safe allocation/copy length for untrusted sizes (malicious archives).
+ * maxram <= 0 means only non-negative and size_t-fit are checked. */
+static inline bool lrzip_size_ok(i64 n, i64 maxram)
+{
+	if (n < 1)
+		return false;
+	if ((uint64_t)n > (uint64_t)SIZE_MAX)
+		return false;
+	if (maxram > 0 && n > maxram)
+		return false;
+	return true;
+}
+
+/* rzip match/literal token lengths are always emitted ≤ 0xFFFF. */
+#define LRZIP_MAX_TOKEN_LEN	0xFFFF
 bool read_config(rzip_control *control);
 void lrz_stretch(rzip_control *control);
 void lrz_stretch2(rzip_control *control);

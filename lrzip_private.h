@@ -517,6 +517,7 @@ struct rzip_control {
 struct uncomp_thread {
 	uchar *s_buf;
 	i64 u_len, c_len;
+	i64 m_alloced;	/* bytes counted in stream_info.ram_alloced */
 	i64 last_head;
 	uchar c_type;
 	int busy;

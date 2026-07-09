@@ -1878,33 +1878,61 @@ fill_another:
 			     c_len, u_len, last_head), -1);
 	}
 
+	/* Reject unknown types and CTYPE_NONE length mismatches (uninit leak). */
+	if (unlikely(c_type != CTYPE_NONE && c_type != CTYPE_BZIP2 &&
+		     c_type != CTYPE_LZO && c_type != CTYPE_LZMA &&
+		     c_type != CTYPE_GZIP && c_type != CTYPE_ZPAQ)) {
+		fatal_return(("Invalid compression type %d in stream block\n", c_type), -1);
+	}
+	if (unlikely(c_type == CTYPE_NONE && c_len != u_len)) {
+		fatal_return(("Stored block c_len %"PRId64" != u_len %"PRId64"\n",
+			     c_len, u_len), -1);
+	}
+
+	/* Cap both compressed and uncompressed sizes (malicious archives). */
+	if (unlikely(!lrzip_size_ok(c_len, control->maxram) ||
+		     !lrzip_size_ok(u_len, control->maxram))) {
+		fatal_return(("Block size c_len %"PRId64" u_len %"PRId64" exceeds limits (maxram %"PRId64")\n",
+			     c_len, u_len, control->maxram), -1);
+	}
+	/* bzip2 API uses 32-bit lengths */
+	if (unlikely(c_type == CTYPE_BZIP2 &&
+		     (u_len > (i64)UINT32_MAX || c_len > (i64)UINT32_MAX))) {
+		fatal_return(("bzip2 block length exceeds 32-bit API limit\n"), -1);
+	}
+
 	padded_len = MAX(c_len, MIN_SIZE);
 	sinfo->total_read += padded_len;
 	/* No fsync of fd_out here: same-inode writes are visible to fd_hist via
 	 * the page cache without forcing dirty data to disk each block. */
 
-	if (unlikely(u_len > control->maxram))
-		fatal_return(("Unable to allocate enough memory for %"PRId64" specified in possibly corrupt archive\n", u_len), -1);
 	max_len = MAX(u_len, MIN_SIZE);
 	max_len = MAX(max_len, c_len);
-	s_buf = malloc(max_len);
+	if (unlikely(!lrzip_size_ok(max_len, control->maxram))) {
+		fatal_return(("Unable to allocate enough memory for %"PRId64" specified in possibly corrupt archive\n", max_len), -1);
+	}
+	s_buf = malloc((size_t)max_len);
 	if (unlikely(!s_buf))
-		fatal_return(("Unable to malloc buffer of size %"PRId64" in fill_buffer\n", u_len), -1);
-	sinfo->ram_alloced += u_len;
+		fatal_return(("Unable to malloc buffer of size %"PRId64" in fill_buffer\n", max_len), -1);
+	/* Count full allocation toward prefetch budget (not just u_len). */
+	sinfo->ram_alloced += max_len;
 
 	if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len))) {
 		dealloc(s_buf);
+		sinfo->ram_alloced -= max_len;
 		return -1;
 	}
 
 	if (unlikely(ENCRYPT && !lrz_decrypt(control, s_buf, padded_len, blocksalt))) {
 		dealloc(s_buf);
+		sinfo->ram_alloced -= max_len;
 		return -1;
 	}
 
 	ucthreads[s->uthread_no].s_buf = s_buf;
 	ucthreads[s->uthread_no].c_len = c_len;
 	ucthreads[s->uthread_no].u_len = u_len;
+	ucthreads[s->uthread_no].m_alloced = max_len;
 	ucthreads[s->uthread_no].c_type = c_type;
 	ucthreads[s->uthread_no].streamno = streamno;
 	s->last_head = last_head;
@@ -1915,13 +1943,24 @@ fill_another:
 			 s->uthread_no, padded_len, streamno);
 
 	sts = malloc(sizeof(stream_thread_struct));
-	if (unlikely(!sts))
+	if (unlikely(!sts)) {
+		ucthreads[s->uthread_no].busy = 0;
+		ucthreads[s->uthread_no].s_buf = NULL;
+		ucthreads[s->uthread_no].m_alloced = 0;
+		dealloc(s_buf);
+		sinfo->ram_alloced -= max_len;
 		fatal_return(("Unable to malloc in fill_buffer"), -1);
+	}
 	sts->i = s->uthread_no;
 	sts->control = control;
 	sts->sinfo = sinfo;
 	if (unlikely(!create_pthread(control, &threads[s->uthread_no], NULL, ucompthread, sts))) {
+		ucthreads[s->uthread_no].busy = 0;
+		ucthreads[s->uthread_no].s_buf = NULL;
+		ucthreads[s->uthread_no].m_alloced = 0;
 		dealloc(sts);
+		dealloc(s_buf);
+		sinfo->ram_alloced -= max_len;
 		return -1;
 	}
 
@@ -1953,7 +1992,8 @@ out:
 	s->buf = ucthreads[s->unext_thread].s_buf;
 	ucthreads[s->unext_thread].s_buf = NULL;
 	s->buflen = ucthreads[s->unext_thread].u_len;
-	sinfo->ram_alloced -= s->buflen;
+	sinfo->ram_alloced -= ucthreads[s->unext_thread].m_alloced;
+	ucthreads[s->unext_thread].m_alloced = 0;
 	s->bufp = 0;
 
 	if (++s->unext_thread == s->base_thread + s->total_threads)

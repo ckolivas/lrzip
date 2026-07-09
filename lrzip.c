@@ -155,6 +155,11 @@ i64 nloops(i64 seconds, uchar *b1, uchar *b2)
 		nloops = ARBITRARY;
 	for (nbits = 0; nloops > 255; nbits ++)
 		nloops = nloops >> 1;
+	/* Keep within enc_loops() limits (no shift UB, no absurd KDF). */
+	if (nbits > 40) {
+		nbits = 40;
+		nloops = 255;
+	}
 	*b1 = nbits;
 	*b2 = nloops;
 	return nloops << nbits;
@@ -221,9 +226,18 @@ bool write_magic(rzip_control *control)
 	return true;
 }
 
+/* Decode KDF iteration count from salt[0], salt[1]. Reject absurd / UB shifts
+ * from malicious archives (legitimate nloops() uses b2∈[1,255], modest b1). */
 static inline i64 enc_loops(uchar b1, uchar b2)
 {
-	return (i64)b2 << (i64)b1;
+	if (b2 < 1)
+		return -1;
+	/* uchar can hold up to 255; shift ≥ 63 is undefined for signed i64. */
+	if (b1 > 40)
+		return -1;
+	if (b1 != 0 && (i64)b2 > (INT64_MAX >> b1))
+		return -1;
+	return (i64)b2 << b1;
 }
 
 static bool get_magic(rzip_control *control, char *magic)
@@ -290,6 +304,8 @@ static bool get_magic(rzip_control *control, char *magic)
 		memcpy(&control->salt, &magic[6], 8);
 		control->st_size = expected_size = 0;
 		control->encloops = enc_loops(control->salt[0], control->salt[1]);
+		if (unlikely(control->encloops < 1))
+			failure_return(("Invalid encryption parameters in archive header\n"), false);
 		print_maxverbose("Encryption hash loops %"PRId64"\n", control->encloops);
 	} else if (ENCRYPT) {
 		print_output("Asked to decrypt a non-encrypted archive. Bypassing decryption.\n");
@@ -808,7 +824,7 @@ retry_pass:
 static void release_hashes(rzip_control *control)
 {
 	memset(control->salt_pass, 0, PASS_LEN);
-	memset(control->hash, 0, SALT_LEN);
+	memset(control->hash, 0, HASH_LEN);
 	munlock(control->salt_pass, PASS_LEN);
 	munlock(control->hash, HASH_LEN);
 	dealloc(control->salt_pass);
