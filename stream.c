@@ -36,6 +36,7 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
+#include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <pthread.h>
 #include <bzlib.h>
@@ -1277,6 +1278,20 @@ void *open_stream_in(rzip_control *control, int f, int n, char chunk_bytes)
 	if (unlikely(sinfo->initial_pos == -1))
 		goto failed;
 
+	/* Frame end from LRZC c_size for this RCD (set by runzip_fd). */
+	if (control->block_c_size > 0 && control->rcd_start >= 0)
+		sinfo->payload_end = control->rcd_start + control->block_c_size;
+	else
+		sinfo->payload_end = 0;
+
+	if (!TMP_INBUF) {
+		struct stat st;
+
+		if (fstat(f, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0)
+			sinfo->infile_size = st.st_size;
+	} else if (control->in_len > 0)
+		sinfo->infile_size = control->in_len;
+
 	for (i = 0; i < n; i++) {
 		uchar c, enc_head[25 + SALT_LEN];
 		i64 v1, v2;
@@ -1628,8 +1643,22 @@ retry:
 		fatal_msg = "Failed to write_buf s_buf in compthread\n";
 		goto out;
 	}
-
 	ctis->cur_pos += padded_len;
+
+	if (ENCRYPT && ENCRYPT_HMAC) {
+		uchar tag[LRZ_HMAC_LEN];
+
+		if (unlikely(!lrz_hmac_data(control, cti->salt, cti->s_buf, padded_len, tag))) {
+			fatal_msg = "Failed to HMAC ciphertext in compthread\n";
+			goto out;
+		}
+		if (unlikely(write_buf(control, tag, LRZ_HMAC_LEN))) {
+			fatal_msg = "Failed to write HMAC tag in compthread\n";
+			goto out;
+		}
+		ctis->cur_pos += LRZ_HMAC_LEN;
+	}
+
 	dealloc(cti->s_buf);
 
 out:
@@ -1877,6 +1906,19 @@ fill_another:
 		fatal_return(("Invalid data compressed len %"PRId64" uncompressed %"PRId64" last_head %"PRId64"\n",
 			     c_len, u_len, last_head), -1);
 	}
+	/* last_head is relative to initial_pos; must stay inside the frame. */
+	if (last_head) {
+		i64 abs_head = sinfo->initial_pos + last_head;
+
+		if (sinfo->payload_end > 0 && abs_head >= sinfo->payload_end) {
+			fatal_return(("last_head %"PRId64" past block end %"PRId64"\n",
+				     abs_head, sinfo->payload_end), -1);
+		}
+		if (sinfo->infile_size > 0 && abs_head >= sinfo->infile_size) {
+			fatal_return(("last_head %"PRId64" past archive size %"PRId64"\n",
+				     abs_head, sinfo->infile_size), -1);
+		}
+	}
 
 	/* Reject unknown types and CTYPE_NONE length mismatches (uninit leak). */
 	if (unlikely(c_type != CTYPE_NONE && c_type != CTYPE_BZIP2 &&
@@ -1902,6 +1944,20 @@ fill_another:
 	}
 
 	padded_len = MAX(c_len, MIN_SIZE);
+	/* total_read already includes this header (+ header salt if any).
+	 * Remaining for this block: data salt + ciphertext + optional HMAC. */
+	{
+		i64 rem = padded_len;
+
+		if (ENCRYPT)
+			rem += SALT_LEN;
+		if (ENCRYPT && ENCRYPT_HMAC)
+			rem += LRZ_HMAC_LEN;
+		if (sinfo->payload_end > 0 &&
+		    sinfo->initial_pos + sinfo->total_read + rem > sinfo->payload_end) {
+			fatal_return(("Stream block would exceed framed c_size\n"), -1);
+		}
+	}
 	sinfo->total_read += padded_len;
 	/* No fsync of fd_out here: same-inode writes are visible to fd_hist via
 	 * the page cache without forcing dirty data to disk each block. */
@@ -1921,6 +1977,23 @@ fill_another:
 		dealloc(s_buf);
 		sinfo->ram_alloced -= max_len;
 		return -1;
+	}
+
+	if (ENCRYPT && ENCRYPT_HMAC) {
+		uchar tag[LRZ_HMAC_LEN];
+
+		if (unlikely(read_buf(control, sinfo->fd, tag, LRZ_HMAC_LEN))) {
+			dealloc(s_buf);
+			sinfo->ram_alloced -= max_len;
+			return -1;
+		}
+		sinfo->total_read += LRZ_HMAC_LEN;
+		/* Verify before decrypt so bit-flips never reach backends. */
+		if (unlikely(!lrz_hmac_ok(control, blocksalt, s_buf, padded_len, tag))) {
+			dealloc(s_buf);
+			sinfo->ram_alloced -= max_len;
+			failure_return(("Ciphertext HMAC check failed (corrupt or wrong password)\n"), -1);
+		}
 	}
 
 	if (unlikely(ENCRYPT && !lrz_decrypt(control, s_buf, padded_len, blocksalt))) {
@@ -2118,6 +2191,17 @@ int close_stream_in(rzip_control *control, void *ss)
 			 sinfo->initial_pos + sinfo->total_read);
 	if (unlikely(read_seekto(control, sinfo, sinfo->total_read)))
 		return -1;
+
+	/* LRZC c_size must match bytes consumed from RCD start through streams. */
+	if (sinfo->payload_end > 0) {
+		i64 end = sinfo->initial_pos + sinfo->total_read;
+
+		if (unlikely(end != sinfo->payload_end)) {
+			print_err("Block frame size mismatch: end %"PRId64" expected %"PRId64"\n",
+				  end, sinfo->payload_end);
+			return -1;
+		}
+	}
 
 	for (i = 0; i < sinfo->num_streams; i++)
 		dealloc(sinfo->s[i].buf);

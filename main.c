@@ -407,7 +407,8 @@ int main(int argc, char *argv[])
 			control->flags &= ~FLAG_KEEP_FILES;
 			break;
 		case 'e':
-			control->flags |= FLAG_ENCRYPT;
+			/* New archives: AES-CBC + per-payload HMAC (magic[22]=2) */
+			control->flags |= FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC;
 			control->passphrase = optarg;
 			break;
 		case 'f':

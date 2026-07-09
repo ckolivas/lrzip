@@ -114,6 +114,11 @@ bool read_config(rzip_control *control);
 void lrz_stretch(rzip_control *control);
 void lrz_stretch2(rzip_control *control);
 bool lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt);
+/* HMAC-SHA512 truncated to LRZ_HMAC_LEN over ciphertext; uses session hash + salt */
+bool lrz_hmac_data(const rzip_control *control, const uchar *salt,
+		   const uchar *data, i64 len, uchar tag_out[LRZ_HMAC_LEN]);
+bool lrz_hmac_ok(const rzip_control *control, const uchar *salt,
+		 const uchar *data, i64 len, const uchar tag[LRZ_HMAC_LEN]);
 
 #define LRZ_DECRYPT	(0)
 #define LRZ_ENCRYPT	(1)

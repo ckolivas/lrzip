@@ -43,12 +43,24 @@ formerly unused bytes):
 15	Unused / reserved (must be 0)
 16->20	LZMA Properties Encoded (lc,lp,pb,fb, and dictionary size)
 21	1 = md5sum hash is appended after the final block's data
-22	1 = data is encrypted with sha512/aes128; bytes 6->13 are salt
+22	Encryption:
+	0 = not encrypted
+	1 = AES-128-CBC (legacy; sha512 KDF); bytes 6->13 are salt
+	2 = AES-128-CBC + HMAC-SHA512/256 after each ciphertext payload
+	    (same KDF/salt layout as 1). Tag is 32 bytes after each
+	    encrypted data block (not after encrypted headers).
 23	1 = this is the last (or only) block; no LRZC follows
 	0 = one or more LRZC continuation blocks follow
 
-Flag bytes must be exactly 0 or 1 where defined as flags. Other values
-are reserved and must be treated as an error.
+Flag bytes must be exactly 0 or 1 where defined as flags, except byte 22
+which may be 0, 1, or 2. Other values are reserved and must be treated as
+an error.
+
+Encrypted data block layout (per stream payload, after block salt):
+	[ciphertext padded_len][optional HMAC tag 32 if magic[22]=2]
+
+HMAC message is salt || ciphertext; key is the session hash from password
+stretch. Verify tag before decrypt.
 
 Encrypted salt (bytes 6->13 in magic if encrypted):
 0->1	Encoded number of loops to hash password

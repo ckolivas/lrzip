@@ -622,7 +622,16 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 	}
 	gettimeofday(&start,NULL);
 
+	control->next_block_c_size = 0;
+	control->block_c_size = 0;
+	control->rcd_start = -1;
+
 	do {
+		/* Apply framed size from prior LRZC (0 for first / unframed). */
+		control->block_c_size = control->next_block_c_size;
+		control->next_block_c_size = 0;
+		control->rcd_start = seekcur_fdin(control);
+
 		u = runzip_chunk(control, fd_in, expected_size, total);
 		if (u < 1) {
 			if (u < 0 || total < expected_size) {
@@ -647,6 +656,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 					runzip_md5_stop(control);
 				return -1;
 			}
+			/* c_size frames the next RCD + stream payload. */
+			control->next_block_c_size = c_size;
 			/* Next RCD eof must match this header's last flag when
 			 * that chunk is read; if LRZC says last already, the
 			 * following chunk must set eof. */

@@ -353,6 +353,72 @@ static void lrz_keygen(const rzip_control *control, const uchar *salt, uchar *ke
 	munlock(buf, sizeof(buf));
 }
 
+/* HMAC-SHA512(key=session_hash, msg=salt||ciphertext), truncated to LRZ_HMAC_LEN.
+ * Uses the standard ipad/opad construction with a 128-byte block. */
+bool lrz_hmac_data(const rzip_control *control, const uchar *salt,
+		   const uchar *data, i64 len, uchar tag_out[LRZ_HMAC_LEN])
+{
+	sha4_context ctx;
+	uchar k_ipad[128], k_opad[128], full[64];
+	int i;
+
+	if (unlikely(len < 0 || !control->hash || !salt || !data || !tag_out))
+		return false;
+
+	memset(k_ipad, 0, sizeof(k_ipad));
+	memset(k_opad, 0, sizeof(k_opad));
+	/* Session hash is HASH_LEN (64) < 128, so use directly as key */
+	memcpy(k_ipad, control->hash, HASH_LEN);
+	memcpy(k_opad, control->hash, HASH_LEN);
+	for (i = 0; i < 128; i++) {
+		k_ipad[i] ^= 0x36;
+		k_opad[i] ^= 0x5c;
+	}
+
+	sha4_starts(&ctx, 0);
+	sha4_update(&ctx, k_ipad, 128);
+	sha4_update(&ctx, salt, SALT_LEN);
+	/* sha4_update takes int ilen — chunk large payloads */
+	{
+		i64 off = 0;
+
+		while (off < len) {
+			int chunk = (int)MIN(len - off, (i64)(1 << 30));
+
+			sha4_update(&ctx, data + off, chunk);
+			off += chunk;
+		}
+	}
+	sha4_finish(&ctx, full);
+
+	sha4_starts(&ctx, 0);
+	sha4_update(&ctx, k_opad, 128);
+	sha4_update(&ctx, full, 64);
+	sha4_finish(&ctx, full);
+
+	memcpy(tag_out, full, LRZ_HMAC_LEN);
+	memset(full, 0, sizeof(full));
+	memset(k_ipad, 0, sizeof(k_ipad));
+	memset(k_opad, 0, sizeof(k_opad));
+	memset(&ctx, 0, sizeof(ctx));
+	return true;
+}
+
+bool lrz_hmac_ok(const rzip_control *control, const uchar *salt,
+		 const uchar *data, i64 len, const uchar tag[LRZ_HMAC_LEN])
+{
+	uchar expect[LRZ_HMAC_LEN];
+	int i, diff = 0;
+
+	if (unlikely(!lrz_hmac_data(control, salt, data, len, expect)))
+		return false;
+	/* Constant-time compare */
+	for (i = 0; i < LRZ_HMAC_LEN; i++)
+		diff |= expect[i] ^ tag[i];
+	memset(expect, 0, sizeof(expect));
+	return diff == 0;
+}
+
 bool lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt)
 {
 	/* Encryption requires CBC_LEN blocks so we can use ciphertext

@@ -242,9 +242,13 @@ typedef sem_t cksem_t;
 #define FLAG_OUTPUT		(1 << 24)
 /* Archive uses v0.7 streaming blocks (LRZC framing / progressive STDOUT) */
 #define FLAG_STREAMING_BLOCKS	(1 << 25)
+/* Encrypted archive uses HMAC-SHA512/256 after each ciphertext payload */
+#define FLAG_ENCRYPT_HMAC	(1 << 26)
 
 #define MAGIC_LEN	24
 #define LRZC_LEN	24
+/* Truncated HMAC-SHA512 tag after each encrypted data payload (magic[22]=2) */
+#define LRZ_HMAC_LEN	32
 
 #define NO_MD5		(!(HASH_CHECK) && !(HAS_MD5))
 
@@ -312,6 +316,7 @@ typedef sem_t cksem_t;
 #define KEEP_BROKEN	(control->flags & FLAG_KEEP_BROKEN)
 #define LZ4_TEST	(control->flags & FLAG_THRESHOLD)
 #define TMP_OUTBUF	(control->flags & FLAG_TMP_OUTBUF)
+#define ENCRYPT_HMAC	(control->flags & FLAG_ENCRYPT_HMAC)
 #define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)
 #define ENCRYPT		(control->flags & FLAG_ENCRYPT)
 #define SHOW_OUTPUT	(control->flags & FLAG_OUTPUT)
@@ -478,6 +483,10 @@ struct rzip_control {
 	i64 lrzc_pos;
 	/* v0.7: magic[23] / LRZC last-block as read from headers */
 	unsigned char last_block;
+	/* Frame limits for current/next RCD (from LRZC c_size; 0 = unknown) */
+	i64 block_c_size;
+	i64 next_block_c_size;
+	i64 rcd_start;
 	bool lzma_prop_set;
 	/* LZ4 prefilter: test first backend block only, reuse for the rest */
 	bool lz4_test_done;
@@ -547,6 +556,10 @@ struct stream_info {
 	i64 total_read;
 	i64 ram_alloced;
 	i64 size;
+	/* Absolute end of this RCD payload (0 = unknown); last_head/total_read bound */
+	i64 payload_end;
+	/* Absolute archive size for last_head checks when known (0 = unknown) */
+	i64 infile_size;
 	struct uncomp_thread *ucthreads;
 	long thread_no;
 	long next_thread;

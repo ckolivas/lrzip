@@ -197,8 +197,9 @@ bool write_magic(rzip_control *control)
 	 */
 	if (!NO_MD5)
 		magic[21] = 1;
+	/* 1 = AES-CBC only (legacy); 2 = AES-CBC + per-payload HMAC */
 	if (ENCRYPT)
-		magic[22] = 1;
+		magic[22] = ENCRYPT_HMAC ? 2 : 1;
 
 	/* v0.7 streaming flags in formerly unused bytes 14 and 23.
 	 * Mode B (LRZC multi-block) when progressive STDOUT and this is not
@@ -296,6 +297,8 @@ static bool get_magic(rzip_control *control, char *magic)
 	if (encrypted) {
 		if (encrypted == 1)
 			control->flags |= FLAG_ENCRYPT;
+		else if (encrypted == 2)
+			control->flags |= FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC;
 		else
 			failure_return(("Unknown encryption\n"), false);
 		/* In encrypted files, the size field is used to store the salt
