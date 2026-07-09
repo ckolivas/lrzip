@@ -204,6 +204,95 @@ static uchar *runzip_get_buf(rzip_control *control, i64 len)
 	return nbuf;
 }
 
+/* ---- Batched MD5 worker (same semaphore protocol as compress) ---- */
+#define RUNZIP_MD5_CHUNK (1024 * 1024)
+
+static void *runzip_md5_worker(void *data)
+{
+	rzip_control *control = (rzip_control *)data;
+
+	while (42) {
+		cksem_wait(control, &control->cksum_worksem);
+		if (control->checksum.shutdown) {
+			cksem_post(control, &control->cksumsem);
+			break;
+		}
+		if (control->checksum.len > 0)
+			md5_process_bytes(control->checksum.buf, control->checksum.len,
+					  &control->ctx);
+		cksem_post(control, &control->cksumsem);
+	}
+	return NULL;
+}
+
+static void runzip_md5_start(rzip_control *control)
+{
+	i64 cap = RUNZIP_MD5_CHUNK;
+
+	round_to_page(&cap);
+	control->checksum.capacity = cap;
+	control->checksum.buf = malloc((size_t)cap);
+	if (unlikely(!control->checksum.buf))
+		failure("Failed to allocate MD5 batch buffer\n");
+	control->checksum.len = 0;
+	control->checksum.shutdown = 0;
+	control->checksum.filling = 0;
+
+	cksem_init(control, &control->cksumsem);
+	cksem_post(control, &control->cksumsem);
+	cksem_init(control, &control->cksum_worksem);
+
+	if (unlikely(!create_pthread(control, &control->md5_thread, NULL,
+				     runzip_md5_worker, control)))
+		failure("Failed to start MD5 worker thread\n");
+}
+
+/* Flush any partial batch, wait for the worker to go idle, then join. */
+static void runzip_md5_stop(rzip_control *control)
+{
+	if (control->checksum.filling) {
+		if (control->checksum.len > 0)
+			cksem_post(control, &control->cksum_worksem);
+		else
+			cksem_post(control, &control->cksumsem);
+		control->checksum.filling = 0;
+	}
+
+	cksem_wait(control, &control->cksumsem);
+	control->checksum.shutdown = 1;
+	control->checksum.len = 0;
+	cksem_post(control, &control->cksum_worksem);
+	if (unlikely(!join_pthread(control, control->md5_thread, NULL)))
+		failure("Failed to join MD5 worker thread\n");
+	dealloc(control->checksum.buf);
+	control->checksum.capacity = 0;
+	control->checksum.buf = NULL;
+}
+
+/* Append to the batch buffer; submit full buffers to the worker. */
+static void runzip_md5_update(rzip_control *control, const uchar *data, i64 n)
+{
+	while (n > 0) {
+		i64 space, c;
+
+		if (!control->checksum.filling) {
+			cksem_wait(control, &control->cksumsem);
+			control->checksum.len = 0;
+			control->checksum.filling = 1;
+		}
+		space = control->checksum.capacity - control->checksum.len;
+		c = MIN(n, space);
+		memcpy(control->checksum.buf + control->checksum.len, data, (size_t)c);
+		control->checksum.len += c;
+		data += c;
+		n -= c;
+		if (control->checksum.len == control->checksum.capacity) {
+			cksem_post(control, &control->cksum_worksem);
+			control->checksum.filling = 0;
+		}
+	}
+}
+
 static i64 unzip_literal(rzip_control *control, void *ss, i64 len,
 			 uint32 *cksum, i64 *out_pos)
 {
@@ -230,7 +319,7 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len,
 	if (!HAS_MD5)
 		*cksum = CrcUpdate(*cksum, buf, stream_read);
 	if (!NO_MD5)
-		md5_process_bytes(buf, stream_read, &control->ctx);
+		runzip_md5_update(control, buf, stream_read);
 
 	*out_pos += stream_read;
 	return stream_read;
@@ -254,7 +343,7 @@ static inline void match_cksum(rzip_control *control, uint32 *cksum,
 	if (!HAS_MD5)
 		*cksum = CrcUpdate(*cksum, buf, n);
 	if (!NO_MD5)
-		md5_process_bytes(buf, n, &control->ctx);
+		runzip_md5_update(control, buf, n);
 }
 
 /* Expand RLE match of period `offset` from the first `period` bytes of buf
@@ -484,9 +573,13 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 	struct timeval start,end;
 	i64 total = 0, u;
 	double tdiff;
+	int md5_live = 0;
 
-	if (!NO_MD5)
+	if (!NO_MD5) {
 		md5_init_ctx (&control->ctx);
+		runzip_md5_start(control);
+		md5_live = 1;
+	}
 	gettimeofday(&start,NULL);
 
 	do {
@@ -494,6 +587,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 		if (u < 1) {
 			if (u < 0 || total < expected_size) {
 				print_err("Failed to runzip_chunk in runzip_fd\n");
+				if (md5_live)
+					runzip_md5_stop(control);
 				return -1;
 			}
 		}
@@ -508,6 +603,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 
 			if (unlikely(!read_lrzc_header(control, fd_in, &c_size, &u_size))) {
 				print_err("Failed to read LRZC in runzip_fd\n");
+				if (md5_live)
+					runzip_md5_stop(control);
 				return -1;
 			}
 			/* Next RCD eof must match this header's last flag when
@@ -519,7 +616,9 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 
 		if (unlikely(!flush_tmpout(control))) {
 			print_err("Failed to flush_tmpout in runzip_fd\n");
-				return -1;
+			if (md5_live)
+				runzip_md5_stop(control);
+			return -1;
 		}
 
 		if (TMP_INBUF)
@@ -527,6 +626,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 		else if (STDIN && !DECOMPRESS) {
 			if (unlikely(!clear_tmpinfile(control))) {
 				print_err("Failed to clear_tmpinfile in runzip_fd\n");
+				if (md5_live)
+					runzip_md5_stop(control);
 				return -1;
 			}
 		}
@@ -535,6 +636,8 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 	/* Streaming multi-block with last never seen is truncated. */
 	if (STREAMING_BLOCKS && !control->eof && !control->last_block) {
 		print_err("Truncated streaming archive: no final block\n");
+		if (md5_live)
+			runzip_md5_stop(control);
 		return -1;
 	}
 
@@ -550,6 +653,9 @@ i64 runzip_fd(rzip_control *control, int fd_in, int fd_hist, i64 expected_size)
 	if (!NO_MD5) {
 		int i,j;
 
+		/* Flush final batch and join worker before finishing the digest. */
+		runzip_md5_stop(control);
+		md5_live = 0;
 		md5_finish_ctx (&control->ctx, control->md5_resblock);
 		if (HAS_MD5) {
 			i64 fdinend = seekto_fdinend(control);
