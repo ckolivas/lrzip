@@ -53,12 +53,51 @@ lrztar - Directory wrapper for lrzip
 
 lrztar is a wrapper for compressing and decompressing whole directories with lrzip(1)
 to corresponding file C<DIRECTORY.tar.lrz>. lrzuntar is identical to C<lrztar -d>.
-lrztar takes the same options as lrzip.
+lrztar accepts the same short options as lrzip where they make sense for a
+directory tar wrapper.
 
 =head1 OPTIONS
 
-See lrzip(1).
+Most options are passed through to lrzip(1). Wrapper-specific behaviour:
 
+=over 4
+
+=item B<-d> I<file>
+
+Decompress lrzip tarball I<file> with lrzcat(1) and tar.
+
+=item B<-t>
+
+Test integrity of a lrzip tarball (calls C<lrzip -t>).
+
+=item B<-i>
+
+Show compressed file information (calls C<lrzip -i>).
+
+=item B<-V>
+
+Show lrztar and lrzip version information.
+
+=item B<-e> I<password>
+
+Encrypt the archive. Because compression is C<tar | lrzip>, the password
+is required on the command line; lrzip cannot prompt on the pipe stdin.
+
+=item B<-Q>
+
+Very quiet mode (passed to lrzip).
+
+=item B<-C>, B<-c>
+
+Check integrity of written files on decompression (passed to lrzip).
+
+=item B<-K>, B<-k>
+
+Keep broken or damaged output files (passed to lrzip).
+
+=back
+
+See lrzip(1) for compression backends, levels, window size, and other flags.
 =head1 ENVIRONMENT
 
 None.
