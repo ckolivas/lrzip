@@ -164,7 +164,8 @@ static uchar *runzip_get_buf(rzip_control *control, i64 len)
 	return nbuf;
 }
 
-static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum)
+static i64 unzip_literal(rzip_control *control, void *ss, i64 len,
+			 uint32 *cksum, i64 *out_pos)
 {
 	i64 stream_read;
 	uchar *buf;
@@ -191,6 +192,7 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len, uint32 *cksum
 	if (!NO_MD5)
 		md5_process_bytes(buf, stream_read, &control->ctx);
 
+	*out_pos += stream_read;
 	return stream_read;
 }
 
@@ -206,7 +208,8 @@ static i64 read_fdhist(rzip_control *control, void *buf, i64 len)
 	return len;
 }
 
-static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, int chunk_bytes)
+static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum,
+		       int chunk_bytes, i64 *out_pos)
 {
 	i64 offset, n, total, cur_pos;
 	uchar *buf;
@@ -215,9 +218,8 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 		failure_return(("len %"PRId64" is negative in unzip_match!\n",len), -1);
 
 	total = 0;
-	cur_pos = seekcur_fdout(control);
-	if (unlikely(cur_pos == -1))
-		fatal_return(("Seek failed on out file in unzip_match.\n"), -1);
+	/* Tracked write position — avoids lseek(SEEK_CUR) every match. */
+	cur_pos = *out_pos;
 
 	/* Note the offset is in a different format v0.40+ */
 	offset = read_vchars(control, ss, 0, chunk_bytes);
@@ -255,6 +257,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 		total += n;
 	}
 
+	*out_pos += total;
 	return total;
 }
 
@@ -264,7 +267,7 @@ static i64 unzip_match(rzip_control *control, void *ss, i64 len, uint32 *cksum, 
 static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64 tally)
 {
 	uint32 good_cksum, cksum = 0;
-	i64 len, ofs, total = 0;
+	i64 len, ofs, total = 0, out_pos;
 	int l = -1, p = 0;
 	char chunk_bytes;
 	struct stat st;
@@ -325,13 +328,20 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 	else
 		control->chunk_bytes = 2;
 
+	/* One SEEK_CUR per chunk; matches/literals advance out_pos. */
+	out_pos = seekcur_fdout(control);
+	if (unlikely(out_pos == -1)) {
+		close_stream_in(control, ss);
+		fatal_return(("Seek failed on out file in runzip_chunk\n"), -1);
+	}
+
 	while ((len = read_header(control, ss, &head)) || head) {
 		i64 u;
 		if (unlikely(len == -1))
 			return -1;
 		switch (head) {
 			case 0:
-				u = unzip_literal(control, ss, len, &cksum);
+				u = unzip_literal(control, ss, len, &cksum, &out_pos);
 				if (unlikely(u == -1)) {
 					close_stream_in(control, ss);
 					return -1;
@@ -340,7 +350,7 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 				break;
 
 			default:
-				u = unzip_match(control, ss, len, &cksum, chunk_bytes);
+				u = unzip_match(control, ss, len, &cksum, chunk_bytes, &out_pos);
 				if (unlikely(u == -1)) {
 					close_stream_in(control, ss);
 					return -1;
