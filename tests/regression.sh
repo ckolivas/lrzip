@@ -174,20 +174,22 @@ run_gold_tests() {
     mkdir t
     touch t/t{1..10}
     lrz -r t
-    ls t | sort
+    # C locale: avoid en_US-style collation (t10 before t1) vs CI/C (t1 before t10)
+    LC_ALL=C ls t | LC_ALL=C sort
     rm -r t
 
   echo 'Test tar compatibility'
     mkdir t
     touch t/t{1..10}
     tar --use-compress-program lrz -cf testfile.tar.lrz t 2>/dev/null
-    tar --use-compress-program lrz -tf testfile.tar.lrz 2>/dev/null | sort
+    tar --use-compress-program lrz -tf testfile.tar.lrz 2>/dev/null | LC_ALL=C sort
     tar --use-compress-program lrz -tf testfile.tar.lrz 2>/dev/null | wc -l
     rm -r t
 
   if [[ "${SKIP_SLOW:-0}" != 1 ]] && command -v parallel >/dev/null 2>&1; then
   echo 'test compress of 1 GB data with parallel --pipe --compress'
-    yes "`echo {1..100}`" |
+    # Redirect yes stderr: head closes the pipe early → "Broken pipe" on some coreutils
+    yes "`echo {1..100}`" 2>/dev/null |
       head -c 1G |
       parallel --pipe --block 100m --compress-program lrz cat |
       wc -c
@@ -198,7 +200,7 @@ run_gold_tests() {
 
   if [[ "${SKIP_SLOW:-0}" != 1 ]]; then
   echo 'test compress of 1 GB with sort --compress-program'
-    yes "`echo {1..100}`" |
+    yes "`echo {1..100}`" 2>/dev/null |
       head -c 1G |
       sort --compress-program lrz |
       wc -c
