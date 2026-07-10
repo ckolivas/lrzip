@@ -12,6 +12,7 @@ Compressing via STDIO no longer writes temporary files, using the new streaming
 file format instead.
 Updated lrztar to accept most lrzip options.
 Many optimisations and cleanups.
+32 bit build completely deprecated and removed.
 
 lrzip-0.660
 
