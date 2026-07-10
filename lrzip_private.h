@@ -242,17 +242,13 @@ typedef sem_t cksem_t;
 #define FLAG_OUTPUT		(1 << 24)
 /* Archive uses v0.7 streaming blocks (LRZC framing / progressive STDOUT) */
 #define FLAG_STREAMING_BLOCKS	(1 << 25)
-/* Encrypted archive uses HMAC-SHA512/256 after each ciphertext payload */
-#define FLAG_ENCRYPT_HMAC	(1 << 26)
-/* Writer: force 0.6-compatible AES-128-CBC (magic[22]=1), no AEAD/HMAC */
-#define FLAG_ENCRYPT_LEGACY	(1 << 27)
+/* Writer: force 0.6-compatible AES-128-CBC (magic[22]=1) */
+#define FLAG_ENCRYPT_LEGACY	(1 << 26)
 /* Session uses AES-256-GCM suite (magic[22]=3) */
-#define FLAG_ENCRYPT_AEAD	(1 << 28)
+#define FLAG_ENCRYPT_AEAD	(1 << 27)
 
 #define MAGIC_LEN	24
 #define LRZC_LEN	24
-/* Truncated HMAC-SHA512 tag after each encrypted data payload (magic[22]=2) */
-#define LRZ_HMAC_LEN	32
 
 /* Suite-3 AEAD (magic[22]=3) */
 #define LRZ_AEAD_NONCE_LEN	12
@@ -330,7 +326,6 @@ typedef sem_t cksem_t;
 #define KEEP_BROKEN	(control->flags & FLAG_KEEP_BROKEN)
 #define LZ4_TEST	(control->flags & FLAG_THRESHOLD)
 #define TMP_OUTBUF	(control->flags & FLAG_TMP_OUTBUF)
-#define ENCRYPT_HMAC	(control->flags & FLAG_ENCRYPT_HMAC)
 #define ENCRYPT_LEGACY	(control->flags & FLAG_ENCRYPT_LEGACY)
 #define ENCRYPT_AEAD	(control->flags & FLAG_ENCRYPT_AEAD)
 #define TMP_INBUF	(control->flags & FLAG_TMP_INBUF)

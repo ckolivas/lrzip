@@ -198,15 +198,12 @@ bool write_magic(rzip_control *control)
 	if (!NO_MD5)
 		magic[21] = 1;
 	/* Encryption mode byte:
-	 * 1 = AES-128-CBC only (0.6-compatible / --legacy-encrypt)
-	 * 2 = AES-128-CBC + HMAC (0.7 interim; still readable)
+	 * 1 = AES-128-CBC (0.6-compatible / --legacy-encrypt)
 	 * 3 = AES-256-GCM + PBKDF2 (default -e)
 	 */
 	if (ENCRYPT) {
 		if (ENCRYPT_LEGACY)
 			magic[22] = 1;
-		else if (ENCRYPT_HMAC)
-			magic[22] = 2;
 		else
 			magic[22] = 3; /* AEAD default */
 	}
@@ -345,16 +342,13 @@ static bool get_magic(rzip_control *control, char *magic)
 	}
 	encrypted = magic[22];
 	if (encrypted) {
-		control->flags &= ~(FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC |
-				    FLAG_ENCRYPT_AEAD | FLAG_ENCRYPT_LEGACY);
+		control->flags &= ~(FLAG_ENCRYPT | FLAG_ENCRYPT_AEAD | FLAG_ENCRYPT_LEGACY);
 		if (encrypted == 1)
 			control->flags |= FLAG_ENCRYPT | FLAG_ENCRYPT_LEGACY;
-		else if (encrypted == 2)
-			control->flags |= FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC;
 		else if (encrypted == 3)
 			control->flags |= FLAG_ENCRYPT | FLAG_ENCRYPT_AEAD;
 		else
-			failure_return(("Unknown encryption\n"), false);
+			failure_return(("Unknown or unsupported encryption mode %d\n", encrypted), false);
 		/* In encrypted files, the size field is used to store salt
 		 * (legacy) or salt prefix (AEAD); archive size is unknown. */
 		memcpy(&control->salt, &magic[6], 8);
@@ -370,8 +364,7 @@ static bool get_magic(rzip_control *control, char *magic)
 		}
 	} else if (ENCRYPT) {
 		print_output("Asked to decrypt a non-encrypted archive. Bypassing decryption.\n");
-		control->flags &= ~(FLAG_ENCRYPT | FLAG_ENCRYPT_HMAC |
-				    FLAG_ENCRYPT_AEAD | FLAG_ENCRYPT_LEGACY);
+		control->flags &= ~(FLAG_ENCRYPT | FLAG_ENCRYPT_AEAD | FLAG_ENCRYPT_LEGACY);
 	}
 
 	/* v0.7 streaming / last-block flags (bytes 14 and 23) */
@@ -1511,8 +1504,8 @@ bool compress_file(rzip_control *control)
 
 	control->flags |= FLAG_MD5;
 	if (ENCRYPT) {
-		/* Default modern AEAD unless user requested legacy 0.6 or interim HMAC. */
-		if (!ENCRYPT_LEGACY && !ENCRYPT_HMAC)
+		/* Default modern AEAD unless user requested legacy 0.6. */
+		if (!ENCRYPT_LEGACY)
 			control->flags |= FLAG_ENCRYPT_AEAD;
 		/* AAD binds major/minor; match bytes written into magic. */
 		control->major_version = LRZIP_MAJOR_VERSION;

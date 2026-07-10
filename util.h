@@ -114,11 +114,6 @@ bool read_config(rzip_control *control);
 void lrz_stretch(rzip_control *control);
 void lrz_stretch2(rzip_control *control);
 bool lrz_crypt(const rzip_control *control, uchar *buf, i64 len, const uchar *salt, int encrypt);
-/* HMAC-SHA512 truncated to LRZ_HMAC_LEN over ciphertext; uses session hash + salt */
-bool lrz_hmac_data(const rzip_control *control, const uchar *salt,
-		   const uchar *data, i64 len, uchar tag_out[LRZ_HMAC_LEN]);
-bool lrz_hmac_ok(const rzip_control *control, const uchar *salt,
-		 const uchar *data, i64 len, const uchar tag[LRZ_HMAC_LEN]);
 
 /* Secure wipe */
 void lrz_secure_wipe(void *p, size_t n);
@@ -156,8 +151,6 @@ static inline i64 lrz_enc_suffix_len(const rzip_control *control)
 		return 0;
 	if (ENCRYPT_AEAD)
 		return LRZ_AEAD_TAG_LEN;
-	if (ENCRYPT_HMAC)
-		return LRZ_HMAC_LEN;
 	return 0;
 }
 

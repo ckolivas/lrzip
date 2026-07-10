@@ -161,8 +161,8 @@ what kind of data lrzip is good with.
 > A: By default (`-e`), lrzip uses AES-256-GCM with PBKDF2-HMAC-SHA512 and HKDF
 > (`magic[22]=3`). These archives are not readable by lrzip 0.6.x. For 0.6
 > interoperability use `--legacy-encrypt` with `-e` (`magic[22]=1`: SHA2-512
-> stretch + AES-128-CBC). Mode 2 (CBC+HMAC) archives remain readable. The
-> weakest link is the password; there is no way to recover a forgotten one.
+> stretch + AES-128-CBC). The weakest link is the password; there is no way to
+> recover a forgotten one.
 
 > Q: How do I make a static build?
 
