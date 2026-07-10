@@ -5,7 +5,8 @@ Some files created with lrzip 0.7x may not be backward compatible with version
 exceptions:
 Large files compressed via stdio on relatively low RAM machines use a new
 streaming format which is incompatible. Encrypted files use a more secure
-algorithm which is not compatible.
+algorithm which is not compatible unless the --legacy-encrypt option is used.
+This option will be deprecated in future versions.
 
 lrzip-0.60 update
 
