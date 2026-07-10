@@ -4,7 +4,7 @@ m4_define([v_maj], [0])
 m4_define([v_min], [7])
 m4_define([v_mic], [0])
 ##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
-m4_define([v_v], m4_join([], v_min, v_mic))
+m4_define([v_v], m4_join([.], v_min, v_mic))
 m4_define([v_ver], [v_maj.v_v])
 m4_define([lt_rev], m4_eval(v_maj + v_min))
 m4_define([lt_cur], v_mic)

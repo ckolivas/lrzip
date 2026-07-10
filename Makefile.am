@@ -86,7 +86,6 @@ EXTRA_DIST = \
 		description-pak \
 		autogen.sh \
 		INSTALL \
-		regressiontest.sh \
 		tests/regression.sh \
 		tests/regression.good \
 		tests/roundtrip_suite.sh \

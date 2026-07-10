@@ -1,4 +1,4 @@
-lrzip-0.700
+lrzip-0.7.0
 
 New file format mostly backward compatible except for streamed large STDIO
 compressed files and encrypted files.

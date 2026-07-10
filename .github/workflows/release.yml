@@ -1,0 +1,56 @@
+name: release
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: sudo apt update && sudo apt install -y liblzo2-dev liblz4-dev libbz2-dev zlib1g-dev
+
+    - name: autogen
+      run: NOCONFIGURE=1 ./autogen.sh
+
+    - name: configure
+      run: ./configure
+
+    - name: Check tag matches configure.ac version
+      run: |
+        VERSION=$(sed -n 's/^#define PACKAGE_VERSION "\(.*\)"/\1/p' config.h)
+        if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+          echo "Tag $GITHUB_REF_NAME does not match configure.ac version $VERSION" >&2
+          exit 1
+        fi
+
+    - name: Build dist tarballs
+      run: make dist dist-xz
+
+    - name: Verify tarball builds
+      run: |
+        mkdir /tmp/disttest
+        tar xf lrzip-*.tar.xz -C /tmp/disttest
+        cd /tmp/disttest/lrzip-*
+        ./configure
+        make -j"$(nproc)"
+        ./lrzip -V
+
+    - name: Extract release notes from WHATS-NEW
+      run: awk '/^lrzip-/{n++; next} n==1' WHATS-NEW > /tmp/notes.md
+
+    - name: Create GitHub release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release create "$GITHUB_REF_NAME" \
+          --title "$GITHUB_REF_NAME" \
+          --notes-file /tmp/notes.md \
+          lrzip-*.tar.gz lrzip-*.tar.bz2 lrzip-*.tar.xz
