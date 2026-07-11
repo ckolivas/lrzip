@@ -423,6 +423,72 @@ run_roundtrip_tests() {
 	[[ "$PASS_FAIL" -eq 0 ]]
 }
 
+# ----------------------------------------------------------------------------
+# Part 3: --ultra and constrained memory tests
+#
+# Exercise the single block ultra path, the explicit dictionary sizing, and
+# the low ram behaviour: with -m the dictionary must be capped to fit the
+# allowance and compression must still round-trip rather than fail.
+# ----------------------------------------------------------------------------
+run_ultra_tests() {
+	local dictline dictsize plain ultra
+	WORKDIR_U="$(mktemp -d "${TMPDIR:-/tmp}/lrzip-ultra.XXXXXX")"
+	log "=== Part 3: ultra suite (WORKDIR=$WORKDIR_U) ==="
+
+	# Round trips through the single block path, including zpaq, an
+	# explicit thread override, and encryption over ultra.
+	run_one "ultra/file/small/lzma" small "-u -L9" file 0
+	run_one "ultra/file/zeros_large/lzma" zeros_large "-u -L9" file 0
+	run_one "ultra/file/small/zpaq" small "-z -u" file 0
+	run_one "ultra/threads/small/lzma" small "-u -L9 -p 2" file 0
+	run_one "ultra/enc/small/lzma" small "-u -L9" file 1
+	run_one "ultra/stdio/small/lzma" small "-u -L9" stdio 0
+
+	# Ultra must not compress a highly compressible input worse than the
+	# threaded default at the same level.
+	make_input "$WORKDIR_U/ratio.bin" zeros_large
+	"$LRZIP" "${BASE_FLAGS[@]}" -L9 -o "$WORKDIR_U/plain.lrz" "$WORKDIR_U/ratio.bin" >/dev/null 2>&1
+	"$LRZIP" "${BASE_FLAGS[@]}" -L9 -u -o "$WORKDIR_U/ultra.lrz" "$WORKDIR_U/ratio.bin" >/dev/null 2>&1
+	plain=$(stat -c%s "$WORKDIR_U/plain.lrz" 2>/dev/null || echo 0)
+	ultra=$(stat -c%s "$WORKDIR_U/ultra.lrz" 2>/dev/null || echo 0)
+	if [[ "$ultra" -gt 0 && "$ultra" -le "$plain" ]]; then
+		log "PASS  ultra/ratio ($ultra <= $plain)"
+		PASS_OK=$((PASS_OK + 1))
+	else
+		log "FAIL  ultra/ratio ($ultra > $plain)"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	fi
+
+	# Constrained ram: -m 3 caps detected ram at 300MB, so the level 9
+	# ultra dictionary (256MB unconstrained) must be capped to fit
+	# ramsize/3 with the encoder's 11.5x overhead - under 8MB here -
+	# and compression must succeed and round-trip.
+	# BASE_FLAGS carries -Q which silences -vv, so use explicit flags.
+	# Capture to a file: a grep pipe would close early and SIGPIPE lrzip.
+	"$LRZIP" -f -vv -m 3 -L9 -u -o "$WORKDIR_U/mem.lrz" "$WORKDIR_U/ratio.bin" >"$WORKDIR_U/vv.log" 2>&1
+	dictline=$(grep -m1 "Using lzma dictionary size" "$WORKDIR_U/vv.log")
+	dictsize=$(echo "$dictline" | grep -oE '[0-9]+' | head -1)
+	if [[ -n "$dictsize" && "$dictsize" -le $((8 * 1024 * 1024)) ]]; then
+		log "PASS  ultra/lowram-dictcap (dict $dictsize <= 8MB with -m 3)"
+		PASS_OK=$((PASS_OK + 1))
+	else
+		log "FAIL  ultra/lowram-dictcap (dict '$dictsize' with -m 3)"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	fi
+	"$LRZIP" "${BASE_FLAGS[@]}" -m 3 -d -o "$WORKDIR_U/mem.bin" "$WORKDIR_U/mem.lrz" >/dev/null 2>&1
+	if cmp -s "$WORKDIR_U/ratio.bin" "$WORKDIR_U/mem.bin"; then
+		log "PASS  ultra/lowram-roundtrip"
+		PASS_OK=$((PASS_OK + 1))
+	else
+		log "FAIL  ultra/lowram-roundtrip"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	fi
+
+	rm -rf "$WORKDIR_U"
+	log "ultra: done"
+	[[ "$PASS_FAIL" -eq 0 ]]
+}
+
 # ============================================================================
 # Main
 # ============================================================================
@@ -437,6 +503,9 @@ fi
 
 if [[ "${SKIP_ROUNDTRIP:-0}" != 1 ]]; then
 	if ! run_roundtrip_tests; then
+		STATUS=1
+	fi
+	if ! run_ultra_tests; then
 		STATUS=1
 	fi
 else

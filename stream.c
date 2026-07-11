@@ -298,21 +298,40 @@ static int gzip_compress_buf(rzip_control *control, struct compress_thread *cthr
 static int lzma_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
 	unsigned char lzma_properties[5]; /* lzma properties, encoded */
-	int lzma_level, lzma_ret;
+	int lzma_level, lzma_fb, lzma_ret;
 	size_t prop_size = 5; /* return value for lzma_properties */
+	u32 dictsize;
 	uchar *c_buf;
 	size_t dlen;
 
 	if (!lz4_compresses(control, cthread->s_buf, cthread->s_len))
 		return 0;
 
-	/* only 7 levels with lzma, scale them */
-	lzma_level = control->compression_level * 7 / 9;
-	if (!lzma_level)
-		lzma_level = 1;
+	/* only 7 levels with lzma, scale them. --ultra instead uses the lzma
+	 * level scale directly with an explicit large dictionary, and 273
+	 * fast bytes like xz -e for maximum ratio. */
+	if (ULTRA) {
+		lzma_level = control->compression_level;
+		if (!lzma_level)
+			lzma_level = 1;
+		else if (lzma_level > 9)
+			lzma_level = 9;
+		lzma_fb = 273;
+	} else {
+		lzma_level = control->compression_level * 7 / 9;
+		if (!lzma_level)
+			lzma_level = 1;
+		lzma_fb = -1;
+	}
 
 	print_maxverbose("Starting lzma back end compression thread...\n");
 retry:
+	/* The dictionary size is shared so that every block is encoded with
+	 * the same properties; a low memory retry shrinks it for all
+	 * outstanding work rather than just this block. */
+	lock_mutex(control, &control->control_lock);
+	dictsize = control->lzma_dictsize;
+	unlock_mutex(control, &control->control_lock);
 	dlen = round_up_page(control, cthread->s_len);
 	c_buf = malloc(dlen);
 	if (!c_buf) {
@@ -327,9 +346,11 @@ retry:
 	lzma_ret = LzmaCompress(c_buf, &dlen, cthread->s_buf,
 		(size_t)cthread->s_len, lzma_properties, &prop_size,
 				lzma_level,
-				0, /* dict size. set default, choose by level */
-				-1, -1, -1, -1, /* lc, lp, pb, fb */
-				control->threads > 1 ? 2: 1);
+				dictsize, /* dict size scaled to level and ram */
+				-1, -1, -1, lzma_fb, /* lc, lp, pb, fb */
+				control->threads > 1 || ULTRA ? 2 : 1);
+				/* ultra packs whole streams into single blocks, so
+				 * keep the encoder's match finder thread. */
 				/* LZMA spec has threads = 1 or 2 only. */
 	if (lzma_ret != SZ_OK) {
 		switch (lzma_ret) {
@@ -351,6 +372,16 @@ retry:
 		/* can pass -1 if not compressible! Thanks Lasse Collin */
 		dealloc(c_buf);
 		if (lzma_ret == SZ_ERROR_MEM) {
+			if (dictsize > (1 << 20)) {
+				/* Shrink the shared dictionary so all blocks
+				 * keep identical properties. */
+				lock_mutex(control, &control->control_lock);
+				if (control->lzma_dictsize >= dictsize)
+					control->lzma_dictsize = dictsize >> 1;
+				unlock_mutex(control, &control->control_lock);
+				print_verbose("LZMA Warning: %d. Can't allocate enough RAM for compression window, trying smaller.\n", SZ_ERROR_MEM);
+				goto retry;
+			}
 			if (lzma_level > 1) {
 				lzma_level--;
 				print_verbose("LZMA Warning: %d. Can't allocate enough RAM for compression window, trying smaller.\n", SZ_ERROR_MEM);
@@ -372,8 +403,21 @@ retry:
 		return 0;
 	}
 
-	/* Make sure multiple threads don't race on writing lzma_properties */
+	/* Make sure multiple threads don't race on writing lzma_properties.
+	 * If a low memory retry gave some block a smaller dictionary, keep
+	 * the largest so the decoder allocates enough window for every
+	 * block. */
 	lock_mutex(control, &control->control_lock);
+	if (control->lzma_prop_set) {
+		/* dict size is bytes 1-4 of the properties, little endian */
+		u32 stored_dict = control->lzma_properties[1] | control->lzma_properties[2] << 8 |
+			control->lzma_properties[3] << 16 | (u32)control->lzma_properties[4] << 24;
+		u32 this_dict = lzma_properties[1] | lzma_properties[2] << 8 |
+			lzma_properties[3] << 16 | (u32)lzma_properties[4] << 24;
+
+		if (this_dict > stored_dict)
+			memcpy(control->lzma_properties, lzma_properties, 5);
+	}
 	if (!control->lzma_prop_set) {
 		memcpy(control->lzma_properties, lzma_properties, 5);
 		control->lzma_prop_set = true;

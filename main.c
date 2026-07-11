@@ -127,6 +127,8 @@ static void usage(bool compat)
 	print_output("	-m, --maxram size	Set maximum available ram in hundreds of MB\n");
 	print_output("				overrides detected amount of available ram\n");
 	print_output("	-T, --threshold		Disable LZ4 compressibility testing\n");
+	print_output("	-u, --ultra		Maximum compression modifier: single block per stream,\n");
+	print_output("				largest dictionaries. Much slower, best possible ratio\n");
 	print_output("	-U, --unlimited		Use unlimited window size beyond ramsize (potentially much slower)\n");
 	print_output("	-w, --window size	maximum compression window in hundreds of MB\n");
 	print_output("				default chosen by heuristic dependent on ram and chosen compression\n");
@@ -256,6 +258,7 @@ static struct option long_options[] = {
 	{"suffix",	required_argument,	0,	'S'},
 	{"test",	no_argument,	0,	't'},  /* 25 */
 	{"threshold",	required_argument,	0,	'T'},
+	{"ultra",	no_argument,	0,	'u'},
 	{"unlimited",	no_argument,	0,	'U'},
 	{"verbose",	no_argument,	0,	'v'},
 	{"version",	no_argument,	0,	'V'},
@@ -306,8 +309,8 @@ static void recurse_dirlist(char *indir, char **dirlist, int *entries)
 	closedir(dirp);
 }
 
-static const char *loptions = "bcCdDefghHiKlL:nN:o:O:p:PqQrS:tTUm:vVw:z?";
-static const char *coptions = "bcCdefghHikKlLnN:o:O:p:PrS:tTUm:vVw:z?123456789";
+static const char *loptions = "bcCdDefghHiKlL:nN:o:O:p:PqQrS:tTuUm:vVw:z?";
+static const char *coptions = "bcCdefghHikKlLnN:o:O:p:PrS:tTuUm:vVw:z?123456789";
 
 int main(int argc, char *argv[])
 {
@@ -316,7 +319,7 @@ int main(int argc, char *argv[])
 	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
-	bool nice_set = false;
+	bool nice_set = false, threads_set = false;
 	int c, i;
 	int hours,minutes;
 	extern int optind;
@@ -498,6 +501,7 @@ int main(int argc, char *argv[])
 				failure("Must have at least one thread\n");
 			if (*endptr)
 				failure("Extra characters after number of threads: \'%s\'\n", endptr);
+			threads_set = true;
 			break;
 		case 'P':
 			control->flags |= FLAG_SHOW_PROGRESS;
@@ -530,6 +534,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'T':
 			control->flags &= ~FLAG_THRESHOLD;
+			break;
+		case 'u':
+			control->flags |= FLAG_ULTRA;
 			break;
 		case 'U':
 			control->flags |= FLAG_UNLIMITED;
@@ -618,6 +625,17 @@ int main(int argc, char *argv[])
 	if (UNLIMITED && STDIN) {
 		print_err("Cannot have -U and stdin, unlimited mode disabled.\n");
 		control->flags &= ~FLAG_UNLIMITED;
+	}
+
+	/* --ultra is maximum compression: compress each stream as a single
+	 * large block with a dictionary sized to ram instead of splitting
+	 * chunks into one block per thread, since independently compressed
+	 * blocks cost ratio. Parallelism is sacrificed deliberately; -p can
+	 * still force multiple threads. */
+	if (ULTRA && (LZMA_COMPRESS || ZPAQ_COMPRESS) && !threads_set &&
+	    !(DECOMPRESS || TEST_ONLY || INFO)) {
+		control->threads = 1;
+		print_verbose("Ultra maximum compression: using single block per stream\n");
 	}
 
 	setup_overhead(control);
