@@ -4,6 +4,8 @@
 #
 # Part 1: Classic gold-file CLI tests (compat `lrz` behaviour).
 # Part 2: Round-trip matrix (content shapes, backends, STDIO, encryption).
+# Part 3: --ultra single block mode and constrained memory behaviour.
+# Part 4: --filter prefilter round-trips and block type recording.
 #
 # Copyright (C) 2016 Ole Tange and Free Software Foundation, Inc.
 # Copyright (C) 2026 Con Kolivas
@@ -489,6 +491,113 @@ run_ultra_tests() {
 	[[ "$PASS_FAIL" -eq 0 ]]
 }
 
+# ----------------------------------------------------------------------------
+# Part 4: --filter prefilter tests
+#
+# Exercise forced and auto per-block prefilters: every filter kind must
+# round-trip on compressible, incompressible and zero data (incompressible
+# blocks take the stored path, which must restore the original bytes in
+# place), the chosen filter must be recorded in the block type byte and
+# reported by -i, auto trial selection must round-trip, archives written
+# without --filter must carry only classic block types, and -u must imply
+# the automatic prefilters unless --filter is given explicitly.
+# ----------------------------------------------------------------------------
+run_filter_tests() {
+	local ftype
+	WORKDIR_F="$(mktemp -d "${TMPDIR:-/tmp}/lrzip-filter.XXXXXX")"
+	log "=== Part 4: filter suite (WORKDIR=$WORKDIR_F) ==="
+
+	# Forced filters: the conversion itself must round-trip on data it
+	# suits and data it does not.
+	for ftype in x86 arm64 delta1 delta2 delta3 delta4; do
+		run_one "filter/$ftype/small" small "--filter=$ftype" file 0
+		run_one "filter/$ftype/incom_small" incom_small "--filter=$ftype" file 0
+	done
+	run_one "filter/x86/incom_large" incom_large "--filter=x86" file 0
+	run_one "filter/delta2/zeros_large" zeros_large "--filter=delta2" file 0
+	# -T forces the lzma attempt on incompressible data, so the converted
+	# block comes back bigger and must be restored before being stored raw.
+	run_one "filter/x86/incom_large_stored" incom_large "--filter=x86 -T" file 0
+
+	# Auto trial selection, encryption and stdio over filters.
+	run_one "filter/auto/incom_large" incom_large "--filter" file 0
+	run_one "filter/auto/zeros_large" zeros_large "--filter" file 0
+	run_one "filter/enc/small" small "--filter=delta1" file 1
+	run_one "filter/stdio/small" small "--filter=x86" stdio 0
+
+	# The forced filter must be recorded in the block type and reported
+	# by -i, and the archive must still round-trip.
+	seq 1 300000 > "$WORKDIR_F/seq.txt"
+	"$LRZIP" "${BASE_FLAGS[@]}" --filter=delta2 -o "$WORKDIR_F/seq.lrz" "$WORKDIR_F/seq.txt" >/dev/null 2>&1
+	if "$LRZIP" -i -vv "$WORKDIR_F/seq.lrz" 2>/dev/null | grep -q 'lzma+delta2'; then
+		log "PASS  filter/info-blocktype"
+		PASS_OK=$((PASS_OK + 1))
+	else
+		log "FAIL  filter/info-blocktype"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	fi
+	"$LRZIP" "${BASE_FLAGS[@]}" -d -o "$WORKDIR_F/seq.out" "$WORKDIR_F/seq.lrz" >/dev/null 2>&1
+	if cmp -s "$WORKDIR_F/seq.txt" "$WORKDIR_F/seq.out"; then
+		log "PASS  filter/info-roundtrip"
+		PASS_OK=$((PASS_OK + 1))
+	else
+		log "FAIL  filter/info-roundtrip"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	fi
+
+	# Without --filter only classic block types may be written.
+	"$LRZIP" "${BASE_FLAGS[@]}" -o "$WORKDIR_F/seq0.lrz" "$WORKDIR_F/seq.txt" >/dev/null 2>&1
+	if "$LRZIP" -i -vv "$WORKDIR_F/seq0.lrz" 2>/dev/null | grep -q 'lzma+'; then
+		log "FAIL  filter/off-classic-blocktypes"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	else
+		log "PASS  filter/off-classic-blocktypes"
+		PASS_OK=$((PASS_OK + 1))
+	fi
+
+	# --filter is only wired into the lzma back end and must be refused
+	# elsewhere.
+	if "$LRZIP" "${BASE_FLAGS[@]}" -b --filter=x86 -o "$WORKDIR_F/no.lrz" "$WORKDIR_F/seq.txt" >/dev/null 2>&1; then
+		log "FAIL  filter/non-lzma-refused"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	else
+		log "PASS  filter/non-lzma-refused"
+		PASS_OK=$((PASS_OK + 1))
+	fi
+
+	# -u implies the automatic prefilters but must respect an explicit
+	# --filter choice: forcing still works and none restores classic
+	# block types under -u.
+	"$LRZIP" "${BASE_FLAGS[@]}" -u --filter=delta2 -o "$WORKDIR_F/useq.lrz" "$WORKDIR_F/seq.txt" >/dev/null 2>&1
+	if "$LRZIP" -i -vv "$WORKDIR_F/useq.lrz" 2>/dev/null | grep -q 'lzma+delta2'; then
+		log "PASS  filter/ultra-forced"
+		PASS_OK=$((PASS_OK + 1))
+	else
+		log "FAIL  filter/ultra-forced"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	fi
+	"$LRZIP" "${BASE_FLAGS[@]}" -u --filter=none -o "$WORKDIR_F/useq0.lrz" "$WORKDIR_F/seq.txt" >/dev/null 2>&1
+	if "$LRZIP" -i -vv "$WORKDIR_F/useq0.lrz" 2>/dev/null | grep -q 'lzma+'; then
+		log "FAIL  filter/ultra-none-classic"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	else
+		log "PASS  filter/ultra-none-classic"
+		PASS_OK=$((PASS_OK + 1))
+	fi
+	"$LRZIP" "${BASE_FLAGS[@]}" -d -o "$WORKDIR_F/useq.out" "$WORKDIR_F/useq.lrz" >/dev/null 2>&1
+	if cmp -s "$WORKDIR_F/seq.txt" "$WORKDIR_F/useq.out"; then
+		log "PASS  filter/ultra-roundtrip"
+		PASS_OK=$((PASS_OK + 1))
+	else
+		log "FAIL  filter/ultra-roundtrip"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	fi
+
+	rm -rf "$WORKDIR_F"
+	log "filter: done"
+	[[ "$PASS_FAIL" -eq 0 ]]
+}
+
 # ============================================================================
 # Main
 # ============================================================================
@@ -506,6 +615,9 @@ if [[ "${SKIP_ROUNDTRIP:-0}" != 1 ]]; then
 		STATUS=1
 	fi
 	if ! run_ultra_tests; then
+		STATUS=1
+	fi
+	if ! run_filter_tests; then
 		STATUS=1
 	fi
 else

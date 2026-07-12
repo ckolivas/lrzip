@@ -271,6 +271,16 @@ typedef sem_t cksem_t;
 #define CTYPE_LZMA 6
 #define CTYPE_GZIP 7
 #define CTYPE_ZPAQ 8
+/* lzma with a reversible filter applied first: x86 or arm64 BCJ branch
+ * conversion for executable code, or byte delta with distance 1-4 for
+ * numeric/sampled data. Only written when --filter is used; the filter is
+ * chosen per block by trial unless one is forced. */
+#define CTYPE_LZMA_BCJ 9
+#define CTYPE_LZMA_BCJ_ARM64 10
+#define CTYPE_LZMA_DELTA1 11
+#define CTYPE_LZMA_DELTA2 12
+#define CTYPE_LZMA_DELTA3 13
+#define CTYPE_LZMA_DELTA4 14
 
 #define PASS_LEN 512
 #define HASH_LEN 64
@@ -465,6 +475,10 @@ struct rzip_control {
 	i64 maxram; // the largest chunk of ram to allocate
 	unsigned char lzma_properties[5]; // lzma properties, encoded
 	u32 lzma_dictsize; // lzma dictionary size, sized to ram and level
+	/* --filter: 0 off, -1 per block trial selection, else the forced
+	 * LRZ_FILTER_* kind. Backend blocks record their filter in the
+	 * block type byte. */
+	int filter_mode;
 	i64 window;
 	unsigned long flags;
 	i64 ramsize;

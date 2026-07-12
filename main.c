@@ -58,6 +58,7 @@
 #include "lrzip_core.h"
 #include "util.h"
 #include "stream.h"
+#include "filters.h"
 
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
@@ -127,8 +128,12 @@ static void usage(bool compat)
 	print_output("	-m, --maxram size	Set maximum available ram in hundreds of MB\n");
 	print_output("				overrides detected amount of available ram\n");
 	print_output("	-T, --threshold		Disable LZ4 compressibility testing\n");
+	print_output("	    --filter[=TYPE]	Reversible prefilter on lzma blocks. TYPE is auto (default),\n");
+	print_output("				x86, arm64, delta1 .. delta4, or none. auto trial\n");
+	print_output("				compresses a sample of each block and picks the winner\n");
 	print_output("	-u, --ultra		Maximum compression modifier: single block per stream,\n");
-	print_output("				largest dictionaries. Much slower, best possible ratio\n");
+	print_output("				largest dictionaries, automatic prefilters. Much slower,\n");
+	print_output("				best possible ratio\n");
 	print_output("	-U, --unlimited		Use unlimited window size beyond ramsize (potentially much slower)\n");
 	print_output("	-w, --window size	maximum compression window in hundreds of MB\n");
 	print_output("				default chosen by heuristic dependent on ram and chosen compression\n");
@@ -234,6 +239,7 @@ static struct option long_options[] = {
 	{"delete",	no_argument,	0,	'D'},
 	{"encrypt",	optional_argument,	0,	'e'}, /* 5 */
 	{"legacy-encrypt",	no_argument,	0,	'E'},
+	{"filter",	optional_argument,	0,	'F'},
 	{"force",	no_argument,	0,	'f'},
 	{"gzip",	no_argument,	0,	'g'},
 	{"help",	no_argument,	0,	'h'},
@@ -319,7 +325,7 @@ int main(int argc, char *argv[])
 	struct timeval start_time, end_time;
 	struct sigaction handler;
 	double seconds,total_time; // for timers
-	bool nice_set = false, threads_set = false;
+	bool nice_set = false, threads_set = false, filter_set = false;
 	int c, i;
 	int hours,minutes;
 	extern int optind;
@@ -428,6 +434,22 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			control->flags |= FLAG_FORCE_REPLACE;
+			break;
+		case 'F':							/* --filter, long option only */
+			if (!optarg || !strcmp(optarg, "auto"))
+				control->filter_mode = -1;
+			else if (!strcmp(optarg, "none"))
+				control->filter_mode = 0;
+			else if (!strcmp(optarg, "x86"))
+				control->filter_mode = LRZ_FILTER_X86;
+			else if (!strcmp(optarg, "arm64"))
+				control->filter_mode = LRZ_FILTER_ARM64;
+			else if (!strncmp(optarg, "delta", 5) && strlen(optarg) == 6 &&
+				 optarg[5] >= '1' && optarg[5] <= '4')
+				control->filter_mode = LRZ_FILTER_DELTA1 + optarg[5] - '1';
+			else
+				failure("Invalid --filter type '%s': use auto, x86, arm64, delta1 .. delta4 or none\n", optarg);
+			filter_set = true;
 			break;
 		case 'h':
 			usage(compat);
@@ -637,6 +659,20 @@ int main(int argc, char *argv[])
 		control->threads = 1;
 		print_verbose("Ultra maximum compression: using single block per stream\n");
 	}
+
+	/* Maximum compression also means the automatic prefilters, unless
+	 * the user chose explicitly; --filter=none restores plain lzma
+	 * blocks under -u. */
+	if (ULTRA && LZMA_COMPRESS && !filter_set &&
+	    !(DECOMPRESS || TEST_ONLY || INFO)) {
+		control->filter_mode = -1;
+		print_verbose("Ultra maximum compression: enabling automatic prefilters\n");
+	}
+
+	/* The prefilters are only wired into the lzma back end; they are
+	 * chosen per block and recorded in the block type byte. */
+	if (control->filter_mode && !(DECOMPRESS || TEST_ONLY || INFO) && !LZMA_COMPRESS)
+		failure("--filter only works with the lzma back end\n");
 
 	setup_overhead(control);
 

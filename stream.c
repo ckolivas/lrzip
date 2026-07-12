@@ -65,6 +65,7 @@
 
 #include "util.h"
 #include "lrzip_core.h"
+#include "filters.h"
 
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
@@ -295,17 +296,33 @@ static int gzip_compress_buf(rzip_control *control, struct compress_thread *cthr
 	return 0;
 }
 
+/* Map a block ctype back to its filter kind, or LRZ_FILTER_NONE */
+static int ctype_filter_kind(int ctype)
+{
+	if (ctype >= CTYPE_LZMA_BCJ && ctype <= CTYPE_LZMA_DELTA4)
+		return LRZ_FILTER_X86 + ctype - CTYPE_LZMA_BCJ;
+	return LRZ_FILTER_NONE;
+}
+
 static int lzma_compress_buf(rzip_control *control, struct compress_thread *cthread)
 {
 	unsigned char lzma_properties[5]; /* lzma properties, encoded */
 	int lzma_level, lzma_fb, lzma_ret;
 	size_t prop_size = 5; /* return value for lzma_properties */
 	u32 dictsize;
+	int filter;
 	uchar *c_buf;
 	size_t dlen;
 
 	if (!lz4_compresses(control, cthread->s_buf, cthread->s_len))
 		return 0;
+
+	/* Convert in place with the chosen prefilter for this block, if any;
+	 * incompressible or failed blocks are converted back before
+	 * returning so stored bytes are always the original ones. */
+	filter = lrz_stream_filter_pick(control, cthread->s_buf, cthread->s_len);
+	if (filter != LRZ_FILTER_NONE)
+		lrz_filter_convert_mem(cthread->s_buf, cthread->s_len, filter, true);
 
 	/* only 7 levels with lzma, scale them. --ultra instead uses the lzma
 	 * level scale directly with an explicit large dictionary, and 273
@@ -336,7 +353,7 @@ retry:
 	c_buf = malloc(dlen);
 	if (!c_buf) {
 		print_err("Unable to allocate c_buf in lzma_compress_buf\n");
-		return -1;
+		goto restore_filter_fail;
 	}
 
 	/* LZMA SDK 26.02 LzmaCompress: level + threads; props returned in
@@ -390,17 +407,19 @@ retry:
 			/* If lzma cannot allocate any dictionary, fall back to
 			 * bzip2 so the block does not remain uncompressed. */
 			print_verbose("Unable to allocate enough RAM for any sized compression window, falling back to bzip2 compression.\n");
+			if (filter != LRZ_FILTER_NONE)
+				lrz_filter_convert_mem(cthread->s_buf, cthread->s_len, filter, false);
 			return bzip2_compress_buf(control, cthread);
 		} else if (lzma_ret == SZ_ERROR_OUTPUT_EOF)
-			return 0;
-		return -1;
+			goto restore_filter_ok;
+		goto restore_filter_fail;
 	}
 
 	if (unlikely((i64)dlen >= cthread->c_len)) {
 		/* Incompressible, leave as CTYPE_NONE */
 		print_maxverbose("Incompressible block\n");
 		dealloc(c_buf);
-		return 0;
+		goto restore_filter_ok;
 	}
 
 	/* Make sure multiple threads don't race on writing lzma_properties.
@@ -432,8 +451,21 @@ retry:
 	cthread->c_len = dlen;
 	dealloc(cthread->s_buf);
 	cthread->s_buf = c_buf;
-	cthread->c_type = CTYPE_LZMA;
+	cthread->c_type = filter == LRZ_FILTER_NONE ? CTYPE_LZMA :
+		CTYPE_LZMA_BCJ + filter - LRZ_FILTER_X86;
 	return 0;
+
+restore_filter_ok:
+	/* Blocks left uncompressed must hold the original bytes, so undo
+	 * any in place filter conversion. */
+	if (filter != LRZ_FILTER_NONE)
+		lrz_filter_convert_mem(cthread->s_buf, cthread->s_len, filter, false);
+	return 0;
+
+restore_filter_fail:
+	if (filter != LRZ_FILTER_NONE)
+		lrz_filter_convert_mem(cthread->s_buf, cthread->s_len, filter, false);
+	return -1;
 }
 
 static int lzo_compress_buf(rzip_control *control, struct compress_thread *cthread)
@@ -1913,6 +1945,17 @@ retry:
 			case CTYPE_LZMA:
 				ret = lzma_decompress_buf(control, uci);
 				break;
+			case CTYPE_LZMA_BCJ:
+			case CTYPE_LZMA_BCJ_ARM64:
+			case CTYPE_LZMA_DELTA1:
+			case CTYPE_LZMA_DELTA2:
+			case CTYPE_LZMA_DELTA3:
+			case CTYPE_LZMA_DELTA4:
+				ret = lzma_decompress_buf(control, uci);
+				if (!ret)
+					lrz_filter_convert_mem(uci->s_buf, uci->u_len,
+							       ctype_filter_kind(uci->c_type), false);
+				break;
 			case CTYPE_LZO:
 				ret = lzo_decompress_buf(control, uci);
 				break;
@@ -2104,7 +2147,8 @@ fill_another:
 	/* Reject unknown types and CTYPE_NONE length mismatches (uninit leak). */
 	if (unlikely(c_type != CTYPE_NONE && c_type != CTYPE_BZIP2 &&
 		     c_type != CTYPE_LZO && c_type != CTYPE_LZMA &&
-		     c_type != CTYPE_GZIP && c_type != CTYPE_ZPAQ)) {
+		     c_type != CTYPE_GZIP && c_type != CTYPE_ZPAQ &&
+		     !(c_type >= CTYPE_LZMA_BCJ && c_type <= CTYPE_LZMA_DELTA4))) {
 		fatal_return(("Invalid compression type %d in stream block\n", c_type), -1);
 	}
 	if (unlikely(c_type == CTYPE_NONE && c_len != u_len)) {

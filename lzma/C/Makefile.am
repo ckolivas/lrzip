@@ -19,7 +19,12 @@ liblzma_la_SOURCES = \
 	7zCrcOpt.c \
 	Alloc.c \
 	Alloc.h \
+	Bra.h \
+	Bra.c \
+	Bra86.c \
 	Compiler.h \
+	Delta.c \
+	Delta.h \
 	CpuArch.c \
 	CpuArch.h \
 	LzFind.c \
@@ -35,6 +40,7 @@ liblzma_la_SOURCES = \
 	LzmaLib.c \
 	LzmaLib.h \
 	Precomp.h \
+	RotateDefs.h \
 	Threads.c \
 	Threads.h \
 	7zTypes.h \
