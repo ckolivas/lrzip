@@ -56,6 +56,7 @@
 #include "md5.h"
 #include "stream.h"
 #include "util.h"
+#include "filters.h"
 #include "lrzip_core.h"
 
 #ifndef MAP_ANONYMOUS
@@ -1063,7 +1064,7 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 		}
 
 		/* Feed MD5 in large batches on the worker thread as search advances. */
-		if (!NO_MD5) {
+		if (!NO_MD5 && !st->chunk_md5_done) {
 			while (cksum_limit < st->chunk_size && p > cksum_limit) {
 				i64 n = MIN(control->checksum.capacity,
 					    st->chunk_size - cksum_limit);
@@ -1082,7 +1083,7 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 
 	/* Finish any unhashed tail of this chunk, then wait for the worker. */
 	if (!NO_MD5) {
-		if (cksum_limit < st->chunk_size)
+		if (!st->chunk_md5_done && cksum_limit < st->chunk_size)
 			md5_queue(control, cksum_limit, st->chunk_size - cksum_limit);
 		md5_drain(control);
 	}
@@ -1210,6 +1211,62 @@ rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, int fd_out,
 	struct sliding_buffer *sb = &control->sb;
 
 	init_sliding_mmap(control, st, fd_in, offset);
+
+	/* Chunk prefilter: executable code compresses several percent better
+	 * when branch converted BEFORE rzip sees it, because conversion on
+	 * raw, aligned data creates the repeats that both rzip and the back
+	 * end can find. Only attempted under --filter when the whole chunk
+	 * is mapped (no sliding mmap). With auto selection a duplicate
+	 * window probe must approve first: identical code duplicated at
+	 * different offsets converts differently, so converting a dedup
+	 * heavy chunk would cost more than it gains and is refused. A
+	 * forced x86 or arm64 filter converts the chunk unconditionally;
+	 * forced delta stays a block level filter. */
+	st->chunk_md5_done = false;
+	control->chunk_filter = LRZ_FILTER_NONE;
+	if (control->filter_mode && LZMA_COMPRESS &&
+	    st->mmap_size == st->chunk_size && st->chunk_size >= (1 << 20)) {
+		int kind;
+
+		if (control->filter_mode > 0)
+			kind = control->filter_mode <= LRZ_CHUNK_FILTER_MAX ?
+				control->filter_mode : LRZ_FILTER_NONE;
+		else
+			kind = lrz_chunk_filter_pick(control, sb->buf_low, st->chunk_size);
+
+		if (kind != LRZ_FILTER_NONE && !STDIN) {
+			/* Remap the chunk privately so it can be converted
+			 * in place. Failure just means no filter. */
+			uchar *newbuf;
+
+			if (unlikely(munmap(sb->buf_low, sb->size_low)))
+				failure("Failed to munmap in rzip_chunk\n");
+			newbuf = (uchar *)mmap(NULL, sb->size_low, PROT_READ | PROT_WRITE,
+					       MAP_PRIVATE, sb->fd, sb->orig_offset + sb->offset_low);
+			if (unlikely(newbuf == MAP_FAILED)) {
+				/* Restore a read only shared map and carry on
+				 * unfiltered */
+				newbuf = (uchar *)mmap(NULL, sb->size_low, PROT_READ,
+						       MAP_SHARED, sb->fd, sb->orig_offset + sb->offset_low);
+				if (unlikely(newbuf == MAP_FAILED))
+					failure("Failed to re mmap in rzip_chunk\n");
+				kind = LRZ_FILTER_NONE;
+			}
+			sb->buf_low = newbuf;
+		}
+		if (kind != LRZ_FILTER_NONE) {
+			/* The stored md5 must be of the original bytes, so
+			 * hash the chunk before converting it. */
+			if (!NO_MD5) {
+				md5_queue(control, 0, st->chunk_size);
+				st->chunk_md5_done = true;
+			}
+			lrz_filter_convert_mem(sb->buf_low, st->chunk_size, kind, true);
+			control->chunk_filter = kind;
+			print_verbose("Chunk prefiltered with %s branch conversion\n",
+				      kind == LRZ_FILTER_X86 ? "x86" : "arm64");
+		}
+	}
 
 	st->ss = open_stream_out(control, fd_out, NUM_STREAMS, st->chunk_size, st->chunk_bytes);
 	if (unlikely(!st->ss))

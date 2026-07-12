@@ -6,6 +6,7 @@
 # Part 2: Round-trip matrix (content shapes, backends, STDIO, encryption).
 # Part 3: --ultra single block mode and constrained memory behaviour.
 # Part 4: --filter prefilter round-trips and block type recording.
+# Part 5: pre-rzip chunk conversion round-trips and probes.
 #
 # Copyright (C) 2016 Ole Tange and Free Software Foundation, Inc.
 # Copyright (C) 2026 Con Kolivas
@@ -598,6 +599,116 @@ run_filter_tests() {
 	[[ "$PASS_FAIL" -eq 0 ]]
 }
 
+# ----------------------------------------------------------------------------
+# Part 5: pre-rzip chunk conversion tests
+#
+# Every 0.7 chunk header carries a prefilter byte. Forced x86 and arm64 must
+# chunk convert and round-trip on data the conversion genuinely transforms
+# (random data contains branch opcode bytes), including through the
+# stored-block path, encryption and full stdio. Auto selection must refuse
+# chunks the probe cannot justify - text, and dedup heavy data where
+# conversion would break rzip's long range matches. Without --filter the
+# prefilter byte is written as NONE.
+# ----------------------------------------------------------------------------
+run_chunk_filter_tests() {
+	local in lrz
+	WORKDIR_C="$(mktemp -d "${TMPDIR:-/tmp}/lrzip-chunk.XXXXXX")"
+	log "=== Part 5: chunk filter suite (WORKDIR=$WORKDIR_C) ==="
+
+	# Forced chunk conversion round-trips. Random data exercises real
+	# byte transformation plus the stored (incompressible) path under it.
+	run_one "chunk/x86/incom_large" incom_large "--filter=x86" file 0
+	run_one "chunk/arm64/incom_large" incom_large "--filter=arm64" file 0
+	run_one "chunk/x86/zeros_large" zeros_large "--filter=x86" file 0
+	run_one "chunk/enc/incom_large" incom_large "--filter=x86" file 1
+	run_one "chunk/stdio/incom_large" incom_large "--filter=x86" stdio 0
+	run_one "chunk/stdout/incom_large" incom_large "--filter=x86" stdout 0
+
+	# Forced x86 on a large file must record the chunk prefilter in the
+	# chunk header prefilter byte and be reported by -i.
+	in="$WORKDIR_C/big.bin"
+	lrz="$WORKDIR_C/big.lrz"
+	dd if=/dev/urandom of="$in" bs=1M count=4 status=none
+	"$LRZIP" "${BASE_FLAGS[@]}" --filter=x86 -o "$lrz" "$in" >/dev/null 2>&1
+	if "$LRZIP" -i -vv "$lrz" 2>/dev/null | grep -q 'Chunk prefilter:  x86 bcj'; then
+		log "PASS  chunk/info-prefilter"
+		PASS_OK=$((PASS_OK + 1))
+	else
+		log "FAIL  chunk/info-prefilter"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	fi
+	if "$LRZIP" -i "$lrz" 2>/dev/null | grep -q 'lrzip version: 0.7'; then
+		log "PASS  chunk/format-0.7"
+		PASS_OK=$((PASS_OK + 1))
+	else
+		log "FAIL  chunk/format-0.7"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	fi
+
+	# Auto selection must decline the chunk filter on text (no code); the
+	# chunk header still carries LRZ_FILTER_NONE in its prefilter byte.
+	in="$WORKDIR_C/text.txt"
+	lrz="$WORKDIR_C/text.lrz"
+	seq 1 700000 > "$in"
+	"$LRZIP" "${BASE_FLAGS[@]}" --filter -o "$lrz" "$in" >/dev/null 2>&1
+	if "$LRZIP" -i -vv "$lrz" 2>/dev/null | grep -q 'Chunk prefilter:'; then
+		log "FAIL  chunk/auto-declines-text"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	else
+		log "PASS  chunk/auto-declines-text"
+		PASS_OK=$((PASS_OK + 1))
+	fi
+
+	# Dedup protection: three copies of the same binary convert
+	# differently at each offset, so the probe must refuse the chunk
+	# filter rather than break rzip's long range matches.
+	in="$WORKDIR_C/dup.bin"
+	lrz="$WORKDIR_C/dup.lrz"
+	cat "$LRZIP" "$LRZIP" "$LRZIP" > "$in" 2>/dev/null || \
+		{ dd if=/dev/urandom of="$WORKDIR_C/one.bin" bs=1M count=2 status=none; \
+		  cat "$WORKDIR_C/one.bin" "$WORKDIR_C/one.bin" "$WORKDIR_C/one.bin" > "$in"; }
+	"$LRZIP" "${BASE_FLAGS[@]}" --filter -o "$lrz" "$in" >/dev/null 2>&1
+	if "$LRZIP" -i -vv "$lrz" 2>/dev/null | grep -q 'Chunk prefilter:'; then
+		log "FAIL  chunk/dedup-protected"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	else
+		log "PASS  chunk/dedup-protected"
+		PASS_OK=$((PASS_OK + 1))
+	fi
+	"$LRZIP" "${BASE_FLAGS[@]}" -d -o "$in.out" "$lrz" >/dev/null 2>&1
+	if cmp -s "$in" "$in.out"; then
+		log "PASS  chunk/dedup-roundtrip"
+		PASS_OK=$((PASS_OK + 1))
+	else
+		log "FAIL  chunk/dedup-roundtrip"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	fi
+
+	# Without --filter the prefilter byte is written as NONE: -i must
+	# parse the archive and show no chunk prefilter, and it must
+	# round-trip.
+	"$LRZIP" "${BASE_FLAGS[@]}" -o "$WORKDIR_C/plain.lrz" "$WORKDIR_C/text.txt" >/dev/null 2>&1
+	if "$LRZIP" -i -vv "$WORKDIR_C/plain.lrz" 2>/dev/null | grep -q 'Chunk prefilter:'; then
+		log "FAIL  chunk/off-no-prefilter"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	else
+		log "PASS  chunk/off-no-prefilter"
+		PASS_OK=$((PASS_OK + 1))
+	fi
+	"$LRZIP" "${BASE_FLAGS[@]}" -d -o "$WORKDIR_C/plain.out" "$WORKDIR_C/plain.lrz" >/dev/null 2>&1
+	if cmp -s "$WORKDIR_C/text.txt" "$WORKDIR_C/plain.out"; then
+		log "PASS  chunk/off-roundtrip"
+		PASS_OK=$((PASS_OK + 1))
+	else
+		log "FAIL  chunk/off-roundtrip"
+		PASS_FAIL=$((PASS_FAIL + 1))
+	fi
+
+	rm -rf "$WORKDIR_C"
+	log "chunk filter: done"
+	[[ "$PASS_FAIL" -eq 0 ]]
+}
+
 # ============================================================================
 # Main
 # ============================================================================
@@ -618,6 +729,9 @@ if [[ "${SKIP_ROUNDTRIP:-0}" != 1 ]]; then
 		STATUS=1
 	fi
 	if ! run_filter_tests; then
+		STATUS=1
+	fi
+	if ! run_chunk_filter_tests; then
 		STATUS=1
 	fi
 else

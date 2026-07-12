@@ -19,8 +19,11 @@
 
 #include "lrzip_private.h"
 
-/* Reversible data transforms applied to backend blocks before compression,
- * enabled by --filter. Recorded per block in the block type byte. */
+/* Reversible data transforms applied before compression, enabled by
+ * --filter. The block layer (stream.c) uses all of them per backend block,
+ * recorded in the block type byte; the chunk layer (rzip.c / runzip.c)
+ * uses only the branch converters on whole chunks before rzip, recorded
+ * in the v0.8 chunk header prefilter byte. */
 #define LRZ_FILTER_NONE 0
 #define LRZ_FILTER_X86 1
 #define LRZ_FILTER_ARM64 2
@@ -29,6 +32,8 @@
 #define LRZ_FILTER_DELTA3 5
 #define LRZ_FILTER_DELTA4 6
 #define LRZ_FILTER_MAX LRZ_FILTER_DELTA4
+/* Highest filter valid in a chunk header (branch converters only) */
+#define LRZ_CHUNK_FILTER_MAX LRZ_FILTER_ARM64
 
 /* Streaming converter state so a filter can be applied or reversed over a
  * region processed in slices. Feed slices in order; all but the final call
@@ -53,5 +58,8 @@ int lrz_filter_trial(rzip_control *control, uchar *sample_area, i64 avail);
 /* Filter for one backend block under control->filter_mode: forced kind,
  * trial selection for auto, or LRZ_FILTER_NONE when filtering is off. */
 int lrz_stream_filter_pick(rzip_control *control, uchar *buf, i64 len);
+/* Decide whether branch converting a whole chunk before rzip pays off,
+ * sampling multiple regions. Returns LRZ_FILTER_NONE/X86/ARM64. */
+int lrz_chunk_filter_pick(rzip_control *control, uchar *buf, i64 len);
 
 #endif

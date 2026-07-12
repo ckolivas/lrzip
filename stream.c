@@ -319,8 +319,11 @@ static int lzma_compress_buf(rzip_control *control, struct compress_thread *cthr
 
 	/* Convert in place with the chosen prefilter for this block, if any;
 	 * incompressible or failed blocks are converted back before
-	 * returning so stored bytes are always the original ones. */
-	filter = lrz_stream_filter_pick(control, cthread->s_buf, cthread->s_len);
+	 * returning so stored bytes are always the original ones. Chunks
+	 * already branch converted before rzip stay as they are: the block
+	 * layer stands down for them. */
+	filter = cthread->sinfo->chunk_filter != LRZ_FILTER_NONE ? LRZ_FILTER_NONE :
+		 lrz_stream_filter_pick(control, cthread->s_buf, cthread->s_len);
 	if (filter != LRZ_FILTER_NONE)
 		lrz_filter_convert_mem(cthread->s_buf, cthread->s_len, filter, true);
 
@@ -1158,6 +1161,7 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	sinfo->bufsize = sinfo->size = limit = chunk_limit;
 
 	sinfo->chunk_bytes = cbytes;
+	sinfo->chunk_filter = control->chunk_filter;
 	sinfo->num_streams = n;
 	sinfo->fd = f;
 
@@ -1684,6 +1688,10 @@ retry:
 				 ctis->chunk_bytes, get_seek(control, ctis->fd));
 		/* Write chunk bytes of this block */
 		write_u8(control, ctis->chunk_bytes);
+
+		/* 0.7 chunk headers carry a prefilter byte
+		 * (LRZ_FILTER_NONE/X86/ARM64) */
+		write_u8(control, ctis->chunk_filter);
 
 		/* Write whether this is the last chunk, followed by the size
 		 * of this chunk. In streaming mode this matches block-last. */

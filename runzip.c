@@ -47,6 +47,7 @@
 #include "runzip.h"
 #include "stream.h"
 #include "util.h"
+#include "filters.h"
 #include "lrzip_core.h"
 /* needed for CRC routines */
 #include "lzma/C/7zCrc.h"
@@ -296,6 +297,20 @@ static void runzip_md5_update(rzip_control *control, const uchar *data, i64 n)
 	}
 }
 
+static inline void match_cksum(rzip_control *control, uint32 *cksum,
+			       const uchar *buf, i64 n)
+{
+	/* Chunk filtered archives are reconstructed in the filtered domain;
+	 * checksums of the original bytes are computed during the unfilter
+	 * pass at the end of the chunk instead. */
+	if (control->chunk_filter != LRZ_FILTER_NONE)
+		return;
+	if (!HAS_MD5)
+		*cksum = CrcUpdate(*cksum, buf, n);
+	if (!NO_MD5)
+		runzip_md5_update(control, buf, n);
+}
+
 static i64 unzip_literal(rzip_control *control, void *ss, i64 len,
 			 uint32 *cksum, i64 *out_pos)
 {
@@ -325,10 +340,7 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len,
 	if (unlikely(write_all(control, buf, stream_read) != stream_read))
 		fatal_return(("Failed to write literal buffer of size %"PRId64"\n", stream_read), -1);
 
-	if (!HAS_MD5)
-		*cksum = CrcUpdate(*cksum, buf, stream_read);
-	if (!NO_MD5)
-		runzip_md5_update(control, buf, stream_read);
+	match_cksum(control, cksum, buf, stream_read);
 
 	*out_pos += stream_read;
 	return stream_read;
@@ -344,15 +356,6 @@ static i64 read_fdhist(rzip_control *control, void *buf, i64 len)
 	}
 	memcpy(buf, control->tmp_outbuf + control->hist_ofs, len);
 	return len;
-}
-
-static inline void match_cksum(rzip_control *control, uint32 *cksum,
-			       const uchar *buf, i64 n)
-{
-	if (!HAS_MD5)
-		*cksum = CrcUpdate(*cksum, buf, n);
-	if (!NO_MD5)
-		runzip_md5_update(control, buf, n);
 }
 
 /* Expand RLE match of period `offset` from the first `period` bytes of buf
@@ -449,6 +452,74 @@ static i64 unzip_match(rzip_control *control, void *ss, struct runzip_s0 *s0,
 	return len;
 }
 
+/* Reverse a chunk prefilter over the reconstructed output region
+ * [start, start + len) and feed the checksums with the restored original
+ * bytes. Reconstruction happens in the filtered domain (matches reference
+ * filtered history), so this must run after the whole chunk is written. */
+static bool unfilter_chunk(rzip_control *control, i64 start, i64 len, uint32 *cksum)
+{
+	struct lrz_filter_stream fs;
+	const i64 slice = 16 * 1024 * 1024;
+	i64 processed = 0, carry = 0;
+	uchar *buf;
+
+	if (!len)
+		return true;
+
+	lrz_filter_stream_init(&fs, control->chunk_filter, false);
+
+	if (TMP_OUTBUF) {
+		uchar *p = control->tmp_outbuf + (start - control->out_relofs);
+
+		if (unlikely(start - control->out_relofs < 0 ||
+			     start - control->out_relofs + len > control->out_len)) {
+			print_err("Chunk filter region outside tmp outbuf\n");
+			return false;
+		}
+		lrz_filter_stream_conv(&fs, p, len, true);
+		if (!HAS_MD5)
+			*cksum = CrcUpdate(*cksum, p, len);
+		if (!NO_MD5)
+			runzip_md5_update(control, p, len);
+		return true;
+	}
+
+	buf = malloc(MIN(slice, len));
+	if (unlikely(!buf))
+		fatal_return(("Failed to allocate unfilter buffer\n"), false);
+
+	while (processed + carry < len) {
+		i64 n = MIN(slice - carry, len - processed - carry);
+		i64 total = carry + n, done;
+		bool last;
+
+		/* fd_out may be write only; fd_hist is a readable descriptor
+		 * on the same output file */
+		if (unlikely(pread(control->fd_hist, buf + carry, (size_t)n,
+				   start + processed + carry) != (ssize_t)n)) {
+			dealloc(buf);
+			fatal_return(("Failed to pread in unfilter_chunk\n"), false);
+		}
+		last = (processed + total == len);
+		done = lrz_filter_stream_conv(&fs, buf, total, last);
+		if (unlikely(pwrite(control->fd_out, buf, (size_t)done,
+				    start + processed) != (ssize_t)done)) {
+			dealloc(buf);
+			fatal_return(("Failed to pwrite in unfilter_chunk\n"), false);
+		}
+		if (!HAS_MD5)
+			*cksum = CrcUpdate(*cksum, buf, done);
+		if (!NO_MD5)
+			runzip_md5_update(control, buf, done);
+		carry = total - done;
+		if (carry)
+			memmove(buf, buf + done, (size_t)carry);
+		processed += done;
+	}
+	dealloc(buf);
+	return true;
+}
+
 /* decompress a section of an open file. Call fatal_return(() on error
    return the number of bytes that have been retrieved
  */
@@ -497,6 +568,20 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 			fatal_return(("Failed to read chunk_bytes size in runzip_chunk\n"), -1);
 		if (unlikely(chunk_bytes < 1 || chunk_bytes > 8))
 			failure_return(("chunk_bytes %d is invalid in runzip_chunk\n", chunk_bytes), -1);
+	}
+	/* 0.7 chunk headers carry a prefilter byte after chunk_bytes
+	 * (rolled into the 0.7 format and cemented by the 0.7.1 release) */
+	control->chunk_filter = LRZ_FILTER_NONE;
+	if (control->major_version > 0 || control->minor_version > 6) {
+		char chunk_filter;
+
+		if (unlikely(read_all(control, fd_in, &chunk_filter, 1) != 1))
+			fatal_return(("Failed to read chunk_filter in runzip_chunk\n"), -1);
+		if (unlikely(chunk_filter < 0 || chunk_filter > LRZ_CHUNK_FILTER_MAX))
+			failure_return(("chunk_filter %d is invalid in runzip_chunk\n", chunk_filter), -1);
+		control->chunk_filter = chunk_filter;
+		if (chunk_filter)
+			print_maxverbose("Chunk prefiltered with filter %d\n", chunk_filter);
 	}
 	if (!tally && expected_size)
 		print_maxverbose("Expected size: %"PRId64"\n", expected_size);
@@ -582,6 +667,15 @@ static i64 runzip_chunk(rzip_control *control, int fd_in, i64 expected_size, i64
 			print_progress("%3d%%  %9.2f / %9.2f %s\r",
 					p, prog_done, prog_tsize,
 					suffix[divisor_index]);
+		}
+	}
+
+	/* Reverse any chunk prefilter now the whole chunk is reconstructed;
+	 * this also computes the checksums of the original bytes. */
+	if (control->chunk_filter != LRZ_FILTER_NONE) {
+		if (unlikely(!unfilter_chunk(control, out_pos - total, total, &cksum))) {
+			close_stream_in(control, ss);
+			return -1;
 		}
 	}
 

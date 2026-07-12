@@ -15,7 +15,7 @@ Test -cfd should not remove testfile.lrz
 3893
 testfile.lrz
 Test -1c
-541
+542
 Test -r
 t1.lrz
 t10.lrz
