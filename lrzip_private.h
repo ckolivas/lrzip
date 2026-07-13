@@ -246,6 +246,9 @@ typedef sem_t cksem_t;
 #define FLAG_ENCRYPT_LEGACY	(1 << 26)
 /* Session uses AES-256-GCM suite (magic[22]=3) */
 #define FLAG_ENCRYPT_AEAD	(1 << 27)
+/* Maximum compression modifier: single block per stream, largest
+ * dictionaries, 273 fast bytes. Sacrifices parallelism for ratio. */
+#define FLAG_ULTRA		(1 << 28)
 
 #define MAGIC_LEN	24
 #define LRZC_LEN	24
@@ -313,6 +316,7 @@ typedef sem_t cksem_t;
 #define BZIP2_COMPRESS	(control->flags & FLAG_BZIP2_COMPRESS)
 #define ZLIB_COMPRESS	(control->flags & FLAG_ZLIB_COMPRESS)
 #define ZPAQ_COMPRESS	(control->flags & FLAG_ZPAQ_COMPRESS)
+#define ULTRA		(control->flags & FLAG_ULTRA)
 #define VERBOSE		(control->flags & FLAG_VERBOSE)
 #define VERBOSITY	(control->flags & FLAG_VERBOSITY)
 #define MAX_VERBOSE	(control->flags & FLAG_VERBOSITY_MAX)
@@ -460,6 +464,7 @@ struct rzip_control {
 	i64 usable_ram; // the most ram we'll try to use on one activity
 	i64 maxram; // the largest chunk of ram to allocate
 	unsigned char lzma_properties[5]; // lzma properties, encoded
+	u32 lzma_dictsize; // lzma dictionary size, sized to ram and level
 	i64 window;
 	unsigned long flags;
 	i64 ramsize;

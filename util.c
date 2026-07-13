@@ -117,7 +117,37 @@ void setup_overhead(rzip_control *control)
 {
 	/* Work out the compression overhead per compression thread for the
 	 * compression back-ends that need a lot of ram */
-	if (LZMA_COMPRESS) {
+	if (LZMA_COMPRESS && ULTRA) {
+		int level = control->compression_level;
+
+		if (!level)
+			level = 1;
+		else if (level > 9)
+			level = 9;
+		/* Dictionary sizes per direct level, larger than the SDK
+		 * defaults: single block ultra hands the encoder whole
+		 * streams that are typically hundreds of MB, so a larger
+		 * window pays off in ratio. open_stream_out reduces threads
+		 * if the overhead does not fit in usable ram. */
+		i64 dictsize = (level <= 4 ? (1 << (level * 2 + 16)) :
+				(level <= 6 ? (1 << (level + 20)) :
+				(level == 7 ? (1 << 26) :
+				(level == 8 ? (1 << 27) : ((i64)1 << 28)))));
+
+		/* The encoder needs ~11.5 times the dictionary per thread; cap
+		 * the dictionary so it fits the third of ram we will allow
+		 * ourselves with room for the block buffers. */
+		i64 dictcap = 1 << 20;
+		while (dictcap * 13 <= control->ramsize / 3 && dictcap < ((i64)1 << 28))
+			dictcap <<= 1;
+		if (dictsize > dictcap)
+			dictsize = dictcap;
+
+		control->lzma_dictsize = dictsize;
+		print_maxverbose("Using lzma dictionary size %"PRId64" for single block ultra\n",
+				 dictsize);
+		control->overhead = (dictsize * 23 / 2) + (6 * 1024 * 1024) + 16384;
+	} else if (LZMA_COMPRESS) {
 		int level = control->compression_level * 7 / 9;
 
 		if (!level)

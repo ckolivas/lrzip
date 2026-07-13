@@ -68,6 +68,8 @@ Low level options:
  \-m, \-\-maxram size       Set maximum available ram in hundreds of MB
                          overrides detected amount of available ram
  \-T, \-\-threshold         Disable LZ4 compressibility testing
+ \-u, \-\-ultra             Maximum compression modifier: single block per stream,
+                         largest dictionaries. Much slower, best possible ratio
  \-U, \-\-unlimited         Use unlimited window size beyond ramsize (potentially much slower)
  \-w, \-\-window size       maximum compression window in hundreds of MB
                          default chosen by heuristic dependent on ram and chosen compression
@@ -232,6 +234,15 @@ slower than lzma which is the default).
 Set the compression level from 1 to 9. The default is to use level 7, which
 gives good all round compression. The compression level is also strongly related
 to how much memory lrzip uses. See the \-w option for details.
+.IP
+.IP "\fB-u --ultra\fP"
+Maximum compression modifier for the lzma and zpaq back ends: each stream is
+compressed as one large block with a dictionary sized to ram instead of being
+split into one block per thread, and lzma uses 273 fast bytes like xz \-e.
+Combine with \-L9 for the best possible ratio. This sacrifices parallelism,
+so it is several times slower on multicore machines. Specifying \-p
+explicitly restores threaded operation. Archives remain readable by older
+lrzip versions.
 .IP
 .IP "\fB-N value\fP"
 The default nice value is 19. This option can be used to set the priority
