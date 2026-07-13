@@ -271,6 +271,16 @@ typedef sem_t cksem_t;
 #define CTYPE_LZMA 6
 #define CTYPE_GZIP 7
 #define CTYPE_ZPAQ 8
+/* lzma with a reversible filter applied first: x86 or arm64 BCJ branch
+ * conversion for executable code, or byte delta with distance 1-4 for
+ * numeric/sampled data. Only written when --filter is used; the filter is
+ * chosen per block by trial unless one is forced. */
+#define CTYPE_LZMA_BCJ 9
+#define CTYPE_LZMA_BCJ_ARM64 10
+#define CTYPE_LZMA_DELTA1 11
+#define CTYPE_LZMA_DELTA2 12
+#define CTYPE_LZMA_DELTA3 13
+#define CTYPE_LZMA_DELTA4 14
 
 #define PASS_LEN 512
 #define HASH_LEN 64
@@ -419,6 +429,9 @@ struct rzip_state {
 	i64 last_match;
 	i64 chunk_size;
 	i64 mmap_size;
+	/* MD5 of this chunk was fed before a chunk filter converted the
+	 * buffer, so hash_search must not feed it again. */
+	bool chunk_md5_done;
 	char chunk_bytes;
 	char sliding;	/* non-zero: sliding mmap match path */
 	int fd_in, fd_out;
@@ -465,6 +478,10 @@ struct rzip_control {
 	i64 maxram; // the largest chunk of ram to allocate
 	unsigned char lzma_properties[5]; // lzma properties, encoded
 	u32 lzma_dictsize; // lzma dictionary size, sized to ram and level
+	/* --filter: 0 off, -1 per block trial selection, else the forced
+	 * LRZ_FILTER_* kind. Backend blocks record their filter in the
+	 * block type byte. */
+	int filter_mode;
 	i64 window;
 	unsigned long flags;
 	i64 ramsize;
@@ -540,6 +557,10 @@ struct rzip_control {
 	void *log_data;
 
 	char chunk_bytes;
+	/* v0.8: LRZ_FILTER_* branch converter applied to the whole current
+	 * chunk before rzip (compress) / to reverse after reconstruction
+	 * (decompress). */
+	char chunk_filter;
 	struct sliding_buffer sb;
 	void (*do_mcpy)(rzip_control *, unsigned char *, i64, i64);
 
@@ -590,6 +611,7 @@ struct stream_info {
 	long next_thread;
 	int chunks;
 	char chunk_bytes;
+	char chunk_filter;
 };
 
 static inline void __attribute__((format(printf, 2, 3))) print_stuff(const rzip_control *control, const char *format, ...)

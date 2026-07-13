@@ -68,8 +68,11 @@ Low level options:
  \-m, \-\-maxram size       Set maximum available ram in hundreds of MB
                          overrides detected amount of available ram
  \-T, \-\-threshold         Disable LZ4 compressibility testing
+     \-\-filter[=TYPE]     Reversible prefilter on lzma blocks. TYPE is auto (default),
+                         x86, arm64, delta1 .. delta4, or none
  \-u, \-\-ultra             Maximum compression modifier: single block per stream,
-                         largest dictionaries. Much slower, best possible ratio
+                         largest dictionaries, automatic prefilters. Much slower,
+                         best possible ratio
  \-U, \-\-unlimited         Use unlimited window size beyond ramsize (potentially much slower)
  \-w, \-\-window size       maximum compression window in hundreds of MB
                          default chosen by heuristic dependent on ram and chosen compression
@@ -239,10 +242,11 @@ to how much memory lrzip uses. See the \-w option for details.
 Maximum compression modifier for the lzma and zpaq back ends: each stream is
 compressed as one large block with a dictionary sized to ram instead of being
 split into one block per thread, and lzma uses 273 fast bytes like xz \-e.
-Combine with \-L9 for the best possible ratio. This sacrifices parallelism,
-so it is several times slower on multicore machines. Specifying \-p
-explicitly restores threaded operation. Archives remain readable by older
-lrzip versions.
+With the lzma back end it also enables the automatic prefilters, as if
+\fB\-\-filter\fP had been given; pass \fB\-\-filter=none\fP to keep plain
+blocks. Combine with \-L9 for the best possible ratio. This sacrifices
+parallelism, so it is several times slower on multicore machines. Specifying
+\-p explicitly restores threaded operation.
 .IP
 .IP "\fB-N value\fP"
 The default nice value is 19. This option can be used to set the priority
@@ -265,6 +269,34 @@ block fails to be compressed by the very fast LZ4, lrzip will not attempt to
 compress that block with the slower compressor, thereby saving time. If this
 option is enabled, it will bypass the LZ4 testing and attempt to compress each
 block regardless.
+.IP
+.IP "\fB--filter[=TYPE]\fP"
+Apply a reversible prefilter to each lzma backend block before compression.
+Branch conversion (x86 or arm64 BCJ) turns relative call targets in executable
+code into absolute ones so repeated calls to the same function become repeated
+byte sequences, and byte delta (distance 1 to 4) turns slowly changing sampled
+data such as 16 bit imagery into small values. With no TYPE or with auto, a
+sample of each block is trial compressed plain and with each candidate filter
+and the winner is only used when it is clearly smaller, so unsuitable data is
+left alone; a specific TYPE forces that filter on every block, and none
+disables filtering (useful under \-u, which implies \-\-filter for lzma
+unless one is given explicitly). The chosen filter is recorded per block and
+reversed automatically on decompression.
+In addition, when a whole rzip chunk looks like executable code, it is branch
+converted BEFORE the rzip stage: conversion on raw, aligned data creates long
+range duplicates that both rzip and the back end can then find, worth a
+further few percent on x86 and aarch64 binaries. With auto selection a
+duplicate window probe must first confirm that conversion creates more long
+range matches than it breaks, so archives whose gains come from duplicated
+binaries (backups, multiple builds) are automatically left alone; forcing
+x86 or arm64 converts the chunk unconditionally. The chunk filter is
+recorded in the chunk header and reversed after the chunk is reconstructed
+on decompression.
+As of 0.7.1 every chunk header carries the prefilter byte as part of the
+0.7 archive format, so archives written by this version require lrzip 0.7.1
+or later to decompress regardless of filtering. Archives from lrzip 0.6 and
+earlier read unchanged; archives written by 0.7.0 predate the prefilter
+byte and cannot be read.
 .IP
 .IP "\fB-U \fP"
 Unlimited window size\&. If this option is set, and the file being compressed

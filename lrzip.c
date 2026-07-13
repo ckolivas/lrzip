@@ -54,6 +54,7 @@
 #include "runzip.h"
 #include "util.h"
 #include "stream.h"
+#include "filters.h"
 
 #define STDIO_TMPFILE_BUFFER_SIZE (65536) // used in read_tmpinfile and dump_tmpoutfile
 
@@ -168,8 +169,8 @@ i64 nloops(i64 seconds, uchar *b1, uchar *b2)
 
 bool write_magic(rzip_control *control)
 {
-	char magic[MAGIC_LEN] = { 
-		'L', 'R', 'Z', 'I', LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION 
+	char magic[MAGIC_LEN] = {
+		'L', 'R', 'Z', 'I', LRZIP_MAJOR_VERSION, LRZIP_MINOR_VERSION
 	};
 
 	/* File size is stored as zero for streaming STDOUT blocks when the
@@ -1222,7 +1223,7 @@ bool get_fileinfo(rzip_control *control)
 	i64 expected_size, infile_size, chunk_size = 0, chunk_total = 0;
 	int header_length, stream = 0, chunk = 0;
 	char *tmp, *infilecopy = NULL;
-	char chunk_byte = 0;
+	char chunk_byte = 0, chunk_filter = 0;
 	long double cratio;
 	uchar ctype = 0;
 	uchar save_ctype = 255;
@@ -1273,6 +1274,11 @@ bool get_fileinfo(rzip_control *control)
 			fatal_goto(("Failed to read chunk_byte in get_fileinfo\n"), error);
 		if (unlikely(chunk_byte < 1 || chunk_byte > 8))
 			fatal_goto(("Invalid chunk bytes %d\n", chunk_byte), error);
+		/* 0.7+: chunk prefilter byte */
+		if (control->major_version > 0 || control->minor_version > 6) {
+			if (unlikely(read(fd_in, &chunk_filter, 1) != 1))
+				fatal_goto(("Failed to read chunk_filter in get_fileinfo\n"), error);
+		}
 		if (control->major_version == 0 && control->minor_version > 5) {
 			if (unlikely(read(fd_in, &control->eof, 1) != 1))
 				fatal_goto(("Failed to read eof in get_fileinfo\n"), error);
@@ -1293,8 +1299,11 @@ bool get_fileinfo(rzip_control *control)
 	} else if (control->major_version == 0 && control->minor_version == 5) {
 		ofs = 25;
 		header_length = 25;
-	} else {
+	} else if (control->major_version == 0 && control->minor_version == 6) {
 		ofs = 26 + chunk_byte;
+		header_length = 1 + (chunk_byte * 3);
+	} else {
+		ofs = 27 + chunk_byte;
 		header_length = 1 + (chunk_byte * 3);
 	}
 	if (control->major_version == 0 && control->minor_version < 6 &&
@@ -1308,6 +1317,8 @@ next_chunk:
 	print_verbose("Rzip chunk:       %d\n", ++chunk);
 	if (chunk_byte)
 		print_verbose("Chunk byte width: %d\n", chunk_byte);
+	if (chunk_filter)
+		print_verbose("Chunk prefilter:  %s\n", chunk_filter == LRZ_FILTER_X86 ? "x86 bcj" : "arm64 bcj");
 	if (chunk_size) {
 		chunk_total += chunk_size;
 		print_verbose("Chunk size:       %"PRId64"\n", chunk_size);
@@ -1356,6 +1367,12 @@ next_chunk:
 				print_verbose("gzip");
 			else if (ctype == CTYPE_ZPAQ)
 				print_verbose("zpaq");
+			else if (ctype == CTYPE_LZMA_BCJ)
+				print_verbose("lzma+bcj");
+			else if (ctype == CTYPE_LZMA_BCJ_ARM64)
+				print_verbose("lzma+bcj-arm64");
+			else if (ctype >= CTYPE_LZMA_DELTA1 && ctype <= CTYPE_LZMA_DELTA4)
+				print_verbose("lzma+delta%d", ctype - CTYPE_LZMA_DELTA1 + 1);
 			else
 				print_verbose("Dunno wtf");
 			if (save_ctype == 255)
@@ -1395,6 +1412,12 @@ next_chunk:
 		if (unlikely(chunk_byte < 1 || chunk_byte > 8))
 			fatal_goto(("Invalid chunk bytes %d\n", chunk_byte), error);
 		ofs++;
+		/* 0.7+: chunk prefilter byte */
+		if (control->major_version > 0 || control->minor_version > 6) {
+			if (unlikely(read(fd_in, &chunk_filter, 1) != 1))
+				fatal_goto(("Failed to read chunk_filter in get_fileinfo\n"), error);
+			ofs++;
+		}
 		if (control->major_version == 0 && control->minor_version > 5) {
 			if (unlikely(read(fd_in, &control->eof, 1) != 1))
 				fatal_goto(("Failed to read eof in get_fileinfo\n"), error);
@@ -1451,6 +1474,12 @@ done:
 		print_output("rzip + gzip\n");
 	else if (save_ctype == CTYPE_ZPAQ)
 		print_output("rzip + zpaq\n");
+	else if (save_ctype == CTYPE_LZMA_BCJ)
+		print_output("rzip + lzma + x86 bcj\n");
+	else if (save_ctype == CTYPE_LZMA_BCJ_ARM64)
+		print_output("rzip + lzma + arm64 bcj\n");
+	else if (save_ctype >= CTYPE_LZMA_DELTA1 && save_ctype <= CTYPE_LZMA_DELTA4)
+		print_output("rzip + lzma + delta %d\n", save_ctype - CTYPE_LZMA_DELTA1 + 1);
 	else
 		print_output("Dunno wtf\n");
 
