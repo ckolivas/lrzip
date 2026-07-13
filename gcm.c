@@ -54,7 +54,7 @@ static void ghash(const unsigned char H[16],
 		  unsigned char y[16])
 {
 	unsigned char x[16], tmp[16];
-	size_t i, n;
+	size_t i;
 
 	memset(y, 0, 16);
 
