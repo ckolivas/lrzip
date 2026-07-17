@@ -55,6 +55,15 @@ case "${host_cpu}" in
     ;;
 esac
 
+# libzpaq expects the 'unix' macro on Unix platforms (see libzpaq/libzpaq.h);
+# GCC and Linux clang predefine it, but Darwin clang does not, sending macOS
+# builds into the Windows branch (#include <windows.h>).
+case "${host_os}" in
+  darwin*)
+    CPPFLAGS="${CPPFLAGS} -Dunix"
+    ;;
+esac
+
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
@@ -146,7 +155,10 @@ if test x"$ASM" = x"yes"; then
 			ASM_OPT="$ASM_OPT -g -f elf" ;;
 		x86_64-*)
 			ASM_OPT="$ASM_OPT -Dx64 -g -f elf64" ;;
-		*) ASM_OPT= ;;
+		*)
+			# nasm may exist but the ASM sources are x86-only
+			ASM=no
+			ASM_OPT= ;;
 	esac
 else
 	ASM_OPT=

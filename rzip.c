@@ -1142,7 +1142,7 @@ static inline void mmap_stdin(rzip_control *control, uchar *buf,
 
 	total = 0;
 	while (len > 0) {
-		ret = read(fileno(control->inFILE), offset_buf, (size_t)len);
+		ret = read(fileno(control->inFILE), offset_buf, (size_t)MIN(len, MAX_RW_COUNT));
 		if (unlikely(ret < 0))
 			failure("Failed to read in mmap_stdin\n");
 		total += ret;
@@ -1328,7 +1328,6 @@ void rzip_fd(rzip_control *control, int fd_in, int fd_out)
 	struct stat s, s2;
 	i64 free_space;
 
-	init_mutex(control, &control->control_lock);
 	if (!NO_MD5)
 		md5_init_ctx(&control->ctx);
 

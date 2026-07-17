@@ -815,7 +815,7 @@ ssize_t read_all(rzip_control *control, int fd, void *buf, i64 len)
 read_fd:
 	total = 0;
 	while (len > 0) {
-		ret = read(fd, offset_buf, (size_t)len);
+		ret = read(fd, offset_buf, (size_t)MIN(len, MAX_RW_COUNT));
 		if (unlikely(ret <= 0))
 			return ret;
 		len -= ret;
