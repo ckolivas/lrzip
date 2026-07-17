@@ -491,7 +491,7 @@ bool write_fdout(rzip_control *control, void *buf, i64 len)
 	ssize_t ret;
 
 	while (len > 0) {
-		ret = write(control->fd_out, offset_buf, (size_t)len);
+		ret = write(control->fd_out, offset_buf, (size_t)MIN(len, MAX_RW_COUNT));
 		if (unlikely(ret <= 0))
 			fatal_return(("Failed to write to fd_out in write_fdout\n"), false);
 		len -= ret;
@@ -592,7 +592,7 @@ bool write_fdin(rzip_control *control)
 	ssize_t ret;
 
 	while (len > 0) {
-		ret = write(control->fd_in, offset_buf, (size_t)len);
+		ret = write(control->fd_in, offset_buf, (size_t)MIN(len, MAX_RW_COUNT));
 		if (unlikely(ret <= 0))
 			fatal_return(("Failed to write to fd_in in write_fdin\n"), false);
 		len -= ret;
@@ -1728,6 +1728,10 @@ bool initialise_control(rzip_control *control)
 	control->threads = get_available_cpus();	/* get CPUs for LZMA */
 	control->page_size = PAGE_SIZE;
 	control->nice_val = 19;
+	/* Initialised here rather than in rzip_fd so the decompress and test
+	 * paths get a valid mutex too; zero-filled mutexes happen to work on
+	 * glibc but fail EINVAL on macOS. */
+	init_mutex(control, &control->control_lock);
 
 	/* The first 5 bytes of the salt is the time in seconds.
 	 * The next 2 bytes encode how many times to hash the password.

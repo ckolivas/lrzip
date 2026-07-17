@@ -141,6 +141,10 @@ void *alloca (size_t);
 #define MAX(a, b) ((a) > (b)? (a): (b))
 #endif
 
+/* Largest count to pass to a single read()/write(). Linux truncates larger
+ * requests but macOS fails them with EINVAL, so all IO loops must chunk. */
+#define MAX_RW_COUNT (1L << 30)
+
 #if !HAVE_STRERROR
 extern char *sys_errlist[];
 #define strerror(i) sys_errlist[i]
