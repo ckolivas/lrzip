@@ -37,3 +37,7 @@ regressiontest.out
 decompress_demo
 liblrzip_demo
 
+
+# Build survey logs (diagnostic only, never committed)
+*.log
+.dirstamp
