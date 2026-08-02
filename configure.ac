@@ -55,6 +55,20 @@ case "${host_cpu}" in
     ;;
 esac
 
+# Select the platform backend. The two directories under platform/ hold the
+# same six filenames, so this chooses a directory rather than a file list.
+case "${host_os}" in
+  mingw*|msys*|cygwin*)
+    lr_platform=win32
+    ;;
+  *)
+    lr_platform=posix
+    ;;
+esac
+AC_MSG_NOTICE([Platform backend: ${lr_platform} (host_os=${host_os})])
+AM_CONDITIONAL([LR_PLATFORM_WIN32], [test x"$lr_platform" = x"win32"])
+AC_SUBST([lr_platform])
+
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX

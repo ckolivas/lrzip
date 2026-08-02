@@ -28,6 +28,17 @@ SUBDIRS = lzma man doc
 AM_CFLAGS = -I. -I lzma/C -DNDEBUG
 AM_CXXFLAGS = $(AM_CFLAGS)
 
+# The platform layer. -I lets both the application ("lr_platform.h" from
+# lrzip_private.h) and the backends ("lr_platform.h" from platform/*/*.c)
+# name the master header the same way.
+AM_CPPFLAGS = -I$(srcdir)/platform
+
+noinst_HEADERS = \
+  platform/lr_platform.h \
+  platform/lr_platform_posix.h \
+  platform/lr_platform_win32.h \
+  platform/win32/lr_win32.h
+
 lrztardir = $(bindir)
 lrztar_SCRIPTS = lrztar
 
@@ -57,6 +68,26 @@ libtmplrzip_la_SOURCES = \
   libzpaq/libzpaq.cpp \
   libzpaq/libzpaq.h \
   libzpaq/zpaq_lrzip.cpp
+
+# Exactly one backend is compiled. Both directories carry the same six
+# filenames, so switching platforms switches a directory.
+if LR_PLATFORM_WIN32
+libtmplrzip_la_SOURCES += \
+  platform/win32/lr_console.c \
+  platform/win32/lr_fs.c \
+  platform/win32/lr_io.c \
+  platform/win32/lr_mmap.c \
+  platform/win32/lr_proc.c \
+  platform/win32/lr_signal.c
+else
+libtmplrzip_la_SOURCES += \
+  platform/posix/lr_console.c \
+  platform/posix/lr_fs.c \
+  platform/posix/lr_io.c \
+  platform/posix/lr_mmap.c \
+  platform/posix/lr_proc.c \
+  platform/posix/lr_signal.c
+endif
 
 libtmplrzip_la_LIBADD = lzma/C/liblzma.la
 
