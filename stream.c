@@ -37,7 +37,6 @@
 # include <unistd.h>
 #endif
 #include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <pthread.h>
 #include <bzlib.h>
 #include <zlib.h>

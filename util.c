@@ -39,7 +39,6 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-#include <termios.h>
 
 #ifdef _SC_PAGE_SIZE
 # define PAGE_SIZE (sysconf(_SC_PAGE_SIZE))
@@ -49,8 +48,9 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/mman.h>
 #include <fcntl.h>
+/* <termios.h> and <sys/mman.h> now arrive through platform/lr_platform.h,
+   which lrzip_private.h includes. */
 #include "lrzip_private.h"
 #include "util.h"
 #include "sha4.h"
@@ -93,12 +93,8 @@ void unlink_files(rzip_control *control)
 
 void fatal_exit(rzip_control *control)
 {
-	struct termios termios_p;
-
 	/* Make sure we haven't died after disabling stdin echo */
-	tcgetattr(fileno(stdin), &termios_p);
-	termios_p.c_lflag |= ECHO;
-	tcsetattr(fileno(stdin), 0, &termios_p);
+	lr_echo_enable();
 
 	unlink_files(control);
 	if (!STDOUT && !TEST_ONLY && control->outfile) {

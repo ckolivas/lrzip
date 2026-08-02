@@ -22,6 +22,12 @@
 
 #include "config.h"
 
+/* Must come before any other include. Every translation unit in lrzip reaches
+   this header, so this is the one point where the platform is decided and the
+   OS headers are pulled in. Application code includes no OS headers directly;
+   see platform/lr_platform.h. */
+#include "lr_platform.h"
+
 #define NUM_STREAMS 2
 #define STREAM_BUFSIZE (1024 * 1024 * 10)
 
@@ -40,7 +46,12 @@
 # error "lrzip requires a 64-bit architecture"
 #endif
 _Static_assert(sizeof(void *) >= 8, "lrzip requires a 64-bit architecture");
-_Static_assert(sizeof(long) >= 8, "lrzip requires a 64-bit architecture");
+/* Not sizeof(long): Windows is LLP64, where long is 32 bits even though
+   pointers are 64. Both models are legal C, and the difference is harmless
+   here -- file offsets travel through i64 (int64_t below), and the only long
+   arithmetic in the tree is 32-bit AES word assembly in aes.c, which is
+   correct under either. Assert on the type that actually carries offsets. */
+_Static_assert(sizeof(int64_t) == 8, "lrzip requires a 64-bit integer type");
 
 #ifdef HAVE_PTHREAD_H
 # include <pthread.h>

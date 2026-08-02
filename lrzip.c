@@ -26,17 +26,16 @@
 # include <sys/stat.h>
 #endif
 #include <fcntl.h>
-#include <sys/statvfs.h>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-#include <arpa/inet.h>
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
-#include <sys/mman.h>
 #include <sys/time.h>
-#include <termios.h>
+/* <sys/statvfs.h>, <arpa/inet.h>, <sys/mman.h> and <termios.h> now arrive
+   through platform/lr_platform.h, which supplies them on POSIX and answers
+   for them on Windows. */
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #elif HAVE_SYS_ENDIAN_H
@@ -841,7 +840,6 @@ static int get_pass(rzip_control *control, char *s)
 static bool get_hash(rzip_control *control, int make_hash)
 {
 	char *passphrase, *testphrase;
-	struct termios termios_p;
 	int prompt = control->passphrase == NULL;
 
 	passphrase = calloc(PASS_LEN, 1);
@@ -873,9 +871,7 @@ static bool get_hash(rzip_control *control, int make_hash)
 		control->salt_pass_len = strlen(passphrase) + SALT_LEN;
 	} else {
 		/* Disable stdin echo to screen */
-		tcgetattr(fileno(stdin), &termios_p);
-		termios_p.c_lflag &= ~ECHO;
-		tcsetattr(fileno(stdin), 0, &termios_p);
+		lr_echo_disable();
 retry_pass:
 		if (prompt)
 			print_output("Enter passphrase: ");
@@ -893,8 +889,7 @@ retry_pass:
 				goto retry_pass;
 			}
 		}
-		termios_p.c_lflag |= ECHO;
-		tcsetattr(fileno(stdin), 0, &termios_p);
+		lr_echo_enable();
 		memset(testphrase, 0, PASS_LEN);
 	}
 	memcpy(control->salt_pass, control->salt, SALT_LEN);
@@ -960,7 +955,6 @@ bool decompress_file(rzip_control *control)
 	char *tmp, *tmpoutfile, *infilecopy = NULL;
 	int fd_in, fd_out = -1, fd_hist = -1;
 	i64 expected_size = 0, free_space;
-	struct statvfs fbuf;
 
 	if (!STDIN && !IS_FROM_FILE) {
 		struct stat fdin_stat;
@@ -1085,9 +1079,9 @@ bool decompress_file(rzip_control *control)
 	if (!STDOUT && !TEST_ONLY) {
 		/* Check if there's enough free space on the device chosen to fit the
 		* decompressed file. */
-		if (unlikely(fstatvfs(fd_out, &fbuf)))
-			fatal_return(("Failed to fstatvfs in decompress_file\n"), false);
-		free_space = (i64)fbuf.f_bsize * (i64)fbuf.f_bavail;
+		free_space = lr_free_space(fd_out);
+		if (unlikely(free_space < 0))
+			fatal_return(("Failed to get free space in decompress_file\n"), false);
 		if (free_space < expected_size) {
 			if (FORCE_REPLACE)
 				print_err("Warning, inadequate free space detected, but attempting to decompress due to -f option being used.\n");

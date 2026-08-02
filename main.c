@@ -39,7 +39,6 @@
 # include <sys/stat.h>
 #endif
 
-#include <termios.h>
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #elif HAVE_SYS_ENDIAN_H
