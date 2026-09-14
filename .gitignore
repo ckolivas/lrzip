@@ -41,3 +41,5 @@ regressiontest.out
 decompress_demo
 liblrzip_demo
 
+
+/tests/aes_test
