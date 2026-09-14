@@ -94,12 +94,15 @@ EXTRA_DIST = \
 		tests/roundtrip_suite.sh \
 		$(dist_doc_DATA)
 
-check_PROGRAMS = tests/match_test
+check_PROGRAMS = tests/match_test tests/gcm_test
 tests_match_test_SOURCES = tests/match_test.c
+tests_gcm_test_SOURCES = tests/gcm_test.c
+tests_gcm_test_LDADD = libtmplrzip.la
 
 # Match boundaries, then the combined gold + round-trip regression suite.
 check-local: lrzip$(EXEEXT) $(check_PROGRAMS)
 	$(AM_V_at)./tests/match_test$(EXEEXT)
+	$(AM_V_at)./tests/gcm_test$(EXEEXT)
 	$(AM_V_at)LRZIP='$(abs_builddir)/lrzip$(EXEEXT)' \
 		$(srcdir)/tests/regression.sh
 
@@ -123,4 +126,3 @@ uninstall-local:
 doc: all
 	@echo "entering doc/"
 	$(MAKE) -C doc doc
-

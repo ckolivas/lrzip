@@ -9,6 +9,7 @@
 #include "gcm.h"
 #include "aes.h"
 
+#include <stdint.h>
 #include <string.h>
 
 static void xor_block(unsigned char *d, const unsigned char *a,
@@ -24,28 +25,30 @@ static void xor_block(unsigned char *d, const unsigned char *a,
 static void gcm_mult(const unsigned char x[16], const unsigned char y[16],
 		     unsigned char r[16])
 {
-	unsigned char z[16], v[16];
+	uint64_t zh = 0, zl = 0, vh = 0, vl = 0;
 	int i, j;
 
-	memset(z, 0, 16);
-	memcpy(v, y, 16);
+	/* Keep the big-endian polynomial in two words, avoiding a 16-byte
+	 * shift for every bit. Explicit loads also support unaligned input. */
+	for (i = 0; i < 8; i++) {
+		vh = (vh << 8) | y[i];
+		vl = (vl << 8) | y[i + 8];
+	}
 	for (i = 0; i < 16; i++) {
 		for (j = 0; j < 8; j++) {
-			if (x[i] & (1 << (7 - j)))
-				xor_block(z, z, v);
-			{
-				int lsb = v[15] & 1;
-				int k;
+			uint64_t mask = (uint64_t)0 - ((x[i] >> (7 - j)) & 1);
+			uint64_t reduce = (uint64_t)0 - (vl & 1);
 
-				for (k = 15; k > 0; k--)
-					v[k] = (unsigned char)((v[k] >> 1) | ((v[k - 1] & 1) << 7));
-				v[0] >>= 1;
-				if (lsb)
-					v[0] ^= 0xe1;
-			}
+			zh ^= vh & mask;
+			zl ^= vl & mask;
+			vl = (vl >> 1) | (vh << 63);
+			vh = (vh >> 1) ^ (UINT64_C(0xe100000000000000) & reduce);
 		}
 	}
-	memcpy(r, z, 16);
+	for (i = 0; i < 8; i++) {
+		r[i] = (unsigned char)(zh >> (56 - 8 * i));
+		r[i + 8] = (unsigned char)(zl >> (56 - 8 * i));
+	}
 }
 
 static void ghash(const unsigned char H[16],

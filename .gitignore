@@ -34,6 +34,7 @@ man/lrz.1
 libzpaq/.dirstamp
 tests/.dirstamp
 tests/match_test
+tests/gcm_test
 lrzip.pc
 regressiontest.out
 decompress_demo
