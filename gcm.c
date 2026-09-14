@@ -11,6 +11,9 @@
 
 #include <stdint.h>
 #include <string.h>
+#if defined(__PCLMUL__) && defined(__SSE2__)
+#include <wmmintrin.h>
+#endif
 
 static void xor_block(unsigned char *d, const unsigned char *a,
 		      const unsigned char *b)
@@ -21,10 +24,53 @@ static void xor_block(unsigned char *d, const unsigned char *a,
 		d[i] = a[i] ^ b[i];
 }
 
+#if defined(__PCLMUL__) && defined(__SSE2__)
+/* GCM numbers bits from the high bit of each byte; CLMUL numbers them
+ * from the low bit. Reverse within bytes without alignment assumptions. */
+static __m128i gcm_reverse_bits(__m128i v)
+{
+	__m128i mask = _mm_set1_epi8(0x55);
+
+	v = _mm_or_si128(_mm_and_si128(_mm_srli_epi16(v, 1), mask),
+			 _mm_slli_epi16(_mm_and_si128(v, mask), 1));
+	mask = _mm_set1_epi8(0x33);
+	v = _mm_or_si128(_mm_and_si128(_mm_srli_epi16(v, 2), mask),
+			 _mm_slli_epi16(_mm_and_si128(v, mask), 2));
+	mask = _mm_set1_epi8(0x0f);
+	return _mm_or_si128(_mm_and_si128(_mm_srli_epi16(v, 4), mask),
+			    _mm_slli_epi16(_mm_and_si128(v, mask), 4));
+}
+#endif
+
 /* GF(2^128) multiply x * y into r (big-endian bit string as in GCM). */
 static void gcm_mult(const unsigned char x[16], const unsigned char y[16],
 		     unsigned char r[16])
 {
+#if defined(__PCLMUL__) && defined(__SSE2__)
+	__m128i a = gcm_reverse_bits(_mm_loadu_si128((const __m128i *)x));
+	__m128i b = gcm_reverse_bits(_mm_loadu_si128((const __m128i *)y));
+	__m128i low = _mm_clmulepi64_si128(a, b, 0x00);
+	__m128i high = _mm_clmulepi64_si128(a, b, 0x11);
+	__m128i cross = _mm_xor_si128(_mm_clmulepi64_si128(a, b, 0x01),
+				     _mm_clmulepi64_si128(a, b, 0x10));
+	uint64_t h0, h1, t0, t1, overflow;
+
+	low = _mm_xor_si128(low, _mm_slli_si128(cross, 8));
+	high = _mm_xor_si128(high, _mm_srli_si128(cross, 8));
+	h0 = (uint64_t)_mm_cvtsi128_si64(high);
+	h1 = (uint64_t)_mm_cvtsi128_si64(_mm_srli_si128(high, 8));
+
+	/* Reduce modulo x^128 + x^7 + x^2 + x + 1. Multiplying the
+	 * high half by 0x87 overflows by at most seven bits; its second
+	 * reduction fits entirely in the low word. */
+	t0 = h0 ^ (h0 << 1) ^ (h0 << 2) ^ (h0 << 7);
+	t1 = h1 ^ (h1 << 1) ^ (h1 << 2) ^ (h1 << 7) ^
+	     (h0 >> 63) ^ (h0 >> 62) ^ (h0 >> 57);
+	overflow = (h1 >> 63) ^ (h1 >> 62) ^ (h1 >> 57);
+	t0 ^= overflow ^ (overflow << 1) ^ (overflow << 2) ^ (overflow << 7);
+	low = _mm_xor_si128(low, _mm_set_epi64x(t1, t0));
+	_mm_storeu_si128((__m128i *)r, gcm_reverse_bits(low));
+#else
 	uint64_t zh = 0, zl = 0, vh = 0, vl = 0;
 	int i, j;
 
@@ -49,6 +95,7 @@ static void gcm_mult(const unsigned char x[16], const unsigned char y[16],
 		r[i] = (unsigned char)(zh >> (56 - 8 * i));
 		r[i + 8] = (unsigned char)(zl >> (56 - 8 * i));
 	}
+#endif
 }
 
 static void ghash(const unsigned char H[16],
