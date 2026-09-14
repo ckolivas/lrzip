@@ -352,10 +352,24 @@ static i64 unzip_literal(rzip_control *control, void *ss, i64 len,
 	return stream_read;
 }
 
-static i64 read_fdhist(rzip_control *control, void *buf, i64 len)
+static i64 read_fdhist(rzip_control *control, void *buf, i64 len, i64 pos)
 {
-	if (!TMP_OUTBUF)
-		return read_all(control, control->fd_hist, buf, len);
+	if (!TMP_OUTBUF) {
+		uchar *p = buf;
+		i64 total = 0;
+
+		while (total < len) {
+			ssize_t ret = pread(control->fd_hist, p + total,
+					    (size_t)MIN(len - total, MAX_RW_COUNT), pos + total);
+
+			if (unlikely(ret <= 0))
+				return ret;
+			total += ret;
+		}
+		return total;
+	}
+	if (unlikely(seekto_fdhist(control, pos) == -1))
+		return -1;
 	if (unlikely(len + control->hist_ofs > control->out_maxlen)) {
 		print_err("Trying to read beyond end of tmpoutbuf in read_fdhist\n");
 		return -1;
@@ -421,17 +435,13 @@ static i64 unzip_match(rzip_control *control, void *ss, struct runzip_s0 *s0,
 		/* Falls through when the match will not fit in tmp_outbuf. */
 	}
 
-	if (unlikely(seekto_fdhist(control, cur_pos - offset) == -1))
-		fatal_return(("Seek failed by %"PRId64" from %"PRId64" on history file in unzip_match\n",
-		      offset, cur_pos), -1);
-
 	/* File path (or tmp overflow): pull one period, expand full match in
 	 * scratch (len ≤ 0xFFFF), one write + one integrity pass. */
 	buf = runzip_get_buf(control, len);
 	if (unlikely(!buf))
 		fatal_return(("Failed to malloc match buffer of size %"PRId64"\n", len), -1);
 
-	if (unlikely(read_fdhist(control, buf, period) != period))
+	if (unlikely(read_fdhist(control, buf, period, cur_pos - offset) != period))
 		fatal_return(("Failed to read %"PRId64" bytes in unzip_match\n", period), -1);
 
 	match_expand(buf, period, len);
