@@ -1009,8 +1009,25 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 
 		/* Don't look for a match if there are no tags with
 		   this number of bits in the hash table. */
-		if ((t & st->minimum_tag_mask) != st->minimum_tag_mask)
-			continue;
+		if ((t & st->minimum_tag_mask) != st->minimum_tag_mask) {
+			const uchar *buf = sb->buf_low;
+			i64 limit = MIN(end, progress_at - 1);
+			tag mask = st->minimum_tag_mask;
+
+			if (st->sliding)
+				continue;
+			/* No match or insertion is possible for these tags. Scan
+			 * them without repeating the mapping and progress checks,
+			 * stopping before the next progress update is due. */
+			while (p < limit && (t & mask) != mask) {
+				t ^= st->hash_index[buf[p]];
+				t ^= st->hash_index[buf[p + MINIMUM_MATCH]];
+				p++;
+			}
+			sb->offset_search = p;
+			if ((t & mask) != mask)
+				continue;
+		}
 
 		offset = 0;
 		mlen = find_best_match(control, st, t, p, end, &offset, &reverse);
