@@ -240,19 +240,20 @@ static void gcm_ctr(aes_context *ctx, unsigned char counter[16],
 	size_t i, n;
 
 #if defined(__AES__) && defined(__SSE2__)
+	__m128i prefix = _mm_and_si128(_mm_loadu_si128((const __m128i *)counter),
+				      _mm_set_epi32(0, -1, -1, -1));
+	uint32_t count = ((uint32_t)counter[12] << 24) | ((uint32_t)counter[13] << 16) |
+			 ((uint32_t)counter[14] << 8) | counter[15];
+
 	/* Independent counters let the hardware overlap AES round latency. */
 	while (len >= 64) {
 		__m128i a, b, c, d, key;
 		int round;
 
-		inc32(counter);
-		a = _mm_loadu_si128((const __m128i *)counter);
-		inc32(counter);
-		b = _mm_loadu_si128((const __m128i *)counter);
-		inc32(counter);
-		c = _mm_loadu_si128((const __m128i *)counter);
-		inc32(counter);
-		d = _mm_loadu_si128((const __m128i *)counter);
+		a = _mm_or_si128(prefix, _mm_set_epi32((int)__builtin_bswap32(++count), 0, 0, 0));
+		b = _mm_or_si128(prefix, _mm_set_epi32((int)__builtin_bswap32(++count), 0, 0, 0));
+		c = _mm_or_si128(prefix, _mm_set_epi32((int)__builtin_bswap32(++count), 0, 0, 0));
+		d = _mm_or_si128(prefix, _mm_set_epi32((int)__builtin_bswap32(++count), 0, 0, 0));
 		key = _mm_loadu_si128((const __m128i *)ctx->rk);
 		a = _mm_xor_si128(a, key);
 		b = _mm_xor_si128(b, key);
@@ -282,6 +283,10 @@ static void gcm_ctr(aes_context *ctx, unsigned char counter[16],
 		out += 64;
 		len -= 64;
 	}
+	counter[12] = (unsigned char)(count >> 24);
+	counter[13] = (unsigned char)(count >> 16);
+	counter[14] = (unsigned char)(count >> 8);
+	counter[15] = (unsigned char)count;
 #endif
 	while (len > 0) {
 		inc32(counter);
