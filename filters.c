@@ -257,6 +257,23 @@ int lrz_chunk_filter_pick(rzip_control *control, uchar *buf, i64 len)
 	for (i = 0; i < CHUNK_SAMPLE_REGIONS; i++)
 		ofs[i] = (spacing * i) & ~(i64)3;
 
+	/* Without an x86 branch opcode the conversion is an exact no-op.
+	 * Avoid duplicate-window probes when ARM64 cannot be chosen either. */
+	for (i = 0; i < CHUNK_SAMPLE_REGIONS; i++) {
+		if (memchr(buf + ofs[i], 0xe8, region) ||
+		    memchr(buf + ofs[i], 0xe9, region))
+			break;
+	}
+	if (i == CHUNK_SAMPLE_REGIONS) {
+		if (len > (i64)CHUNK_SAMPLE_REGIONS * CHUNK_SAMPLE_SIZE * 3)
+			return LRZ_FILTER_NONE;
+		for (i = 0; i < CHUNK_SAMPLE_REGIONS; i++)
+			bl_permille += arm64_bl_permille(buf + ofs[i], region);
+		if (bl_permille / CHUNK_SAMPLE_REGIONS < 18)
+			return LRZ_FILTER_NONE;
+		bl_permille = 0;
+	}
+
 	tab = calloc(1u << DUP_TAB_BITS, sizeof(*tab));
 	copy = malloc(region);
 	if (unlikely(!tab || !copy)) {
