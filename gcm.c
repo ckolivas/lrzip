@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 #include <string.h>
-#if defined(__PCLMUL__) && defined(__SSE2__)
+#if (defined(__PCLMUL__) || defined(__AES__)) && defined(__SSE2__)
 #include <wmmintrin.h>
 #endif
 
@@ -196,6 +196,50 @@ static void gcm_ctr(aes_context *ctx, unsigned char counter[16],
 	unsigned char stream[16];
 	size_t i, n;
 
+#if defined(__AES__) && defined(__SSE2__)
+	/* Independent counters let the hardware overlap AES round latency. */
+	while (len >= 64) {
+		__m128i a, b, c, d, key;
+		int round;
+
+		inc32(counter);
+		a = _mm_loadu_si128((const __m128i *)counter);
+		inc32(counter);
+		b = _mm_loadu_si128((const __m128i *)counter);
+		inc32(counter);
+		c = _mm_loadu_si128((const __m128i *)counter);
+		inc32(counter);
+		d = _mm_loadu_si128((const __m128i *)counter);
+		key = _mm_loadu_si128((const __m128i *)ctx->rk);
+		a = _mm_xor_si128(a, key);
+		b = _mm_xor_si128(b, key);
+		c = _mm_xor_si128(c, key);
+		d = _mm_xor_si128(d, key);
+		for (round = 1; round < ctx->nr; round++) {
+			key = _mm_loadu_si128((const __m128i *)(ctx->rk + 4 * round));
+			a = _mm_aesenc_si128(a, key);
+			b = _mm_aesenc_si128(b, key);
+			c = _mm_aesenc_si128(c, key);
+			d = _mm_aesenc_si128(d, key);
+		}
+		key = _mm_loadu_si128((const __m128i *)(ctx->rk + 4 * round));
+		a = _mm_aesenclast_si128(a, key);
+		b = _mm_aesenclast_si128(b, key);
+		c = _mm_aesenclast_si128(c, key);
+		d = _mm_aesenclast_si128(d, key);
+		a = _mm_xor_si128(a, _mm_loadu_si128((const __m128i *)in));
+		b = _mm_xor_si128(b, _mm_loadu_si128((const __m128i *)(in + 16)));
+		c = _mm_xor_si128(c, _mm_loadu_si128((const __m128i *)(in + 32)));
+		d = _mm_xor_si128(d, _mm_loadu_si128((const __m128i *)(in + 48)));
+		_mm_storeu_si128((__m128i *)out, a);
+		_mm_storeu_si128((__m128i *)(out + 16), b);
+		_mm_storeu_si128((__m128i *)(out + 32), c);
+		_mm_storeu_si128((__m128i *)(out + 48), d);
+		in += 64;
+		out += 64;
+		len -= 64;
+	}
+#endif
 	while (len > 0) {
 		inc32(counter);
 		aes_crypt_ecb(ctx, AES_ENCRYPT, counter, stream);
