@@ -710,6 +710,52 @@ run_chunk_filter_tests() {
 	[[ "$PASS_FAIL" -eq 0 ]]
 }
 
+# Exercise multiple encrypted payload jobs, including failures in later jobs.
+run_aead_pipeline_tests() (
+	local work
+	work="$(mktemp -d "${TMPDIR:-/tmp}/lrzip-aead-pipeline.XXXXXX")"
+	trap 'rm -rf "$work"' EXIT
+	python3 - "$LRZIP" "$work" <<'PYTEST'
+import os, random, subprocess, sys
+from pathlib import Path
+exe, root = sys.argv[1], Path(sys.argv[2])
+env = dict(os.environ, LRZIP="NOCONFIG")
+source, archive = root / "input", root / "archive.lrz"
+source.write_bytes(random.Random(58741).randbytes(32 * 1024 * 1024))
+subprocess.run([exe, "-Q", "-f", "-l", "-p", "4", "--encrypt=testpass",
+                "-o", str(archive), str(source)], env=env, check=True)
+expected = source.read_bytes()
+for flags in (["-p", "1"], ["-p", "4"], ["-p", "4", "-m", "1"]):
+    result = subprocess.run([exe, "-Q", "-d", "--encrypt=testpass", *flags,
+                             "-o", "-", str(archive)], env=env,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            check=True, timeout=30)
+    assert result.stdout == expected, flags
+with archive.open("rb") as inp:
+    result = subprocess.run([exe, "-Q", "-d", "-p", "4", "--encrypt=testpass",
+                             "-o", "-"], stdin=inp, env=env,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            check=True, timeout=30)
+    assert result.stdout == expected, "stdin"
+wire = archive.read_bytes()
+# The incompressible stream spans four jobs of at least 10 MiB, except
+# the tail. These positions are well inside each ciphertext payload.
+for mib in (1, 11, 21, 31):
+    damaged = bytearray(wire)
+    damaged[mib * 1024 * 1024] ^= 0x80
+    bad = root / "damaged.lrz"
+    bad.write_bytes(damaged)
+    result = subprocess.run([exe, "-Q", "-d", "-p", "4", "--encrypt=testpass",
+                             "-o", "-", str(bad)], env=env,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            timeout=30)
+    assert result.returncode != 0, mib
+    assert b"Payload AEAD check failed" in result.stderr, (mib, result.stderr)
+    assert not result.stdout, "failed chunk must not be flushed"
+print("PASS  encrypted payload worker round-trips and authentication failures")
+PYTEST
+)
+
 # ============================================================================
 # Main
 # ============================================================================
@@ -733,6 +779,9 @@ if [[ "${SKIP_ROUNDTRIP:-0}" != 1 ]]; then
 		STATUS=1
 	fi
 	if ! run_chunk_filter_tests; then
+		STATUS=1
+	fi
+	if ! run_aead_pipeline_tests; then
 		STATUS=1
 	fi
 else

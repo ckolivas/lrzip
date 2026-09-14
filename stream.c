@@ -1977,6 +1977,22 @@ static void *ucompthread(void *data)
 		setpriority(PRIO_PROCESS, 0, (control->nice_val=control->current_priority));
 	}
 
+	/* Authenticate before any backend or consumer sees the plaintext. */
+	if (uci->sealed) {
+		uchar aad[8];
+		size_t aad_len = 0, pt_len = (size_t)MAX(uci->u_len, uci->c_len);
+		bool valid;
+
+		aead_fill_aad(control, 0x02, aad, &aad_len);
+		valid = lrz_aead_open(control, LRZ_AEAD_KEY_DATA, aad, aad_len,
+				      uci->sealed, uci->sealed_len, uci->s_buf, &pt_len);
+		dealloc(uci->sealed);
+		if (unlikely(!valid)) {
+			dealloc(uci->s_buf);
+			failure_return(("Payload AEAD check failed (corrupt or wrong password)\n"), (void *)1);
+		}
+	}
+
 retry:
 	if (uci->c_type != CTYPE_NONE) {
 		switch (uci->c_type) {
@@ -2042,7 +2058,8 @@ static int fill_buffer(rzip_control *control, struct stream_info *sinfo, struct 
 	struct uncomp_thread *ucthreads = sinfo->ucthreads;
 	pthread_t *threads = control->pthreads;
 	stream_thread_struct *sts;
-	uchar c_type, *s_buf;
+	uchar c_type, *s_buf, *sealed;
+	size_t slen;
 	void *thr_return;
 
 	dealloc(s->buf);
@@ -2235,12 +2252,10 @@ fill_another:
 	/* Count full allocation toward prefetch budget (not just u_len). */
 	sinfo->ram_alloced += max_len;
 
+	sealed = NULL;
+	slen = 0;
 	if (ENCRYPT_AEAD) {
-		size_t slen = LRZ_AEAD_NONCE_LEN + (size_t)padded_len + LRZ_AEAD_TAG_LEN;
-		size_t pt_len = (size_t)max_len;
-		uchar *sealed, aad[8];
-		size_t aad_len = 0;
-
+		slen = LRZ_AEAD_NONCE_LEN + (size_t)padded_len + LRZ_AEAD_TAG_LEN;
 		sealed = malloc(slen);
 		if (unlikely(!sealed)) {
 			dealloc(s_buf);
@@ -2254,15 +2269,8 @@ fill_another:
 			return -1;
 		}
 		sinfo->total_read += (i64)slen;
-		aead_fill_aad(control, 0x02, aad, &aad_len);
-		if (unlikely(!lrz_aead_open(control, LRZ_AEAD_KEY_DATA, aad, aad_len,
-					    sealed, slen, s_buf, &pt_len))) {
-			dealloc(sealed);
-			dealloc(s_buf);
-			sinfo->ram_alloced -= max_len;
-			failure_return(("Payload AEAD check failed (corrupt or wrong password)\n"), -1);
-		}
-		dealloc(sealed);
+		/* Keep the prefetch budget conservative until the job is consumed. */
+		sinfo->ram_alloced += (i64)slen;
 	} else {
 		if (unlikely(read_buf(control, sinfo->fd, s_buf, padded_len))) {
 			dealloc(s_buf);
@@ -2279,9 +2287,11 @@ fill_another:
 	}
 
 	ucthreads[s->uthread_no].s_buf = s_buf;
+	ucthreads[s->uthread_no].sealed = sealed;
+	ucthreads[s->uthread_no].sealed_len = slen;
 	ucthreads[s->uthread_no].c_len = c_len;
 	ucthreads[s->uthread_no].u_len = u_len;
-	ucthreads[s->uthread_no].m_alloced = max_len;
+	ucthreads[s->uthread_no].m_alloced = max_len + (i64)slen;
 	ucthreads[s->uthread_no].c_type = c_type;
 	ucthreads[s->uthread_no].streamno = streamno;
 	s->last_head = last_head;
@@ -2295,9 +2305,11 @@ fill_another:
 	if (unlikely(!sts)) {
 		ucthreads[s->uthread_no].busy = 0;
 		ucthreads[s->uthread_no].s_buf = NULL;
+		ucthreads[s->uthread_no].sealed = NULL;
 		ucthreads[s->uthread_no].m_alloced = 0;
+		dealloc(sealed);
 		dealloc(s_buf);
-		sinfo->ram_alloced -= max_len;
+		sinfo->ram_alloced -= max_len + (i64)slen;
 		fatal_return(("Unable to malloc in fill_buffer"), -1);
 	}
 	sts->i = s->uthread_no;
@@ -2306,10 +2318,12 @@ fill_another:
 	if (unlikely(!create_pthread(control, &threads[s->uthread_no], NULL, ucompthread, sts))) {
 		ucthreads[s->uthread_no].busy = 0;
 		ucthreads[s->uthread_no].s_buf = NULL;
+		ucthreads[s->uthread_no].sealed = NULL;
 		ucthreads[s->uthread_no].m_alloced = 0;
+		dealloc(sealed);
 		dealloc(sts);
 		dealloc(s_buf);
-		sinfo->ram_alloced -= max_len;
+		sinfo->ram_alloced -= max_len + (i64)slen;
 		return -1;
 	}
 
