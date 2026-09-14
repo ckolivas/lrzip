@@ -40,15 +40,10 @@ static __m128i gcm_reverse_bits(__m128i v)
 	return _mm_or_si128(_mm_and_si128(_mm_srli_epi16(v, 4), mask),
 			    _mm_slli_epi16(_mm_and_si128(v, mask), 4));
 }
-#endif
 
-/* GF(2^128) multiply x * y into r (big-endian bit string as in GCM). */
-static void gcm_mult(const unsigned char x[16], const unsigned char y[16],
-		     unsigned char r[16])
+/* Multiply polynomials already in the hardware bit order. */
+static __m128i gcm_mult(__m128i a, __m128i b)
 {
-#if defined(__PCLMUL__) && defined(__SSE2__)
-	__m128i a = gcm_reverse_bits(_mm_loadu_si128((const __m128i *)x));
-	__m128i b = gcm_reverse_bits(_mm_loadu_si128((const __m128i *)y));
 	__m128i low = _mm_clmulepi64_si128(a, b, 0x00);
 	__m128i high = _mm_clmulepi64_si128(a, b, 0x11);
 	__m128i cross = _mm_xor_si128(_mm_clmulepi64_si128(a, b, 0x01),
@@ -69,8 +64,13 @@ static void gcm_mult(const unsigned char x[16], const unsigned char y[16],
 	overflow = (h1 >> 63) ^ (h1 >> 62) ^ (h1 >> 57);
 	t0 ^= overflow ^ (overflow << 1) ^ (overflow << 2) ^ (overflow << 7);
 	low = _mm_xor_si128(low, _mm_set_epi64x(t1, t0));
-	_mm_storeu_si128((__m128i *)r, gcm_reverse_bits(low));
+	return low;
+}
 #else
+/* GF(2^128) multiply x * y into r (big-endian bit string as in GCM). */
+static void gcm_mult(const unsigned char x[16], const unsigned char y[16],
+		     unsigned char r[16])
+{
 	uint64_t zh = 0, zl = 0, vh = 0, vl = 0;
 	int i, j;
 
@@ -95,6 +95,29 @@ static void gcm_mult(const unsigned char x[16], const unsigned char y[16],
 		r[i] = (unsigned char)(zh >> (56 - 8 * i));
 		r[i + 8] = (unsigned char)(zl >> (56 - 8 * i));
 	}
+}
+#endif
+
+struct ghash_state {
+#if defined(__PCLMUL__) && defined(__SSE2__)
+	__m128i h, y;
+#else
+	const unsigned char *h;
+	unsigned char y[16];
+#endif
+};
+
+static inline void ghash_block(struct ghash_state *state, const unsigned char block[16])
+{
+#if defined(__PCLMUL__) && defined(__SSE2__)
+	__m128i x = gcm_reverse_bits(_mm_loadu_si128((const __m128i *)block));
+
+	state->y = gcm_mult(_mm_xor_si128(state->y, x), state->h);
+#else
+	unsigned char tmp[16];
+
+	xor_block(tmp, state->y, block);
+	gcm_mult(tmp, state->h, state->y);
 #endif
 }
 
@@ -103,33 +126,38 @@ static void ghash(const unsigned char H[16],
 		  const unsigned char *ct, size_t ct_len,
 		  unsigned char y[16])
 {
-	unsigned char x[16], tmp[16];
+	struct ghash_state state;
+	unsigned char x[16];
 	size_t i;
 
-	memset(y, 0, 16);
+#if defined(__PCLMUL__) && defined(__SSE2__)
+	/* Keep the key and accumulator in polynomial bit order throughout
+	 * the pass, converting each input block once and the result once. */
+	state.h = gcm_reverse_bits(_mm_loadu_si128((const __m128i *)H));
+	state.y = _mm_setzero_si128();
+#else
+	state.h = H;
+	memset(state.y, 0, 16);
+#endif
 
 	/* AAD */
 	for (i = 0; i + 16 <= aad_len; i += 16) {
-		xor_block(tmp, y, aad + i);
-		gcm_mult(tmp, H, y);
+		ghash_block(&state, aad + i);
 	}
 	if (i < aad_len) {
 		memset(x, 0, 16);
 		memcpy(x, aad + i, aad_len - i);
-		xor_block(tmp, y, x);
-		gcm_mult(tmp, H, y);
+		ghash_block(&state, x);
 	}
 
 	/* Ciphertext */
 	for (i = 0; i + 16 <= ct_len; i += 16) {
-		xor_block(tmp, y, ct + i);
-		gcm_mult(tmp, H, y);
+		ghash_block(&state, ct + i);
 	}
 	if (i < ct_len) {
 		memset(x, 0, 16);
 		memcpy(x, ct + i, ct_len - i);
-		xor_block(tmp, y, x);
-		gcm_mult(tmp, H, y);
+		ghash_block(&state, x);
 	}
 
 	/* Lengths block: bit lengths of AAD and CT as 64-bit BE each */
@@ -143,8 +171,12 @@ static void ghash(const unsigned char H[16],
 			x[15 - i] = (unsigned char)(cbits >> (8 * i));
 		}
 	}
-	xor_block(tmp, y, x);
-	gcm_mult(tmp, H, y);
+	ghash_block(&state, x);
+#if defined(__PCLMUL__) && defined(__SSE2__)
+	_mm_storeu_si128((__m128i *)y, gcm_reverse_bits(state.y));
+#else
+	memcpy(y, state.y, 16);
+#endif
 }
 
 
