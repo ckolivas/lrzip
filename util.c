@@ -578,7 +578,7 @@ static bool pbkdf2_sha512(const uchar *pass, size_t pass_len,
 		hmac_sha512_run(&state, block, blen, U);
 		memcpy(T, U, 64);
 		for (i = 1; i < iters; i++) {
-			hmac_sha512_run(&state, U, 64, U);
+			sha4_hmac64(&state.inner, &state.outer, U, U);
 			for (j = 0; j < 64; j++)
 				T[j] ^= U[j];
 		}

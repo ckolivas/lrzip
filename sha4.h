@@ -89,6 +89,10 @@ void sha4_finish( sha4_context *ctx, unsigned char output[64] );
 void sha4( const unsigned char *input, int ilen,
            unsigned char output[64], int is384 );
 
+/* Both contexts must contain the state after hashing one SHA512 key pad. */
+void sha4_hmac64( const sha4_context *inner, const sha4_context *outer,
+                  const unsigned char input[64], unsigned char output[64] );
+
 #ifdef __cplusplus
 }
 #endif

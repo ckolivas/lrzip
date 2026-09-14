@@ -322,3 +322,28 @@ void sha4( const unsigned char *input, int ilen,
 
     memset( &ctx, 0, sizeof( sha4_context ) );
 }
+
+/* HMAC-SHA512 for a 64-byte message with both 128-byte key pads prehashed. */
+void sha4_hmac64( const sha4_context *inner, const sha4_context *outer,
+                  const unsigned char input[64], unsigned char output[64] )
+{
+    sha4_context ctx;
+    unsigned char block[128] = { 0 };
+    int i;
+
+    memcpy( block, input, 64 );
+    block[64] = 0x80;
+    block[126] = 6; /* (128 + 64) * 8 bits */
+    memcpy( ctx.state, inner->state, sizeof( ctx.state ) );
+    sha4_process( &ctx, block );
+    for( i = 0; i < 8; i++ )
+        PUT_UINT64_BE( ctx.state[i], block, i * 8 );
+
+    memcpy( ctx.state, outer->state, sizeof( ctx.state ) );
+    sha4_process( &ctx, block );
+    for( i = 0; i < 8; i++ )
+        PUT_UINT64_BE( ctx.state[i], output, i * 8 );
+
+    memset( &ctx, 0, sizeof( ctx ) );
+    memset( block, 0, sizeof( block ) );
+}
