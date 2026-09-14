@@ -124,8 +124,28 @@ static void remap_low_sb(rzip_control *control, struct sliding_buffer *sb)
 
 static inline void remap_high_sb(rzip_control *control, struct sliding_buffer *sb, i64 p)
 {
-	if (unlikely(munmap(sb->buf_high, sb->size_high)))
-		failure("Failed to munmap in remap_high_sb\n");
+	uchar *old_buf = sb->buf_high;
+	i64 old_offset = sb->offset_high, old_size = sb->size_high;
+
+	/* A comparison can have both operands outside the low map. Keep
+	 * the current page alive while selecting the other operand. */
+	if (sb->buf_high_prev && p >= sb->offset_high_prev &&
+	    p < sb->offset_high_prev + sb->size_high_prev) {
+		sb->buf_high = sb->buf_high_prev;
+		sb->offset_high = sb->offset_high_prev;
+		sb->size_high = sb->size_high_prev;
+		sb->buf_high_prev = old_buf;
+		sb->offset_high_prev = old_offset;
+		sb->size_high_prev = old_size;
+		return;
+	}
+	if (sb->buf_high_prev &&
+	    unlikely(munmap(sb->buf_high_prev, sb->size_high_prev)))
+		failure("Failed to munmap history page in remap_high_sb\n");
+	sb->buf_high = sb->buf_high_prev;
+	sb->buf_high_prev = old_buf;
+	sb->offset_high_prev = old_offset;
+	sb->size_high_prev = old_size;
 	sb->size_high = sb->high_length; /* In case we shrunk it when we hit the end of the file */
 	sb->offset_high = p;
 	/* Make sure offset is rounded to page size of total offset */
@@ -140,8 +160,8 @@ static inline void remap_high_sb(rzip_control *control, struct sliding_buffer *s
 /* We use a "sliding mmap" to effectively read more than we can fit into the
  * compression window. This is done by using a maximally sized lower mmap at
  * the beginning of the block which slides up once the hash search moves beyond
- * it, and a 64k mmap block that slides up and down as is required for any
- * offsets outside the range of the lower one. This is much slower than mmap
+ * it, and two page-sized history maps for offsets outside the lower one.
+ * Both history operands stay mapped during comparisons. This is slower than mmap
  * but makes it possible to have unlimited sized compression windows. */
 
 /* True if [p, p+len) lies entirely in the low map (len may be 0). */
@@ -1189,8 +1209,10 @@ init_sliding_mmap(rzip_control *control, struct rzip_state *st, int fd_in,
 {
 	struct sliding_buffer *sb = &control->sb;
 
-	/* Initialise the high buffer. One page size is fastest to manipulate */
+	/* Initialise one history page; the second is mapped on demand. */
 	if (!STDIN) {
+		sb->buf_high_prev = NULL;
+		sb->size_high_prev = 0;
 		sb->high_length = control->page_size;
 		sb->buf_high = (uchar *)mmap(NULL, sb->high_length, PROT_READ, MAP_SHARED, fd_in, offset);
 		if (unlikely(sb->buf_high == MAP_FAILED))
@@ -1299,6 +1321,12 @@ rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, int fd_out,
 			close_stream_out(control, st->ss);
 			failure("Failed to munmap in rzip_chunk\n");
 		}
+		if (sb->buf_high_prev &&
+		    unlikely(munmap(sb->buf_high_prev, sb->size_high_prev))) {
+			close_stream_out(control, st->ss);
+			failure("Failed to munmap history page in rzip_chunk\n");
+		}
+		sb->buf_high_prev = NULL;
 	}
 
 	if (unlikely(close_stream_out(control, st->ss)))

@@ -94,9 +94,13 @@ EXTRA_DIST = \
 		tests/roundtrip_suite.sh \
 		tests/ramout.sh \
 		tests/checksum.sh \
+		tests/sliding.sh \
 		$(dist_doc_DATA)
 
-check_PROGRAMS = tests/match_test tests/gcm_test tests/kdf_test tests/aes_test
+check_PROGRAMS = tests/match_test tests/gcm_test tests/kdf_test tests/aes_test tests/sliding_test
+tests_sliding_test_SOURCES = tests/sliding_test.c
+nodist_EXTRA_tests_sliding_test_SOURCES = dummyy.cxx
+tests_sliding_test_LDADD = libtmplrzip.la
 tests_match_test_SOURCES = tests/match_test.c
 tests_gcm_test_SOURCES = tests/gcm_test.c
 tests_gcm_test_LDADD = libtmplrzip.la
@@ -108,6 +112,7 @@ tests_kdf_test_LDADD = libtmplrzip.la
 
 # Match boundaries, then the combined gold + round-trip regression suite.
 check-local: lrzip$(EXEEXT) $(check_PROGRAMS)
+	$(AM_V_at)./tests/sliding_test$(EXEEXT)
 	$(AM_V_at)./tests/match_test$(EXEEXT)
 	$(AM_V_at)./tests/gcm_test$(EXEEXT)
 	$(AM_V_at)./tests/aes_test$(EXEEXT)
@@ -118,6 +123,8 @@ check-local: lrzip$(EXEEXT) $(check_PROGRAMS)
 		$(SHELL) $(srcdir)/tests/ramout.sh
 	$(AM_V_at)LRZIP='$(abs_builddir)/lrzip$(EXEEXT)' \
 		$(SHELL) $(srcdir)/tests/checksum.sh
+	$(AM_V_at)LRZIP='$(abs_builddir)/lrzip$(EXEEXT)' \
+		$(SHELL) $(srcdir)/tests/sliding.sh
 
 install-exec-hook:
 	$(LN_S) -f lrzip$(EXEEXT) $(DESTDIR)$(bindir)/lrunzip$(EXEEXT)

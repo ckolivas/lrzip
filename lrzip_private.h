@@ -370,6 +370,7 @@ struct md5_ctx
 struct sliding_buffer {
 	uchar *buf_low;	/* The low window buffer */
 	uchar *buf_high;/* "" high "" */
+	uchar *buf_high_prev; /* Second history map keeps both match sides valid */
 	i64 orig_offset;/* Where the original buffer started */
 	i64 offset_low;	/* What the current offset the low buffer has */
 	i64 offset_high;/* "" high buffer "" */
@@ -377,6 +378,8 @@ struct sliding_buffer {
 	i64 orig_size;	/* How big the full buffer would be */
 	i64 size_low;	/* How big the low buffer is */
 	i64 size_high;	/* "" high "" */
+	i64 offset_high_prev;
+	i64 size_high_prev;
 	i64 high_length;/* How big the high buffer should be */
 	int fd;		/* The fd of the mmap */
 };
