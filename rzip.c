@@ -845,7 +845,8 @@ static void md5_thread_start(rzip_control *control)
 	round_to_page(&cap);
 	control->checksum.capacity = cap;
 	control->checksum.buf = malloc((size_t)cap);
-	if (unlikely(!control->checksum.buf))
+	control->checksum.fill_buf = malloc((size_t)cap);
+	if (unlikely(!control->checksum.buf || !control->checksum.fill_buf))
 		failure("Failed to allocate MD5 batch buffer\n");
 	control->checksum.len = 0;
 	control->checksum.shutdown = 0;
@@ -868,6 +869,7 @@ static void md5_thread_stop(rzip_control *control)
 	if (unlikely(!join_pthread(control, control->md5_thread, NULL)))
 		failure("Failed to join MD5 worker thread\n");
 	dealloc(control->checksum.buf);
+	dealloc(control->checksum.fill_buf);
 	control->checksum.capacity = 0;
 }
 
@@ -876,9 +878,14 @@ static void md5_queue(rzip_control *control, i64 offset, i64 len)
 {
 	while (len > 0) {
 		i64 n = MIN(len, control->checksum.capacity);
+		uchar *buf;
 
+		/* Fill the next batch while the worker hashes the previous one. */
+		control->do_mcpy(control, control->checksum.fill_buf, offset, n);
 		cksem_wait(control, &control->cksumsem);
-		control->do_mcpy(control, control->checksum.buf, offset, n);
+		buf = control->checksum.buf;
+		control->checksum.buf = control->checksum.fill_buf;
+		control->checksum.fill_buf = buf;
 		control->checksum.len = n;
 		cksem_post(control, &control->cksum_worksem);
 		offset += n;
