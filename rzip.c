@@ -54,6 +54,7 @@
 #include <string.h>
 
 #include "md5.h"
+#include "match.h"
 #include "stream.h"
 #include "util.h"
 #include "filters.h"
@@ -604,7 +605,7 @@ match_len_linear(const uchar *base, i64 base_off, struct rzip_state *st,
 		 i64 p0, i64 op, i64 end, i64 *rev, i64 best)
 {
 	const uchar *a, *b;
-	i64 max_fwd, f, max_rev, rev_end, op0, p, o, len;
+	i64 max_fwd, f, max_rev, rev_end, op0, len;
 
 	if (op >= p0)
 		return 0;
@@ -613,19 +614,7 @@ match_len_linear(const uchar *base, i64 base_off, struct rzip_state *st,
 	max_fwd = end - p0;
 	a = base + (p0 - base_off);
 	b = base + (op0 - base_off);
-	f = 0;
-
-	while (f + (i64)sizeof(size_t) <= max_fwd) {
-		size_t xa, xb;
-
-		memcpy(&xa, a + f, sizeof(size_t));
-		memcpy(&xb, b + f, sizeof(size_t));
-		if (xa != xb)
-			break;
-		f += (i64)sizeof(size_t);
-	}
-	while (f < max_fwd && a[f] == b[f])
-		f++;
+	f = match_forward(a, b, max_fwd);
 
 	rev_end = MAX((i64)0, st->last_match);
 	max_rev = p0 - rev_end;
@@ -635,14 +624,7 @@ match_len_linear(const uchar *base, i64 base_off, struct rzip_state *st,
 	if (f + max_rev < MINIMUM_MATCH || f + max_rev <= best)
 		return 0;
 
-	p = p0;
-	o = op0;
-	while (p > rev_end && o > 0 &&
-	       base[(o - 1) - base_off] == base[(p - 1) - base_off]) {
-		o--;
-		p--;
-	}
-	*rev = p0 - p;
+	*rev = match_reverse(a, b, max_rev);
 
 	len = f + *rev;
 	if (len < MINIMUM_MATCH || len <= best)
@@ -674,7 +656,7 @@ sliding_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
 
 	/* Both sides fully in the low map (forward + reverse extent). */
 	if (rev_end >= low && p0 >= low && end <= low + lsz &&
-	    op >= low && op + max_fwd <= low + lsz) {
+	    op - MIN(p0 - rev_end, op) >= low && op + max_fwd <= low + lsz) {
 		return match_len_linear(sb->buf_low, low, st, p0, op, end, rev, best);
 	}
 
@@ -694,9 +676,7 @@ sliding_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
 			f += n;
 			continue;
 		}
-		m = 0;
-		while (m < n && a[m] == b[m])
-			m++;
+		m = match_forward(a, b, n);
 		f += m;
 		break;
 	}
@@ -727,9 +707,7 @@ sliding_match_len(rzip_control *control, struct rzip_state *st, i64 p0, i64 op,
 
 		a = sliding_get_sb(control, p - 1);
 		b = sliding_get_sb(control, o - 1);
-		m = 0;
-		while (m < n && a[-m] == b[-m])
-			m++;
+		m = match_reverse(a + 1, b + 1, n);
 		p -= m;
 		o -= m;
 		if (m < n)

@@ -37,6 +37,7 @@ libtmplrzip_la_SOURCES = \
   lrzip.c \
   lrzip_core.h \
   rzip.h \
+  match.h \
   rzip.c \
   runzip.c \
   runzip.h \
@@ -93,8 +94,12 @@ EXTRA_DIST = \
 		tests/roundtrip_suite.sh \
 		$(dist_doc_DATA)
 
-# Combined gold + round-trip regression suite.
-check-local: lrzip$(EXEEXT)
+check_PROGRAMS = tests/match_test
+tests_match_test_SOURCES = tests/match_test.c
+
+# Match boundaries, then the combined gold + round-trip regression suite.
+check-local: lrzip$(EXEEXT) $(check_PROGRAMS)
+	$(AM_V_at)./tests/match_test$(EXEEXT)
 	$(AM_V_at)LRZIP='$(abs_builddir)/lrzip$(EXEEXT)' \
 		$(srcdir)/tests/regression.sh
 

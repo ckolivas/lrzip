@@ -45,6 +45,7 @@
 
 #include "md5.h"
 #include "runzip.h"
+#include "match.h"
 #include "stream.h"
 #include "util.h"
 #include "filters.h"
@@ -358,20 +359,6 @@ static i64 read_fdhist(rzip_control *control, void *buf, i64 len)
 	return len;
 }
 
-/* Expand RLE match of period `offset` from the first `period` bytes of buf
- * out to `len` bytes (period == min(len, offset)). */
-static void match_expand(uchar *buf, i64 period, i64 offset, i64 len)
-{
-	i64 pos = period;
-
-	while (pos < len) {
-		i64 n = MIN(len - pos, offset);
-
-		memcpy(buf + pos, buf + pos - offset, (size_t)n);
-		pos += n;
-	}
-}
-
 static i64 unzip_match(rzip_control *control, void *ss, struct runzip_s0 *s0,
 		       i64 len, uint32 *cksum, int chunk_bytes, i64 *out_pos)
 {
@@ -418,7 +405,7 @@ static i64 unzip_match(rzip_control *control, void *ss, struct runzip_s0 *s0,
 			uchar *out = control->tmp_outbuf;
 
 			memcpy(out + dest, out + hist, (size_t)period);
-			match_expand(out + dest, period, offset, len);
+			match_expand(out + dest, period, len);
 			match_cksum(control, cksum, out + dest, len);
 			control->out_ofs = dest + len;
 			if (control->out_ofs > control->out_len)
@@ -442,7 +429,7 @@ static i64 unzip_match(rzip_control *control, void *ss, struct runzip_s0 *s0,
 	if (unlikely(read_fdhist(control, buf, period) != period))
 		fatal_return(("Failed to read %"PRId64" bytes in unzip_match\n", period), -1);
 
-	match_expand(buf, period, offset, len);
+	match_expand(buf, period, len);
 
 	if (unlikely(write_all(control, buf, len) != (ssize_t)len))
 		fatal_return(("Failed to write %"PRId64" bytes in unzip_match\n", len), -1);

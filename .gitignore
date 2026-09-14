@@ -32,6 +32,8 @@ man/lrztar.1
 man/lrzuntar.1
 man/lrz.1
 libzpaq/.dirstamp
+tests/.dirstamp
+tests/match_test
 lrzip.pc
 regressiontest.out
 decompress_demo
