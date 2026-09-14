@@ -41,17 +41,22 @@ static __m128i gcm_reverse_bits(__m128i v)
 			    _mm_slli_epi16(_mm_and_si128(v, mask), 4));
 }
 
-/* Multiply polynomials already in the hardware bit order. */
-static __m128i gcm_mult(__m128i a, __m128i b)
+/* Form an unreduced 256-bit product in the hardware bit order. */
+static void gcm_product(__m128i a, __m128i b, __m128i *lo, __m128i *hi)
 {
 	__m128i low = _mm_clmulepi64_si128(a, b, 0x00);
 	__m128i high = _mm_clmulepi64_si128(a, b, 0x11);
 	__m128i cross = _mm_xor_si128(_mm_clmulepi64_si128(a, b, 0x01),
 				     _mm_clmulepi64_si128(a, b, 0x10));
+
+	*lo = _mm_xor_si128(low, _mm_slli_si128(cross, 8));
+	*hi = _mm_xor_si128(high, _mm_srli_si128(cross, 8));
+}
+
+static __m128i gcm_reduce(__m128i low, __m128i high)
+{
 	uint64_t h0, h1, t0, t1, overflow;
 
-	low = _mm_xor_si128(low, _mm_slli_si128(cross, 8));
-	high = _mm_xor_si128(high, _mm_srli_si128(cross, 8));
 	h0 = (uint64_t)_mm_cvtsi128_si64(high);
 	h1 = (uint64_t)_mm_cvtsi128_si64(_mm_srli_si128(high, 8));
 
@@ -65,6 +70,14 @@ static __m128i gcm_mult(__m128i a, __m128i b)
 	t0 ^= overflow ^ (overflow << 1) ^ (overflow << 2) ^ (overflow << 7);
 	low = _mm_xor_si128(low, _mm_set_epi64x(t1, t0));
 	return low;
+}
+
+static __m128i gcm_mult(__m128i a, __m128i b)
+{
+	__m128i low, high;
+
+	gcm_product(a, b, &low, &high);
+	return gcm_reduce(low, high);
 }
 #else
 /* GF(2^128) multiply x * y into r (big-endian bit string as in GCM). */
@@ -151,7 +164,37 @@ static void ghash(const unsigned char H[16],
 	}
 
 	/* Ciphertext */
-	for (i = 0; i + 16 <= ct_len; i += 16) {
+	i = 0;
+#if defined(__PCLMUL__) && defined(__SSE2__)
+	if (ct_len >= 256) {
+		__m128i h2 = gcm_mult(state.h, state.h);
+		__m128i h3 = gcm_mult(h2, state.h);
+		__m128i h4 = gcm_mult(h2, h2);
+
+		/* Fold four blocks into one reduction. The independent products
+		 * also break the serial dependency between GHASH blocks. */
+		for (; i + 64 <= ct_len; i += 64) {
+			__m128i x0, x1, x2, x3, low, high, lo, hi;
+
+			x0 = gcm_reverse_bits(_mm_loadu_si128((const __m128i *)(ct + i)));
+			x1 = gcm_reverse_bits(_mm_loadu_si128((const __m128i *)(ct + i + 16)));
+			x2 = gcm_reverse_bits(_mm_loadu_si128((const __m128i *)(ct + i + 32)));
+			x3 = gcm_reverse_bits(_mm_loadu_si128((const __m128i *)(ct + i + 48)));
+			gcm_product(_mm_xor_si128(state.y, x0), h4, &low, &high);
+			gcm_product(x1, h3, &lo, &hi);
+			low = _mm_xor_si128(low, lo);
+			high = _mm_xor_si128(high, hi);
+			gcm_product(x2, h2, &lo, &hi);
+			low = _mm_xor_si128(low, lo);
+			high = _mm_xor_si128(high, hi);
+			gcm_product(x3, state.h, &lo, &hi);
+			low = _mm_xor_si128(low, lo);
+			high = _mm_xor_si128(high, hi);
+			state.y = gcm_reduce(low, high);
+		}
+	}
+#endif
+	for (; i + 16 <= ct_len; i += 16) {
 		ghash_block(&state, ct + i);
 	}
 	if (i < ct_len) {
