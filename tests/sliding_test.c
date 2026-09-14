@@ -9,6 +9,21 @@ static void require(int ok)
 	}
 }
 
+static void release_history(struct sliding_buffer *sb)
+{
+	unsigned i;
+
+	require(munmap(sb->buf_high, sb->size_high) == 0);
+	for (i = 0; i < RZIP_HISTORY_CACHE_SIZE; i++) {
+		struct history_page *page = &sb->history_cache[i];
+
+		if (page->buf) {
+			require(page->buf != sb->buf_high);
+			require(munmap(page->buf, page->size) == 0);
+		}
+	}
+}
+
 static void check_match(int fd, uchar *data, size_t size, size_t page,
 			size_t start, size_t history, size_t forward, size_t reverse)
 {
@@ -44,11 +59,47 @@ static void check_match(int fd, uchar *data, size_t size, size_t page,
 				size - MINIMUM_MATCH, &rev, expected);
 	require(got == 0);
 	require(munmap(sb->buf_low, sb->size_low) == 0);
-	require(munmap(sb->buf_high, sb->size_high) == 0);
-	if (sb->buf_high_prev) {
-		require(sb->buf_high_prev != sb->buf_high);
-		require(munmap(sb->buf_high_prev, sb->size_high_prev) == 0);
+	release_history(sb);
+}
+
+static void check_collision(int fd, uchar *data, size_t page)
+{
+	rzip_control control = {0};
+	struct sliding_buffer *sb = &control.sb;
+	i64 offsets[3] = {0};
+	uchar values[] = {0x35, 0xc7, 0x69};
+	unsigned i;
+
+	for (i = 1; i < 3; i++) {
+		offsets[i] = offsets[i - 1] + page;
+		while (history_page_slot(offsets[i]) != history_page_slot(0)) {
+			offsets[i] += page;
+			require(offsets[i] < (i64)page * RZIP_HISTORY_CACHE_SIZE * 64);
+		}
 	}
+	require(ftruncate(fd, offsets[2] + page) == 0);
+	for (i = 0; i < 3; i++) {
+		memset(data, values[i], page);
+		require(pwrite(fd, data, page, offsets[i]) == (ssize_t)page);
+	}
+	/* The final cache entry ends with a partial page. */
+	require(ftruncate(fd, offsets[2] + 67) == 0);
+	control.page_size = page;
+	sb->fd = fd;
+	sb->orig_size = offsets[2] + 67;
+	sb->high_length = sb->size_high = page;
+	sb->buf_high = mmap(NULL, page, PROT_READ, MAP_SHARED, fd, 0);
+	require(sb->buf_high != MAP_FAILED);
+	for (i = 0; i < 64; i++) {
+		unsigned ai = i % 3, bi = (i + 1) % 3;
+		uchar *a = sliding_get_sb(&control, offsets[ai]);
+		uchar *b = sliding_get_sb(&control, offsets[bi]);
+
+		require(a != b);
+		require(a[0] == values[ai] && a[ai == 2 ? 66 : page - 1] == values[ai]);
+		require(b[0] == values[bi] && b[bi == 2 ? 66 : page - 1] == values[bi]);
+	}
+	release_history(sb);
 }
 
 int main(void)
@@ -80,6 +131,7 @@ int main(void)
 	}
 	check_match(fd, data, size, page, page * 143, page * 8, 0, 0);
 	check_match(fd, data, size, page, page * 143, page * 8, 31, 0);
+	check_collision(fd, data, page);
 	require(close(fd) == 0);
 	free(data);
 	puts("Sliding match mapping lifetime tests passed");
