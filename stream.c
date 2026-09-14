@@ -849,8 +849,25 @@ static inline int write_u8(rzip_control *control, uchar v)
 	return write_buf(control, &v, 1);
 }
 
+/* Nonce and tag placeholders can be wider than an integer. */
+static int write_padding(rzip_control *control, int len)
+{
+	uchar zeros[LRZ_AEAD_TAG_LEN] = {0};
+
+	while (len > 0) {
+		int n = MIN(len, (int)sizeof(zeros));
+
+		if (unlikely(write_buf(control, zeros, n)))
+			return -1;
+		len -= n;
+	}
+	return 0;
+}
+
 static inline int write_val(rzip_control *control, i64 v, int len)
 {
+	if (unlikely(len < 0 || len > (int)sizeof(v)))
+		failure_return(("Invalid integer write length %d\n", len), -1);
 	v = htole64(v);
 	return write_buf(control, (uchar *)&v, len);
 }
@@ -1725,7 +1742,7 @@ retry:
 
 			/* Room for salt (legacy/HMAC) or nonce (AEAD) before body */
 			if (ENCRYPT) {
-				if (unlikely(write_val(control, 0, pref))) {
+				if (unlikely(write_padding(control, pref))) {
 					fatal_msg = "Failed to write blank salt/nonce in compthread\n";
 					goto out;
 				}
@@ -1739,7 +1756,7 @@ retry:
 			ctis->cur_pos += 1 + (write_len * 3);
 			/* Placeholder for HMAC or GCM tag after 25-byte body */
 			if (ENCRYPT && suf) {
-				if (unlikely(write_val(control, 0, suf))) {
+				if (unlikely(write_padding(control, suf))) {
 					fatal_msg = "Failed to write blank header auth tag in compthread\n";
 					goto out;
 				}
@@ -1779,7 +1796,7 @@ retry:
 	if (ENCRYPT) {
 		i64 pref = lrz_enc_prefix_len(control);
 
-		if (unlikely(write_val(control, 0, pref))) {
+		if (unlikely(write_padding(control, pref))) {
 			fatal_msg = "Failed to write header salt/nonce in compthread\n";
 			goto out;
 		}
@@ -1800,7 +1817,7 @@ retry:
 	if (ENCRYPT && lrz_enc_suffix_len(control)) {
 		i64 suf = lrz_enc_suffix_len(control);
 
-		if (unlikely(write_val(control, 0, suf))) {
+		if (unlikely(write_padding(control, suf))) {
 			fatal_msg = "Failed to write blank header auth tag in compthread\n";
 			goto out;
 		}
