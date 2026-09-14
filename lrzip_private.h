@@ -367,7 +367,7 @@ struct md5_ctx
 	uint32_t buffer[32];
 };
 
-#define RZIP_HISTORY_CACHE_BITS 14
+#define RZIP_HISTORY_CACHE_BITS 16
 #define RZIP_HISTORY_CACHE_SIZE (1U << RZIP_HISTORY_CACHE_BITS)
 /* The active history buffer stays outside the cache to pin each match operand. */
 struct history_page {
@@ -379,7 +379,9 @@ struct history_page {
 struct sliding_buffer {
 	uchar *buf_low;	/* The low window buffer */
 	uchar *buf_high;/* "" high "" */
-	struct history_page history_cache[RZIP_HISTORY_CACHE_SIZE];
+	struct history_page *history_cache;
+	struct history_page history_fallback;
+	unsigned history_mask;
 	i64 orig_offset;/* Where the original buffer started */
 	i64 offset_low;	/* What the current offset the low buffer has */
 	i64 offset_high;/* "" high buffer "" */

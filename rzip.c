@@ -151,8 +151,17 @@ static inline void load_high_sb(rzip_control *control, struct sliding_buffer *sb
 	i64 new_offset = p, new_size = 0;
 	struct history_page *page;
 
+	if (unlikely(!sb->history_cache)) {
+		sb->history_cache = calloc(RZIP_HISTORY_CACHE_SIZE, sizeof(*sb->history_cache));
+		sb->history_mask = RZIP_HISTORY_CACHE_SIZE - 1;
+		if (unlikely(!sb->history_cache)) {
+			/* A single spare page still keeps both operands alive. */
+			sb->history_cache = &sb->history_fallback;
+			sb->history_mask = 0;
+		}
+	}
 	new_offset -= (new_offset + sb->orig_offset) % control->page_size;
-	page = &sb->history_cache[history_page_slot(new_offset)];
+	page = &sb->history_cache[history_page_slot(new_offset) & sb->history_mask];
 	if (page->buf && page->offset == new_offset && p < page->offset + page->size) {
 		new_buf = page->buf;
 		new_size = page->size;
@@ -161,7 +170,7 @@ static inline void load_high_sb(rzip_control *control, struct sliding_buffer *sb
 
 	/* Keep the current operand alive even when both page keys collide.
 	 * Extract the requested page before caching the current one. */
-	page = &sb->history_cache[history_page_slot(sb->offset_high)];
+	page = &sb->history_cache[history_page_slot(sb->offset_high) & sb->history_mask];
 	reuse = page->buf;
 	page->buf = sb->buf_high;
 	page->offset = sb->offset_high;
@@ -1247,7 +1256,8 @@ init_sliding_mmap(rzip_control *control, struct rzip_state *st, int fd_in)
 
 	/* Allocate and read history pages only when they are needed. */
 	if (!STDIN) {
-		memset(sb->history_cache, 0, sizeof(sb->history_cache));
+		sb->history_cache = NULL;
+		sb->history_fallback.buf = NULL;
 		sb->high_length = control->page_size;
 		sb->buf_high = NULL;
 		sb->size_high = 0;
@@ -1353,12 +1363,15 @@ rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, int fd_out,
 		unsigned i;
 
 		free(sb->buf_high);
-		for (i = 0; i < RZIP_HISTORY_CACHE_SIZE; i++) {
+		for (i = 0; sb->history_cache && i <= sb->history_mask; i++) {
 			struct history_page *page = &sb->history_cache[i];
 
 			free(page->buf);
 			page->buf = NULL;
 		}
+		if (sb->history_cache != &sb->history_fallback)
+			free(sb->history_cache);
+		sb->history_cache = NULL;
 	}
 
 	if (unlikely(close_stream_out(control, st->ss)))

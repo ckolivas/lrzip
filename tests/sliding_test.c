@@ -1,5 +1,6 @@
 /* Exercise the private matcher with both operands outside its main map. */
 #include "config.h"
+#include "lrzip_private.h"
 #include <unistd.h>
 #include <errno.h>
 
@@ -19,9 +20,24 @@ static ssize_t history_pread(int fd, void *buf, size_t count, off_t offset)
 	return pread(fd, buf, count, offset);
 }
 
+static int fail_history_cache;
+static unsigned history_alloc_failures;
+
+static void *history_calloc(size_t count, size_t size)
+{
+	if (fail_history_cache && count == RZIP_HISTORY_CACHE_SIZE &&
+	    size == sizeof(struct history_page)) {
+		history_alloc_failures++;
+		return NULL;
+	}
+	return calloc(count, size);
+}
+
+#define calloc history_calloc
 #define pread history_pread
 #include "../rzip.c"
 #undef pread
+#undef calloc
 
 static void require(int ok)
 {
@@ -36,7 +52,7 @@ static void release_history(struct sliding_buffer *sb)
 	unsigned i;
 
 	free(sb->buf_high);
-	for (i = 0; i < RZIP_HISTORY_CACHE_SIZE; i++) {
+	for (i = 0; sb->history_cache && i <= sb->history_mask; i++) {
 		struct history_page *page = &sb->history_cache[i];
 
 		if (page->buf) {
@@ -44,6 +60,8 @@ static void release_history(struct sliding_buffer *sb)
 			free(page->buf);
 		}
 	}
+	if (sb->history_cache != &sb->history_fallback)
+		free(sb->history_cache);
 }
 
 static void check_match(int fd, uchar *data, size_t size, size_t page,
@@ -155,6 +173,11 @@ int main(void)
 	short_history_reads = 1;
 	check_collision(fd, data, page);
 	require(history_reads > 64);
+	fail_history_cache = 1;
+	check_match(fd, data, size, page, page * 143 + 1,
+		    page * 8 + 1, page * 2 + 17, 17);
+	check_collision(fd, data, page);
+	require(history_alloc_failures == 2);
 	require(close(fd) == 0);
 	free(data);
 	puts("Sliding match mapping lifetime tests passed");
