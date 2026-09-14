@@ -1004,12 +1004,24 @@ bool prepare_streamout_threads(rzip_control *control)
 }
 
 
+/* Workers advance the output cursor under output_lock. Snapshot it before
+ * waiting on their semaphores, without keeping the mutex while waiting. */
+static int get_output_thread(rzip_control *control)
+{
+	int thread;
+
+	lock_mutex(control, &output_lock);
+	thread = output_thread;
+	unlock_mutex(control, &output_lock);
+	return thread;
+}
+
 /* Wait until all compress output threads have finished their current work
  * without tearing the thread pool down. Used before progressive STDOUT flush
  * so the block is complete and LRZC compressed_size can be patched. */
 bool wait_streamout_threads(rzip_control *control)
 {
-	int i, close_thread = output_thread;
+	int i, close_thread = get_output_thread(control);
 
 	for (i = 0; i < control->threads; i++) {
 		cksem_wait(control, &cthreads[close_thread].cksem);
@@ -1022,7 +1034,7 @@ bool wait_streamout_threads(rzip_control *control)
 
 bool close_streamout_threads(rzip_control *control)
 {
-	int i, close_thread = output_thread;
+	int i, close_thread = get_output_thread(control);
 
 	/* Wait for the threads in the correct order in case they end up
 	 * serialised */
@@ -2390,7 +2402,7 @@ int close_stream_out(rzip_control *control, void *ss)
 		/* Last two compressed blocks do not have an offset written
 		 * to them so we have to go back and encrypt them now, but we
 		 * must wait till the threads return. */
-		int close_thread = output_thread;
+		int close_thread = get_output_thread(control);
 
 		for (i = 0; i < control->threads; i++) {
 			cksem_wait(control, &cthreads[close_thread].cksem);
@@ -2453,7 +2465,9 @@ int close_stream_in(rzip_control *control, void *ss)
 	for (i = 0; i < sinfo->num_streams; i++)
 		dealloc(sinfo->s[i].buf);
 
+	lock_mutex(control, &output_lock);
 	output_thread = 0;
+	unlock_mutex(control, &output_lock);
 	/* We cannot safely release the sinfo and pthread data here till all
 	 * threads are shut down. */
 	add_to_rulist(control, sinfo);
