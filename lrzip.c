@@ -576,10 +576,10 @@ static bool dump_tmpoutfile(rzip_control *control)
 
 bool flush_tmpout(rzip_control *control)
 {
-	if (!STDOUT)
-		return true;
 	if (TMP_OUTBUF)
 		return flush_tmpoutbuf(control);
+	if (!STDOUT)
+		return true;
 	return dump_tmpoutfile(control);
 }
 
@@ -734,12 +734,15 @@ bool read_tmpinfile(rzip_control *control, int fd_in)
 	return true;
 }
 
-/* To perform STDOUT, we allocate a proportion of ram that is then used as
- * a pseudo-temporary file */
-static bool open_tmpoutbuf(rzip_control *control)
+/* Buffer reconstruction in RAM, capped by the expected file size when
+ * known. For stdout this also serves as a pseudo-temporary file. */
+static bool open_tmpoutbuf(rzip_control *control, i64 expected_size)
 {
 	i64 maxlen = control->maxram;
 	void *buf;
+
+	if (!STDOUT && expected_size > 0 && expected_size < maxlen - control->page_size)
+		maxlen = round_up_page(control, expected_size + control->page_size);
 
 	while (42) {
 		round_to_page(&maxlen);
@@ -749,8 +752,12 @@ static bool open_tmpoutbuf(rzip_control *control)
 			break;
 		}
 		maxlen = maxlen / 3 * 2;
-		if (maxlen < 100000000)
+		if (maxlen < 100000000) {
+			/* Ordinary file output can continue without the cache. */
+			if (!STDOUT)
+				return true;
 			fatal_return(("Unable to even malloc 100MB for tmp_outbuf\n"), false);
+		}
 	}
 	control->flags |= FLAG_TMP_OUTBUF;
 	/* Allocate slightly more so we can cope when the buffer overflows and
@@ -1070,16 +1077,19 @@ bool decompress_file(rzip_control *control)
 		}
 	}
 
-	if (STDOUT) {
-		if (unlikely(!open_tmpoutbuf(control)))
-			return false;
-	}
-
 	if (!STDIN) {
 		if (unlikely(!read_magic(control, fd_in, &expected_size)))
 			return false;
 		if (unlikely(expected_size < 0))
 			fatal_return(("Invalid expected size %"PRId64"\n", expected_size), false);
+	}
+
+	/* File output can use the same in-memory history as stdout, then
+	 * write a whole reconstructed chunk at once. Keep direct writes
+	 * when partial output must survive a failure. */
+	if (STDOUT || (!TEST_ONLY && !KEEP_BROKEN)) {
+		if (unlikely(!open_tmpoutbuf(control, expected_size)))
+			return false;
 	}
 
 	if (!STDOUT && !TEST_ONLY) {
@@ -1628,7 +1638,7 @@ bool compress_file(rzip_control *control)
 			if (unlikely(unlink(control->outfile)))
 				fatal_return(("Failed to unlink tmpfile: %s\n", control->outfile), false);
 		}
-		if (unlikely(!open_tmpoutbuf(control)))
+		if (unlikely(!open_tmpoutbuf(control, 0)))
 			goto error;
 	}
 
