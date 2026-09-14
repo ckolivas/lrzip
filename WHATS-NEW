@@ -1,3 +1,8 @@
+lrzip-0.7.3
+
+Numerous perform speedups
+Fixes for <= 0.4 archives
+
 lrzip-0.7.2
 
 Build fixes for MacOS
