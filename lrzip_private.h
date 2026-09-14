@@ -386,7 +386,8 @@ struct checksum {
 	i64 len;
 	i64 capacity;
 	int shutdown;
-	int filling;	/* producer owns buf and is appending (decompress) */
+	uchar *fill_buf;	/* separate producer buffer (decompress) */
+	i64 fill_len;
 };
 
 /* Rolling hash tag: 32-bit is enough (hash_index is built from random()). */

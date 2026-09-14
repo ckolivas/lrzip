@@ -93,6 +93,7 @@ EXTRA_DIST = \
 		tests/regression.good \
 		tests/roundtrip_suite.sh \
 		tests/ramout.sh \
+		tests/checksum.sh \
 		$(dist_doc_DATA)
 
 check_PROGRAMS = tests/match_test tests/gcm_test tests/kdf_test tests/aes_test
@@ -115,6 +116,8 @@ check-local: lrzip$(EXEEXT) $(check_PROGRAMS)
 		$(srcdir)/tests/regression.sh
 	$(AM_V_at)LRZIP='$(abs_builddir)/lrzip$(EXEEXT)' \
 		$(SHELL) $(srcdir)/tests/ramout.sh
+	$(AM_V_at)LRZIP='$(abs_builddir)/lrzip$(EXEEXT)' \
+		$(SHELL) $(srcdir)/tests/checksum.sh
 
 install-exec-hook:
 	$(LN_S) -f lrzip$(EXEEXT) $(DESTDIR)$(bindir)/lrunzip$(EXEEXT)

@@ -237,11 +237,12 @@ static void runzip_md5_start(rzip_control *control)
 	round_to_page(&cap);
 	control->checksum.capacity = cap;
 	control->checksum.buf = malloc((size_t)cap);
-	if (unlikely(!control->checksum.buf))
+	control->checksum.fill_buf = malloc((size_t)cap);
+	if (unlikely(!control->checksum.buf || !control->checksum.fill_buf))
 		failure("Failed to allocate MD5 batch buffer\n");
 	control->checksum.len = 0;
 	control->checksum.shutdown = 0;
-	control->checksum.filling = 0;
+	control->checksum.fill_len = 0;
 
 	cksem_init(control, &control->cksumsem);
 	cksem_post(control, &control->cksumsem);
@@ -252,16 +253,26 @@ static void runzip_md5_start(rzip_control *control)
 		failure("Failed to start MD5 worker thread\n");
 }
 
+/* Hand off the filled buffer only after the worker releases its old one.
+ * The producer can then fill the old buffer while the worker hashes. */
+static void runzip_md5_submit(rzip_control *control)
+{
+	uchar *buf;
+
+	cksem_wait(control, &control->cksumsem);
+	buf = control->checksum.buf;
+	control->checksum.buf = control->checksum.fill_buf;
+	control->checksum.fill_buf = buf;
+	control->checksum.len = control->checksum.fill_len;
+	control->checksum.fill_len = 0;
+	cksem_post(control, &control->cksum_worksem);
+}
+
 /* Flush any partial batch, wait for the worker to go idle, then join. */
 static void runzip_md5_stop(rzip_control *control)
 {
-	if (control->checksum.filling) {
-		if (control->checksum.len > 0)
-			cksem_post(control, &control->cksum_worksem);
-		else
-			cksem_post(control, &control->cksumsem);
-		control->checksum.filling = 0;
-	}
+	if (control->checksum.fill_len)
+		runzip_md5_submit(control);
 
 	cksem_wait(control, &control->cksumsem);
 	control->checksum.shutdown = 1;
@@ -270,31 +281,25 @@ static void runzip_md5_stop(rzip_control *control)
 	if (unlikely(!join_pthread(control, control->md5_thread, NULL)))
 		failure("Failed to join MD5 worker thread\n");
 	dealloc(control->checksum.buf);
+	dealloc(control->checksum.fill_buf);
 	control->checksum.capacity = 0;
 	control->checksum.buf = NULL;
+	control->checksum.fill_buf = NULL;
 }
 
-/* Append to the batch buffer; submit full buffers to the worker. */
+/* Append to the producer's buffer; submit full buffers to the worker. */
 static void runzip_md5_update(rzip_control *control, const uchar *data, i64 n)
 {
 	while (n > 0) {
-		i64 space, c;
+		i64 space = control->checksum.capacity - control->checksum.fill_len;
+		i64 c = MIN(n, space);
 
-		if (!control->checksum.filling) {
-			cksem_wait(control, &control->cksumsem);
-			control->checksum.len = 0;
-			control->checksum.filling = 1;
-		}
-		space = control->checksum.capacity - control->checksum.len;
-		c = MIN(n, space);
-		memcpy(control->checksum.buf + control->checksum.len, data, (size_t)c);
-		control->checksum.len += c;
+		memcpy(control->checksum.fill_buf + control->checksum.fill_len, data, (size_t)c);
+		control->checksum.fill_len += c;
 		data += c;
 		n -= c;
-		if (control->checksum.len == control->checksum.capacity) {
-			cksem_post(control, &control->cksum_worksem);
-			control->checksum.filling = 0;
-		}
+		if (control->checksum.fill_len == control->checksum.capacity)
+			runzip_md5_submit(control);
 	}
 }
 
