@@ -1053,15 +1053,28 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 			i64 limit = MIN(end, progress_at - 1);
 			tag mask = st->minimum_tag_mask;
 
-			if (st->sliding)
-				continue;
 			/* No match or insertion is possible for these tags. Scan
 			 * them without repeating the mapping and progress checks,
 			 * stopping before the next progress update is due. */
-			while (p < limit && (t & mask) != mask) {
-				t ^= st->hash_index[buf[p]];
-				t ^= st->hash_index[buf[p + MINIMUM_MATCH]];
-				p++;
+			if (st->sliding) {
+				i64 q = p - sb->offset_low;
+
+				if (q < 0)
+					continue;
+				/* Both rolling-tag bytes must remain in the low map. */
+				limit = MIN(limit, sb->offset_low + sb->size_low - MINIMUM_MATCH);
+				while (p < limit && (t & mask) != mask) {
+					t ^= st->hash_index[buf[q]];
+					t ^= st->hash_index[buf[q + MINIMUM_MATCH]];
+					q++;
+					p++;
+				}
+			} else {
+				while (p < limit && (t & mask) != mask) {
+					t ^= st->hash_index[buf[p]];
+					t ^= st->hash_index[buf[p + MINIMUM_MATCH]];
+					p++;
+				}
 			}
 			sb->offset_search = p;
 			if ((t & mask) != mask)
