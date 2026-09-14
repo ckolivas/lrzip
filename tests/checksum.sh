@@ -20,4 +20,14 @@ for size in 0 1 1048575 1048576 1048577 2097151 2097152 2097153 3145729; do
 	"$LRZIP" -Q -d -p 2 -o - "$WORK/archive.lrz" > "$WORK/stdout"
 	cmp "$WORK/input" "$WORK/stdout"
 done
-echo "MD5 batch boundary tests passed"
+# Prefiltering modifies a complete input mapping in place. Its original-byte
+# checksum must finish before conversion, including a partial final batch.
+for size in 2097151 2097152 2097153; do
+	head -c "$size" "$WORK/data" > "$WORK/input"
+	for filter in x86 arm64; do
+		"$LRZIP" -Q -f -L 1 -p 2 --filter="$filter" -o "$WORK/archive.lrz" "$WORK/input"
+		"$LRZIP" -Q -f -d -p 2 -c -o "$WORK/output" "$WORK/archive.lrz"
+		cmp "$WORK/input" "$WORK/output"
+	done
+done
+echo "MD5 batch boundary and prefilter lifetime tests passed"

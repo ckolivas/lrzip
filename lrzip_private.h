@@ -395,6 +395,7 @@ struct sliding_buffer {
 
 struct checksum {
 	uchar *buf;
+	const uchar *input;
 	i64 len;
 	i64 capacity;
 	int shutdown;

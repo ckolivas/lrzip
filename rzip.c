@@ -883,7 +883,7 @@ static void *md5_worker(void *data)
 			break;
 		}
 		if (control->checksum.len > 0)
-			md5_process_bytes(control->checksum.buf, control->checksum.len,
+			md5_process_bytes(control->checksum.input, control->checksum.len,
 					  &control->ctx);
 		cksem_post(control, &control->cksumsem);
 	}
@@ -932,12 +932,19 @@ static void md5_queue(rzip_control *control, i64 offset, i64 len)
 		i64 n = MIN(len, control->checksum.capacity);
 		uchar *buf;
 
-		/* Fill the next batch while the worker hashes the previous one. */
-		control->do_mcpy(control, control->checksum.fill_buf, offset, n);
-		cksem_wait(control, &control->cksumsem);
-		buf = control->checksum.buf;
-		control->checksum.buf = control->checksum.fill_buf;
-		control->checksum.fill_buf = buf;
+		/* The complete input mapping remains immutable until this pass drains. */
+		if (control->sb.offset_low == 0 && control->sb.size_low == control->sb.orig_size) {
+			cksem_wait(control, &control->cksumsem);
+			control->checksum.input = control->sb.buf_low + offset;
+		} else {
+			/* Sliding mappings may be replaced while the worker runs. */
+			control->do_mcpy(control, control->checksum.fill_buf, offset, n);
+			cksem_wait(control, &control->cksumsem);
+			buf = control->checksum.buf;
+			control->checksum.buf = control->checksum.fill_buf;
+			control->checksum.fill_buf = buf;
+			control->checksum.input = control->checksum.buf;
+		}
 		control->checksum.len = n;
 		cksem_post(control, &control->cksum_worksem);
 		offset += n;
@@ -1338,6 +1345,7 @@ rzip_chunk(rzip_control *control, struct rzip_state *st, int fd_in, int fd_out,
 			 * hash the chunk before converting it. */
 			if (!NO_MD5) {
 				md5_queue(control, 0, st->chunk_size);
+				md5_drain(control);
 				st->chunk_md5_done = true;
 			}
 			lrz_filter_convert_mem(sb->buf_low, st->chunk_size, kind, true);
