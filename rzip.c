@@ -77,15 +77,14 @@
  * sparsely.
  *
  * Slot size is 8 bytes (uint32 tag + uint32 offset) when the chunk fits
- * in 32 bits, else 16-byte wide entries. Table length targets the same
- * slot count rzip-2.1 used for a given mb_used (computed as if entries
- * were 8 bytes), capped by chunk size so small files do not build huge
- * tables.
+ * in 32 bits, else 16-byte wide entries. The retained-entry budget comes
+ * from rzip-2.1's slot count for a given mb_used, capped by chunk size.
+ * When memory permits, spare buckets shorten the collision chains.
  */
 
 /* Levels control hashtable size. mb_used is the historical "megabytes of
- * hash" knob from rzip (8-byte entries); we map it to a slot count and
- * allocate with the real entry size. */
+ * hash" knob from rzip (8-byte entries); it sets the entry budget while
+ * bucket allocation also accounts for entry size and spare capacity. */
 static struct level {
 	unsigned long mb_used;
 	unsigned initial_freq;
@@ -919,9 +918,9 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 		/* Target slot count as in rzip-2.1 (8-byte entries per mb_used). */
 		i64 hashsize = (i64)st->level->mb_used *
 				(1024 * 1024 / HASH_ENTRY_SIZE_NARROW);
-		/* Do not build a table larger than the chunk can use. */
+		/* Limit the entry budget to what the chunk can use. */
 		i64 cap = st->chunk_size;
-		int bits;
+		int bits, base_bits;
 		int wide;
 		size_t esize;
 		i64 nslots, mem;
@@ -936,24 +935,37 @@ static inline void hash_search(rzip_control *control, struct rzip_state *st,
 
 		for (bits = 0; (1U << bits) < hashsize; bits++)
 			;
+		base_bits = bits;
 		nslots = (i64)1 << bits;
+		st->hash_limit = nslots / 3 * 2;
 		mem = nslots * (i64)esize;
+		/* Spare buckets shorten collision chains without increasing
+		 * the retained-entry budget. */
+		while (bits < base_bits + 2 && mem <= control->usable_ram / 2) {
+			bits++;
+			nslots *= 2;
+			mem *= 2;
+		}
 
 		if (!st->hash_table || st->hash_bits != bits || st->hash_wide != wide) {
 			dealloc(st->hash_table);
-			st->hash_bits = bits;
-			st->hash_wide = wide;
 			st->hash_table = calloc((size_t)nslots, esize);
+			while (unlikely(!st->hash_table && bits > base_bits)) {
+				/* Extra space is optional: retry a smaller table. */
+				bits--;
+				nslots /= 2;
+				mem /= 2;
+				st->hash_table = calloc((size_t)nslots, esize);
+			}
 			if (unlikely(!st->hash_table))
 				failure("Failed to allocate hash table in hash_search\n");
+			st->hash_bits = bits;
+			st->hash_wide = wide;
 			print_maxverbose("hash slots = %"PRId64" bits = %d wide = %d (%.1fMB, level %luMB)\n",
 					 nslots, bits, wide, mem / (1024.0 * 1024.0),
 					 st->level->mb_used);
 		} else
 			memset(st->hash_table, 0, (size_t)mem);
-
-		/* 66% full at max. */
-		st->hash_limit = nslots / 3 * 2;
 	}
 
 	st->minimum_tag_mask = tag_mask;
