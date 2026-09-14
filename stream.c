@@ -753,15 +753,16 @@ ssize_t write_all(rzip_control *control, void *buf, i64 len)
  * we must dump_stdin first */
 static bool read_fdin(struct rzip_control *control, i64 len)
 {
-	int tmpchar;
-	i64 i;
+	i64 i = 0;
 
-	for (i = 0; i < len; i++) {
-		tmpchar = getchar();
-		if (unlikely(tmpchar == EOF))
+	while (i < len) {
+		size_t got = fread(control->tmp_inbuf + control->in_ofs + i,
+				   1, (size_t)(len - i), stdin);
+
+		if (unlikely(!got))
 			failure_return(("Reached end of file on STDIN prematurely on read_fdin, asked for %"PRId64" got %"PRId64"\n",
 				len, i), false);
-		control->tmp_inbuf[control->in_ofs + i] = (char)tmpchar;
+		i += got;
 	}
 	control->in_len = control->in_ofs + len;
 	return true;

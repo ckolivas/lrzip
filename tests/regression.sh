@@ -398,6 +398,7 @@ run_roundtrip_tests() {
 	run_one "stdio/over_window/lzo" over_window "-l" stdio 0
 	run_one "stdout/zeros_large/lzo" zeros_large "-l" stdout 0
 	run_one "stdin/zeros_large/lzo" zeros_large "-l" stdin 0
+	run_one "stdin/incom_large/lzo" incom_large "-l" stdin 0
 
 	log "--- Encrypted variants (magic[22]=3 AEAD) ---"
 	for profile in empty small zeros_small zeros_large incom_small over_window; do
