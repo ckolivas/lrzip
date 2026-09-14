@@ -1,5 +1,27 @@
 /* Exercise the private matcher with both operands outside its main map. */
+#include "config.h"
+#include <unistd.h>
+#include <errno.h>
+
+static unsigned history_reads;
+static int short_history_reads;
+
+static ssize_t history_pread(int fd, void *buf, size_t count, off_t offset)
+{
+	if (short_history_reads) {
+		if (++history_reads % 7 == 0) {
+			errno = EINTR;
+			return -1;
+		}
+		if (count > 17)
+			count = 17;
+	}
+	return pread(fd, buf, count, offset);
+}
+
+#define pread history_pread
 #include "../rzip.c"
+#undef pread
 
 static void require(int ok)
 {
@@ -13,13 +35,13 @@ static void release_history(struct sliding_buffer *sb)
 {
 	unsigned i;
 
-	require(munmap(sb->buf_high, sb->size_high) == 0);
+	free(sb->buf_high);
 	for (i = 0; i < RZIP_HISTORY_CACHE_SIZE; i++) {
 		struct history_page *page = &sb->history_cache[i];
 
 		if (page->buf) {
 			require(page->buf != sb->buf_high);
-			require(munmap(page->buf, page->size) == 0);
+			free(page->buf);
 		}
 	}
 }
@@ -43,9 +65,9 @@ static void check_match(int fd, uchar *data, size_t size, size_t page,
 	sb->size_low = page * 16;
 	sb->buf_low = mmap(NULL, sb->size_low, PROT_READ, MAP_SHARED, fd,
 			   sb->orig_offset + sb->offset_low);
-	sb->high_length = sb->size_high = page;
-	sb->buf_high = mmap(NULL, page, PROT_READ, MAP_SHARED, fd, page);
-	require(sb->buf_low != MAP_FAILED && sb->buf_high != MAP_FAILED);
+	sb->high_length = page;
+	load_high_sb(&control, sb, 0);
+	require(sb->buf_low != MAP_FAILED);
 	st.last_match = start - reverse;
 	got = sliding_match_len(&control, &st, start, history,
 				size - MINIMUM_MATCH, &rev, 0);
@@ -87,9 +109,8 @@ static void check_collision(int fd, uchar *data, size_t page)
 	control.page_size = page;
 	sb->fd = fd;
 	sb->orig_size = offsets[2] + 67;
-	sb->high_length = sb->size_high = page;
-	sb->buf_high = mmap(NULL, page, PROT_READ, MAP_SHARED, fd, 0);
-	require(sb->buf_high != MAP_FAILED);
+	sb->high_length = page;
+	load_high_sb(&control, sb, 0);
 	for (i = 0; i < 64; i++) {
 		unsigned ai = i % 3, bi = (i + 1) % 3;
 		uchar *a = sliding_get_sb(&control, offsets[ai]);
@@ -131,7 +152,9 @@ int main(void)
 	}
 	check_match(fd, data, size, page, page * 143, page * 8, 0, 0);
 	check_match(fd, data, size, page, page * 143, page * 8, 31, 0);
+	short_history_reads = 1;
 	check_collision(fd, data, page);
+	require(history_reads > 64);
 	require(close(fd) == 0);
 	free(data);
 	puts("Sliding match mapping lifetime tests passed");

@@ -369,7 +369,7 @@ struct md5_ctx
 
 #define RZIP_HISTORY_CACHE_BITS 14
 #define RZIP_HISTORY_CACHE_SIZE (1U << RZIP_HISTORY_CACHE_BITS)
-/* The active history map stays outside the cache to pin each match operand. */
+/* The active history buffer stays outside the cache to pin each match operand. */
 struct history_page {
 	uchar *buf;
 	i64 offset;
