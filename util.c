@@ -486,48 +486,68 @@ void lrz_secure_wipe(void *p, size_t n)
 		memset(p, 0, n);
 }
 
-/* HMAC-SHA512 one-shot for PBKDF2/HKDF (key any length). */
-static void hmac_sha512(const uchar *key, size_t key_len,
-			const uchar *msg, size_t msg_len,
-			uchar out[64])
+/* Prehash the fixed HMAC pads once for repeated use with the same key. */
+struct hmac_sha512_state {
+	sha4_context inner;
+	sha4_context outer;
+};
+
+static void hmac_sha512_init(struct hmac_sha512_state *state,
+			     const uchar *key, size_t key_len)
 {
-	sha4_context ctx;
-	uchar k_ipad[128], k_opad[128], tk[64], full[64];
+	uchar pad[128], tk[64];
 	size_t i;
 
-	memset(k_ipad, 0, sizeof(k_ipad));
-	memset(k_opad, 0, sizeof(k_opad));
-	if (key_len > 128) {
+	memset(state, 0, sizeof(*state));
+	if (key_len > sizeof(pad)) {
 		sha4(key, (int)key_len, tk, 0);
 		key = tk;
-		key_len = 64;
+		key_len = sizeof(tk);
 	}
-	memcpy(k_ipad, key, key_len);
-	memcpy(k_opad, key, key_len);
-	for (i = 0; i < 128; i++) {
-		k_ipad[i] ^= 0x36;
-		k_opad[i] ^= 0x5c;
-	}
-	sha4_starts(&ctx, 0);
-	sha4_update(&ctx, k_ipad, 128);
-	if (msg_len) {
-		size_t off = 0;
-		while (off < msg_len) {
-			int chunk = (int)MIN(msg_len - off, (size_t)(1 << 30));
-			sha4_update(&ctx, msg + off, chunk);
-			off += (size_t)chunk;
-		}
+	memset(pad, 0, sizeof(pad));
+	memcpy(pad, key, key_len);
+	for (i = 0; i < sizeof(pad); i++)
+		pad[i] ^= 0x36;
+	sha4_starts(&state->inner, 0);
+	sha4_update(&state->inner, pad, sizeof(pad));
+	for (i = 0; i < sizeof(pad); i++)
+		pad[i] ^= 0x36 ^ 0x5c;
+	sha4_starts(&state->outer, 0);
+	sha4_update(&state->outer, pad, sizeof(pad));
+	lrz_secure_wipe(pad, sizeof(pad));
+	lrz_secure_wipe(tk, sizeof(tk));
+}
+
+static void hmac_sha512_run(const struct hmac_sha512_state *state,
+			    const uchar *msg, size_t msg_len, uchar out[64])
+{
+	sha4_context ctx = state->inner;
+	uchar full[64];
+	size_t off = 0;
+
+	while (off < msg_len) {
+		int chunk = (int)MIN(msg_len - off, (size_t)(1 << 30));
+
+		sha4_update(&ctx, msg + off, chunk);
+		off += (size_t)chunk;
 	}
 	sha4_finish(&ctx, full);
-	sha4_starts(&ctx, 0);
-	sha4_update(&ctx, k_opad, 128);
-	sha4_update(&ctx, full, 64);
+	ctx = state->outer;
+	sha4_update(&ctx, full, sizeof(full));
 	sha4_finish(&ctx, out);
-	lrz_secure_wipe(k_ipad, sizeof(k_ipad));
-	lrz_secure_wipe(k_opad, sizeof(k_opad));
-	lrz_secure_wipe(tk, sizeof(tk));
 	lrz_secure_wipe(full, sizeof(full));
 	lrz_secure_wipe(&ctx, sizeof(ctx));
+}
+
+/* One-shot HMAC remains convenient for the short HKDF expansion. */
+static void hmac_sha512(const uchar *key, size_t key_len,
+			const uchar *msg, size_t msg_len, uchar out[64])
+{
+	struct hmac_sha512_state state;
+
+	hmac_sha512_init(&state, key, key_len);
+	hmac_sha512_run(&state, msg, msg_len, out);
+	lrz_secure_wipe(&state, sizeof(state));
 }
 
 /* PBKDF2-HMAC-SHA512 (RFC 8018) → dk_len bytes in out. */
@@ -535,6 +555,7 @@ static bool pbkdf2_sha512(const uchar *pass, size_t pass_len,
 			  const uchar *salt, size_t salt_len,
 			  unsigned int iters, uchar *out, size_t dk_len)
 {
+	struct hmac_sha512_state state;
 	uchar U[64], T[64], block[256];
 	unsigned int block_index = 1;
 	size_t offset = 0;
@@ -542,6 +563,7 @@ static bool pbkdf2_sha512(const uchar *pass, size_t pass_len,
 	if (!pass || !salt || !out || iters < 1 || dk_len < 1 || salt_len > 200)
 		return false;
 
+	hmac_sha512_init(&state, pass, pass_len);
 	while (offset < dk_len) {
 		size_t i, j, take;
 		size_t blen;
@@ -553,10 +575,10 @@ static bool pbkdf2_sha512(const uchar *pass, size_t pass_len,
 		block[salt_len + 2] = (uchar)(block_index >> 8);
 		block[salt_len + 3] = (uchar)block_index;
 		blen = salt_len + 4;
-		hmac_sha512(pass, pass_len, block, blen, U);
+		hmac_sha512_run(&state, block, blen, U);
 		memcpy(T, U, 64);
 		for (i = 1; i < iters; i++) {
-			hmac_sha512(pass, pass_len, U, 64, U);
+			hmac_sha512_run(&state, U, 64, U);
 			for (j = 0; j < 64; j++)
 				T[j] ^= U[j];
 		}
@@ -565,6 +587,7 @@ static bool pbkdf2_sha512(const uchar *pass, size_t pass_len,
 		offset += take;
 		block_index++;
 	}
+	lrz_secure_wipe(&state, sizeof(state));
 	lrz_secure_wipe(U, sizeof(U));
 	lrz_secure_wipe(T, sizeof(T));
 	lrz_secure_wipe(block, sizeof(block));
