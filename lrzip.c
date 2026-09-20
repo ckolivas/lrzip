@@ -1764,15 +1764,15 @@ bool initialise_control(rzip_control *control)
 	/* Suite-3 salt prepared on first encrypt; filled in compress_file. */
 	control->aead_iters = LRZ_PBKDF2_ITERS_DEFAULT;
 
-	/* Get Temp Dir. Try variations on canonical unix environment variable */
+	/* Get Temp Dir. Skip unset or empty environment variables. */
 	eptr = getenv("TMPDIR");
-	if (!eptr)
+	if (!eptr || !*eptr)
 		eptr = getenv("TMP");
-	if (!eptr)
+	if (!eptr || !*eptr)
 		eptr = getenv("TEMPDIR");
-	if (!eptr)
+	if (!eptr || !*eptr)
 		eptr = getenv("TEMP");
-	if (!eptr)
+	if (!eptr || !*eptr)
 		eptr = localeptr;
 	len = strlen(eptr);
 
