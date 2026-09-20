@@ -45,3 +45,4 @@ liblrzip_demo
 /tests/aes_test
 /tests/sliding_test
 /tests/tmpdir_test
+/tests/dirlist_test

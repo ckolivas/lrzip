@@ -95,9 +95,13 @@ EXTRA_DIST = \
 		tests/ramout.sh \
 		tests/checksum.sh \
 		tests/sliding.sh \
+		tests/recursive.sh \
 		$(dist_doc_DATA)
 
-check_PROGRAMS = tests/match_test tests/gcm_test tests/kdf_test tests/aes_test tests/sliding_test tests/tmpdir_test
+check_PROGRAMS = tests/match_test tests/gcm_test tests/kdf_test tests/aes_test tests/sliding_test tests/tmpdir_test tests/dirlist_test
+tests_dirlist_test_SOURCES = tests/dirlist_test.c
+nodist_EXTRA_tests_dirlist_test_SOURCES = dummyy.cxx
+tests_dirlist_test_LDADD = libtmplrzip.la
 tests_tmpdir_test_SOURCES = tests/tmpdir_test.c
 nodist_EXTRA_tests_tmpdir_test_SOURCES = dummyy.cxx
 tests_tmpdir_test_LDADD = libtmplrzip.la
@@ -115,7 +119,10 @@ tests_kdf_test_LDADD = libtmplrzip.la
 
 # Match boundaries, then the combined gold + round-trip regression suite.
 check-local: lrzip$(EXEEXT) $(check_PROGRAMS)
+	$(AM_V_at)./tests/dirlist_test$(EXEEXT)
 	$(AM_V_at)./tests/tmpdir_test$(EXEEXT)
+	$(AM_V_at)LRZIP='$(abs_builddir)/lrzip$(EXEEXT)' \
+		$(SHELL) $(srcdir)/tests/recursive.sh
 	$(AM_V_at)./tests/sliding_test$(EXEEXT)
 	$(AM_V_at)./tests/match_test$(EXEEXT)
 	$(AM_V_at)./tests/gcm_test$(EXEEXT)

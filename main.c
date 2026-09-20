@@ -284,7 +284,7 @@ static void set_stdout(struct rzip_control *control)
 }
 
 /* Recursively enter all directories, adding all regular files to the dirlist array */
-static void recurse_dirlist(char *indir, char **dirlist, int *entries)
+static void recurse_dirlist(char *indir, char **dirlist, size_t *entries)
 {
 	char fname[MAX_PATH_LEN];
 	struct stat istat;
@@ -295,9 +295,14 @@ static void recurse_dirlist(char *indir, char **dirlist, int *entries)
 	if (unlikely(!dirp))
 		failure("Unable to open directory %s\n", indir);
 	while ((dp = readdir(dirp)) != NULL) {
+		char *new_dirlist;
+		int len;
+
 		if (!strcmp(dp->d_name, ".") || !strcmp(dp->d_name, ".."))
 			continue;
-		sprintf(fname, "%s/%s", indir, dp->d_name);
+		len = snprintf(fname, sizeof(fname), "%s/%s", indir, dp->d_name);
+		if (unlikely(len < 0 || (size_t)len >= sizeof(fname)))
+			failure("Path is too long: %s/%s\n", indir, dp->d_name);
 		if (unlikely(stat(fname, &istat)))
 			failure("Unable to stat file %s\n", fname);
 		if (S_ISDIR(istat.st_mode)) {
@@ -309,8 +314,14 @@ static void recurse_dirlist(char *indir, char **dirlist, int *entries)
 			continue;
 		}
 		print_maxverbose("Added file %s\n", fname);
-		*dirlist = realloc(*dirlist, MAX_PATH_LEN * (*entries + 1));
-		strcpy(*dirlist + MAX_PATH_LEN * (*entries)++, fname);
+		if (unlikely(*entries >= SIZE_MAX / MAX_PATH_LEN))
+			failure("Directory list is too large\n");
+		new_dirlist = realloc(*dirlist, MAX_PATH_LEN * (*entries + 1));
+		if (unlikely(!new_dirlist))
+			failure("Unable to grow recursive directory list\n");
+		*dirlist = new_dirlist;
+		strcpy(*dirlist + MAX_PATH_LEN * *entries, fname);
+		++*entries;
 	}
 	closedir(dirp);
 }
@@ -699,7 +710,7 @@ int main(int argc, char *argv[])
 	/* One extra iteration for the case of no parameters means we will default to stdin/out */
 	for (i = 0; i <= argc; i++) {
 		char *dirlist = NULL, *infile = NULL;
-		int direntries = 0, curentry = 0;
+		size_t direntries = 0, curentry = 0;
 
 		if (i < argc)
 			infile = argv[i];
