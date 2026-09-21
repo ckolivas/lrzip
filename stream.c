@@ -87,6 +87,7 @@ typedef struct stream_thread_struct {
 } stream_thread_struct;
 
 static long output_thread;
+static int next_compress_thread;
 static pthread_mutex_t output_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t output_cond = PTHREAD_COND_INITIALIZER;
 
@@ -1017,6 +1018,11 @@ bool prepare_streamout_threads(rzip_control *control)
 		cksem_init(control, &cthreads[i].cksem);
 		cksem_post(control, &cthreads[i].cksem);
 	}
+	/* A new file gets a new pool and a fresh output order. */
+	next_compress_thread = 0;
+	lock_mutex(control, &output_lock);
+	output_thread = 0;
+	unlock_mutex(control, &output_lock);
 	return true;
 }
 
@@ -1180,6 +1186,7 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	struct stream_info *sinfo;
 	unsigned int i, testbufs;
 	bool threadlimit = false, memlimit = false;
+	int active_threads = control->threads;
 	i64 testsize, limit;
 	uchar *testmalloc;
 
@@ -1211,22 +1218,30 @@ void *open_stream_out(rzip_control *control, int f, unsigned int n, i64 chunk_li
 	else
 		testbufs = 2;
 
-	testsize = (limit * testbufs) + (control->overhead * control->threads);
+	testsize = (limit * testbufs) + (control->overhead * active_threads);
 	if (testsize > control->usable_ram)
-		limit = (control->usable_ram - (control->overhead * control->threads)) / testbufs;
+		limit = (control->usable_ram - (control->overhead * active_threads)) / testbufs;
 
 	/* If we don't have enough ram for the number of threads, decrease the
 	 * number of threads till we do, or only have one thread. */
 	while (limit < STREAM_BUFSIZE && limit < chunk_limit) {
-		if (control->threads > 1) {
-			--control->threads;
+		if (active_threads > 1) {
+			--active_threads;
 			threadlimit = true;
 		} else
 			break;
-		limit = (control->usable_ram - (control->overhead * control->threads)) / testbufs;
+		limit = (control->usable_ram - (control->overhead * active_threads)) / testbufs;
 		limit = MIN(limit, chunk_limit);
 	}
 	if (threadlimit) {
+		/* Previous chunks may still be writing with the old pool size.
+		 * Drain them before changing either cursor or their wrap limit. */
+		wait_streamout_threads(control);
+		control->threads = active_threads;
+		next_compress_thread = 0;
+		lock_mutex(control, &output_lock);
+		output_thread = 0;
+		unlock_mutex(control, &output_lock);
 		print_output("Minimising number of threads to %d to limit memory usage\n",
 			     control->threads);
 	}
@@ -1920,7 +1935,7 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 {
 	pthread_t *threads = control->pthreads;
 	stream_thread_struct *s;
-	static int i = 0;
+	int i = next_compress_thread;
 
 	/* Make sure this thread doesn't already exist */
 	cksem_wait(control, &cthreads[i].cksem);
@@ -1953,8 +1968,9 @@ static void clear_buffer(rzip_control *control, struct stream_info *sinfo, int s
 		sinfo->s[streamno].buflen = 0;
 	}
 
-	if (++i == control->threads)
+	if (++i >= control->threads)
 		i = 0;
+	next_compress_thread = i;
 }
 
 /* flush out any data in a stream buffer */

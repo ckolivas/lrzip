@@ -46,3 +46,4 @@ liblrzip_demo
 /tests/sliding_test
 /tests/tmpdir_test
 /tests/dirlist_test
+/tests/stream_threads_test

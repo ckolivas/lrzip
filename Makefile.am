@@ -96,9 +96,13 @@ EXTRA_DIST = \
 		tests/checksum.sh \
 		tests/sliding.sh \
 		tests/recursive.sh \
+		tests/thread-reduction.sh \
 		$(dist_doc_DATA)
 
-check_PROGRAMS = tests/match_test tests/gcm_test tests/kdf_test tests/aes_test tests/sliding_test tests/tmpdir_test tests/dirlist_test
+check_PROGRAMS = tests/match_test tests/gcm_test tests/kdf_test tests/aes_test tests/sliding_test tests/tmpdir_test tests/dirlist_test tests/stream_threads_test
+tests_stream_threads_test_SOURCES = tests/stream_threads_test.c
+nodist_EXTRA_tests_stream_threads_test_SOURCES = dummyy.cxx
+tests_stream_threads_test_LDADD = libtmplrzip.la
 tests_dirlist_test_SOURCES = tests/dirlist_test.c
 nodist_EXTRA_tests_dirlist_test_SOURCES = dummyy.cxx
 tests_dirlist_test_LDADD = libtmplrzip.la
@@ -119,6 +123,9 @@ tests_kdf_test_LDADD = libtmplrzip.la
 
 # Match boundaries, then the combined gold + round-trip regression suite.
 check-local: lrzip$(EXEEXT) $(check_PROGRAMS)
+	$(AM_V_at)./tests/stream_threads_test$(EXEEXT)
+	$(AM_V_at)LRZIP='$(abs_builddir)/lrzip$(EXEEXT)' \
+		$(SHELL) $(srcdir)/tests/thread-reduction.sh
 	$(AM_V_at)./tests/dirlist_test$(EXEEXT)
 	$(AM_V_at)./tests/tmpdir_test$(EXEEXT)
 	$(AM_V_at)LRZIP='$(abs_builddir)/lrzip$(EXEEXT)' \
